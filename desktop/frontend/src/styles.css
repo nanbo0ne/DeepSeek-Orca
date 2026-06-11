@@ -2564,6 +2564,20 @@ a[href] {
   padding: 10px 16px;
   position: relative;
 }
+
+:root[data-theme="dark"] .msg--user .msg__body {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  color: var(--fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .msg--user .msg__body {
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
+    border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+    color: var(--fg);
+  }
+}
 .rewind {
   position: absolute;
   bottom: -8px;

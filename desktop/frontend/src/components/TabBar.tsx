@@ -198,7 +198,7 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
             planMode ? "Plan" : "",
             goalMode ? "Goal" : "",
             toolApprovalMode === "auto" ? "Auto approve" : "",
-            toolApprovalMode === "yolo" ? "YOLO approval" : "",
+            toolApprovalMode === "yolo" ? "Full access" : "",
           ].filter(Boolean).join(" · ");
           const annotatedTitle = stateTitle ? `${stateTitle} · ${fullTitle}` : fullTitle;
           return (
@@ -249,7 +249,7 @@ export function TabBar({ tabs, activeTabId, onTabChange, onTabClose, onTabsClose
               {planMode && <span className="tabbar__mode-badge tabbar__mode-badge--plan">plan</span>}
               {goalMode && <span className="tabbar__mode-badge tabbar__mode-badge--plan">goal</span>}
               {toolApprovalMode === "auto" && <span className="tabbar__mode-badge tabbar__mode-badge--plan">auto</span>}
-              {toolApprovalMode === "yolo" && <span className="tabbar__mode-badge tabbar__mode-badge--yolo">yolo</span>}
+              {toolApprovalMode === "yolo" && <span className="tabbar__mode-badge tabbar__mode-badge--yolo">full</span>}
               <span
                 className="tabbar__tab-close"
                 onClick={(e) => {
