@@ -745,6 +745,36 @@ func (e *ProviderEntry) HasModel(m string) bool {
 	return false
 }
 
+func applyResolvedModelPricing(e *ProviderEntry) {
+	if e == nil {
+		return
+	}
+	if p := officialDeepSeekModelPricing(e, e.Model); p != nil {
+		e.Price = p
+	}
+}
+
+func officialDeepSeekModelPricing(e *ProviderEntry, model string) *provider.Pricing {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return nil
+	}
+	name := canonicalDesktopOfficialProviderName(e.Name)
+	officialName := name == "deepseek"
+	officialEndpoint := strings.Contains(strings.ToLower(e.BaseURL), "api.deepseek.com")
+	if !officialName && !officialEndpoint {
+		return nil
+	}
+	switch strings.ToLower(model) {
+	case "deepseek-v4-flash":
+		return &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}
+	case "deepseek-v4-pro":
+		return &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}
+	default:
+		return nil
+	}
+}
+
 // ToolsConfig selects which built-in tools are enabled. Empty means all of them.
 type ToolsConfig struct {
 	Enabled            []string     `toml:"enabled"`
@@ -854,7 +884,7 @@ func (c *Config) AutoStartPlugins() []PluginEntry {
 func boolPtr(v bool) *bool { return &v }
 
 // DefaultSystemPrompt is used when config provides none.
-const DefaultSystemPrompt = `你是 DeepCode，一个专注于执行代码任务的智能编程代理。
+const DefaultSystemPrompt = `你是 DeepCode，一个专注于执行代码任务的智能编程 Agent。
 你可以使用系统提供的工具读取和写入文件、运行 shell 命令，并在需要时检索项目上下文。
 工作原则：先理解用户请求再行动；用工具验证事实，不要凭空猜测；保持修改范围小、正确且符合项目既有风格；完成后简要说明做了什么以及如何验证。
 当请求中存在需要用户真正决策的选择，例如实现方案、库选型、工作范围或会产生明显后果的歧义时，使用 ask 工具给出 2 到 4 个具体选项，而不是自行猜测或把问题埋在回复里。若存在明显默认选择，则直接采用；不要为了形式确认而提问。权限绕过模式不能替用户回答 ask 问题，也不能替用户批准计划。若没有可交互的用户，ask 工具会返回模型假设的兜底结果；继续前请说明你采用了什么假设。
@@ -921,10 +951,10 @@ func Default() *Config {
 			Weixin:     WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
 		},
 		Providers: []ProviderEntry{
-			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "楼"}},
-			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "楼"}},
-			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "楼"}, NoProxy: true},
-			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "楼"}, NoProxy: true},
+			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}},
+			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}},
+			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}, NoProxy: true},
+			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}, NoProxy: true},
 		},
 	}
 }
@@ -1725,6 +1755,7 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 		if e, found := c.Provider(prov); found && e.HasModel(model) {
 			cp := *e
 			cp.Model = model
+			applyResolvedModelPricing(&cp)
 			return &cp, true
 		}
 	}
@@ -1732,6 +1763,7 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 	if e, found := c.Provider(ref); found {
 		cp := *e
 		cp.Model = e.DefaultModel()
+		applyResolvedModelPricing(&cp)
 		return &cp, true
 	}
 	// a bare model name 鈫?the provider that lists it
@@ -1739,6 +1771,7 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 		if c.Providers[i].HasModel(ref) {
 			cp := c.Providers[i]
 			cp.Model = ref
+			applyResolvedModelPricing(&cp)
 			return &cp, true
 		}
 	}

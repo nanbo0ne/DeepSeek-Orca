@@ -168,6 +168,20 @@ func TestPricingCostCalculation(t *testing.T) {
 	}
 }
 
+func TestPricingCostDerivesCacheMissTokens(t *testing.T) {
+	p := &Pricing{CacheHit: 0.02, Input: 1, Output: 2}
+	u := &Usage{
+		PromptTokens:     1_000,
+		CacheHitTokens:   900,
+		CacheMissTokens:  0,
+		CompletionTokens: 200,
+	}
+	want := (900*0.02 + 100*1.0 + 200*2.0) / 1_000_000
+	if got := p.Cost(u); got != want {
+		t.Errorf("Cost = %.8f, want %.8f", got, want)
+	}
+}
+
 func TestPricingCostZeroTokens(t *testing.T) {
 	p := &Pricing{Input: 2.0, Output: 10.0}
 	u := &Usage{}

@@ -277,8 +277,12 @@ func (p *Pricing) Cost(u *Usage) float64 {
 	if p == nil || u == nil {
 		return 0
 	}
+	cacheMissTokens := u.CacheMissTokens
+	if cacheMissTokens == 0 && u.PromptTokens > u.CacheHitTokens {
+		cacheMissTokens = u.PromptTokens - u.CacheHitTokens
+	}
 	return (float64(u.CacheHitTokens)*p.CacheHit +
-		float64(u.CacheMissTokens)*p.Input +
+		float64(cacheMissTokens)*p.Input +
 		float64(u.CompletionTokens)*p.Output) / 1e6
 }
 

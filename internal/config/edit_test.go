@@ -376,6 +376,35 @@ func TestResolveModelPreservesProviderEffort(t *testing.T) {
 	}
 }
 
+func TestResolveOfficialDeepSeekModelPricing(t *testing.T) {
+	c := Default()
+	c.Providers = []ProviderEntry{{
+		Name:      "deepseek",
+		Kind:      "openai",
+		BaseURL:   "https://api.deepseek.com",
+		Model:     "deepseek-v4-flash",
+		Models:    []string{"deepseek-v4-flash", "deepseek-v4-pro"},
+		Default:   "deepseek-v4-flash",
+		APIKeyEnv: "DEEPSEEK_API_KEY",
+	}}
+
+	flash, ok := c.ResolveModel("deepseek/deepseek-v4-flash")
+	if !ok || flash.Price == nil {
+		t.Fatalf("ResolveModel flash pricing = %+v, %v", flash, ok)
+	}
+	if flash.Price.CacheHit != 0.02 || flash.Price.Input != 1 || flash.Price.Output != 2 || flash.Price.Currency != "¥" {
+		t.Fatalf("flash pricing = %+v, want cache_hit 0.02 input 1 output 2 ¥", flash.Price)
+	}
+
+	pro, ok := c.ResolveModel("deepseek/deepseek-v4-pro")
+	if !ok || pro.Price == nil {
+		t.Fatalf("ResolveModel pro pricing = %+v, %v", pro, ok)
+	}
+	if pro.Price.CacheHit != 0.025 || pro.Price.Input != 3 || pro.Price.Output != 6 || pro.Price.Currency != "¥" {
+		t.Fatalf("pro pricing = %+v, want cache_hit 0.025 input 3 output 6 ¥", pro.Price)
+	}
+}
+
 func TestRemoveProvider(t *testing.T) {
 	c := Default()
 	c.Agent.PlannerModel = "deepseek-pro"
