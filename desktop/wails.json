@@ -1,0 +1,19 @@
+{
+    "$schema":  "https://wails.io/schemas/config.v2.json",
+    "name":  "deepcode-desktop",
+    "outputfilename":  "deepcode-desktop",
+    "frontend:install":  "npm install --cache D:\\AI-Reasonix\\.npm-cache",
+    "frontend:build":  "npm run build",
+    "frontend:dev:watcher":  "npm run dev",
+    "frontend:dev:serverUrl":  "auto",
+    "author":  {
+                   "name":  "esengine"
+               },
+    "info":  {
+                 "companyName":  "DeepCode",
+                 "productName":  "DeepCode",
+                 "productVersion":  "0.0.0",
+                 "copyright":  "Copyright (c) 2026 DeepCode Contributors",
+                 "comments":  "DeepCode desktop - a Wails shell around the Go kernel."
+             }
+}

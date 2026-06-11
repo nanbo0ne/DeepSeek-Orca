@@ -1,0 +1,70 @@
+# Build artifacts
+/bin/
+/dist/
+/stage/
+/npm/.stage/
+/deepcode
+/deepcode.exe
+/_github_exports/
+
+# Website (Astro) build output
+/site/dist/
+/site/.astro/
+/site/_preview.png
+
+# Go test/build scratch
+*.test
+*.out
+*.coverprofile
+coverage.out
+cpu.prof
+mem.prof
+/.gocache/
+/.gopath/
+/.tools/
+/.npm-cache/
+
+# Wails desktop artifacts
+/desktop/build/*
+!/desktop/build/
+!/desktop/build/appicon.png
+!/desktop/build/linux/
+!/desktop/build/linux/**
+!/desktop/build/windows/
+!/desktop/build/windows/**
+/desktop/release/
+/desktop/desktop
+/desktop/frontend/dist/*
+!/desktop/frontend/dist/.gitkeep
+/desktop/frontend/wailsjs/
+/desktop/frontend/package.json.md5
+
+# Environment / local config (deepcode.example.toml is the shared template)
+.env
+.env.local
+*.local
+/deepcode.toml
+/desktop/.env
+/desktop/deepcode.toml
+
+# Node / frontend dependencies and caches
+node_modules/
+.pnpm-store/
+.npm/
+
+# Project-local DeepCode state; keep the checked-in review command.
+/.deepcode/*
+!/.deepcode/commands/
+!/.deepcode/commands/review.md
+
+# CodeGraph per-project index (rebuilt locally; never committed)
+.codegraph/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+/site/public/av/
+
+benchmarks/context-maintenance-e2e/run/
