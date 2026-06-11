@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FileText } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
+import { computeContextPanelUsage } from "../lib/contextPanelUsage";
 import { useT, type Translator } from "../lib/i18n";
 import type { DictKey } from "../locales/en";
 import type { ContextInfo, ContextPanelInfo, WireUsage } from "../lib/types";
@@ -127,35 +128,22 @@ export function ContextPanel({
     void refresh();
   }, [refresh, refreshKey]);
 
-  const hasPanelUsage = Boolean(
-    (info?.requestCount ?? 0) > 0 ||
-    (info?.promptTokens ?? 0) > 0 ||
-    (info?.completionTokens ?? 0) > 0 ||
-    (info?.totalTokens ?? 0) > 0 ||
-    (info?.reasoningTokens ?? 0) > 0 ||
-    (info?.cacheHitTokens ?? 0) > 0 ||
-    (info?.cacheMissTokens ?? 0) > 0
-  );
-  const usedTokens = context?.used && context.used > 0 ? context.used : info?.usedTokens ?? 0;
-  const windowTokens = context?.window && context.window > 0 ? context.window : info?.windowTokens ?? 0;
-  const promptTokens = hasPanelUsage ? info?.promptTokens ?? 0 : usage?.promptTokens ?? 0;
-  const completionTokens = hasPanelUsage ? info?.completionTokens ?? 0 : usage?.completionTokens ?? 0;
-  const totalTokens = info?.totalTokens && info.totalTokens > 0
-    ? info.totalTokens
-    : sessionTokens && sessionTokens > 0
-      ? sessionTokens
-      : usage?.totalTokens && usage.totalTokens > 0
-        ? usage.totalTokens
-        : promptTokens + completionTokens;
-  const reasoningTokens = hasPanelUsage ? info?.reasoningTokens ?? 0 : usage?.reasoningTokens ?? 0;
-  const cacheHitTokens = hasPanelUsage ? info?.cacheHitTokens ?? 0 : usage?.cacheHitTokens ?? 0;
-  const cacheMissTokens = hasPanelUsage ? info?.cacheMissTokens ?? 0 : usage?.cacheMissTokens ?? 0;
+  const {
+    usedTokens,
+    windowTokens,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    reasoningTokens,
+    cacheHitTokens,
+    cacheMissTokens,
+  } = computeContextPanelUsage({ context, info, usage, sessionTokens });
   const cost = info?.sessionCost && info.sessionCost > 0 ? info.sessionCost : sessionCost && sessionCost > 0 ? sessionCost : info?.sessionCostUsd ?? 0;
   const currency = sessionCurrency || info?.sessionCurrency || usage?.currency || "CNY";
   const readFiles = asArray(info?.readFiles);
   const changedFiles = asArray(info?.changedFiles);
 
-  const usagePct = windowTokens > 0 ? Math.round((usedTokens / windowTokens) * 100) : 0;
+  const usagePct = windowTokens > 0 ? Math.min(100, Math.round((usedTokens / windowTokens) * 100)) : 0;
   const compactPct = context?.compactRatio ? Math.round(context.compactRatio * 100) : 0;
   const cachePct = cacheHitTokens + cacheMissTokens > 0
     ? Math.round((cacheHitTokens / (cacheHitTokens + cacheMissTokens)) * 100)

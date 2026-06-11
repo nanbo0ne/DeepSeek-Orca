@@ -353,7 +353,10 @@ function applyEvent(s: State, e: WireEvent): State {
       return { ...s, items: next };
     }
     case "usage": {
-      const used = e.usage && s.context.window ? e.usage.promptTokens : s.context.used;
+      const usagePromptTokens = e.usage
+        ? e.usage.promptTokens || e.usage.cacheHitTokens + e.usage.cacheMissTokens
+        : 0;
+      const used = usagePromptTokens > 0 ? usagePromptTokens : s.context.used;
       const turnTokens = s.turnTokens + (e.usage?.completionTokens ?? 0);
       const sessionTokens = s.sessionTokens + usageTotalTokens(e.usage);
       const usageCost = e.usage?.cost ?? e.usage?.costUsd ?? 0;
