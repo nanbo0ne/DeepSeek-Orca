@@ -3827,9 +3827,9 @@ a[href] {
 }
 
 .composer-meta__control--approval {
-  flex: 0 0 232px;
-  min-width: 216px;
-  max-width: min(232px, 34vw);
+  flex: 0 0 336px;
+  min-width: 300px;
+  max-width: min(336px, 44vw);
 }
 
 .composer-modebar {
