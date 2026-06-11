@@ -269,7 +269,7 @@ export const zh: Record<DictKey, string> = {
   "composer.modeGoal": "目标",
   "composer.modeNormal": "自动",
   "composer.modePlan": "计划",
-  "composer.modeYolo": "完全访问权限",
+  "composer.modeYolo": "yolo",
   "composer.modeFullAccess": "完全",
   "composer.modeFullAccessTitle": "完全访问会跳过所有工具权限审批；ask 问题和计划确认仍会等待",
   "composer.intentMenuTitle": "协作方式",
