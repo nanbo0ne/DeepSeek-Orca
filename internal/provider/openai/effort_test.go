@@ -36,8 +36,8 @@ func TestEffortNormalization(t *testing.T) {
 		{mimo, "", ""},        // unset stays omitted
 		{deepseek, "max", "max"},
 		{deepseek, "high", "high"},
-		{deepseek, "auto", "high"},
-		{deepseek, "", "high"}, // DeepSeek default depth
+		{deepseek, "auto", ""},
+		{deepseek, "", ""}, // DeepSeek auto chooses high or max server-side
 	}
 	for _, tc := range tests {
 		if got := newClient(t, tc.base, tc.effort).effort; got != tc.want {
@@ -68,8 +68,8 @@ func TestReasoningProtocolOverridesEndpointHeuristic(t *testing.T) {
 		t.Fatalf("New deepseek protocol: %v", err)
 	}
 	c := p.(*client)
-	if !c.deepseek || c.effort != "high" {
-		t.Fatalf("deepseek=%v effort=%q, want true/high", c.deepseek, c.effort)
+	if !c.deepseek || c.effort != "" {
+		t.Fatalf("deepseek=%v effort=%q, want true/empty auto", c.deepseek, c.effort)
 	}
 
 	p, err = New(provider.Config{

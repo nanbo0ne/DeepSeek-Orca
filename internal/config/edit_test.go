@@ -829,8 +829,8 @@ func TestEffortCapabilityUsesKnownModelRegistry(t *testing.T) {
 			t.Fatalf("levels[%d] = %q, want %q", i, cap.Levels[i], want)
 		}
 	}
-	if cap.Default != "high" {
-		t.Fatalf("default = %q, want high", cap.Default)
+	if cap.Default != "auto" {
+		t.Fatalf("default = %q, want auto", cap.Default)
 	}
 	if protocol := ReasoningProtocolForEntry(e); protocol != ReasoningProtocolDeepSeek {
 		t.Fatalf("protocol = %q, want deepseek", protocol)

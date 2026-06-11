@@ -2,9 +2,9 @@
 // It self-registers under the "openai" kind, so DeepSeek, MiMo, MiniMax-M3, and
 // any other OpenAI-compatible endpoint are just config instances rather than
 // code. Each instance picks the wire shape from its base URL:
-//   - api.deepseek.com → emits thinking.type=enabled (DeepSeek-flavor CoT) plus
+//   - api.deepseek.com -> emits thinking.type=enabled (DeepSeek-flavor CoT) plus
 //     reasoning_effort as a depth hint.
-//   - api.minimaxi.com → emits thinking.type=adaptive|disabled (M3's binary
+//   - api.minimaxi.com -> emits thinking.type=adaptive|disabled (M3's binary
 //     knob) instead of reasoning_effort, since M3 has no level scale.
 //   - everything else (MiMo and other OpenAI-compatible gateways) uses the
 //     vanilla reasoning_effort scale (low/medium/high).
@@ -31,7 +31,7 @@ import (
 // defaultStreamIdleTimeout caps how long a started SSE stream may go without any
 // bytes before it's treated as a dropped connection. A half-open TCP connection
 // (e.g. a proxy switched mid-stream) sends no RST, so scanner.Scan() would block
-// forever; this turns that hang into a recoverable error. Generous on purpose —
+// forever; this turns that hang into a recoverable error. Generous on purpose -
 // live streams emit tokens/keepalives far more often. Stored per-client
 // (client.idleTimeout) so a test can shorten it without a shared global that
 // would race other streams' watchdogs.
@@ -56,7 +56,7 @@ func New(cfg provider.Config) (provider.Provider, error) {
 	keyEnv, _ := cfg.Extra["api_key_env"].(string) // for actionable auth errors
 	effort, _ := cfg.Extra["effort"].(string)
 	effort = strings.ToLower(strings.TrimSpace(effort))
-	if effort == "auto" {
+	if effort == "auto" || effort == "off" {
 		effort = ""
 	}
 	protocol, _ := cfg.Extra["reasoning_protocol"].(string)
@@ -68,8 +68,7 @@ func New(cfg provider.Config) (provider.Provider, error) {
 		effort = ""
 	case deepseek:
 		switch effort {
-		case "", "off": // "off" is a retired level (disabled thinking); fall back to the default depth
-			effort = "high"
+		case "", "off": // auto/retired off: omit reasoning_effort and let DeepSeek choose high or max.
 		case "high", "max":
 		default:
 			return nil, fmt.Errorf("openai: provider %q uses DeepSeek thinking; effort must be high or max", name)
@@ -77,12 +76,12 @@ func New(cfg provider.Config) (provider.Provider, error) {
 	case minimax:
 		// M3's knob is binary. The config effort layer normalises user input
 		// to "adaptive", "disabled", or "" (== auto). We keep "high"/"max"
-		// (legacy DeepSeek) and "low"/"medium" (Anthropic) out — config-level
+		// (legacy DeepSeek) and "low"/"medium" (Anthropic) out - config-level
 		// NormalizeEffort remaps them to "adaptive" already, so anything
 		// reaching here is expected to be one of: "", "adaptive", "disabled".
 		effort = strings.ToLower(strings.TrimSpace(effort))
 		switch effort {
-		case "": // auto — leave empty so the wire emits thinking.type=adaptive
+		case "": // auto - leave empty so the wire emits thinking.type=adaptive
 		case "adaptive", "disabled":
 		default:
 			return nil, fmt.Errorf("openai: provider %q uses MiniMax thinking; effort must be adaptive or disabled", name)
@@ -135,7 +134,7 @@ type client struct {
 	model       string
 	http        *http.Client
 	deepseek    bool
-	minimax     bool          // true for api.minimaxi.com — emits MiniMax-M3's thinking knob instead of reasoning_effort
+	minimax     bool          // true for api.minimaxi.com - emits MiniMax-M3's thinking knob instead of reasoning_effort
 	effort      string        // reasoning_effort for OpenAI; thinking.type for MiniMax; "" = auto/provider default
 	idleTimeout time.Duration // SSE stall watchdog window; defaultStreamIdleTimeout unless a test overrides
 }
@@ -152,7 +151,7 @@ func normalizeReasoningProtocol(raw string) string {
 }
 
 // bufPool reuses byte buffers for JSON-marshalled request bodies. Each turn
-// allocates a buffer, marshals the request, and sends it — pooling avoids the
+// allocates a buffer, marshals the request, and sends it - pooling avoids the
 // GC churn from repeated alloc/free of ~10-100KB buffers. The pool is
 // provider-level (not global) so OpenAI and Anthropic don't compete.
 var bufPool = sync.Pool{
@@ -191,7 +190,7 @@ func (c *client) Stream(ctx context.Context, req provider.Request) (<-chan provi
 }
 
 // maxStreamReconnects bounds how many times a mid-stream connection drop is
-// replayed from scratch before the error is surfaced — each replay re-runs the
+// replayed from scratch before the error is surfaced - each replay re-runs the
 // whole request (cheap under prompt caching, but not free).
 const maxStreamReconnects = 3
 
@@ -230,7 +229,7 @@ func (c *client) streamWithReconnect(ctx context.Context, resp *http.Response, n
 func (c *client) buildRequest(req provider.Request) chatRequest {
 	// Repair tool-call pairing before sending: an interrupted/resumed history can
 	// carry an assistant tool_calls turn whose results never landed, which DeepSeek
-	// rejects with a 400 ("must be followed by tool messages …").
+	// rejects with a 400 ("must be followed by tool messages ...").
 	src := provider.SanitizeToolPairing(req.Messages)
 	msgs := make([]chatMessage, len(src))
 	for i, m := range src {
@@ -244,6 +243,9 @@ func (c *client) buildRequest(req provider.Request) chatRequest {
 			Role:       string(m.Role),
 			ToolCallID: m.ToolCallID,
 			Name:       m.Name,
+		}
+		if c.deepseek && m.Role == provider.RoleAssistant && strings.TrimSpace(m.ReasoningContent) != "" {
+			cm.ReasoningContent = m.ReasoningContent
 		}
 		for _, tc := range m.ToolCalls {
 			wire := chatToolCall{ID: tc.ID, Type: "function"}
@@ -299,14 +301,14 @@ func (c *client) buildRequest(req provider.Request) chatRequest {
 // tool-call fragments accumulate by index and emit complete on [DONE], and a
 // ChunkToolCallStart fires the moment a call's name is known. It returns whether
 // any model output was forwarded (so the caller can decide a replay is safe) and
-// the first fatal error — a nil error means the stream reached [DONE].
+// the first fatal error - a nil error means the stream reached [DONE].
 func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<- provider.Chunk) (emitted bool, _ error) {
 	defer resp.Body.Close()
 
 	// Close the response body when the context is canceled (user interrupt) or the
 	// stream stalls past c.idleTimeout, so scanner.Scan() unblocks instead of
 	// hanging on a half-open connection. done lets the watchdog exit on a normal
-	// return — otherwise it outlives the call and blocks forever on a non-cancellable
+	// return - otherwise it outlives the call and blocks forever on a non-cancellable
 	// context whose Done() is nil. The watchdog owns the timer; the read loop only
 	// pings the buffered activity channel, so there's no Timer.Reset race.
 	idleTimeout := c.idleTimeout
@@ -430,13 +432,13 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 	}
 
 	if stalled.Load() {
-		return emitted, fmt.Errorf("%s: stream stalled — no data for %s, connection likely dropped", c.name, idleTimeout)
+		return emitted, fmt.Errorf("%s: stream stalled - no data for %s, connection likely dropped", c.name, idleTimeout)
 	}
 	if err := scanner.Err(); err != nil {
 		return emitted, fmt.Errorf("%s: read stream: %w", c.name, err)
 	}
 	// A proxy that idle-closes with a clean FIN ends the scan with no error. Without
-	// this check the turn would be committed as complete — including half-streamed
+	// this check the turn would be committed as complete - including half-streamed
 	// tool-call arguments, which then 400 on every replay (#3953).
 	if !sawDone && lastFinishReason == "" {
 		return emitted, fmt.Errorf("%s: stream ended before completion: %w", c.name, io.ErrUnexpectedEOF)
@@ -456,7 +458,7 @@ func (c *client) readStream(ctx context.Context, resp *http.Response, out chan<-
 		tc := acc[idx]
 		if tc.ID == "" {
 			// Some OpenAI-compatible gateways stream tool calls by index with no id.
-			// Synthesize a stable one so the result can be paired back to its call —
+			// Synthesize a stable one so the result can be paired back to its call -
 			// an empty tool_call_id collapses multi-tool turns downstream.
 			tc.ID = fmt.Sprintf("call_%d", idx)
 		}
@@ -521,14 +523,14 @@ type chatMessage struct {
 	// content is always present (never omitted): DeepSeek's strict deserializer
 	// rejects a message missing the field. A pure tool_calls assistant turn
 	// serializes as null (OpenAI-spec, and what strict clones expect); every
-	// other role/message serializes as a string, empty included — null is
+	// other role/message serializes as a string, empty included - null is
 	// rejected by some backends for a tool message.
-	Content    *string        `json:"content"`
-	ToolCalls  []chatToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string         `json:"tool_call_id,omitempty"`
-	Name       string         `json:"name,omitempty"`
-	// no reasoning_content field: it is a response-only signal and is never sent
-	// back upstream — re-uploading it is paid prompt input.
+	Content          *string        `json:"content"`
+	ToolCalls        []chatToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string         `json:"tool_call_id,omitempty"`
+	Name             string         `json:"name,omitempty"`
+	ReasoningContent string         `json:"reasoning_content,omitempty"`
+	// DeepSeek thinking mode requires assistant reasoning_content to be round-tripped.
 }
 
 type chatTool struct {
@@ -568,7 +570,7 @@ type streamResponse struct {
 }
 
 // wireUsage covers both DeepSeek's top-level cache fields and the
-// OpenAI/MiMo nested details — normaliseUsage chooses whichever side
+// OpenAI/MiMo nested details - normaliseUsage chooses whichever side
 // reports values.
 type wireUsage struct {
 	PromptTokens          int `json:"prompt_tokens"`
