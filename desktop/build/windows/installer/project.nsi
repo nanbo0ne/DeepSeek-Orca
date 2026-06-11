@@ -67,7 +67,7 @@ Var DeleteSavedDataCheckbox
 Var DeleteSavedData
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
-!insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
+!insertmacro MUI_PAGE_LICENSE "resources\eula.rtf" # Adds a EULA page to the installer
 !insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
