@@ -922,7 +922,11 @@ func (a *App) CheckpointsForTab(tabID string) []CheckpointMeta {
 // re-reads History after this resolves.
 func (a *App) Rewind(turn int, scope string) error {
 	a.mu.RLock()
-	ctrl := a.activeCtrlLocked()
+	tab := a.activeTabLocked()
+	var ctrl *control.Controller
+	if tab != nil {
+		ctrl = tab.Ctrl
+	}
 	a.mu.RUnlock()
 	if ctrl == nil {
 		return nil
@@ -934,7 +938,16 @@ func (a *App) Rewind(turn int, scope string) error {
 	case "conversation":
 		s = control.RewindConversation
 	}
-	return ctrl.Rewind(turn, s)
+	if err := ctrl.Rewind(turn, s); err != nil {
+		return err
+	}
+	if tab != nil && (s == control.RewindConversation || s == control.RewindBoth) {
+		tab.rewindTelemetryBefore(turn)
+		if sp := ctrl.SessionPath(); sp != "" {
+			_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
+		}
+	}
+	return nil
 }
 
 // Fork branches the conversation at the start of turn into a new session tab

@@ -46,7 +46,7 @@ func TestTelemetryLoadsLegacyReadFileArray(t *testing.T) {
 func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	tab := &WorkspaceTab{}
 	start := time.Now().Add(-2 * time.Second).UnixMilli()
-	tab.recordTurnStarted(start)
+	tab.recordTurnStarted(0, start)
 	tab.recordUsage(event.Event{
 		Usage:       &provider.Usage{PromptTokens: 100, CompletionTokens: 40, TotalTokens: 140, CacheHitTokens: 70, CacheMissTokens: 30, ReasoningTokens: 10},
 		SessionHit:  70,
@@ -75,6 +75,23 @@ func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	}
 	if panel := app.ContextPanel("tab"); panel.TotalTokens != 140 {
 		t.Fatalf("context panel total tokens = %d, want 140", panel.TotalTokens)
+	}
+}
+
+func TestWorkspaceTabRewindTelemetryPrunesUsage(t *testing.T) {
+	tab := &WorkspaceTab{}
+	tab.recordTurnStarted(0, 1000)
+	tab.recordUsage(event.Event{Usage: &provider.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15}})
+	tab.recordTurnDone(1100)
+	tab.recordTurnStarted(1, 1200)
+	tab.recordUsage(event.Event{Usage: &provider.Usage{PromptTokens: 20, CompletionTokens: 6, TotalTokens: 26}})
+	tab.recordTurnDone(1300)
+
+	tab.rewindTelemetryBefore(1)
+
+	got := tab.telemetrySnapshot().Usage
+	if got.RequestCount != 1 || got.TotalTokens != 15 || got.PromptTokens != 10 || got.CompletionTokens != 5 {
+		t.Fatalf("rewound usage = %+v, want only first turn", got)
 	}
 }
 

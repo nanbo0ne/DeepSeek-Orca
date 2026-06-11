@@ -926,6 +926,7 @@ export function useController() {
       const messages = asArray(await app.HistoryForTab(sourceTabId).catch(() => [] as HistoryMessage[]));
       dispatchTo(sourceTabId, { type: "reset" });
       if (messages.length) dispatchTo(sourceTabId, { type: "history", messages });
+      dispatchTo(sourceTabId, { type: "meta", meta: await app.MetaForTab(sourceTabId) });
       dispatchTo(sourceTabId, { type: "context", context: await app.ContextUsageForTab(sourceTabId) });
       dispatchTo(sourceTabId, { type: "checkpoints", checkpoints: asArray(await app.CheckpointsForTab(sourceTabId)) });
     } catch {

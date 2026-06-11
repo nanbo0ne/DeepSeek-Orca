@@ -52,9 +52,11 @@ type WorkspaceTab struct {
 	saveAgain bool
 
 	// readTelemetry tracks files read during this tab's session.
-	readTelemetry  []readFileRecord
-	usageTelemetry sessionUsageStats
-	telemMu        sync.Mutex
+	readTelemetry        []readFileRecord
+	usageTelemetry       sessionUsageStats
+	usageTelemetryEvents []usageTelemetryEvent
+	currentTelemetryTurn int
+	telemMu              sync.Mutex
 
 	model            string // active model ref (for meta)
 	effort           *string
@@ -98,10 +100,24 @@ type sessionUsageStats struct {
 	activeTurnStartedAt int64
 }
 
+type usageTelemetryEvent struct {
+	Turn             int     `json:"turn"`
+	PromptTokens     int     `json:"promptTokens"`
+	CompletionTokens int     `json:"completionTokens"`
+	TotalTokens      int     `json:"totalTokens"`
+	ReasoningTokens  int     `json:"reasoningTokens"`
+	CacheHitTokens   int     `json:"cacheHitTokens"`
+	CacheMissTokens  int     `json:"cacheMissTokens"`
+	SessionCost      float64 `json:"sessionCost,omitempty"`
+	SessionCurrency  string  `json:"sessionCurrency,omitempty"`
+	SessionCostUsd   float64 `json:"sessionCostUsd,omitempty"`
+}
+
 type tabTelemetrySnapshot struct {
-	Version   int               `json:"version"`
-	ReadFiles []readFileRecord  `json:"readFiles"`
-	Usage     sessionUsageStats `json:"usage"`
+	Version     int                   `json:"version"`
+	ReadFiles   []readFileRecord      `json:"readFiles"`
+	Usage       sessionUsageStats     `json:"usage"`
+	UsageEvents []usageTelemetryEvent `json:"usageEvents,omitempty"`
 }
 
 func cloneStringPtr(v *string) *string {
@@ -138,8 +154,9 @@ func (t *WorkspaceTab) recordReadFile(rec readFileRecord) {
 	t.telemMu.Unlock()
 }
 
-func (t *WorkspaceTab) recordTurnStarted(now int64) {
+func (t *WorkspaceTab) recordTurnStarted(turn int, now int64) {
 	t.telemMu.Lock()
+	t.currentTelemetryTurn = turn
 	if t.usageTelemetry.activeTurnStartedAt == 0 {
 		t.usageTelemetry.activeTurnStartedAt = now
 	}
@@ -179,6 +196,24 @@ func (t *WorkspaceTab) recordUsage(e event.Event) {
 		t.usageTelemetry.SessionCostUsd = t.usageTelemetry.SessionCost
 		t.usageTelemetry.SessionCurrency = e.Pricing.Symbol()
 	}
+	cost := 0.0
+	currency := ""
+	if e.Pricing != nil {
+		cost = e.Pricing.Cost(u)
+		currency = e.Pricing.Symbol()
+	}
+	t.usageTelemetryEvents = append(t.usageTelemetryEvents, usageTelemetryEvent{
+		Turn:             t.currentTelemetryTurn,
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		TotalTokens:      u.TotalTokens,
+		ReasoningTokens:  u.ReasoningTokens,
+		CacheHitTokens:   u.CacheHitTokens,
+		CacheMissTokens:  u.CacheMissTokens,
+		SessionCost:      cost,
+		SessionCostUsd:   cost,
+		SessionCurrency:  currency,
+	})
 	t.telemMu.Unlock()
 }
 
@@ -188,6 +223,8 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 	records := make([]readFileRecord, len(t.readTelemetry))
 	copy(records, t.readTelemetry)
 	usage := t.usageTelemetry
+	events := make([]usageTelemetryEvent, len(t.usageTelemetryEvents))
+	copy(events, t.usageTelemetryEvents)
 	if started := usage.activeTurnStartedAt; started > 0 {
 		now := time.Now().UnixMilli()
 		if now >= started {
@@ -195,7 +232,56 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 		}
 	}
 	usage.activeTurnStartedAt = 0
-	return tabTelemetrySnapshot{Version: 2, ReadFiles: records, Usage: usage}
+	return tabTelemetrySnapshot{Version: 3, ReadFiles: records, Usage: usage, UsageEvents: events}
+}
+
+func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
+	t.telemMu.Lock()
+	defer t.telemMu.Unlock()
+	filteredReads := t.readTelemetry[:0]
+	for _, rec := range t.readTelemetry {
+		if rec.Turn < turn {
+			filteredReads = append(filteredReads, rec)
+		}
+	}
+	t.readTelemetry = filteredReads
+	filteredEvents := t.usageTelemetryEvents[:0]
+	for _, ev := range t.usageTelemetryEvents {
+		if ev.Turn < turn {
+			filteredEvents = append(filteredEvents, ev)
+		}
+	}
+	t.usageTelemetryEvents = filteredEvents
+	t.usageTelemetry = usageStatsFromEvents(filteredEvents)
+	t.currentTelemetryTurn = turn
+}
+
+func usageStatsFromEvents(events []usageTelemetryEvent) sessionUsageStats {
+	var usage sessionUsageStats
+	for _, ev := range events {
+		usage.PromptTokens += ev.PromptTokens
+		usage.CompletionTokens += ev.CompletionTokens
+		usage.TotalTokens += ev.TotalTokens
+		usage.ReasoningTokens += ev.ReasoningTokens
+		usage.CacheHitTokens += ev.CacheHitTokens
+		usage.CacheMissTokens += ev.CacheMissTokens
+		usage.RequestCount++
+		usage.SessionCost += ev.SessionCost
+		usage.SessionCostUsd += firstNonZeroFloat(ev.SessionCostUsd, ev.SessionCost)
+		if ev.SessionCurrency != "" {
+			usage.SessionCurrency = ev.SessionCurrency
+		}
+	}
+	return usage
+}
+
+func firstNonZeroFloat(values ...float64) float64 {
+	for _, v := range values {
+		if v != 0 {
+			return v
+		}
+	}
+	return 0
 }
 
 // tabEventSink wraps a parent event.Sink and prepends a tabId to every wire
@@ -324,10 +410,31 @@ func (s *tabEventSink) recordTurnStarted() {
 	if tab == nil {
 		return
 	}
-	tab.recordTurnStarted(time.Now().UnixMilli())
+	tab.recordTurnStarted(s.currentCheckpointTurn(), time.Now().UnixMilli())
 	if sp != "" {
 		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
 	}
+}
+
+func (s *tabEventSink) currentCheckpointTurn() int {
+	if s.app == nil {
+		return 0
+	}
+	s.app.mu.RLock()
+	tab := s.app.tabs[s.tabID]
+	var ctrl *control.Controller
+	if tab != nil {
+		ctrl = tab.Ctrl
+	}
+	s.app.mu.RUnlock()
+	if ctrl == nil {
+		return 0
+	}
+	cps := ctrl.Checkpoints()
+	if len(cps) == 0 {
+		return 0
+	}
+	return cps[len(cps)-1].Turn
 }
 
 func (s *tabEventSink) recordTurnDone() {
@@ -986,6 +1093,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 				tab.telemMu.Lock()
 				tab.readTelemetry = snapshot.ReadFiles
 				tab.usageTelemetry = snapshot.Usage
+				tab.usageTelemetryEvents = snapshot.UsageEvents
 				tab.telemMu.Unlock()
 			}
 		}
