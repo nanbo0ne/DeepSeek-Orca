@@ -151,8 +151,8 @@ DeepSeek-Orca Desktop 具备会话与文件回滚能力。
 - 自定义 OpenAI 兼容 provider。
 - 默认模型选择。
 - 独立规划模型。
-- 子 Agent 默认模型。
-- 子 Agent effort。
+- subagent 默认模型。
+- subagent effort。
 - 模型服务启用/禁用。
 - 余额查询和状态栏余额显示。
 - API Key 环境变量管理。
@@ -193,7 +193,7 @@ Skill 类型包括：
 - 自定义 Skill。
 - 独立工作区 Skill。
 - 内联 Skill。
-- 子 Agent Skill。
+- subagent Skill。
 
 内置 Skill 包括项目探索、资料研究、代码审查、安全审查、测试修复、初始化项目记忆和安装能力等。
 

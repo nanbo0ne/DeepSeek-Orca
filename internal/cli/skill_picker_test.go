@@ -675,7 +675,7 @@ func TestClampSel(t *testing.T) {
 func TestSkillRowLabelHasSubagentTag(t *testing.T) {
 	s := skill.Skill{Name: "review", Description: "Review code", Scope: skill.ScopeProject, RunAs: skill.RunSubagent}
 	row := renderSkillRow(1, false, s, true, 80)
-	if !strings.Contains(row, "subagent") && !strings.Contains(row, "子 Agent") {
+	if !strings.Contains(row, "subagent") {
 		t.Fatalf("subagent skill missing tag: %q", row)
 	}
 	if !strings.Contains(row, "review") {

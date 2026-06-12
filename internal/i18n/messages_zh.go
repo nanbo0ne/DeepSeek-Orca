@@ -120,7 +120,7 @@ var Chinese = Messages{
 	SkillPickerScopeCustom:       "自定义",
 	SkillPickerScopeGlobal:       "全局",
 	SkillPickerScopeBuiltin:      "内置",
-	SkillPickerSubagent:          "子 Agent",
+	SkillPickerSubagent:          "subagent",
 	SkillPickerAvailableLabel:    "可用",
 	SkillPickerDisabledLabel:     "关闭",
 	SkillPickerNoChanges:         "Skills 对话框已关闭：没有更改",

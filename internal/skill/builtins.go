@@ -11,7 +11,11 @@ const negativeClaimRule = `当你声称某个东西不存在（没有调用方�
 // tuiFormatting nudges concise, terminal-friendly output.
 const tuiFormatting = `最终答案要紧凑、适合终端阅读：使用短段落或要点，不写大段文字，不重复问题。`
 
-const builtinExploreBody = `你正在作为探索子 Agent 运行。请调查父级 Agent 指定的代码库，然后返回一个聚焦、提炼后的答案。
+// terminologyRule keeps model-facing prompts from translating product terms.
+const terminologyRule = `术语规则：subagent 是专有名词，任何语言中都必须保留为 subagent，不要翻译成中文称呼。`
+
+const builtinExploreBody = `你正在作为探索 subagent 运行。请调查父级 Agent 指定的代码库，然后返回一个聚焦、提炼后的答案。
+` + terminologyRule + `
 
 操作方式：
 - 对符号或代码结构问题，优先使用 codegraph_context、codegraph_search、codegraph_callers、codegraph_callees、codegraph_trace。需要搜索注释、字符串、配置，或 codegraph 工具不可用时，再使用 read_file、grep、glob、ls。保持只读。
@@ -32,7 +36,8 @@ const builtinExploreBody = `你正在作为探索子 Agent 运行。请调查父
 
 父级 Agent 给你的 task 就是必须回答的问题。不要把它扩展成其他范围。`
 
-const builtinResearchBody = `你正在作为研究子 Agent 运行。请结合代码和网页信息进行调研、综合，并返回一个聚焦结论。
+const builtinResearchBody = `你正在作为研究 subagent 运行。请结合代码和网页信息进行调研、综合，并返回一个聚焦结论。
+` + terminologyRule + `
 
 操作方式：
 - 视情况结合代码阅读（codegraph 工具、read_file、grep、glob）和 web_fetch。没有专门的网页搜索工具；当你知道权威文档或规范 URL 时，直接抓取该 URL。
@@ -82,7 +87,8 @@ const builtinInstallCapabilityBody = `这是一个内联 Skill。用户要求从
 
 当 source 只是文档页、没有 manifest 的 README，或无法确定安装命令的仓库时，请停止并说明，不要猜测。`
 
-const builtinReviewBody = `你正在作为代码审查子 Agent 运行。请检查用户准备发布的改动，通常是当前 git 分支相对上游的 diff，并生成一份父级 Agent 可以转交的聚焦审查结果。
+const builtinReviewBody = `你正在作为代码审查 subagent 运行。请检查用户准备发布的改动，通常是当前 git 分支相对上游的 diff，并生成一份父级 Agent 可以转交的聚焦审查结果。
+` + terminologyRule + `
 
 操作方式：
 - 默认范围是当前分支相对默认分支的 diff。如果任务指定了提交范围或文件，请遵循指定范围。
@@ -111,7 +117,8 @@ const builtinReviewBody = `你正在作为代码审查子 Agent 运行。请检�
 
 父级 Agent 给你的 task 指明了要审查什么（分支、文件集合或“待提交改动”）。保持聚焦，不要重新设计功能。`
 
-const builtinSecurityReviewBody = `你正在作为安全审查子 Agent 运行。请从安全视角检查用户准备发布的改动，通常是当前 git 分支相对上游的 diff，并报告可被利用的问题。
+const builtinSecurityReviewBody = `你正在作为安全审查 subagent 运行。请从安全视角检查用户准备发布的改动，通常是当前 git 分支相对上游的 diff，并报告可被利用的问题。
+` + terminologyRule + `
 
 操作方式：
 - 默认范围是当前分支相对默认分支的 diff。如果任务指定了范围或目录，请遵循指定内容。

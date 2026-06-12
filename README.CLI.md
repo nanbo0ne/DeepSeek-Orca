@@ -67,7 +67,7 @@ CLI 支持 DeepSeek 和 OpenAI 兼容模型服务。
 - 余额查询 URL。
 - 定价信息。
 - 默认 effort。
-- 子 Agent 模型和 effort。
+- subagent 模型和 effort。
 - 独立 planner 模型。
 - 网络代理。
 - no_proxy。
@@ -254,7 +254,7 @@ Skill 支持：
 - scripts。
 - assets。
 - 内联 Skill。
-- 子 Agent Skill。
+- subagent Skill。
 - Skill 启用/停用。
 - Skill 搜索、查看和删除。
 - Skill 来源管理。
