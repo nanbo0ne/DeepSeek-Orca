@@ -39,6 +39,7 @@ export type MessageActionState = { turn: number; scope: MessageActionScope };
 export type Item =
   | { kind: "user"; id: string; text: string; failed?: boolean }
   | { kind: "assistant"; id: string; text: string; reasoning: string; streaming: boolean }
+  | { kind: "steer"; id: string; text: string }
   | { kind: "phase"; id: string; text: string }
   | { kind: "notice"; id: string; level: "info" | "warn"; text: string }
   | {
@@ -148,6 +149,7 @@ type Action =
   | { type: "message_action_done" }
   | { type: "history"; messages: HistoryMessage[] }
   | { type: "local_notice"; level: "info" | "warn"; text: string }
+  | { type: "steer_sent"; text: string }
   | { type: "clearApproval" }
   | { type: "clearAsk" }
   | { type: "reset" };
@@ -382,8 +384,13 @@ function applyEvent(s: State, e: WireEvent): State {
       const items = at < 0 ? [...s.items, filled] : s.items.map((it, i) => (i === at ? filled : it));
       return { ...s, running: s.turnActive ? s.running : false, seq: s.seq + 1, items };
     }
-    case "steer":
-      return { ...s, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `s${s.seq}`, level: "info", text: `↪ ${e.text ?? ""}` }] };
+    case "steer": {
+      const text = (e.text ?? "").trim();
+      if (!text) return s;
+      const existing = [...s.items].reverse().find((it) => it.kind === "steer" && it.text.trim() === text);
+      if (existing) return s;
+      return { ...s, seq: s.seq + 1, items: [...s.items, { kind: "steer", id: `s${s.seq}`, text }] };
+    }
     case "approval_request": return { ...s, approval: e.approval };
     case "ask_request": return { ...s, ask: e.ask };
     case "turn_done": {
@@ -457,6 +464,11 @@ export function reducer(s: State, a: Action): State {
       return { ...s, items, seq };
     }
     case "local_notice": return { ...s, running: false, turnActive: false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: a.level, text: a.text }] };
+    case "steer_sent": {
+      const text = a.text.trim();
+      if (!text) return s;
+      return { ...s, seq: s.seq + 1, items: [...s.items, { kind: "steer", id: `s${s.seq}`, text }] };
+    }
     case "clearApproval": return { ...s, approval: undefined };
     case "clearAsk": return { ...s, ask: undefined };
     case "reset": return { ...initialState, meta: s.meta, context: { ...s.context, used: 0, sessionTokens: 0 }, balance: s.balance, effort: s.effort, jobs: s.jobs };
@@ -727,11 +739,13 @@ export function useController() {
 
   const steer = useCallback((text: string) => {
     if (!activeTabId) return;
-    // No optimistic user bubble: rewind/fork map turns by counting user items,
-    // and a steer is not a backend turn — the Steer event's ↪ notice is the
-    // visible confirmation (#3660).
-    app.SteerForTab(activeTabId, text).catch(() => {});
-  }, [activeTabId]);
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    // A steer is not a backend turn, so keep it out of user bubbles/turn
+    // counting. Still render it immediately so mid-turn guidance never feels lost.
+    dispatchTo(activeTabId, { type: "steer_sent", text: trimmed });
+    app.SteerForTab(activeTabId, trimmed).catch(() => {});
+  }, [activeTabId, dispatchTo]);
 
   const notice = useCallback((text: string, level: "info" | "warn" = "info") => {
     if (!activeTabId) return;

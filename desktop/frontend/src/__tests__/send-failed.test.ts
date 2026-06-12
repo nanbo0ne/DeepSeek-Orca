@@ -44,5 +44,14 @@ const unsent = reducer(sent, { type: "unsend" });
 eq(unsent.pendingUser, undefined, "unsend clears the pending marker");
 eq(unsent.discardTurn, true, "unsend discards the in-flight turn");
 
+const guided = reducer(confirmed, { type: "steer_sent", text: "please keep going" });
+const guidedItem = guided.items[guided.items.length - 1];
+eq(guidedItem.kind, "steer", "steer_sent appends a visible guidance item");
+eq(guidedItem.kind === "steer" && guidedItem.text, "please keep going", "guidance item keeps the submitted text");
+eq(guided.items.filter((it) => it.kind === "user").length, 1, "guidance is not counted as a new user turn");
+
+const duplicateSteer = reducer(guided, { type: "event", e: { kind: "steer", text: "please keep going" } as WireEvent });
+eq(duplicateSteer.items.filter((it) => it.kind === "steer").length, 1, "backend steer confirmation does not duplicate guidance");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

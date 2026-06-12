@@ -385,6 +385,7 @@ export function Transcript({
             actionReady = true;
           }
           break;
+        case "steer": out.push(<SteerCard key={it.id} text={it.text} />); break;
         case "tool":
           if (it.parentId) break;
           if (it.name === "todo_write") break;
@@ -657,6 +658,7 @@ function WarmTurnItems({
         break;
       }
       case "phase": nodes.push(<PhaseCard key={it.id} text={it.text} />); break;
+      case "steer": nodes.push(<SteerCard key={it.id} text={it.text} />); break;
       case "notice": nodes.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
       case "compaction": nodes.push(<CompactionCard key={it.id} item={it} />); break;
     }
@@ -867,6 +869,22 @@ function NoticeCard({ level, text }: { level: NoticeItem["level"]; text: string 
       className={`notice notice--${level}`}
     >
       <div className="notice__body">{text}</div>
+    </ProcessCard>
+  );
+}
+
+function SteerCard({ text }: { text: string }) {
+  const t = useT();
+  return (
+    <ProcessCard
+      tone="accent"
+      icon={<ChevronRight size={12} />}
+      kind={t("steer.kind")}
+      name={t("steer.title")}
+      defaultOpen
+      className="steer"
+    >
+      <div className="steer__body">{text}</div>
     </ProcessCard>
   );
 }

@@ -981,6 +981,8 @@ export const en = {
   "transcript.toolCount": "{n} tools",
   "notice.info": "Notice",
   "notice.warning": "Warning",
+  "steer.kind": "Guidance",
+  "steer.title": "Guided",
   "questionNav.label": "Question navigation",
   "questionNav.progress": "Question {current} / {total}",
   "questionNav.jump": "Jump to question {n}",

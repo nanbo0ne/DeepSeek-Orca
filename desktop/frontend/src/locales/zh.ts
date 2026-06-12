@@ -983,6 +983,8 @@ export const zh: Record<DictKey, string> = {
   "transcript.toolCount": "{n} 个工具",
   "notice.info": "提示",
   "notice.warning": "警告",
+  "steer.kind": "引导",
+  "steer.title": "已引导",
   "questionNav.label": "问题导航",
   "questionNav.progress": "问题 {current} / {total}",
   "questionNav.jump": "跳转到问题 {n}",

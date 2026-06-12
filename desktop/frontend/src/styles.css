@@ -3435,6 +3435,7 @@ a[href] {
 
 /* ── process variants: notices, phases, and compaction ───────────────────── */
 .process-card.notice,
+.process-card.steer,
 .process-card.compaction,
 .process-card.phase {
   margin: 6px auto;
@@ -3458,6 +3459,22 @@ a[href] {
 }
 .notice--warn .notice__body {
   color: color-mix(in srgb, var(--warn) 78%, var(--fg));
+}
+.steer {
+  opacity: 0.94;
+}
+.steer .process-card__head {
+  min-height: 36px;
+  padding-block: 7px;
+}
+.steer__body {
+  margin: 0;
+  padding: 4px 16px 13px 39px;
+  color: var(--fg-dim);
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .compaction__summary {
   margin: 0;
@@ -16618,6 +16635,13 @@ a[href] {
 
 :root[data-theme-style] .notice__body {
   padding: 12px 14px 13px 42px;
+  color: var(--fg-dim);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+:root[data-theme-style] .steer__body {
+  padding: 4px 14px 13px 42px;
   color: var(--fg-dim);
   font-size: 13px;
   line-height: 1.75;
