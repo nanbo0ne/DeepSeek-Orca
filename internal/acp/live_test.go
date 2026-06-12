@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/control"
-	"deepcode/internal/provider"
-	_ "deepcode/internal/provider/openai" // registers the "openai" provider kind
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/provider"
+	_ "deepseek-orca/internal/provider/openai" // registers the "openai" provider kind
+	"deepseek-orca/internal/tool"
 )
 
 type liveFactory struct{ prov provider.Provider }

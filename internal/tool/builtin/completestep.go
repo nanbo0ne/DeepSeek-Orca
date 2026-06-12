@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/evidence"
-	"deepcode/internal/instruction"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/instruction"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(completeStep{}) }

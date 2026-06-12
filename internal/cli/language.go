@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepcode/internal/config"
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/i18n"
 )
 
 func (m *chatTUI) runLanguageSubcommand(input string) {

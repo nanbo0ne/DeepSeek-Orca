@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/sandbox"
+	"deepseek-orca/internal/sandbox"
 )
 
 func TestBashForegroundTimeoutConfig(t *testing.T) {

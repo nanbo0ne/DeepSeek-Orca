@@ -1,6 +1,6 @@
-# DeepCode CLI
+# DeepSeek-Orca CLI
 
-DeepCode CLI 是面向终端的 AI 编程 Agent。它把模型对话、项目上下文、文件工具、shell、权限控制、MCP、Skill、记忆、CodeGraph、会话恢复和自动化接口整合为一个命令行程序，适合程序员在本地项目、远程服务器、CI 辅助脚本和日常终端工作流中使用。
+DeepSeek-Orca CLI 是面向终端的 AI 编程 Agent。它把模型对话、项目上下文、文件工具、shell、权限控制、MCP、Skill、记忆、CodeGraph、会话恢复和自动化接口整合为一个命令行程序，适合程序员在本地项目、远程服务器、CI 辅助脚本和日常终端工作流中使用。
 
 ## 核心定位
 
@@ -17,11 +17,11 @@ CLI 端适合：
 
 ## 交互模式
 
-DeepCode CLI 支持交互式和一次性两类主要工作方式。
+DeepSeek-Orca CLI 支持交互式和一次性两类主要工作方式。
 
 交互式会话适合连续讨论、逐步修改和长期任务。它会打开 TUI，显示对话、工具调用、审批、状态栏、模型信息、tokens、缓存命中、费用和上下文状态。
 
-一次性任务适合脚本和自动化。用户给出一个任务，DeepCode 执行后输出结果并退出。
+一次性任务适合脚本和自动化。用户给出一个任务，DeepSeek-Orca 执行后输出结果并退出。
 
 CLI 可以处理：
 
@@ -36,7 +36,7 @@ CLI 可以处理：
 
 ## 项目上下文
 
-DeepCode 会围绕当前工作目录构建项目上下文。
+DeepSeek-Orca 会围绕当前工作目录构建项目上下文。
 
 它会使用：
 
@@ -45,7 +45,7 @@ DeepCode 会围绕当前工作目录构建项目上下文。
 - 用户级配置。
 - 环境变量。
 - `.env`。
-- AGENTS.md、DEEPCODE.md、CLAUDE.md 等指令文件。
+- AGENTS.md、DEEPSEEK_ORCA.md、CLAUDE.md 等指令文件。
 - 记忆系统。
 - 已启用的 MCP 和 Skill。
 - CodeGraph 和 LSP 等代码智能工具。
@@ -72,11 +72,11 @@ CLI 支持 DeepSeek 和 OpenAI 兼容模型服务。
 - 网络代理。
 - no_proxy。
 
-模型引用通常采用 `provider/model` 形式。DeepCode 会根据配置解析 provider、模型、密钥和调用参数。
+模型引用通常采用 `provider/model` 形式。DeepSeek-Orca 会根据配置解析 provider、模型、密钥和调用参数。
 
 ## DeepSeek 能力
 
-DeepCode 包含 DeepSeek 相关预设和模型适配。
+DeepSeek-Orca 包含 DeepSeek 相关预设和模型适配。
 
 包括：
 
@@ -87,7 +87,7 @@ DeepCode 包含 DeepSeek 相关预设和模型适配。
 - 余额查询支持。
 - 中文提示词与中文界面文本。
 
-对于支持思考模式的模型，DeepCode 会尽量按模型服务要求传递思考相关参数；不支持的模型会使用默认行为。
+对于支持思考模式的模型，DeepSeek-Orca 会尽量按模型服务要求传递思考相关参数；不支持的模型会使用默认行为。
 
 ## 工具系统
 
@@ -136,7 +136,7 @@ CLI 提供权限边界，避免 Agent 未经确认执行高风险操作。
 
 ## Plan 与双模型规划
 
-DeepCode 支持计划模式和双模型规划。
+DeepSeek-Orca 支持计划模式和双模型规划。
 
 Plan 模式用于先生成方案，再进入执行。双模型模式可以使用 planner 模型负责规划，再把计划交给 executor 模型执行。
 
@@ -171,7 +171,7 @@ CLI 会把会话保存为 JSONL 文件，便于恢复和审计。
 
 ## 回滚与 checkpoint
 
-DeepCode CLI 支持 checkpoint 与 rewind。
+DeepSeek-Orca CLI 支持 checkpoint 与 rewind。
 
 能力包括：
 
@@ -187,7 +187,7 @@ DeepCode CLI 支持 checkpoint 与 rewind。
 
 ## 上下文压缩
 
-长会话会逐渐消耗模型上下文。DeepCode 支持自动压缩旧上下文。
+长会话会逐渐消耗模型上下文。DeepSeek-Orca 支持自动压缩旧上下文。
 
 压缩会保留：
 
@@ -223,7 +223,7 @@ CLI 会从模型返回的 usage 中提取运行指标。
 
 ## MCP 扩展
 
-DeepCode CLI 支持 MCP 服务器。
+DeepSeek-Orca CLI 支持 MCP 服务器。
 
 能力包括：
 
@@ -243,7 +243,7 @@ MCP 可以扩展数据库、浏览器、文档、内部系统、代码服务和�
 
 ## Skill 系统
 
-Skill 是可复用的任务 playbook。DeepCode 会扫描内置、项目、自定义和用户级 Skill。
+Skill 是可复用的任务 playbook。DeepSeek-Orca 会扫描内置、项目、自定义和用户级 Skill。
 
 Skill 支持：
 
@@ -271,7 +271,7 @@ Skill 支持：
 
 ## 记忆系统
 
-DeepCode 支持项目和用户级记忆。
+DeepSeek-Orca 支持项目和用户级记忆。
 
 能力包括：
 
@@ -303,7 +303,7 @@ CodeGraph 适合回答架构、调用链、影响面和“某个功能如何工�
 
 ## LSP 工具
 
-DeepCode 支持可选 LSP 工具。
+DeepSeek-Orca 支持可选 LSP 工具。
 
 能力包括：
 
@@ -321,7 +321,7 @@ CLI 支持 slash command 和项目级命令。
 命令来源包括：
 
 - 内置命令。
-- `.deepcode/commands/`。
+- `.deepseek-orca/commands/`。
 - 项目配置。
 - MCP prompts。
 - Skill。
@@ -371,7 +371,7 @@ CLI 支持把外部内容带入会话。
 
 ## Bot 网关
 
-DeepCode 包含多渠道 Bot 网关配置。
+DeepSeek-Orca 包含多渠道 Bot 网关配置。
 
 支持能力包括：
 
@@ -385,11 +385,11 @@ DeepCode 包含多渠道 Bot 网关配置。
 - token 环境变量。
 - bot 专用模型。
 
-Bot 网关用于把 DeepCode Agent 接入 IM 或团队消息系统。
+Bot 网关用于把 DeepSeek-Orca Agent 接入 IM 或团队消息系统。
 
 ## ACP / 服务接口
 
-DeepCode 包含 ACP 和 serve 相关能力，用于把 Agent 作为服务或协议端点使用。
+DeepSeek-Orca 包含 ACP 和 serve 相关能力，用于把 Agent 作为服务或协议端点使用。
 
 能力包括：
 
@@ -406,7 +406,7 @@ DeepCode 包含 ACP 和 serve 相关能力，用于把 Agent 作为服务或协�
 
 ## 配置系统
 
-DeepCode 配置采用 TOML。
+DeepSeek-Orca 配置采用 TOML。
 
 配置范围包括：
 
@@ -433,7 +433,7 @@ DeepCode 配置采用 TOML。
 
 ## 网络与代理
 
-DeepCode 支持网络代理配置。
+DeepSeek-Orca 支持网络代理配置。
 
 能力包括：
 
@@ -510,7 +510,7 @@ Hooks 可用于在用户提交、任务停止等节点执行外部逻辑，适�
 
 常见项目文件包括：
 
-- `cmd/deepcode/`：CLI 入口。
+- `cmd/deepseek-orca/`：CLI 入口。
 - `internal/agent/`：Agent 运行循环、上下文、压缩、任务和会话。
 - `internal/control/`：控制器、权限、输入、回滚、分支和会话管理。
 - `internal/tool/`：内置工具。
@@ -522,4 +522,4 @@ Hooks 可用于在用户提交、任务停止等节点执行外部逻辑，适�
 - `internal/cli/`：命令行与 TUI。
 - `internal/serve/`：服务接口。
 - `internal/bot/`：IM Bot 网关。
-- `npm/deepcode/`：npm 分发包装。
+- `npm/deepseek-orca/`：npm 分发包装。

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // scriptedTurns is a provider that replays a distinct chunk set per Stream call,

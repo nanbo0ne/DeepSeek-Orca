@@ -1,4 +1,4 @@
-// Per-plugin startup latency tracking for MCP servers. DeepCode uses these
+// Per-plugin startup latency tracking for MCP servers. DeepSeek-Orca uses these
 // samples to decide whether a chronically slow plugin should be demoted from
 // "eager" to "lazy" loading for the rest of a session — see Recommend.
 //
@@ -18,7 +18,7 @@ import (
 	"sort"
 	"time"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 // Compaction is a low-frequency cache-reset point: the prompt grows append-only
@@ -43,8 +43,8 @@ const (
 // mid-task: the goal verbatim, the concrete state of the code, and an explicit
 // next step — so the post-compaction turn doesn't lose the thread or re-derive
 // decisions already made.
-const summarySystemPrompt = `你正在压缩一个编程代理对话的较早部分，以节省上下文。
-后续代理只会保留你的摘要（原始消息会被丢弃），因此它必须仅凭这份摘要就能继续任务。
+const summarySystemPrompt = `你正在压缩一个编程 Agent 对话的较早部分，以节省上下文。
+后续 Agent 只会保留你的摘要（原始消息会被丢弃），因此它必须仅凭这份摘要就能继续任务。
 请按以下固定标题写一份简报；某个标题没有内容时可以省略：
 
 ## Goal
@@ -54,7 +54,7 @@ const summarySystemPrompt = `你正在压缩一个编程代理对话的较早部
 目前已经做出的关键选择以及原因，避免后续重复争论或反向修改。
 
 ## Files & code
-已经读取或修改的文件，以及重要事实：函数签名、行号位置、数据形状和已应用的具体编辑。要具体，这能让后续代理不用重新读取所有内容也能行动。
+已经读取或修改的文件，以及重要事实：函数签名、行号位置、数据形状和已应用的具体编辑。要具体，这能让后续 Agent 不用重新读取所有内容也能行动。
 
 ## Commands & outcomes
 已经运行的命令（构建、测试、git 等）及其相关结果：哪些通过、哪些失败，以及关键错误文本。

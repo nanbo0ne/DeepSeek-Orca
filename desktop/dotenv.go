@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepcode/internal/config"
-	"deepcode/internal/fileutil"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/fileutil"
 )
 
-// credentialsPath is the deepcode-owned global secrets file the settings panel
-// writes API keys to — the same file `deepcode setup` writes and config.loadDotEnv
+// credentialsPath is the deepseek-orca-owned global secrets file the settings panel
+// writes API keys to — the same file `deepseek-orca setup` writes and config.loadDotEnv
 // reads, so a key set in the desktop app resolves for the CLI from any directory.
 // Never a project .env: keys stay out of the user's project tree. Falls back to
 // ~/.env only when the user config dir can't be resolved.

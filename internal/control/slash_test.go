@@ -3,7 +3,7 @@ package control
 import (
 	"testing"
 
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/skill"
 )
 
 func labelsOf(items []SlashItem) []string {

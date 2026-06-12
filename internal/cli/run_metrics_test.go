@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/evidence"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/evidence"
 )
 
 func TestMetricsSinkAccumulatesReadinessAudit(t *testing.T) {

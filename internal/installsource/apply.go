@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepcode/internal/config"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/skill"
 )
 
 // apply dispatches to the per-action implementation. Each branch is

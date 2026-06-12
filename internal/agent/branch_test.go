@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 func TestBranchMetaRoundTripAndList(t *testing.T) {

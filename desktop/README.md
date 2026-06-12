@@ -1,6 +1,6 @@
-# DeepCode Desktop (Wails shell)
+# DeepSeek-Orca Desktop (Wails shell)
 
-A native desktop window around the DeepCode Go kernel. The same
+A native desktop window around the DeepSeek-Orca Go kernel. The same
 transport-agnostic `control.Controller` that backs the chat TUI and the HTTP/SSE
 server is bound **directly** to a React webview — Go methods in, typed events
 out, no HTTP hop.
@@ -25,11 +25,11 @@ out, no HTTP hop.
 
 ## Why a nested module
 
-`desktop/` is its own Go module (`module deepcode/desktop`, `replace deepcode =>
+`desktop/` is its own Go module (`module deepseek-orca/desktop`, `replace deepseek-orca =>
 ../`). That keeps the CGO + WebKit desktop build entirely separate from the CLI's
 `CGO_ENABLED=0` single-static-binary guarantee: the parent module's `go build /
 vet / test ./...` skip this directory, while the import path stays under
-`deepcode/` so it can still import the `deepcode/internal/*` kernel.
+`deepseek-orca/` so it can still import the `deepseek-orca/internal/*` kernel.
 
 ## Prerequisites
 
@@ -66,7 +66,7 @@ diff seam can all be built without rebuilding Go.
 
 ```sh
 cd desktop
-wails build          # → build/bin/DeepCode(.app/.exe)
+wails build          # → build/bin/DeepSeek-Orca(.app/.exe)
 ```
 
 **Linux on WebKitGTK 4.1 only** (Fedora 40+, Ubuntu 24.04+, Arch — no
@@ -113,11 +113,11 @@ has a manual check. Self-update behavior by platform:
 There are no Apple/Windows code-signing certificates yet, so a downloaded build
 trips the OS gatekeepers on first run:
 
-- **macOS** — open `DeepCode-darwin-universal.dmg` and drag DeepCode into
+- **macOS** — open `DeepSeek-Orca-darwin-universal.dmg` and drag DeepSeek-Orca into
   Applications. Gatekeeper may then report the app "is damaged" or is from an
   unidentified developer; clear the quarantine attribute and open it:
   ```sh
-  xattr -dr com.apple.quarantine /Applications/DeepCode.app
+  xattr -dr com.apple.quarantine /Applications/DeepSeek-Orca.app
   ```
 - **Windows** — SmartScreen shows "Windows protected your PC". Click *More info →
   Run anyway*.
@@ -132,7 +132,7 @@ signature sits next to each artifact in the release; verify with the
 [minisign](https://jedisct1.github.io/minisign/) CLI:
 
 ```sh
-minisign -Vm DeepCode-darwin-arm64.zip \
+minisign -Vm DeepSeek-Orca-darwin-arm64.zip \
   -P RWSw66n0RsoSr6Zhh6qt5YO95YkpCayTOCMFVDNUQSjJYwxoYngNVBSq
 ```
 
@@ -179,7 +179,7 @@ handled here, and what to reach for if a target misbehaves:
 - **Windows / WebView2** — `Theme: SystemDefault` follows the OS light/dark
   setting; the installer embeds the WebView2 bootstrapper. Canary builds disable
   WebView2 GPU acceleration by default to smoke-test blank-window reports; set
-  `DEEPCODE_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
+  `DEEPSEEK_ORCA_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
   off.
 - **macOS / WebKit** — inset/hidden title bar (`TitleBarHiddenInset`); the CSS
   marks the top bar as an OS drag region (`--wails-draggable: drag`) and leaves

@@ -45,13 +45,13 @@ func TestDocPathDefaultsToAgents(t *testing.T) {
 
 func TestDocPathPrefersExisting(t *testing.T) {
 	proj := t.TempDir()
-	// An existing DEEPCODE.md should keep receiving notes (no split to AGENTS.md).
-	if err := os.WriteFile(filepath.Join(proj, "DEEPCODE.md"), []byte("x"), 0o644); err != nil {
+	// An existing DEEPSEEK_ORCA.md should keep receiving notes (no split to AGENTS.md).
+	if err := os.WriteFile(filepath.Join(proj, "DEEPSEEK_ORCA.md"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	set := Load(Options{CWD: proj})
-	if got := set.DocPath(ScopeProject); filepath.Base(got) != "DEEPCODE.md" {
-		t.Errorf("should append to the existing DEEPCODE.md, got %s", got)
+	if got := set.DocPath(ScopeProject); filepath.Base(got) != "DEEPSEEK_ORCA.md" {
+		t.Errorf("should append to the existing DEEPSEEK_ORCA.md, got %s", got)
 	}
 
 	// With only a CLAUDE.md present, that's the target.

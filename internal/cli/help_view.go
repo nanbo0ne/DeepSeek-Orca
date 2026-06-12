@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/command"
-	"deepcode/internal/i18n"
-	"deepcode/internal/plugin"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/skill"
 )
 
 const helpMaxDynamicItems = 8

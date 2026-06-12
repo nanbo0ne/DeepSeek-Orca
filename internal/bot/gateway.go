@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/boot"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
 )
 
 // GatewayConfig 是 BotGateway 的配置。
@@ -32,7 +32,7 @@ type AllowlistConfig struct {
 	Groups   map[Platform][]string
 }
 
-// BotGateway 是 deepcode bot 消息网关，管理 Controller 生命周期、session 并发、
+// BotGateway 是 deepseek-orca bot 消息网关，管理 Controller 生命周期、session 并发、
 // 事件渲染和平台适配器。
 type BotGateway struct {
 	cfg      GatewayConfig

@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	agenttest "deepcode/internal/agent/testutil"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	agenttest "deepseek-orca/internal/agent/testutil"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 type desktopCountingTool struct {

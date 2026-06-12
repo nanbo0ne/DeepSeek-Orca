@@ -11,10 +11,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
-	_ "deepcode/internal/tool/builtin"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
+	_ "deepseek-orca/internal/tool/builtin"
 )
 
 // TestTruncateToolOutputUnderCap leaves small payloads alone — the cap should

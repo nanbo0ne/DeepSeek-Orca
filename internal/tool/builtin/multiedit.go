@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(multiEdit{}) }

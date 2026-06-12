@@ -1,6 +1,6 @@
 package serve
 
-import "deepcode/internal/event"
+import "deepseek-orca/internal/event"
 
 // wireEvent is the JSON shape an event.Event takes on the SSE stream. It uses
 // explicit lowercase tags (a clean contract for a JS client) and flattens the

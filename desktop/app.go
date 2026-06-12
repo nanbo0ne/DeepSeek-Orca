@@ -26,20 +26,20 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/billing"
-	"deepcode/internal/boot"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/fileref"
-	fileenc "deepcode/internal/fileutil/encoding"
-	"deepcode/internal/i18n"
-	"deepcode/internal/mcpdiag"
-	"deepcode/internal/memory"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/billing"
+	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/fileref"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/mcpdiag"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/skill"
 )
 
 // eventChannel is the Wails runtime event name the frontend subscribes to for the
@@ -51,7 +51,7 @@ const eventChannel = "agent:event"
 // singleInstanceID is used by Wails to route a second desktop launch back to the
 // running instance. Keep it stable across releases so launcher/Dock/taskbar
 // reopen behavior remains predictable on every platform.
-const singleInstanceID = "com.deepcode.desktop"
+const singleInstanceID = "com.deepseek-orca.desktop"
 
 // App is the Wails-bound application object: the desktop frontend's command
 // surface. Its exported methods (Submit/Cancel/Approve/…) are generated into JS
@@ -195,13 +195,13 @@ func (a *App) ensureMediaTokenStore() *mediaTokenStore {
 }
 
 // workspaceMediaMiddleware returns an HTTP middleware that intercepts
-// /__deepcode_workspace_media/{token}/{filename} requests and serves the
+// /__deepseek-orca_workspace_media/{token}/{filename} requests and serves the
 // corresponding workspace file. All other paths pass through to the Wails
 // default asset handler unchanged.
 func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			prefix := "/__deepcode_workspace_media/"
+			prefix := "/__deepseek-orca_workspace_media/"
 			if !strings.HasPrefix(r.URL.Path, prefix) {
 				next.ServeHTTP(w, r)
 				return
@@ -1083,6 +1083,9 @@ func tabSessionDir(tab *WorkspaceTab) string {
 				return dir
 			}
 		}
+		if dir := tabPinnedSessionDir(tab.SessionPath); dir != "" {
+			return dir
+		}
 		if tab.WorkspaceRoot != "" {
 			return desktopSessionDir(tab.WorkspaceRoot)
 		}
@@ -1955,7 +1958,7 @@ type CommandInfo struct {
 }
 
 // Commands lists the slash commands available this session — built-in actions,
-// custom commands (.deepcode/commands), and MCP prompts — for the composer's "/"
+// custom commands (.deepseek-orca/commands), and MCP prompts — for the composer's "/"
 // autocomplete menu.
 func (a *App) Commands() []CommandInfo {
 	out := []CommandInfo{
@@ -3645,7 +3648,7 @@ func (a *App) ReadFile(rel string) FilePreview {
 		token := a.ensureMediaTokenStore().create(path, info.Name(), mime, kind, info.Size(), info.ModTime())
 		out.Kind = kind
 		out.Mime = mime
-		out.URL = "/__deepcode_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		out.URL = "/__deepseek-orca_workspace_media/" + token + "/" + url.PathEscape(info.Name())
 		return out
 	}
 	f, err := os.Open(path)
@@ -3862,7 +3865,7 @@ func (a *App) withActiveWorkspaceDo(fn func() error) error {
 }
 
 // SavePastedImage stores a browser clipboard image data URL under the active
-// tab's workspace .deepcode/attachments and returns the relative @-reference path.
+// tab's workspace .deepseek-orca/attachments and returns the relative @-reference path.
 func (a *App) SavePastedImage(dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveImageDataURL(dataURL)
@@ -3870,14 +3873,14 @@ func (a *App) SavePastedImage(dataURL string) (string, error) {
 }
 
 // SaveClipboardImage reads the native OS clipboard image under the active tab's
-// workspace .deepcode/attachments and returns the relative @-reference path.
+// workspace .deepseek-orca/attachments and returns the relative @-reference path.
 func (a *App) SaveClipboardImage() (string, error) {
 	return a.withActiveWorkspace(control.SaveClipboardImage)
 }
 
 // SavePastedFile stores a dropped non-image file (the browser exposes its bytes
 // as a data URL but not a real path) under the active tab's workspace
-// .deepcode/attachments and returns the relative @-reference path.
+// .deepseek-orca/attachments and returns the relative @-reference path.
 func (a *App) SavePastedFile(name, dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveAttachmentDataURL(name, dataURL)
@@ -3933,7 +3936,7 @@ func (a *App) SaveExportFile(path, payload string, base64Encoded bool) error {
 func safeExportFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "deepcode-session.md"
+		return "deepseek-orca-session.md"
 	}
 	return filepath.Base(name)
 }
@@ -3964,7 +3967,7 @@ func (a *App) AttachmentDataURL(path string) (string, error) {
 
 // DroppedItem is one OS-dropped file resolved into a composer context entry: an
 // in-tree file becomes a workspace @reference (read in place, no copy), while an
-// image or out-of-tree file is copied into .deepcode/attachments.
+// image or out-of-tree file is copied into .deepseek-orca/attachments.
 type DroppedItem struct {
 	Kind       string `json:"kind"` // "workspace" | "attachment"
 	Path       string `json:"path"`
@@ -3975,7 +3978,7 @@ type DroppedItem struct {
 // AttachDropped turns an absolute path from the native file-drop bridge into a
 // composer context entry. Images are stored as attachments so the chip shows a
 // thumbnail; other in-workspace files are referenced relatively (no copy); files
-// outside the workspace are copied into .deepcode/attachments.
+// outside the workspace are copied into .deepseek-orca/attachments.
 func (a *App) AttachDropped(path string) (DroppedItem, error) {
 	var item DroppedItem
 	err := a.withActiveWorkspaceDo(func() error {
@@ -4074,7 +4077,7 @@ type MemoryView struct {
 // writableScopes are the quick-add targets the panel offers, broad → specific.
 var writableScopes = []memory.Scope{memory.ScopeUser, memory.ScopeProject, memory.ScopeLocal}
 
-// Memory returns the loaded memory for the panel: the DEEPCODE.md hierarchy, the
+// Memory returns the loaded memory for the panel: the DEEPSEEK_ORCA.md hierarchy, the
 // saved auto-memories, and the writable scopes. Read-only; mutations go through
 // Remember / SaveDoc.
 func (a *App) Memory() MemoryView {

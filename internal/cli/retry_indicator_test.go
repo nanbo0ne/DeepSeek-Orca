@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/i18n"
 )
 
 // TestRetryIndicatorShowsAndClears proves a Retrying event sets the transient

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/control"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
 )
 
-// renderSink 将 DeepCode 事件流渲染为平台消息。
+// renderSink 将 DeepSeek-Orca 事件流渲染为平台消息。
 type renderSink struct {
 	ctx      context.Context
 	adapter  Adapter

@@ -7,12 +7,12 @@ import (
 	"os"
 	"strings"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/boot"
-	"deepcode/internal/config"
-	"deepcode/internal/event"
-	"deepcode/internal/skill"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/skill"
+	"deepseek-orca/internal/tool"
 )
 
 func reviewCommand(args []string) int {

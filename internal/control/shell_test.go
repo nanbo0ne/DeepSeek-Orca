@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/event"
-	"deepcode/internal/sandbox"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/sandbox"
 )
 
 // collectSink returns a Sink that collects events and a channel that receives

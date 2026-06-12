@@ -84,9 +84,11 @@ function rateValueClass(rate: string | null): string {
 
 function currencySymbol(currency?: string): string {
   const value = (currency || "¥").trim();
-  if (/^(cny|rmb|yuan)$/i.test(value)) return "¥";
-  if (/^(usd|dollar)$/i.test(value)) return "$";
-  return value || "¥";
+  if (/^(cny|rmb|yuan|¥|￥)$/i.test(value)) return "¥";
+  if (/^(usd|dollar|\$)$/i.test(value)) return "$";
+  if (/^(eur|euro|€)$/i.test(value)) return "€";
+  if (/^(gbp|pound|£)$/i.test(value)) return "£";
+  return "¥";
 }
 
 function formatMoney(amount?: number, currency?: string): string {

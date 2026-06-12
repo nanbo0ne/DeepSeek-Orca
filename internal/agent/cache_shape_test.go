@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 func TestCaptureShapeNormalizesToolSchemaOrder(t *testing.T) {

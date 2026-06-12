@@ -46,8 +46,8 @@ func TestLoadDotEnvFallsBackToHome(t *testing.T) {
 	}
 }
 
-// TestLoadDotEnvReadsGlobalCredentials proves `deepcode setup`'s target — the
-// deepcode-owned credentials file in the user config dir — is loaded from any
+// TestLoadDotEnvReadsGlobalCredentials proves `deepseek-orca setup`'s target — the
+// deepseek-orca-owned credentials file in the user config dir — is loaded from any
 // working directory, while a project ./.env still wins on a shared key.
 func TestLoadDotEnvReadsGlobalCredentials(t *testing.T) {
 	cwd := t.TempDir()

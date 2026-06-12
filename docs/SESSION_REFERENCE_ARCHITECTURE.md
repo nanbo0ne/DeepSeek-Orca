@@ -1,6 +1,6 @@
 # 会话引用功能架构文档
 
-> GitHub Issue: https://github.com/esengine/DeepCode/issues/3185
+> GitHub Issue: https://github.com/nanbo0ne/DeepSeek-Orca/issues/3185
 
 ## 1. 功能需求
 

@@ -1,4 +1,4 @@
-module deepcode/desktop
+module deepseek-orca/desktop
 
 go 1.25.0
 
@@ -6,10 +6,10 @@ toolchain go1.26.4
 
 // The desktop shell is a nested module so its CGO/WebKit build never touches the
 // CLI's CGO_ENABLED=0 single-static-binary guarantee. The replace lets it import
-// the same deepcode/internal/* kernel (the import path stays under deepcode/, so
+// the same deepseek-orca/internal/* kernel (the import path stays under deepseek-orca/, so
 // the internal rule still permits it). `go mod tidy` here resolves Wails + its
 // transitive deps; the parent module's go build/test ./... skips this directory.
-require deepcode v0.0.0
+require deepseek-orca v0.0.0
 
 require (
 	aead.dev/minisign v0.3.0
@@ -56,4 +56,4 @@ require (
 	golang.org/x/net v0.55.0 // indirect
 )
 
-replace deepcode => ../
+replace deepseek-orca => ../

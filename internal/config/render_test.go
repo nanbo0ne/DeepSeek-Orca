@@ -43,7 +43,7 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 			Server:   "127.0.0.1",
 			Port:     7890,
 			Username: "user",
-			Password: "${DEEPCODE_PROXY_PASSWORD}",
+			Password: "${DEEPSEEK_ORCA_PROXY_PASSWORD}",
 		},
 	}
 	orig.Skills.Paths = []string{"~/my-skills", "../shared/skills"}
@@ -65,7 +65,7 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 		},
 	}
 	orig.Plugins = []PluginEntry{
-		{Name: "example", Command: "deepcode-plugin-example"},
+		{Name: "example", Command: "deepseek-orca-plugin-example"},
 		{Name: "stripe", Type: "http", URL: "https://mcp.stripe.com", Headers: map[string]string{"Authorization": "Bearer x"}, AutoStart: boolPtr(false), Tier: "background"},
 	}
 	mm, _ := orig.Provider("mimo-pro")

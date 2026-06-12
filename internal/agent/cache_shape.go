@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sort"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 // PrefixShape hashes the portions of the request prefix that influence

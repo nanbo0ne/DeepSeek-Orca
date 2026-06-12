@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/evidence"
-	"deepcode/internal/instruction"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/instruction"
 )
 
 func TestCompleteStepRejectsMissingEvidence(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 func TestMockProviderStreamHonorsCanceledContext(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"deepcode/internal/event"
-	"deepcode/internal/permission"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/permission"
+	"deepseek-orca/internal/provider"
 )
 
 // notifier is the slice of Conn the dispatch sink depends on: it pushes

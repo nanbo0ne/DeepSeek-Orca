@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/proc"
+	"deepseek-orca/internal/proc"
 )
 
 // docState tracks what we last sent the server for a document, so ensureSynced

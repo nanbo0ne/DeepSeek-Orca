@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 // TestTextSinkReproducesInlineOutput pins the byte-exact rendering of a turn's

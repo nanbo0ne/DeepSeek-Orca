@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 func TestSubagentStoreContinueLoadsSavedTranscript(t *testing.T) {

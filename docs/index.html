@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>DeepCode — DeepSeek-native coding agent for your terminal</title>
+<title>DeepSeek-Orca — DeepSeek-native coding agent for your terminal</title>
 <meta name="description" content="Open-source AI coding agent for your terminal, engineered around DeepSeek's byte-stable prefix cache. Long sessions hold 90%+ cache hit and input-token cost collapses to ~1/5. A single Go binary. npm · Homebrew · desktop. MIT." />
-<link rel="canonical" href="https://esengine.github.io/DeepCode/" />
+<link rel="canonical" href="https://esengine.github.io/DeepSeek-Orca/" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-<meta property="og:title" content="DeepCode — DeepSeek-native coding agent" />
+<meta property="og:title" content="DeepSeek-Orca — DeepSeek-native coding agent" />
 <meta property="og:description" content="Cache-first AI coding agent for your terminal. A single Go binary. npm · Homebrew · desktop. MIT." />
-<meta property="og:url" content="https://esengine.github.io/DeepCode/" />
+<meta property="og:url" content="https://esengine.github.io/DeepSeek-Orca/" />
 <style>
   :root{
     --bg:#f7f6f3; --paper:#fdfdfc; --ink:#16171a; --body:#3c3e44; --muted:#74777e; --faint:#9b9ea5;
@@ -135,12 +135,12 @@
 <body>
 <nav>
   <div class="wrap nav">
-    <a class="brand" href="#top"><span class="mk">R</span>DeepCode</a>
+    <a class="brand" href="#top"><span class="mk">R</span>DeepSeek-Orca</a>
     <div class="nav-links">
       <a href="#install" data-en>Install</a><a href="#install" data-zh>安装</a>
       <a href="#features" data-en>Features</a><a href="#features" data-zh>特性</a>
       <a href="#why" data-en>Why DeepSeek</a><a href="#why" data-zh>为何 DeepSeek</a>
-      <a href="https://github.com/esengine/DeepCode">GitHub</a>
+      <a href="https://github.com/nanbo0ne/DeepSeek-Orca">GitHub</a>
     </div>
     <div class="nav-right">
       <button class="lang" id="lang">中文</button>
@@ -162,17 +162,17 @@
   </p>
   <div class="cta">
     <a class="btn btn-dark" href="#install"><span data-en>Get started</span><span data-zh>开始使用</span></a>
-    <a class="btn btn-line" href="https://github.com/esengine/DeepCode"><span data-en>View on GitHub</span><span data-zh>在 GitHub 查看</span></a>
+    <a class="btn btn-line" href="https://github.com/nanbo0ne/DeepSeek-Orca"><span data-en>View on GitHub</span><span data-zh>在 GitHub 查看</span></a>
   </div>
   <div class="install">
-    <span><span class="p">$ </span>npm i -g deepcode</span>
-    <button class="cp" data-copy="npm i -g deepcode"><span data-en>Copy</span><span data-zh>复制</span></button>
+    <span><span class="p">$ </span>npm i -g deepseek-orca</span>
+    <button class="cp" data-copy="npm i -g deepseek-orca"><span data-en>Copy</span><span data-zh>复制</span></button>
   </div>
 
   <div class="term">
-    <div class="tbar"><i></i><i></i><i></i><span>~/app — deepcode chat</span></div>
-    <div class="tbody"><span class="u">$</span> deepcode chat
-<span class="i">deepcode v1.0.0 · model deepseek-v4-flash · ~/app</span>
+    <div class="tbar"><i></i><i></i><i></i><span>~/app — deepseek-orca chat</span></div>
+    <div class="tbody"><span class="u">$</span> deepseek-orca chat
+<span class="i">deepseek-orca v1.0.0 · model deepseek-v4-flash · ~/app</span>
 <span class="d">cache 94.2% hit · session 18m · cost $0.043</span>
 <span class="u">›</span> add retry with backoff to the http client
 <span class="e">edit</span>  internal/net/client.go        <span class="c">+24 −3</span>
@@ -194,30 +194,30 @@
     <button class="tab" data-tab="desk"><span data-en>Desktop</span><span data-zh>桌面端</span></button>
   </div>
   <div class="panel on" data-panel="npm">
-    <div class="block"><button class="cp" data-copy="npm i -g deepcode
-deepcode setup
-deepcode chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> npm i -g deepcode
-<span class="p">$</span> deepcode setup        <span class="c"># config wizard → ./deepcode.toml</span>
-<span class="p">$</span> deepcode chat         <span class="c"># or: deepcode run "implement the TODOs"</span></pre></div>
+    <div class="block"><button class="cp" data-copy="npm i -g deepseek-orca
+deepseek-orca setup
+deepseek-orca chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> npm i -g deepseek-orca
+<span class="p">$</span> deepseek-orca setup        <span class="c"># config wizard → ./deepseek-orca.toml</span>
+<span class="p">$</span> deepseek-orca chat         <span class="c"># or: deepseek-orca run "implement the TODOs"</span></pre></div>
     <p class="undertext"><span data-en>Any OS · macOS, Linux, Windows × amd64/arm64. Short alias <code>dsnix</code> too.</span><span data-zh>任意系统 · macOS、Linux、Windows × amd64/arm64。</span></p>
   </div>
   <div class="panel" data-panel="brew">
-    <div class="block"><button class="cp" data-copy="brew install esengine/deepcode/deepcode"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> brew install esengine/deepcode/deepcode</pre></div>
+    <div class="block"><button class="cp" data-copy="brew install nanbo0ne/DeepSeek-Orca/deepseek-orca"><span data-en>Copy</span><span data-zh>复制</span></button><pre><span class="p">$</span> brew install nanbo0ne/DeepSeek-Orca/deepseek-orca</pre></div>
     <p class="undertext"><span data-en>macOS. The cask pulls the archive from the latest release.</span><span data-zh>macOS。cask 从最新 release 拉取归档。</span></p>
   </div>
   <div class="panel" data-panel="desk">
     <div class="dls">
-      <a class="dl" href="https://pub-147fb53b9c1e4bbf891a257968619ea7.r2.dev/latest/DeepCode-darwin-arm64.zip" download>
-        <span class="os">macOS</span><span class="fn">DeepCode-darwin-arm64.zip</span><span class="ar" data-en>universal · Intel + Apple Silicon</span><span class="ar" data-zh>通用 · Intel + Apple Silicon</span><span class="go">↓</span>
+      <a class="dl" href="https://pub-147fb53b9c1e4bbf891a257968619ea7.r2.dev/latest/DeepSeek-Orca-darwin-arm64.zip" download>
+        <span class="os">macOS</span><span class="fn">DeepSeek-Orca-darwin-arm64.zip</span><span class="ar" data-en>universal · Intel + Apple Silicon</span><span class="ar" data-zh>通用 · Intel + Apple Silicon</span><span class="go">↓</span>
       </a>
-      <a class="dl" href="https://pub-147fb53b9c1e4bbf891a257968619ea7.r2.dev/latest/DeepCode-windows-amd64-installer.exe" download>
-        <span class="os">Windows</span><span class="fn">DeepCode-windows-amd64-installer.exe</span><span class="ar" data-en>installer · x64</span><span class="ar" data-zh>安装器 · x64</span><span class="go">↓</span>
+      <a class="dl" href="https://pub-147fb53b9c1e4bbf891a257968619ea7.r2.dev/latest/DeepSeek-Orca-windows-amd64-installer.exe" download>
+        <span class="os">Windows</span><span class="fn">DeepSeek-Orca-windows-amd64-installer.exe</span><span class="ar" data-en>installer · x64</span><span class="ar" data-zh>安装器 · x64</span><span class="go">↓</span>
       </a>
-      <a class="dl" href="https://pub-147fb53b9c1e4bbf891a257968619ea7.r2.dev/latest/DeepCode-linux-amd64.tar.gz" download>
-        <span class="os">Linux</span><span class="fn">DeepCode-linux-amd64.tar.gz</span><span class="ar" data-en>x64</span><span class="ar" data-zh>x64</span><span class="go">↓</span>
+      <a class="dl" href="https://pub-147fb53b9c1e4bbf891a257968619ea7.r2.dev/latest/DeepSeek-Orca-linux-amd64.tar.gz" download>
+        <span class="os">Linux</span><span class="fn">DeepSeek-Orca-linux-amd64.tar.gz</span><span class="ar" data-en>x64</span><span class="ar" data-zh>x64</span><span class="go">↓</span>
       </a>
     </div>
-    <p class="undertext"><span data-en>Served from the R2 CDN (fast worldwide). Or browse <a href="https://github.com/esengine/DeepCode/releases/latest">all releases on GitHub</a>.</span><span data-zh>经 R2 CDN 分发(全球加速)。或在 <a href="https://github.com/esengine/DeepCode/releases/latest">GitHub releases</a> 浏览全部。</span></p>
+    <p class="undertext"><span data-en>Served from the R2 CDN (fast worldwide). Or browse <a href="https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest">all releases on GitHub</a>.</span><span data-zh>经 R2 CDN 分发(全球加速)。或在 <a href="https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest">GitHub releases</a> 浏览全部。</span></p>
   </div>
 </section>
 
@@ -231,7 +231,7 @@ deepcode chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre
     <div class="feat"><div class="n">02</div><h3 data-en>Single Go binary</h3><h3 data-zh>单个 Go 二进制</h3><p data-en>CGO-free, cross-compiled for darwin/linux/windows × amd64/arm64. No Node runtime.</p><p data-zh>无 CGO,交叉编译覆盖 darwin/linux/windows × amd64/arm64。运行不需要 Node。</p></div>
     <div class="feat"><div class="n">03</div><h3>MCP first-class</h3><p data-en>stdio, SSE, streamable HTTP. External servers merge their tools into one registry under a prefix.</p><p data-zh>stdio、SSE、streamable HTTP。外部服务器的工具以前缀合并进同一 registry。</p></div>
     <div class="feat"><div class="n">04</div><h3 data-en>Plan mode + sandbox</h3><h3 data-zh>计划模式 + 沙箱</h3><p data-en>Writers are jailed to the workspace; <code>/plan</code> gates the session read-only until you approve.</p><p data-zh>写工具被关进工作区;<code>/plan</code> 进只读门,批准前不写盘。</p></div>
-    <div class="feat"><div class="n">05</div><h3 data-en>Subagents &amp; skills</h3><h3 data-zh>子智能体与技能</h3><p data-en>explore / research / review / security-review agents, plus Markdown skill scripts with isolated tools.</p><p data-zh>explore / research / review / security-review 子智能体,加 Markdown 技能脚本与隔离工具。</p></div>
+    <div class="feat"><div class="n">05</div><h3 data-en>Subagents &amp; skills</h3><h3 data-zh>子 Agent 与 Skill</h3><p data-en>explore / research / review / security-review agents, plus Markdown skill scripts with isolated tools.</p><p data-zh>explore / research / review / security-review 子 Agent，加 Markdown Skill 脚本与隔离工具。</p></div>
     <div class="feat"><div class="n">06</div><h3 data-en>Terminal-native</h3><h3 data-zh>终端原生</h3><p data-en>Not another IDE plugin. <code>git diff</code> handles diffs, <code>ls</code> handles trees — the terminal is the workspace.</p><p data-zh>不是又一个 IDE 插件。diff 交给 <code>git diff</code> —— 终端就是工作面板。</p></div>
   </div>
 </section>
@@ -241,7 +241,7 @@ deepcode chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre
     <div>
       <div class="lab" data-en>Why DeepSeek</div><div class="lab" data-zh>为何 DeepSeek</div>
       <h2><span data-en>The cheapness is the point.</span><span data-zh>便宜,就是核心。</span></h2>
-      <p class="sub"><span data-en>Most agents pay full price for the same growing prompt every turn. DeepCode keeps the prefix byte-identical so DeepSeek's cache does the heavy lifting.</span><span data-zh>多数 agent 每回合都为同一段不断增长的 prompt 付全价。DeepCode 让前缀逐字节稳定,让 DeepSeek 的缓存替你扛下来。</span></p>
+      <p class="sub"><span data-en>Most agents pay full price for the same growing prompt every turn. DeepSeek-Orca keeps the prefix byte-identical so DeepSeek's cache does the heavy lifting.</span><span data-zh>多数 agent 每回合都为同一段不断增长的 prompt 付全价。DeepSeek-Orca 让前缀逐字节稳定,让 DeepSeek 的缓存替你扛下来。</span></p>
     </div>
     <div class="nums">
       <div class="num"><div class="v">90%+</div><div class="l"><span data-en>cache hit on long sessions</span><span data-zh>长会话缓存命中</span></div></div>
@@ -253,12 +253,12 @@ deepcode chat"><span data-en>Copy</span><span data-zh>复制</span></button><pre
 
 <footer>
   <div class="wrap foot">
-    <div>© 2026 DeepCode · <span data-en>MIT licensed</span><span data-zh>MIT 许可</span></div>
+    <div>© 2026 DeepSeek-Orca · <span data-en>MIT licensed</span><span data-zh>MIT 许可</span></div>
     <div class="foot-links">
-      <a href="https://github.com/esengine/DeepCode">GitHub</a>
-      <a href="https://www.npmjs.com/package/deepcode">npm</a>
+      <a href="https://github.com/nanbo0ne/DeepSeek-Orca">GitHub</a>
+      <a href="https://www.npmjs.com/package/deepseek-orca">npm</a>
       <a href="https://platform.deepseek.com" target="_blank" rel="noreferrer">DeepSeek</a>
-      <a href="https://github.com/esengine/DeepCode/releases/latest"><span data-en>Releases</span><span data-zh>下载</span></a>
+      <a href="https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest"><span data-en>Releases</span><span data-zh>下载</span></a>
     </div>
   </div>
 </footer>

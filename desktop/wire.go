@@ -1,6 +1,6 @@
 package main
 
-import "deepcode/internal/event"
+import "deepseek-orca/internal/event"
 
 // wireEvent is the JSON shape an event.Event takes when emitted to the webview.
 // It mirrors the serve transport's SSE wire form field-for-field on purpose: both

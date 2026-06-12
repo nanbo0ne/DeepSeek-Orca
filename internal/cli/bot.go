@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"deepcode/internal/bot"
-	"deepcode/internal/bot/feishu"
-	"deepcode/internal/bot/qq"
-	"deepcode/internal/bot/weixin"
-	"deepcode/internal/config"
+	"deepseek-orca/internal/bot"
+	"deepseek-orca/internal/bot/feishu"
+	"deepseek-orca/internal/bot/qq"
+	"deepseek-orca/internal/bot/weixin"
+	"deepseek-orca/internal/config"
 )
 
 func botCommand(args []string, version string) int {
@@ -171,7 +171,7 @@ func botStart(args []string, version string) int {
 		gw.Stop()
 	}()
 
-	fmt.Fprintf(os.Stderr, "deepcode bot starting (model: %s, channels: %s)...\n", modelName, *channels)
+	fmt.Fprintf(os.Stderr, "deepseek-orca bot starting (model: %s, channels: %s)...\n", modelName, *channels)
 	fmt.Fprintf(os.Stderr, "version: %s\n", version)
 
 	if err := gw.Start(ctx); err != nil {
@@ -269,7 +269,7 @@ func botDoctor(args []string) int {
 		} else if weixin.HasSavedAccount(bc.Weixin.AccountID) {
 			addCheck("bot.weixin.token", "ok", "saved iLink account is available")
 		} else {
-			addCheck("bot.weixin.token", "missing", bc.Weixin.TokenEnv+" is not set; run `deepcode bot weixin-login` to save an iLink account")
+			addCheck("bot.weixin.token", "missing", bc.Weixin.TokenEnv+" is not set; run `deepseek-orca bot weixin-login` to save an iLink account")
 		}
 	} else {
 		addCheck("bot.weixin", "disabled", "")
@@ -345,18 +345,18 @@ func botWeixinLogin(args []string) int {
 		return 1
 	}
 	fmt.Printf("\n微信登录成功: account_id=%s user_id=%s base_url=%s\n", result.AccountID, result.UserID, result.BaseURL)
-	fmt.Println("凭据已保存到 DeepCode 用户配置目录；也可以把 [bot.weixin] account_id 设置为该 account_id。")
+	fmt.Println("凭据已保存到 DeepSeek-Orca 用户配置目录；也可以把 [bot.weixin] account_id 设置为该 account_id。")
 
 	return 0
 }
 
 func botUsage() {
-	fmt.Print(`deepcode bot — multi-channel IM bot gateway (QQ / Feishu / WeChat)
+	fmt.Print(`deepseek-orca bot — multi-channel IM bot gateway (QQ / Feishu / WeChat)
 
 Usage:
-  deepcode bot start   [--channels qq,feishu,weixin] [--dir PATH] [--model NAME]
-  deepcode bot doctor  [--json]
-  deepcode bot weixin-login [--timeout SECONDS]
+  deepseek-orca bot start   [--channels qq,feishu,weixin] [--dir PATH] [--model NAME]
+  deepseek-orca bot doctor  [--json]
+  deepseek-orca bot weixin-login [--timeout SECONDS]
 
 Subcommands:
   start         启动 bot 网关
@@ -364,12 +364,12 @@ Subcommands:
   weixin-login  微信 iLink 二维码登录
 
 Examples:
-  deepcode bot start --channels qq,feishu
-  deepcode bot start --dir /path/to/project --model deepseek-pro
-  deepcode bot doctor --json
+  deepseek-orca bot start --channels qq,feishu
+  deepseek-orca bot start --dir /path/to/project --model deepseek-pro
+  deepseek-orca bot doctor --json
 
 Configuration:
-  Edit deepcode.toml:
+  Edit deepseek-orca.toml:
     [bot]           enabled / model / max_steps
     [bot.allowlist]  enabled / qq_users / feishu_users / weixin_users
     [bot.qq]         enabled / app_id / app_secret_env

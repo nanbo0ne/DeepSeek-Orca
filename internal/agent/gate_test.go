@@ -3,12 +3,12 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // stubGate denies any call whose tool name is in deny; everything else allows.

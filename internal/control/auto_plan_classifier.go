@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/nilutil"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/nilutil"
+	"deepseek-orca/internal/provider"
 )
 
 const autoPlanClassifierPrompt = `You classify whether a coding-agent user request should first enter read-only planning mode.

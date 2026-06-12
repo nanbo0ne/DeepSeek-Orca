@@ -1,5 +1,5 @@
-// Package config loads DeepCode's runtime configuration from TOML. Resolution order:
-// flag > project ./deepcode.toml > user ~/.config/deepcode/config.toml > built-in defaults.
+// Package config loads DeepSeek-Orca's runtime configuration from TOML. Resolution order:
+// flag > project ./deepseek-orca.toml > user ~/.config/deepseek-orca/config.toml > built-in defaults.
 // Secrets come from the environment via api_key_env and are never stored in
 // config files.
 package config
@@ -16,8 +16,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"deepcode/internal/netclient"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/provider"
 )
 
 var validSkillName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
@@ -37,11 +37,11 @@ func SkillNameKey(name string) string {
 	return name
 }
 
-// Config is DeepCode's runtime configuration.
+// Config is DeepSeek-Orca's runtime configuration.
 type Config struct {
 	ConfigVersion int                 `toml:"config_version"`
 	DefaultModel  string              `toml:"default_model"`
-	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $DEEPCODE_LANG
+	Language      string              `toml:"language"` // ui/model language tag (e.g. "zh"); empty = auto-detect from $LANG / $DEEPSEEK_ORCA_LANG
 	UI            UIConfig            `toml:"ui"`
 	Desktop       DesktopConfig       `toml:"desktop"`
 	Notifications NotificationsConfig `toml:"notifications"`
@@ -189,7 +189,7 @@ func (c *Config) UICloseBehavior() string {
 }
 
 // DesktopCheckUpdates reports whether the desktop should check for updates on
-// startup. DeepCode builds ship with update checks disabled.
+// startup. DeepSeek-Orca builds ship with update checks disabled.
 func (c *Config) DesktopCheckUpdates() bool {
 	if c == nil || c.Desktop.CheckUpdates == nil {
 		return false
@@ -233,8 +233,8 @@ type StatuslineConfig struct {
 // search / context / explore / trace / node tools. Enabled defaults to true so
 // upgrades keep it for existing configs; first-run scaffolds write enabled =
 // false so only brand-new users start without it. AutoInstall (default true)
-// lets deepcode fetch the CodeGraph runtime into its cache when CodeGraph is
-// enabled but missing; set false to require an explicit `deepcode codegraph
+// lets deepseek-orca fetch the CodeGraph runtime into its cache when CodeGraph is
+// enabled but missing; set false to require an explicit `deepseek-orca codegraph
 // install` (e.g. for air-gapped or headless runs). Path overrides binary
 // resolution; empty resolves the cache, then a `codegraph` on PATH, then a
 // bundle beside the executable. CodeGraph always starts in the background when
@@ -418,7 +418,7 @@ func (c *Config) NetworkProxyMode() string {
 
 // SkillsConfig configures skill discovery. Paths adds extra "custom"-scope skill
 // roots 鈥?each a directory of SKILL.md / <name>.md playbooks 鈥?scanned between
-// the project roots (.deepcode/.agents/.agent/.claude under the workspace) and
+// the project roots (.deepseek-orca/.agents/.agent/.claude under the workspace) and
 // the global roots. ExcludedPaths hides matching discovery roots without deleting
 // folders. ~, relative paths, and ${VAR} expansion are supported. DisabledSkills
 // hides named skills from the agent prompt, slash invocation, and skill tools
@@ -587,7 +587,7 @@ type AgentConfig struct {
 	SubagentEfforts  map[string]string `toml:"subagent_efforts"`
 	// OutputStyle selects a persona/tone block folded into the system prompt at
 	// startup (a built-in like "explanatory"/"learning"/"concise", or a custom
-	// .deepcode/output-styles/<name>.md). Empty = the unmodified prompt.
+	// .deepseek-orca/output-styles/<name>.md). Empty = the unmodified prompt.
 	OutputStyle string `toml:"output_style"`
 	// AutoPlan controls whether interactive turns that look multi-step start in
 	// plan mode automatically: "off" keeps plan mode manual, "on" enables the
@@ -822,7 +822,7 @@ type PermissionsConfig struct {
 // static Headers. String fields support ${VAR} / ${VAR:-default} expansion so
 // secrets (bearer tokens, keys) come from the environment, not the file. The
 // fields mirror Claude Code's mcpServers spec, so entries can come from either
-// deepcode.toml's [[plugins]] or a project-root .mcp.json (see loadMCPJSON).
+// deepseek-orca.toml's [[plugins]] or a project-root .mcp.json (see loadMCPJSON).
 type PluginEntry struct {
 	Name    string            `toml:"name"`
 	Type    string            `toml:"type"` // "stdio" (default) | "http" | "sse"
@@ -884,13 +884,13 @@ func (c *Config) AutoStartPlugins() []PluginEntry {
 func boolPtr(v bool) *bool { return &v }
 
 // DefaultSystemPrompt is used when config provides none.
-const DefaultSystemPrompt = `你是 DeepCode，一个专注于执行代码任务的智能编程 Agent。
+const DefaultSystemPrompt = `你是 DeepSeek-Orca，一个专注于执行代码任务的智能编程 Agent。
 你可以使用系统提供的工具读取和写入文件、运行 shell 命令，并在需要时检索项目上下文。
 工作原则：先理解用户请求再行动；用工具验证事实，不要凭空猜测；保持修改范围小、正确且符合项目既有风格；完成后简要说明做了什么以及如何验证。
 当请求中存在需要用户真正决策的选择，例如实现方案、库选型、工作范围或会产生明显后果的歧义时，使用 ask 工具给出 2 到 4 个具体选项，而不是自行猜测或把问题埋在回复里。若存在明显默认选择，则直接采用；不要为了形式确认而提问。权限绕过模式不能替用户回答 ask 问题，也不能替用户批准计划。若没有可交互的用户，ask 工具会返回模型假设的兜底结果；继续前请说明你采用了什么假设。
 对于多步骤工作，使用 todo_write 跟踪进度：列出步骤，始终只保留一个 in_progress，并在完成每一步时立即更新为 completed。进度清单要随工作推进实时更新，而不是只在最后一次性更新。
 在 Plan 模式下，宿主会阻止写入类工具：你只能做只读研究，然后以回复形式给出简洁计划并停止。用户批准前不要修改任何内容；批准后按步骤执行，并持续更新任务列表。
-在提到宿主应用时，请称呼它为 DeepCode。不要在面向用户的回复或生成的文档中使用旧产品名，除非用户正在讨论从旧名称迁移。`
+在提到宿主应用时，请称呼它为 DeepSeek-Orca。不要在面向用户的回复或生成的文档中使用旧产品名，除非用户正在讨论从旧名称迁移。`
 
 // LanguagePolicy is the auto fallback appended to the system prompt when no
 // concrete UI language is resolved. It is static English text, so it stays part
@@ -924,8 +924,8 @@ func Default() *Config {
 			CompactRatio:      0.8,
 			CompactForceRatio: 0.9,
 		},
-		// Mode "ask" with no rules keeps `deepcode run` autonomous (no TTY 鈫?ask
-		// resolves to allow) while `deepcode chat` prompts before writers. Users add
+		// Mode "ask" with no rules keeps `deepseek-orca run` autonomous (no TTY 鈫?ask
+		// resolves to allow) while `deepseek-orca chat` prompts before writers. Users add
 		// deny/allow rules to harden or quiet specific tools.
 		Permissions: PermissionsConfig{Mode: "ask"},
 		// Sandbox on by default: bash is jailed (macOS), network allowed so
@@ -961,7 +961,7 @@ func Default() *Config {
 
 // Load builds the configuration: defaults, then user config, then project
 // config, then MCP servers from Claude Code's .mcp.json, then (lowest priority)
-// the v0.x ~/.deepcode/config.json's mcpServers. A .env in the working directory
+// the v0.x ~/.deepseek-orca/config.json's mcpServers. A .env in the working directory
 // is loaded first so api_key_env can resolve.
 func Load() (*Config, error) {
 	return LoadForRoot(".")
@@ -970,16 +970,16 @@ func Load() (*Config, error) {
 // LoadForRoot builds the configuration with project files resolved from root
 // instead of the current working directory. When root is "" or ".", it behaves
 // like Load(). This is the workspace-aware entry point: desktop tabs use it so
-// each project's deepcode.toml + .env + .mcp.json are resolved independently
+// each project's deepseek-orca.toml + .env + .mcp.json are resolved independently
 // without changing the process cwd.
 func LoadForRoot(root string) (*Config, error) {
 	root = resolveRoot(root)
 	loadDotEnvForRoot(root)
 	cfg := Default()
 
-	projectTOML := "deepcode.toml"
+	projectTOML := "deepseek-orca.toml"
 	if root != "." {
-		projectTOML = filepath.Join(root, "deepcode.toml")
+		projectTOML = filepath.Join(root, "deepseek-orca.toml")
 	}
 
 	var tomlSources []string
@@ -1001,7 +1001,7 @@ func LoadForRoot(root string) (*Config, error) {
 	}
 	// toml.DecodeFile replaces [[plugins]] wholesale, so cfg.Plugins now holds
 	// only the last file's. Re-merge by name across all sources (later wins) so a
-	// project deepcode.toml doesn't drop the global config's MCP servers.
+	// project deepseek-orca.toml doesn't drop the global config's MCP servers.
 	plugins, err := mergeTOMLPlugins(tomlSources)
 	if err != nil {
 		return nil, err
@@ -1010,7 +1010,7 @@ func LoadForRoot(root string) (*Config, error) {
 
 	// Claude Code's .mcp.json (project root) is read last and merged into
 	// [[plugins]], so a server configured for Claude works here unchanged.
-	// deepcode.toml wins on a name collision (see mergeMCPJSON).
+	// deepseek-orca.toml wins on a name collision (see mergeMCPJSON).
 	mcpFile := mcpJSONFile
 	if root != "." {
 		mcpFile = filepath.Join(root, mcpJSONFile)
@@ -1021,7 +1021,7 @@ func LoadForRoot(root string) (*Config, error) {
 	}
 	cfg.mergeMCPJSON(entries)
 
-	// Lowest priority: the v0.x ~/.deepcode/config.json's mcpServers, so upgrading
+	// Lowest priority: the v0.x ~/.deepseek-orca/config.json's mcpServers, so upgrading
 	// from the TypeScript line keeps MCP servers without rewriting them. Anything
 	// the v2 config or .mcp.json already declared wins on a name collision.
 	cfg.mergeMCPJSON(loadLegacyMCP(legacyConfigPath()))
@@ -1121,7 +1121,7 @@ func mergeTOMLPlugins(paths []string) ([]PluginEntry, error) {
 	return merged, nil
 }
 
-// LoadForEdit returns a config to seed the `deepcode setup` wizard when reconfiguring:
+// LoadForEdit returns a config to seed the `deepseek-orca setup` wizard when reconfiguring:
 // the built-in defaults with the file at path (if present) decoded on top, so a
 // reconfigure preserves the user's existing providers and agent settings instead
 // of resetting to defaults. .env is loaded so api_key_env resolution works while
@@ -1558,15 +1558,15 @@ func userConfigPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "deepcode", "config.toml")
+	return filepath.Join(dir, "deepseek-orca", "config.toml")
 }
 
-// UserConfigPath is the user-global config file (~/.config/deepcode/config.toml),
+// UserConfigPath is the user-global config file (~/.config/deepseek-orca/config.toml),
 // or "" when the user config dir can't be resolved.
 func UserConfigPath() string { return userConfigPath() }
 
-// UserCredentialsPath is the deepcode-owned global secrets file, beside
-// config.toml in the user config dir (e.g. ~/.config/deepcode/credentials). It
+// UserCredentialsPath is the deepseek-orca-owned global secrets file, beside
+// config.toml in the user config dir (e.g. ~/.config/deepseek-orca/credentials). It
 // holds KEY=value lines loaded into the environment by loadDotEnv. The setup
 // wizard writes API keys here, deliberately NOT named .env: keys never land in a
 // project's own .env (which can't be selectively gitignored), never get
@@ -1577,7 +1577,7 @@ func UserCredentialsPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "deepcode", "credentials")
+	return filepath.Join(dir, "deepseek-orca", "credentials")
 }
 
 // ArchiveDir is where compacted conversation history is archived for
@@ -1588,18 +1588,18 @@ func ArchiveDir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "deepcode", "archive")
+	return filepath.Join(dir, "deepseek-orca", "archive")
 }
 
 // SessionDir is where chat sessions are persisted (one .jsonl per session).
-// Used by `deepcode chat --continue` / `--resume` to find the recent ones. Empty
+// Used by `deepseek-orca chat --continue` / `--resume` to find the recent ones. Empty
 // if the user config dir can't be resolved 鈥?sessions then aren't saved.
 func SessionDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "deepcode", "sessions")
+	return filepath.Join(dir, "deepseek-orca", "sessions")
 }
 
 // ProjectSessionDir is the per-workspace session directory the desktop sidebar
@@ -1625,7 +1625,7 @@ func WorkspaceSlug(absPath string) string {
 
 // CacheDir is the per-user cache root for derived/regenerable artefacts: MCP
 // handshake snapshots, plugin startup-latency telemetry. Lives beside the
-// existing dirs (UserConfigDir/deepcode/...) so the whole deepcode state tree
+// existing dirs (UserConfigDir/deepseek-orca/...) so the whole deepseek-orca state tree
 // shares one root the user can wipe in a single rm. Empty when the OS dir is
 // unavailable 鈥?callers must tolerate that (caching is best-effort).
 func CacheDir() string {
@@ -1633,31 +1633,31 @@ func CacheDir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "deepcode", "cache")
+	return filepath.Join(dir, "deepseek-orca", "cache")
 }
 
-// MemoryUserDir returns the deepcode user config root (鈥?deepcode), under which
-// the user-global DEEPCODE.md and the per-project auto-memory store live. Empty
+// MemoryUserDir returns the deepseek-orca user config root (鈥?deepseek-orca), under which
+// the user-global DEEPSEEK_ORCA.md and the per-project auto-memory store live. Empty
 // when the user config dir can't be resolved, which disables user-scoped memory.
 func MemoryUserDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "deepcode")
+	return filepath.Join(dir, "deepseek-orca")
 }
 
 // ConventionDirs are the parent directories scanned for agent assets (skills,
-// commands), in canonical-first order. .deepcode is ours; .agents / .agent /
+// commands), in canonical-first order. .deepseek-orca is ours; .agents / .agent /
 // .claude let users drop in assets authored for other agent tools without moving
 // files. Shared so skills (internal/skill) and commands (CommandDirs) discover
 // the same set. Note: hooks are NOT scanned across these 鈥?a .claude/settings.json
 // uses a different hook schema that can't be parsed as ours, so hooks stay in
-// .deepcode/settings.json (see internal/hook).
-var ConventionDirs = []string{".deepcode", ".agents", ".agent", ".claude"}
+// .deepseek-orca/settings.json (see internal/hook).
+var ConventionDirs = []string{".deepseek-orca", ".agents", ".agent", ".claude"}
 
 // conventionSubdirsAsc joins sub under each ConventionDir of base, in ascending
-// priority (reverse of ConventionDirs) so the canonical .deepcode ends up the
+// priority (reverse of ConventionDirs) so the canonical .deepseek-orca ends up the
 // highest-priority entry 鈥?command.Load lets a later directory win on a clash.
 func conventionSubdirsAsc(base, sub string) []string {
 	out := make([]string, 0, len(ConventionDirs))
@@ -1669,9 +1669,9 @@ func conventionSubdirsAsc(base, sub string) []string {
 
 // CommandDirs returns the directories scanned for custom slash commands, lowest
 // priority first, so a later (more specific) directory overrides an earlier one
-// on a name clash. Order: home-dir convention dirs (~/.claude/commands 鈥?~/.deepcode/commands),
-// the legacy XDG user dir (~/.config/deepcode/commands), then the project's
-// convention dirs (.claude/commands 鈥?.deepcode/commands). Scanning the .claude /
+// on a name clash. Order: home-dir convention dirs (~/.claude/commands 鈥?~/.deepseek-orca/commands),
+// the legacy XDG user dir (~/.config/deepseek-orca/commands), then the project's
+// convention dirs (.claude/commands 鈥?.deepseek-orca/commands). Scanning the .claude /
 // .agents / .agent dirs lets commands authored for other agent tools (same .md +
 // frontmatter format) work here unchanged.
 func CommandDirs() []string {
@@ -1688,7 +1688,7 @@ func CommandDirsForRoot(root string) []string {
 		dirs = append(dirs, conventionSubdirsAsc(home, "commands")...)
 	}
 	if dir, err := os.UserConfigDir(); err == nil {
-		dirs = append(dirs, filepath.Join(dir, "deepcode", "commands")) // legacy XDG user dir
+		dirs = append(dirs, filepath.Join(dir, "deepseek-orca", "commands")) // legacy XDG user dir
 	}
 	dirs = append(dirs, conventionSubdirsAsc(root, "commands")...)
 	return dirs
@@ -1703,9 +1703,9 @@ func SourcePath() string {
 // root, or "" if none. Equivalent to SourcePath() when root is ".".
 func SourcePathForRoot(root string) string {
 	root = resolveRoot(root)
-	projectTOML := "deepcode.toml"
+	projectTOML := "deepseek-orca.toml"
 	if root != "." {
-		projectTOML = filepath.Join(root, "deepcode.toml")
+		projectTOML = filepath.Join(root, "deepseek-orca.toml")
 	}
 	if _, err := os.Stat(projectTOML); err == nil {
 		return projectTOML

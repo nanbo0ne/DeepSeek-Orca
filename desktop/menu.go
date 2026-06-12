@@ -32,10 +32,10 @@ func (a *App) createAppMenu() *menu.Menu {
 			runtime.WindowExecJS(a.ctx, `window.webkit.messageHandlers.external.postMessage("wails:openInspector");`)
 		}
 	})
-	fileMenu.AddText("Show DeepCode", nil, func(_ *menu.CallbackData) {
+	fileMenu.AddText("Show DeepSeek-Orca", nil, func(_ *menu.CallbackData) {
 		a.showMainWindow()
 	})
-	fileMenu.AddText("Quit DeepCode", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
+	fileMenu.AddText("Quit DeepSeek-Orca", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
 		a.quitApp()
 	})
 	m.Append(menu.EditMenu())

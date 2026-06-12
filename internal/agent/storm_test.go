@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // failTool always errors with the same message regardless of its arguments,

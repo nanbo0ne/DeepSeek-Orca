@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/acp"
-	"deepcode/internal/config"
-	"deepcode/internal/event"
-	"deepcode/internal/netclient"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/acp"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 
-	_ "deepcode/internal/tool/builtin"
+	_ "deepseek-orca/internal/tool/builtin"
 )
 
 const acpTestProviderKind = "acp-test-provider"
@@ -63,16 +63,16 @@ func TestACPInitializesWithoutAPIKey(t *testing.T) {
 			t.Fatalf("Run --acp initialize rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, `"protocolVersion":1`) || !strings.Contains(out, `"name":"deepcode"`) {
+	if !strings.Contains(out, `"protocolVersion":1`) || !strings.Contains(out, `"name":"deepseek-orca"`) {
 		t.Fatalf("initialize output = %s", out)
 	}
 }
 
 func TestACPFactoryLoadsSessionCwdProjectConfig(t *testing.T) {
 	home := isolateCLIConfigHome(t)
-	t.Setenv("DEEPCODE_TEST_KEY", "test-key")
+	t.Setenv("DEEPSEEK_ORCA_TEST_KEY", "test-key")
 	project := t.TempDir()
-	if err := os.WriteFile(filepath.Join(project, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "deepseek-orca.toml"), []byte(`
 default_model = "local"
 
 [codegraph]
@@ -83,11 +83,11 @@ name = "local"
 kind = "acp-test-provider"
 base_url = "http://example.invalid"
 model = "fake-model"
-api_key_env = "DEEPCODE_TEST_KEY"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY"
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cmdDir := filepath.Join(project, ".deepcode", "commands")
+	cmdDir := filepath.Join(project, ".deepseek-orca", "commands")
 	if err := os.MkdirAll(cmdDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -436,9 +436,9 @@ function makeMockApp(): AppBindings {
   let cancelled = false;
   let pendingAskPreview = false;
   let pendingApprovalPreview = false;
-  const globalWorkspaceRoot = "~/Library/Application Support/deepcode/global-workspace";
+  const globalWorkspaceRoot = "~/Library/Application Support/deepseek-orca/global-workspace";
   let cwd = freshMock ? globalWorkspaceRoot : "~/projects/joyquant-db"; // mutable so PickWorkspace is visible in dev
-  let workspaces = freshMock ? [] : ["~/projects/joyquant-db", "~/projects/joyquant-sys", "~/projects/deepcode", "~/projects/blade"];
+  let workspaces = freshMock ? [] : ["~/projects/joyquant-db", "~/projects/joyquant-sys", "~/projects/deepseek-orca", "~/projects/blade"];
   let mockEffort = "auto";
   const day = 86_400_000;
   const t0 = Date.now();
@@ -492,10 +492,10 @@ function makeMockApp(): AppBindings {
   const capSkills: SkillView[] = [
     { name: "explore", description: "Investigate the codebase in an isolated subagent", scope: "builtin", runAs: "subagent", enabled: true },
     { name: "review", description: "Review the staged diff", scope: "project", runAs: "inline", enabled: false },
-    { name: "init", description: "Scaffold a DEEPCODE.md for this repo", scope: "builtin", runAs: "inline", enabled: true },
+    { name: "init", description: "Scaffold a DEEPSEEK_ORCA.md for this repo", scope: "builtin", runAs: "inline", enabled: true },
   ];
   let capSkillRoots: SkillRootView[] = [
-    { dir: "~/projects/deepcode/.deepcode/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
+    { dir: "~/projects/deepseek-orca/.deepseek-orca/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
     {
       dir: "~/my-skills",
       scope: "custom",
@@ -507,7 +507,7 @@ function makeMockApp(): AppBindings {
       skillItems: [{ name: "review", description: "Review the staged diff", scope: "custom", runAs: "inline" }],
     },
     {
-      dir: "~/.deepcode/skills",
+      dir: "~/.deepseek-orca/skills",
       scope: "global",
       priority: 6,
       status: "ok",
@@ -516,7 +516,7 @@ function makeMockApp(): AppBindings {
       skills: 2,
       skillItems: [
         { name: "explore", description: "Investigate the codebase in an isolated subagent", scope: "global", runAs: "subagent" },
-        { name: "init", description: "Scaffold a DEEPCODE.md for this repo", scope: "global", runAs: "inline" },
+        { name: "init", description: "Scaffold a DEEPSEEK_ORCA.md for this repo", scope: "global", runAs: "inline" },
       ],
     },
   ];
@@ -618,7 +618,7 @@ function makeMockApp(): AppBindings {
       noProxy: "",
       proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "" },
     },
-    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, systemPrompt: "你是 DeepCode，一个专注于代码任务的智能编程代理。" },
+    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, systemPrompt: "你是 DeepSeek-Orca，一个专注于代码任务的智能编程 Agent。" },
     bot: {
       enabled: false,
       model: "",
@@ -661,7 +661,7 @@ function makeMockApp(): AppBindings {
     closeBehavior: "background",
     checkUpdates: false,
     expandThinking: false,
-    configPath: "~/projects/deepcode/deepcode.toml",
+    configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
@@ -670,7 +670,7 @@ function makeMockApp(): AppBindings {
     provider.apiKeyEnv === "DEEPSEEK_API_KEY" ? { ...provider, keySet: !freshMock } : provider,
   );
   if (freshMock) {
-    settings.configPath = "~/.config/deepcode/config.toml";
+    settings.configPath = "~/.config/deepseek-orca/config.toml";
   }
   const mockNow = Date.now();
   const mockProjectTree: ProjectNode[] = freshMock ? [] : [
@@ -1437,7 +1437,7 @@ function makeMockApp(): AppBindings {
     async PickWorkspace() {
       // Browser dev has no native dialog; simulate picking a folder and re-root so
       // the topbar folder chip visibly changes.
-      return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/deepcode" : "~/projects/another-project");
+      return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/deepseek-orca" : "~/projects/another-project");
     },
     async SwitchWorkspace(path: string) {
       return mockSwitchWorkspace(path);
@@ -1707,8 +1707,8 @@ function makeMockApp(): AppBindings {
     },
     async ReadFile(rel: string) {
       const samples: Record<string, string> = {
-        "README.md": "# DeepCode\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
-        "go.mod": "module deepcode\n\ngo 1.23\n",
+        "README.md": "# DeepSeek-Orca\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
+        "go.mod": "module deepseek-orca\n\ngo 1.23\n",
         "desktop/file.go": "package desktop\n\nfunc main() {\n\tprintln(\"workspace preview\")\n}\n",
         "internal/event.go": "package internal\n\n// mock file used by the browser dev seam\n",
       };
@@ -1765,13 +1765,13 @@ function makeMockApp(): AppBindings {
       console.info("mock RevealPath", path);
     },
     async SavePastedImage(_dataUrl: string) {
-      return ".deepcode/attachments/mock.png";
+      return ".deepseek-orca/attachments/mock.png";
     },
     async SaveClipboardImage() {
-      return ".deepcode/attachments/mock-clipboard.png";
+      return ".deepseek-orca/attachments/mock-clipboard.png";
     },
     async SavePastedFile(name: string, _dataUrl: string) {
-      return `.deepcode/attachments/mock-${name}`;
+      return `.deepseek-orca/attachments/mock-${name}`;
     },
     async PickExportFile(defaultFilename: string, _mimeType: string) {
       return defaultFilename;
@@ -1793,7 +1793,7 @@ function makeMockApp(): AppBindings {
     },
     async AttachDropped(path: string) {
       const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
-      return { kind: "attachment" as const, path: `.deepcode/attachments/mock-${name}` };
+      return { kind: "attachment" as const, path: `.deepseek-orca/attachments/mock-${name}` };
     },
     async AttachmentDataURL(_path: string) {
       return "data:image/png;base64,iVBORw0KGgo=";
@@ -1829,15 +1829,15 @@ function makeMockApp(): AppBindings {
     async Memory() {
       return {
         available: true,
-        storeDir: "~/.config/deepcode/projects/-mock/memory",
+        storeDir: "~/.config/deepseek-orca/projects/-mock/memory",
         docs: [
           {
-            path: "DEEPCODE.md",
+            path: "DEEPSEEK_ORCA.md",
             scope: "project",
-            body: "# DeepCode project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
+            body: "# DeepSeek-Orca project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
           },
           {
-            path: "~/.config/deepcode/DEEPCODE.md",
+            path: "~/.config/deepseek-orca/DEEPSEEK_ORCA.md",
             scope: "user",
             body: t("mock.memoryBody"),
           },
@@ -1851,15 +1851,15 @@ function makeMockApp(): AppBindings {
           },
         ],
         scopes: [
-          { scope: "user", path: "~/.config/deepcode/DEEPCODE.md" },
-          { scope: "project", path: "DEEPCODE.md" },
-          { scope: "local", path: "DEEPCODE.local.md" },
+          { scope: "user", path: "~/.config/deepseek-orca/DEEPSEEK_ORCA.md" },
+          { scope: "project", path: "DEEPSEEK_ORCA.md" },
+          { scope: "local", path: "DEEPSEEK_ORCA.local.md" },
         ],
       };
     },
     async Remember(scope: string, note: string) {
       emit({ kind: "notice", level: "info", text: `remembered → ${scope}` });
-      return `${scope} DEEPCODE.md (mock): ${note}`;
+      return `${scope} DEEPSEEK_ORCA.md (mock): ${note}`;
     },
     async Forget(name: string) {
       emit({ kind: "notice", level: "info", text: `forgot → ${name}` });
@@ -1969,7 +1969,7 @@ function makeMockApp(): AppBindings {
             provider: normalizedProvider,
             domain: normalizedDomain,
             installId: `mock-${normalizedProvider}-${normalizedDomain}`,
-            url: "https://example.com/deepcode-bot-qr",
+            url: "https://example.com/deepseek-orca-bot-qr",
             deviceCode: "MOCKDEVICE",
             userCode: normalizedProvider === "weixin" ? "" : "MOCK-CODE",
             interval: 3,
@@ -2056,7 +2056,7 @@ function makeMockApp(): AppBindings {
     async ApplyUpdate() {},
     async OpenDownloadPage() {
       if (typeof window !== "undefined") {
-        window.open("https://github.com/esengine/deepcode/releases/latest", "_blank", "noopener");
+        window.open("https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest", "_blank", "noopener");
       }
     },
     // Dev seam: drives the overlay flow in the browser until ConnectKey sets the

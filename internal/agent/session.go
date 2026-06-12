@@ -5,7 +5,7 @@ package agent
 import (
 	"sync"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // Session holds the conversation history for one task. The run loop (one turn at

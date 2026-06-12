@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/control"
+	"deepseek-orca/internal/control"
 )
 
 // TestServeRejectsNonJSONPost guards the CSRF defense: a state-changing POST that

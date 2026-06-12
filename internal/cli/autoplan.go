@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 func (m *chatTUI) runAutoPlanCommand(input string) {

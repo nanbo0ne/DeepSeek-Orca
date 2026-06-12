@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/i18n"
 )
 
 type clearConfirm struct {

@@ -1,4 +1,4 @@
-export const WORKSPACE_REF_DRAG_TYPE = "application/x-deepcode-workspace-ref";
+export const WORKSPACE_REF_DRAG_TYPE = "application/x-deepseek-orca-workspace-ref";
 
 export interface WorkspaceRefDragPayload {
   path: string;

@@ -9,11 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"deepcode/internal/fileutil"
-	"deepcode/internal/mcpdiag"
+	"deepseek-orca/internal/fileutil"
+	"deepseek-orca/internal/mcpdiag"
 )
 
-// mcpJSONFile is the project-root file Claude Code calls .mcp.json. DeepCode reads
+// mcpJSONFile is the project-root file Claude Code calls .mcp.json. DeepSeek-Orca reads
 // it so an MCP server already configured for Claude works here unchanged — the
 // server specs map field-for-field onto PluginEntry.
 const mcpJSONFile = ".mcp.json"
@@ -70,16 +70,16 @@ func specsToEntries(specs map[string]mcpServerSpec, skip map[string]bool) []Plug
 	return entries
 }
 
-// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.deepcode/config.json.
+// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.deepseek-orca/config.json.
 func legacyConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".deepcode", "config.json")
+	return filepath.Join(home, ".deepseek-orca", "config.json")
 }
 
-// loadLegacyMCP reads the v0.x ~/.deepcode/config.json and returns its enabled
+// loadLegacyMCP reads the v0.x ~/.deepseek-orca/config.json and returns its enabled
 // MCP servers as PluginEntry values — both the canonical mcpServers map and the
 // older `mcp` string list (mcpServers wins on a name collision, matching v0.x;
 // servers listed in mcpDisabled are skipped) — so upgrading from v0.x keeps MCP
@@ -183,8 +183,8 @@ func pluginEntryFromMCPSpec(name string, s mcpServerSpec) PluginEntry {
 }
 
 // mergeMCPJSON appends servers from .mcp.json that the TOML config did not
-// already declare. deepcode.toml's [[plugins]] win on a name collision: it is the
-// DeepCode-specific, more explicit of the two, so it overrides the shared,
+// already declare. deepseek-orca.toml's [[plugins]] win on a name collision: it is the
+// DeepSeek-Orca-specific, more explicit of the two, so it overrides the shared,
 // checked-in .mcp.json rather than the other way round.
 func (c *Config) mergeMCPJSON(entries []PluginEntry) {
 	have := make(map[string]bool, len(c.Plugins))

@@ -1,12 +1,12 @@
 @echo off
 setlocal EnableExtensions
 
-set "APP_NAME=DeepCode"
-set "EXE_NAME=deepcode-desktop.exe"
+set "APP_NAME=DeepSeek-Orca"
+set "EXE_NAME=deepseek-orca-desktop.exe"
 set "APPDIR=%~dp0"
 for %%I in ("%APPDIR%.") do set "APPDIR=%%~fI"
 
-set "CLEANER=%TEMP%\DeepCode-uninstall-%RANDOM%-%RANDOM%.cmd"
+set "CLEANER=%TEMP%\DeepSeek-Orca-uninstall-%RANDOM%-%RANDOM%.cmd"
 
 > "%CLEANER%" (
   echo @echo off

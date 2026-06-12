@@ -9,11 +9,11 @@ import (
 	"runtime"
 	"strings"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/codegraph"
-	"deepcode/internal/config"
-	"deepcode/internal/netclient"
-	"deepcode/internal/sandbox"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/codegraph"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/sandbox"
 )
 
 type Options struct {
@@ -196,7 +196,7 @@ func Collect(opts Options) Report {
 
 func RenderText(r Report) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "deepcode %s doctor\n", r.Version)
+	fmt.Fprintf(&b, "deepseek-orca %s doctor\n", r.Version)
 	fmt.Fprintf(&b, "  system       %s/%s\n", r.OS, r.Arch)
 	if r.CWD != "" {
 		fmt.Fprintf(&b, "  cwd          %s\n", r.CWD)

@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // TestMathStreamingEndToEnd drives the real streaming path (ingestEvent →

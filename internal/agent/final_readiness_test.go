@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/evidence"
-	"deepcode/internal/instruction"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/instruction"
 )
 
 func readinessLedger(receipts ...evidence.Receipt) *evidence.Ledger {

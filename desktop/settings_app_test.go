@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"deepcode/internal/config"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/provider"
 )
 
 func TestWithFreshSystemPromptReplacesExistingSystemMessage(t *testing.T) {

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/control"
-	"deepcode/internal/permission"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/permission"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // These tests drive the full real stack — acp.Serve → control.Controller →

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // TestBuildRequest covers the protocol conversion: system lift, tool_use /

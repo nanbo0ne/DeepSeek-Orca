@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/i18n"
 )
 
 const resumeListCap = 10

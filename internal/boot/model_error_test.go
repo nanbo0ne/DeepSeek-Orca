@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 
-	_ "deepcode/internal/provider/openai"
-	_ "deepcode/internal/tool/builtin"
+	_ "deepseek-orca/internal/provider/openai"
+	_ "deepseek-orca/internal/tool/builtin"
 )
 
 // TestBuildUnknownModelErrorIsActionable: a default_model that doesn't resolve
@@ -18,7 +18,7 @@ import (
 func TestBuildUnknownModelErrorIsActionable(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "mimo"
 
 [codegraph]
@@ -29,7 +29,7 @@ name = "deepseek-flash"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "deepseek-v4-flash"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
 
 	_, err := Build(context.Background(), Options{Sink: event.Discard})
@@ -48,10 +48,10 @@ api_key_env = "DEEPCODE_TEST_KEY_UNSET"
 // builds fine (RequireKey is false so the UI stays reachable) but must emit a
 // notice naming the env var, instead of silently showing a dead/empty model.
 func TestBuildNoticesMissingAPIKey(t *testing.T) {
-	const keyEnv = "DEEPCODE_MISSING_KEY_FOR_TEST"
+	const keyEnv = "DEEPSEEK_ORCA_MISSING_KEY_FOR_TEST"
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "x"
 
 [codegraph]

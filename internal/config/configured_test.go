@@ -6,17 +6,17 @@ import "testing"
 // resolves to a non-empty value — the same key check Validate enforces at build
 // time, so model pickers can filter on it.
 func TestProviderConfigured(t *testing.T) {
-	t.Setenv("DEEPCODE_TEST_KEY", "secret")
-	t.Setenv("DEEPCODE_TEST_EMPTY", "")
+	t.Setenv("DEEPSEEK_ORCA_TEST_KEY", "secret")
+	t.Setenv("DEEPSEEK_ORCA_TEST_EMPTY", "")
 
 	cases := []struct {
 		name string
 		p    ProviderEntry
 		want bool
 	}{
-		{"key set", ProviderEntry{APIKeyEnv: "DEEPCODE_TEST_KEY"}, true},
-		{"key env empty", ProviderEntry{APIKeyEnv: "DEEPCODE_TEST_EMPTY"}, false},
-		{"key env unset", ProviderEntry{APIKeyEnv: "DEEPCODE_TEST_MISSING"}, false},
+		{"key set", ProviderEntry{APIKeyEnv: "DEEPSEEK_ORCA_TEST_KEY"}, true},
+		{"key env empty", ProviderEntry{APIKeyEnv: "DEEPSEEK_ORCA_TEST_EMPTY"}, false},
+		{"key env unset", ProviderEntry{APIKeyEnv: "DEEPSEEK_ORCA_TEST_MISSING"}, false},
 		{"no api_key_env", ProviderEntry{}, false},
 	}
 	for _, c := range cases {

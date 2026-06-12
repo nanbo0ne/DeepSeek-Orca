@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // TestDiffTabExpansion proves tab-indented code (Go) renders with no literal tabs

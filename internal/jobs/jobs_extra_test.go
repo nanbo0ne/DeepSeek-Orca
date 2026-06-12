@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 type typedNilJobSink struct{}

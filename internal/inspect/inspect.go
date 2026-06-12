@@ -15,10 +15,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"deepcode/internal/command"
-	"deepcode/internal/config"
-	"deepcode/internal/plugin"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/tool"
 )
 
 // Snapshot bundles every capability surface so a front-end can populate its
@@ -254,7 +254,7 @@ func Resources(host *plugin.Host) []ResourceInfo {
 	return out
 }
 
-// CommandInfo is one custom slash command loaded from .deepcode/commands. Name
+// CommandInfo is one custom slash command loaded from .deepseek-orca/commands. Name
 // has no leading slash (e.g. "review" or "git:commit").
 type CommandInfo struct {
 	Name        string `json:"name"`

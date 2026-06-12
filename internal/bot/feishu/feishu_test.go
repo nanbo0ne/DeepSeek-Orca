@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"deepcode/internal/bot"
-	"deepcode/internal/config"
+	"deepseek-orca/internal/bot"
+	"deepseek-orca/internal/config"
 )
 
 func TestVerificationTokenValidRequiresConfiguredToken(t *testing.T) {

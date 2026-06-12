@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/i18n"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/provider"
 )
 
 func TestExplainError(t *testing.T) {

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/event"
-	"deepcode/internal/nilutil"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/nilutil"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // Runner carries out one task turn. Both Agent (single model) and Coordinator
@@ -18,17 +18,17 @@ type Runner interface {
 }
 
 // DefaultPlannerPrompt steers the planner toward concise plans, not execution.
-const DefaultPlannerPrompt = `你是双模型编程代理中的规划器。
+const DefaultPlannerPrompt = `你是双模型编程 Agent 中的规划器。
 收到任务后，请生成一份简洁、有序、可交给执行模型落实的计划。
 当任务需要工作区、用户规则或文档上下文时，使用你可用的只读工具；研究要聚焦，证据足够后立即停止。
 不要编写完整实现，也不要尝试产生副作用。
 不要询问用户如何触发执行器，也不要说你正在等待执行器。
 输出可直接交给执行器的指令：要做什么、哪些文件或命令相关、可能的阻塞点以及关键决策。保持简短、可执行。`
 
-const executorHandoffMarker = "DeepCode executor handoff"
+const executorHandoffMarker = "DeepSeek-Orca executor handoff"
 
 // PlannerPromptWithContext appends cache-stable standing context, such as loaded
-// DEEPCODE.md / AGENTS.md memory, to the planner's smaller system prompt.
+// DEEPSEEK_ORCA.md / AGENTS.md memory, to the planner's smaller system prompt.
 func PlannerPromptWithContext(context string) string {
 	context = strings.TrimSpace(context)
 	if context == "" {

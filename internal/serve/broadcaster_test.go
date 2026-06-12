@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 func TestBroadcasterFanOut(t *testing.T) {

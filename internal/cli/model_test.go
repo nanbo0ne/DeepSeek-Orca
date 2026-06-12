@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 // TestModelRefsFromConfig verifies the /model picker enumerates configured
-// provider/model refs (built-in defaults when no deepcode.toml is present), and
+// provider/model refs (built-in defaults when no deepseek-orca.toml is present), and
 // only those whose provider API key is set.
 func TestModelRefsFromConfig(t *testing.T) {
-	t.Chdir(t.TempDir()) // no deepcode.toml → built-in default providers
+	t.Chdir(t.TempDir()) // no deepseek-orca.toml → built-in default providers
 	// Only DeepSeek keyed → MiMo refs must be filtered out.
 	t.Setenv("DEEPSEEK_API_KEY", "test-key")
 	t.Setenv("MIMO_API_KEY", "")

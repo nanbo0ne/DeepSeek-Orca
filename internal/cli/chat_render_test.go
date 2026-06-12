@@ -6,7 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/textarea"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // newTestChatTUI builds a chatTUI with just the pieces the streaming/commit and

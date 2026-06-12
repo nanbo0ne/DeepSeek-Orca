@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 // helperSpec returns a Spec that re-invokes this test binary as a minimal MCP
@@ -463,7 +463,7 @@ func TestLazyConcurrentExecuteOnlyOneSpawn(t *testing.T) {
 func TestLazyHandshakeFailureSurfaced(t *testing.T) {
 	redirectCache(t)
 	// Bogus command: process exec will fail outright.
-	spec := Spec{Name: "missing", Command: "deepcode-nonexistent-binary-for-lazy-test"}
+	spec := Spec{Name: "missing", Command: "deepseek-orca-nonexistent-binary-for-lazy-test"}
 
 	// Hand-craft a cache so the cache-HIT branch runs (synchronous spawn,
 	// failure surfaces directly to the first caller rather than via a retry

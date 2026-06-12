@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/config"
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/i18n"
 )
 
 // runProviderCommand handles "/provider": with no argument it lists the configured

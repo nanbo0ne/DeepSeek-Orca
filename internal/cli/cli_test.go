@@ -15,11 +15,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"deepcode/internal/config"
-	"deepcode/internal/event"
-	"deepcode/internal/i18n"
-	"deepcode/internal/notify"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/notify"
+	"deepseek-orca/internal/provider"
 )
 
 func TestChdirTo(t *testing.T) {
@@ -100,7 +100,7 @@ func TestMetadataCommandsDoNotProbeTerminalTheme(t *testing.T) {
 			t.Fatalf("version rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "deepcode test-version") {
+	if !strings.Contains(out, "deepseek-orca test-version") {
 		t.Fatalf("version output = %q", out)
 	}
 
@@ -112,7 +112,7 @@ func TestMetadataCommandsDoNotProbeTerminalTheme(t *testing.T) {
 	if !strings.Contains(out, "Usage:") && !strings.Contains(out, "用法：") {
 		t.Fatalf("help output missing usage:\n%s", out)
 	}
-	if !strings.Contains(out, "deepcode run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>") {
+	if !strings.Contains(out, "deepseek-orca run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>") {
 		t.Fatalf("help output missing run resume flags:\n%s", out)
 	}
 }
@@ -133,7 +133,7 @@ func TestRunDispatchesACPLongFlagAlias(t *testing.T) {
 
 func TestRunMigratesLegacyConfigBeforeConfigOnlyCommands(t *testing.T) {
 	isolateCLIConfigHome(t)
-	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "deepcode.toml")
+	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "deepseek-orca.toml")
 	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ command = "legacy-bin"
 
 func TestRunMetadataCommandsDoNotMigrateLegacyConfig(t *testing.T) {
 	isolateCLIConfigHome(t)
-	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "deepcode.toml")
+	legacyPath := filepath.Join(filepath.Dir(config.UserConfigPath()), "deepseek-orca.toml")
 	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestRunMetadataCommandsDoNotMigrateLegacyConfig(t *testing.T) {
 			t.Fatalf("version rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "deepcode test-version") {
+	if !strings.Contains(out, "deepseek-orca test-version") {
 		t.Fatalf("version output = %q", out)
 	}
 	if _, err := os.Stat(config.UserConfigPath()); !os.IsNotExist(err) {
@@ -225,7 +225,7 @@ func TestConfigAutoPlanLocalCreatesMinimalProjectOverride(t *testing.T) {
 		t.Fatalf("config auto-plan --local output = %q", out)
 	}
 
-	body, err := os.ReadFile("deepcode.toml")
+	body, err := os.ReadFile("deepseek-orca.toml")
 	if err != nil {
 		t.Fatalf("read project config: %v", err)
 	}
@@ -252,10 +252,10 @@ func TestWelcomePromptMissingKeysRequiresConfigSource(t *testing.T) {
 	if welcomeShouldPromptMissingKeys("", nil) {
 		t.Fatal("built-in defaults without a config source should not prompt for missing provider keys")
 	}
-	if welcomeShouldPromptMissingKeys("deepcode.toml", errors.New("bad config")) {
+	if welcomeShouldPromptMissingKeys("deepseek-orca.toml", errors.New("bad config")) {
 		t.Fatal("invalid config should not enter the missing-key prompt path")
 	}
-	if !welcomeShouldPromptMissingKeys("deepcode.toml", nil) {
+	if !welcomeShouldPromptMissingKeys("deepseek-orca.toml", nil) {
 		t.Fatal("valid config source should enter the missing-key prompt path")
 	}
 }
@@ -489,10 +489,10 @@ func TestFetchOrFallback(t *testing.T) {
 	})
 
 	t.Run("no key set returns static list (offline first-run)", func(t *testing.T) {
-		t.Setenv("DEEPCODE_FETCH_TEST_KEY", "")
+		t.Setenv("DEEPSEEK_ORCA_FETCH_TEST_KEY", "")
 		probe := config.ProviderEntry{
 			BaseURL:   "http://127.0.0.1:1", // unreachable, no listener
-			APIKeyEnv: "DEEPCODE_FETCH_TEST_KEY",
+			APIKeyEnv: "DEEPSEEK_ORCA_FETCH_TEST_KEY",
 			Models:    []string{"preset-a"},
 		}
 		got := fetchOrFallback(&probe, "Test")
@@ -743,7 +743,7 @@ func TestProviderSlug(t *testing.T) {
 
 // TestFilterStaleCustomEntries covers the wizard's auto-cleanup of legacy
 // "custom" / "anthropic" magic-name entries that previous versions wrote
-// into deepcode.toml. These collide with the wizard's own menu items, so
+// into deepseek-orca.toml. These collide with the wizard's own menu items, so
 // they're dropped from the providers list before grouping — but the caller
 // still gets them back in the dropped slice to surface a warning.
 func TestFilterStaleCustomEntries(t *testing.T) {
@@ -791,7 +791,7 @@ func TestFilterStaleCustomEntries(t *testing.T) {
 }
 
 func TestWithBuiltinFamiliesAddsMissingMiMo(t *testing.T) {
-	// The user's case: a deepcode.toml that defines only deepseek providers.
+	// The user's case: a deepseek-orca.toml that defines only deepseek providers.
 	cfg := []config.ProviderEntry{
 		{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com"},
 		{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com"},
@@ -816,7 +816,7 @@ func groupByFamilyKeys(ps []config.ProviderEntry, key string) []int {
 }
 
 func TestWriteDefaultConfigDisablesCodegraph(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "deepcode.toml")
+	path := filepath.Join(t.TempDir(), "deepseek-orca.toml")
 	if rc := writeDefaultConfig(path); rc != 0 {
 		t.Fatalf("writeDefaultConfig rc = %d", rc)
 	}

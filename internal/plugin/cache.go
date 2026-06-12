@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/config"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/tool"
 )
 
 // cacheableToolsOf extracts the persistable subset of remote tools so Start()

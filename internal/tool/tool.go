@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"deepcode/internal/diff"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/diff"
+	"deepseek-orca/internal/provider"
 )
 
 // Tool is a capability the model can invoke.

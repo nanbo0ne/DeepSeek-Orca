@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"sort"
 
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // sortToolsByName returns a new slice of tools sorted alphabetically by Name().

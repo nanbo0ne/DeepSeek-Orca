@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/event"
-	"deepcode/internal/nilutil"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/nilutil"
 )
 
 // Status is a job's lifecycle state.

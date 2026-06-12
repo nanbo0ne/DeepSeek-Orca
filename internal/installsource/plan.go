@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/skill"
 )
 
 var githubAPIBaseURL = "https://api.github.com"

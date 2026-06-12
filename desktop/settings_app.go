@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/boot"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/provider"
 )
 
 // settings_app.go is the desktop Settings panel's command surface: it reads the
@@ -453,7 +453,7 @@ func botDomainOrDefault(domain string) string {
 // applyConfigChange mutates the user-global config and rebuilds the controller so
 // the change takes effect this session. Desktop settings such as providers and
 // keys are account-level, not per-project: writing them to the global config
-// rather than the cwd's deepcode.toml is what lets them survive a workspace switch.
+// rather than the cwd's deepseek-orca.toml is what lets them survive a workspace switch.
 func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
 	cfg, path, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
@@ -540,9 +540,9 @@ func (a *App) activeWorkspaceRoot() string {
 
 func projectConfigPathForRoot(root string) string {
 	if strings.TrimSpace(root) == "" || root == "." {
-		return "deepcode.toml"
+		return "deepseek-orca.toml"
 	}
-	return filepath.Join(root, "deepcode.toml")
+	return filepath.Join(root, "deepseek-orca.toml")
 }
 
 func sameConfigPath(a, b string) bool {

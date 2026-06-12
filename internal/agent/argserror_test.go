@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // A model that emits structurally-invalid JSON for a tool's args should get the

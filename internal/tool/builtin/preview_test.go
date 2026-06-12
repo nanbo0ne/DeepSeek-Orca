@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepcode/internal/diff"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/diff"
+	"deepseek-orca/internal/tool"
 )
 
 // TestWritersImplementPreviewer locks in that every file-writer exposes the
@@ -55,7 +55,7 @@ func TestPreviewMatchesExecute(t *testing.T) {
 			tool: editFile{},
 			seed: "hello world\n",
 			args: func(p string) map[string]any {
-				return map[string]any{"path": p, "old_string": "world", "new_string": "deepcode"}
+				return map[string]any{"path": p, "old_string": "world", "new_string": "deepseek-orca"}
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestPreviewMatchesExecute(t *testing.T) {
 			args: func(p string) map[string]any {
 				return map[string]any{"path": p, "edits": []map[string]any{
 					{"old_string": "package old", "new_string": "package new"},
-					{"old_string": "old", "new_string": "deepcode", "replace_all": true},
+					{"old_string": "old", "new_string": "deepseek-orca", "replace_all": true},
 				}}
 			},
 		},

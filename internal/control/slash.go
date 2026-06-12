@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/config"
-	"deepcode/internal/i18n"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/skill"
 )
 
 // SlashItem is one slash-completion suggestion. Insert is the token text placed

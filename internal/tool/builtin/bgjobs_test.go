@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/jobs"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/jobs"
 )
 
 // End-to-end through the actual tools: a background bash job runs under a manager

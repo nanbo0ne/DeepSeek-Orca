@@ -3,8 +3,8 @@ package event
 import (
 	"sync"
 
-	"deepcode/internal/evidence"
-	"deepcode/internal/nilutil"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/nilutil"
 )
 
 // Sync wraps a Sink so concurrent Emit calls are serialized. The base Sink

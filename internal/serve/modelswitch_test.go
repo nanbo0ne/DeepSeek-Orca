@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"deepcode/internal/control"
+	"deepseek-orca/internal/control"
 )
 
 // TestControllerAccessorIsRaceSafe guards the switchModel concurrency contract:

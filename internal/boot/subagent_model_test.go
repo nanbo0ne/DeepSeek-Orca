@@ -3,8 +3,8 @@ package boot
 import (
 	"testing"
 
-	"deepcode/internal/config"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/skill"
 )
 
 func TestSubagentModelRefUsesConfiguredDefault(t *testing.T) {

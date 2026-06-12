@@ -11,20 +11,20 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/event"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/tool"
 )
 
-// buildExamplePlugin compiles cmd/deepcode-plugin-example into a temp binary and
+// buildExamplePlugin compiles cmd/deepseek-orca-plugin-example into a temp binary and
 // returns its path. Building from inside the module lets `go build` resolve the
 // import path regardless of the test's working directory.
 func buildExamplePlugin(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "deepcode-plugin-example")
+	bin := filepath.Join(t.TempDir(), "deepseek-orca-plugin-example")
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	out, err := exec.Command("go", "build", "-o", bin, "deepcode/cmd/deepcode-plugin-example").CombinedOutput()
+	out, err := exec.Command("go", "build", "-o", bin, "deepseek-orca/cmd/deepseek-orca-plugin-example").CombinedOutput()
 	if err != nil {
 		t.Fatalf("build example plugin: %v\n%s", err, out)
 	}

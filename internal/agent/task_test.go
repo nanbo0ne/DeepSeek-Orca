@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 func testTaskContext() context.Context {
@@ -165,7 +165,7 @@ func TestTaskToolRequiresTranscriptStore(t *testing.T) {
 	}
 }
 
-// TestTaskToolRunsEphemerallyWithoutParentSession mirrors headless `deepcode run`:
+// TestTaskToolRunsEphemerallyWithoutParentSession mirrors headless `deepseek-orca run`:
 // the store is wired but the context carries no parent session, so the sub-agent
 // must run without persistence and return its plain answer (no transcript ref).
 func TestTaskToolRunsEphemerallyWithoutParentSession(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/control"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/control"
 )
 
 func (m *chatTUI) showBranchTree() {

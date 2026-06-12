@@ -9,14 +9,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/agent/testutil"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/i18n"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/agent/testutil"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // TestRunStatuslineCmd checks the custom status-line runner: it returns the
@@ -210,10 +210,10 @@ func TestStatuslinePutsGitIdentityOnModeRow(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("status block lines = %d, want 2:\n%s", len(lines), strings.Join(lines, "\n"))
 	}
-	if !strings.Contains(lines[0], "effort auto · DeepCode@codex/demo (+3 -1 ?2)") {
+	if !strings.Contains(lines[0], "effort auto · DeepSeek-Orca@codex/demo (+3 -1 ?2)") {
 		t.Fatalf("mode row should include effort before git identity:\n%s", strings.Join(lines, "\n"))
 	}
-	if strings.Contains(lines[1], "DeepCode@codex/demo") {
+	if strings.Contains(lines[1], "DeepSeek-Orca@codex/demo") {
 		t.Fatalf("data row should not include git identity:\n%s", strings.Join(lines, "\n"))
 	}
 	if !strings.Contains(lines[1], "deepseek-v4-flash") || strings.Contains(lines[1], "effort auto") {
@@ -288,7 +288,7 @@ func renderStatuslineViewWithGitAndEffort(t *testing.T) string {
 	m.label = "deepseek-v4-flash"
 	m.effortLevel = "auto"
 	m.gitStatus = gitStatus{
-		Repo:      "DeepCode",
+		Repo:      "DeepSeek-Orca",
 		Branch:    "codex/demo",
 		Added:     3,
 		Removed:   1,

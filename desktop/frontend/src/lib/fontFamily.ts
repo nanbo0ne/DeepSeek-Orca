@@ -4,7 +4,7 @@ export type FontFamily = (typeof FONT_FAMILIES)[number];
 
 export const DEFAULT_FONT_FAMILY: FontFamily = "system";
 
-const FONT_FAMILY_KEY = "deepcode-font-family";
+const FONT_FAMILY_KEY = "deepseek-orca-font-family";
 
 export function isFontFamily(value: unknown): value is FontFamily {
   return typeof value === "string" && (FONT_FAMILIES as readonly string[]).includes(value);

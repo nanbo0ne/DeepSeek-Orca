@@ -22,21 +22,21 @@ import (
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/command"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/hook"
-	"deepcode/internal/i18n"
-	"deepcode/internal/memory"
-	"deepcode/internal/outputstyle"
-	"deepcode/internal/permission"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/skill"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/hook"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/outputstyle"
+	"deepseek-orca/internal/permission"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/skill"
+	"deepseek-orca/internal/tool"
 )
 
 // chatTUI is a bubbletea Model that normally owns the terminal with an
@@ -238,7 +238,7 @@ type chatTUI struct {
 	// (/mcp) from it.
 	host *plugin.Host
 
-	// commands are custom slash commands loaded from .deepcode/commands; each renders
+	// commands are custom slash commands loaded from .deepseek-orca/commands; each renders
 	// its template with the typed args and sends the result as a turn.
 	commands []command.Command
 
@@ -3774,7 +3774,7 @@ func replaySectionsFor(history []provider.Message, width int, renderer *mdRender
 // at the top of the session.
 func renderTUIBanner(label, missing string, width int) string {
 	var b strings.Builder
-	b.WriteString(accent("◆") + " " + bold("deepcode chat") + "  " + dim("· "+label) + "\n")
+	b.WriteString(accent("◆") + " " + bold("deepseek-orca chat") + "  " + dim("· "+label) + "\n")
 	b.WriteString(dim("  "+i18n.M.ChatTip) + "\n")
 	if missing != "" {
 		b.WriteString(wrapForViewport("  ! "+missing, width, activeCLITheme.warn) + "\n")
@@ -3805,7 +3805,7 @@ func renderUserBubble(line string, width int, planMode bool) string {
 	return "  " + accent(prefix+line)
 }
 
-var cliImageRefRe = regexp.MustCompile(`(?:^|\s)@\.deepcode/attachments/clipboard-\d{8}-\d{6}\.\d+(?:-(?:\d{6}|[a-f0-9]{8}))?\.(?:png|jpg|jpeg|gif|webp)`)
+var cliImageRefRe = regexp.MustCompile(`(?:^|\s)@\.deepseek-orca/attachments/clipboard-\d{8}-\d{6}\.\d+(?:-(?:\d{6}|[a-f0-9]{8}))?\.(?:png|jpg|jpeg|gif|webp)`)
 
 func displayLineForImageRefs(line string) string {
 	idx := 0

@@ -19,13 +19,13 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/boot"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/nilutil"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/nilutil"
+	"deepseek-orca/internal/provider"
 )
 
 //go:embed index.html

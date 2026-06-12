@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/checkpoint"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/checkpoint"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
 )
 
 func seedCheckpoint(t *testing.T, ckptDir string, c checkpoint.Checkpoint) {

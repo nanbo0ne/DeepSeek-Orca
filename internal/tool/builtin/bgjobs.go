@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"deepcode/internal/jobs"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/jobs"
+	"deepseek-orca/internal/tool"
 )
 
 // bash_output / kill_shell / wait operate the background jobs registered by

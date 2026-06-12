@@ -3,7 +3,7 @@ package installsource
 import (
 	"encoding/json"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 // request mirrors the public schema. Fields stay exported because Execute

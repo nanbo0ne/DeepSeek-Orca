@@ -8,9 +8,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/config"
-	"deepcode/internal/hook"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/hook"
+	"deepseek-orca/internal/skill"
 )
 
 func (m *chatTUI) runSkillSubcommand(input string) {
@@ -62,7 +62,7 @@ func (m *chatTUI) skillList() {
 		skills = m.ctrl.AllSkills()
 	}
 	if len(skills) == 0 {
-		m.notice("no skills found. Add SKILL.md / <name>.md under .deepcode/skills (project) or ~/.deepcode/skills (global); .agents/.agent/.claude skills dirs also work. Invoke with /<name> or run_skill.")
+		m.notice("no skills found. Add SKILL.md / <name>.md under .deepseek-orca/skills (project) or ~/.deepseek-orca/skills (global); .agents/.agent/.claude skills dirs also work. Invoke with /<name> or run_skill.")
 		return
 	}
 	m.commitLine(renderSkillList(m.width, sortedSkills(skills), m.disabledSkillNames()))

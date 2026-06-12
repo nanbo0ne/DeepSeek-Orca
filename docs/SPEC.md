@@ -1,6 +1,6 @@
-# DeepCode Engineering Spec
+# DeepSeek-Orca Engineering Spec
 
-> DeepCode is a coding agent: a thin harness driving multiple models, with **all
+> DeepSeek-Orca is a coding agent: a thin harness driving multiple models, with **all
 > capabilities supplied by configuration and plugins**. This document is the
 > contract — code follows it. Change the contract first, then the code.
 
@@ -26,14 +26,14 @@ README is bilingual (`README.md` English + `README.zh-CN.md`).
 ## 2. Layout
 
 ```
-deepcode/
-├── go.mod / go.sum          # module deepcode; require BurntSushi/toml
+deepseek-orca/
+├── go.mod / go.sum          # module deepseek-orca; require BurntSushi/toml
 ├── Makefile                 # build / cross / vet / fmt / test
 ├── README.md / README.zh-CN.md
-├── deepcode.example.toml         # sample config
+├── deepseek-orca.example.toml         # sample config
 ├── docs/SPEC.md             # this file
-├── cmd/deepcode/main.go          # entry; blank-imports built-in providers/tools
-├── cmd/deepcode-plugin-example/  # reference MCP stdio plugin (a runnable example)
+├── cmd/deepseek-orca/main.go          # entry; blank-imports built-in providers/tools
+├── cmd/deepseek-orca-plugin-example/  # reference MCP stdio plugin (a runnable example)
 └── internal/
     ├── cli/                 # subcommand routing, flags, assembly, exit codes
     ├── config/              # TOML loading (flag > project > user > defaults)
@@ -42,7 +42,7 @@ deepcode/
     ├── tool/                # Tool interface + Registry
     │   └── builtin/         # read_file/write_file/edit_file/bash/ls/glob/grep
     ├── permission/          # per-call Policy: allow/ask/deny rules → Decision
-    ├── command/             # custom slash commands loaded from .deepcode/commands/*.md
+    ├── command/             # custom slash commands loaded from .deepseek-orca/commands/*.md
     ├── plugin/              # stdio JSON-RPC (MCP) client; adapts remote tools
     └── agent/               # Session + harness loop
 ```
@@ -146,7 +146,7 @@ interface (`call` / `notify` / `close`) abstracts that, so the MCP-level logic
 - `prompts/list` + `prompts/get` surface as `/mcp__<server>__<prompt>` slash
   commands; `resources/list` + `resources/read` are referenced as
   `@<server>:<uri>` in chat. `/mcp` shows connected servers and their counts.
-- `cmd/deepcode-plugin-example` is a runnable reference stdio server (`echo`,
+- `cmd/deepseek-orca-plugin-example` is a runnable reference stdio server (`echo`,
   `wordcount`), driven by an end-to-end test that builds the real binary.
 
 ### 3.4 Agent (`internal/agent`)
@@ -179,7 +179,7 @@ prefix cache-stable:
 
 ### 3.6 Context management (compaction)
 
-Long tasks eventually fill the model's context window. DeepCode manages this with
+Long tasks eventually fill the model's context window. DeepSeek-Orca manages this with
 **low-frequency compaction** that respects the cache-first design:
 
 - Each provider declares its `context_window` (tokens). When a turn's reported
@@ -191,7 +191,7 @@ Long tasks eventually fill the model's context window. DeepCode manages this wit
   messages. The boundary is aligned backward off any tool result so the recent
   tail never begins with an orphan tool message whose `tool_calls` were
   summarized away.
-- The dropped originals are archived to `~/.config/deepcode/archive/<timestamp>.jsonl`
+- The dropped originals are archived to `~/.config/deepseek-orca/archive/<timestamp>.jsonl`
   (one message per line), so the full history stays traceable.
 
 This is the **only** point where the prompt prefix changes — a deliberate, rare
@@ -244,7 +244,7 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
   grant is path-scoped when a path is available, stored as `Edit(<path>)` so all
   built-in file-mutating tools share it. A
   non-interactive run
-  (`deepcode run`, a sub-agent, anything with no TTY / no approver) cannot prompt, so
+  (`deepseek-orca run`, a sub-agent, anything with no TTY / no approver) cannot prompt, so
   it resolves `Ask` to **allow** — preserving autonomous behaviour. A `Deny` is a
   hard block in *every* mode: the tool never executes and the model receives a
   "blocked" result it can adapt to (the same shape as a plan-mode refusal).
@@ -286,8 +286,8 @@ func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Dec
 | YOLO approval / `yolo` | Approval prompts auto-allowed unless denied | Waits for user | Waits for user |
 | Approved-plan execution window | Approved plan's tool calls auto-allowed unless denied | Future plans still wait | Waits for user |
 
-Out of the box (`mode = "ask"`, no rules) `deepcode run` behaves exactly as before
-(writers resolve `Ask`→allow with no TTY), while `deepcode chat` now prompts before
+Out of the box (`mode = "ask"`, no rules) `deepseek-orca run` behaves exactly as before
+(writers resolve `Ask`→allow with no TTY), while `deepseek-orca chat` now prompts before
 each writer/bash call. `deny` rules harden both modes.
 
 ### 3.8 Slash commands (`internal/command`)
@@ -299,8 +299,8 @@ The chat TUI accepts `/command` input. Three kinds share one dispatch:
   saving the previous transcript for resume/history. `/clear` requires
   confirmation, then discards the current context without saving it; it does not
   delete project memory.
-- **Custom commands** are Markdown files under `.deepcode/commands/` (project) and
-  `~/.config/deepcode/commands/` (user); the project dir overrides the user dir on a
+- **Custom commands** are Markdown files under `.deepseek-orca/commands/` (project) and
+  `~/.config/deepseek-orca/commands/` (user); the project dir overrides the user dir on a
   name clash. A file `review.md` becomes `/review`; a subdirectory namespaces it
   (`git/commit.md` → `/git:commit`). Invoking one renders its body and sends the
   result as the next user turn.
@@ -315,7 +315,7 @@ Review the staged diff. Focus on $ARGUMENTS, list bugs with file:line.
 ```
 
 - Frontmatter is an optional `---`-fenced block of simple `key: value` lines;
-  `description` and `argument-hint` are recognised (no YAML dependency — DeepCode
+  `description` and `argument-hint` are recognised (no YAML dependency — DeepSeek-Orca
   stays lean). The remainder is the body template.
 - Substitution in the body: `$ARGUMENTS` (all args, space-joined), `$1`…`$N`
   (positional, empty when absent), `$$` (a literal `$`). Arguments are the
@@ -395,19 +395,19 @@ type Chunk struct {
 
 ## 5. Configuration (TOML)
 
-Resolution order: **flag > project `./deepcode.toml` > user `~/.config/deepcode/config.toml`
+Resolution order: **flag > project `./deepseek-orca.toml` > user `~/.config/deepseek-orca/config.toml`
 > built-in defaults**. Secrets come from the environment via `api_key_env` and
 are never stored in config files. A `.env` in the working directory is loaded if
 present. Step-limit preferences usually belong in the user config; project
-`deepcode.toml` should override them only when the repository needs shared
+`deepseek-orca.toml` should override them only when the repository needs shared
 runtime bounds.
 
 ```toml
 default_model = "deepseek"   # provider name (→ its default model) or "provider/model"
-# language    = "zh"                # ui language tag; empty = auto-detect from $LANG / $DEEPCODE_LANG
+# language    = "zh"                # ui language tag; empty = auto-detect from $LANG / $DEEPSEEK_ORCA_LANG
 
 [agent]
-system_prompt = "You are DeepCode, a coding agent..."  # or system_prompt_file = "..."
+system_prompt = "You are DeepSeek-Orca, a coding agent..."  # or system_prompt_file = "..."
 max_steps         = 0    # executor tool-call rounds; 0 = no limit
 planner_max_steps = 12   # planner read-only tool-call rounds; 0 = no limit
 temperature       = 0.0
@@ -461,7 +461,7 @@ ask   = []                                 # force a prompt even if otherwise al
 
 [[plugins]]
 name    = "example"            # type defaults to "stdio"
-command = "deepcode-plugin-example"
+command = "deepseek-orca-plugin-example"
 args    = []
 # env   = { FOO = "bar" }
 
@@ -472,14 +472,14 @@ args    = []
 # headers = { Authorization = "Bearer ${STRIPE_KEY}" }   # ${VAR} / ${VAR:-default} expanded
 ```
 
-`deepcode setup` writes this default config so the CLI is usable out of the box.
+`deepseek-orca setup` writes this default config so the CLI is usable out of the box.
 
 MCP servers may also be declared in a project-root `.mcp.json` using Claude
 Code's exact `mcpServers` schema (`command`/`args`/`env`, `type`/`url`/`headers`,
 `${VAR}` expansion). It is read after the TOML files and merged into
-`[[plugins]]`; on a name collision `deepcode.toml` wins (it is the more explicit,
-DeepCode-specific source). This lets a server already configured for Claude work in
-DeepCode unchanged.
+`[[plugins]]`; on a name collision `deepseek-orca.toml` wins (it is the more explicit,
+DeepSeek-Orca-specific source). This lets a server already configured for Claude work in
+DeepSeek-Orca unchanged.
 
 ```json
 { "mcpServers": {
@@ -517,7 +517,7 @@ running unconfined. The escape-prompt and Linux support are Phase 1's remainder 
 
 ## 8. Distribution
 
-- Build: `CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=$(VERSION)" -o deepcode ./cmd/deepcode`
+- Build: `CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=$(VERSION)" -o deepseek-orca ./cmd/deepseek-orca`
 - Cross matrix: `darwin|linux|windows` × `amd64|arm64`.
 - Version injected via ldflags (`git describe --tags --always`).
 - Install: prebuilt binary / `go install` / future `brew tap`.
@@ -528,7 +528,7 @@ running unconfined. The escape-prompt and Linux support are Phase 1's remainder 
   file-writer built-ins (Phase 0) — are confined to the workspace. **macOS
   (Seatbelt via `sandbox-exec`) ships, on by default** (see §5). Remaining: (a)
   the escape-prompt — detect a sandbox-denied failure and offer to re-run the
-  command unconfined via the permission gate (in `deepcode run`, the command just
+  command unconfined via the permission gate (in `deepseek-orca run`, the command just
   fails and the model adapts), which completes the "allow inside the box, prompt
   at its edge" model; (b) Linux (bubblewrap / landlock). Shells out to OS tooling
   so the binary stays dependency-free; Windows is out of scope. With this in
@@ -541,4 +541,4 @@ running unconfined. The escape-prompt and Linux support are Phase 1's remainder 
 - An Anthropic-native provider `kind` (native prompt-cache control), proving the
   registry generalises beyond one wire format.
 - "Always allow" persistence writing learned rules back to project config; a
-  per-session permission override flag for `deepcode run`.
+  per-session permission override flag for `deepseek-orca run`.

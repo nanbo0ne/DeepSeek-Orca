@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 // DefaultStartupBudget is the per-plugin latency budget used by boot when

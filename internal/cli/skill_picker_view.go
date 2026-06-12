@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/i18n"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/skill"
 )
 
 const (

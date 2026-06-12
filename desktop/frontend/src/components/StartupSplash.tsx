@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import logoSymbol from "../assets/logo-symbol.png";
 import { useT } from "../lib/i18n";
 
-const SPLASH_FLAG = "deepcode.splash.shown";
+const SPLASH_FLAG = "deepseek-orca.splash.shown";
 const MIN_VISIBLE_MS = 850;
 const FADE_OUT_MS = 220;
 const MAX_HOLD_MS = 2500;
@@ -71,7 +71,7 @@ export function StartupSplash({ hold, onDone }: { hold: boolean; onDone: () => v
         <div className="startup-splash__mark" aria-hidden="true">
           <img src={logoSymbol} alt="" draggable={false} />
         </div>
-        <div className="startup-splash__name">DeepCode</div>
+        <div className="startup-splash__name">DeepSeek-Orca</div>
         <div className="startup-splash__sub">{t("app.splashSubtitle")}</div>
         <div className="startup-splash__dots" aria-hidden="true">
           <span />

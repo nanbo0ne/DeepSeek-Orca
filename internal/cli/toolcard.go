@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 // connector is the Claude-style "⎿" gutter that ties a continuation block (tool

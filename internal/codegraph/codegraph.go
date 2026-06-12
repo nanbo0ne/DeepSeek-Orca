@@ -6,7 +6,7 @@
 // would need.
 //
 // CodeGraph is fetched on first use into a per-version cache (see Install) rather
-// than shipped in the deepcode binary, which keeps installs small. Resolve finds
+// than shipped in the deepseek-orca binary, which keeps installs small. Resolve finds
 // the cached launcher; an explicit config path, a system-installed `codegraph` on
 // PATH, and a bundle placed beside the executable are also honored. boot injects
 // the resolved launcher as one more stdio plugin, pinned to the project root via
@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/proc"
+	"deepseek-orca/internal/proc"
 )
 
 const initTimeout = 30 * time.Second
@@ -40,7 +40,7 @@ You have codegraph tools for symbol-level code intelligence. For architecture qu
 - codegraph_files — project file tree with symbol counts
 Use grep/read_file for content search (comments, strings, config values) and when codegraph is not available.`
 
-// BundleDirName is the optional directory, beside the deepcode executable, where
+// BundleDirName is the optional directory, beside the deepseek-orca executable, where
 // an operator can place an unpacked CodeGraph bundle for offline use. Its
 // launcher lives at <BundleDirName>/bin/codegraph, with the bundled node runtime
 // and lib/ beside it; the launcher resolves those relative to itself, so the
@@ -73,7 +73,7 @@ func Resolve(override string) (string, bool) {
 	return "", false
 }
 
-// bundled looks for the CodeGraph launcher unpacked beside the deepcode binary.
+// bundled looks for the CodeGraph launcher unpacked beside the deepseek-orca binary.
 // The executable path is symlink-resolved first so a launcher installed via a
 // symlink (e.g. a package manager's bin shim) still points at the real bundle.
 func bundled() (string, bool) {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/checkpoint"
+	"deepseek-orca/internal/checkpoint"
 )
 
 func TestOneLine(t *testing.T) {

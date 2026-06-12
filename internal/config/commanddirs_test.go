@@ -8,7 +8,7 @@ import (
 
 // TestCommandDirsIncludeConventions verifies command discovery covers the
 // cross-tool convention dirs (so .claude/commands etc. migrate in) and that the
-// canonical .deepcode project dir is highest priority (last, since command.Load
+// canonical .deepseek-orca project dir is highest priority (last, since command.Load
 // lets a later dir win on a name clash).
 func TestCommandDirsIncludeConventions(t *testing.T) {
 	dirs := CommandDirs()
@@ -17,14 +17,14 @@ func TestCommandDirsIncludeConventions(t *testing.T) {
 		filepath.Join(".claude", "commands"),
 		filepath.Join(".agents", "commands"),
 		filepath.Join(".agent", "commands"),
-		filepath.Join(".deepcode", "commands"),
+		filepath.Join(".deepseek-orca", "commands"),
 	} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("CommandDirs missing %q\ngot:\n%s", want, joined)
 		}
 	}
-	// The project's .deepcode/commands must be the highest-priority (last) entry.
-	if last := dirs[len(dirs)-1]; last != filepath.Join(".deepcode", "commands") {
-		t.Errorf("project .deepcode/commands should be highest priority (last), got %q", last)
+	// The project's .deepseek-orca/commands must be the highest-priority (last) entry.
+	if last := dirs[len(dirs)-1]; last != filepath.Join(".deepseek-orca", "commands") {
+		t.Errorf("project .deepseek-orca/commands should be highest priority (last), got %q", last)
 	}
 }

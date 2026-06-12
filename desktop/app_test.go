@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
 )
 
 // setTestCtrl creates a minimal workspace tab (if needed) and sets its
@@ -87,8 +87,8 @@ func TestEffortDefaultsBeforeStartup(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	got := NewApp().Effort()
-	if !got.Supported || got.Current != "auto" || got.Default != "high" || !hasLevel(got.Levels, "auto") {
-		t.Fatalf("pre-startup Effort() = %+v, want auto with DeepSeek default high", got)
+	if !got.Supported || got.Current != "auto" || got.Default != "auto" || !hasLevel(got.Levels, "auto") {
+		t.Fatalf("pre-startup Effort() = %+v, want auto with DeepSeek default auto", got)
 	}
 }
 
@@ -222,7 +222,7 @@ func TestSettingsUsesUserDesktopPreferencesNotProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(project, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "deepseek-orca.toml"), []byte(`
 [desktop]
 language = "zh"
 theme = "light"
@@ -262,7 +262,7 @@ func TestSettingsSeedsMissingUserConfigFromLegacyProjectConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	project := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(project, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(project, "deepseek-orca.toml"), []byte(`
 default_model = "legacy-provider/legacy-model"
 
 [desktop]
@@ -772,13 +772,13 @@ func TestSaveProviderPersistsReasoningProtocol(t *testing.T) {
 
 func TestDeleteProviderMigratesConfigAndOpenTabs(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPCODE_TEST_KEY", "sk-test")
+	t.Setenv("DEEPSEEK_ORCA_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a2"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", Models: []string{"model-a1", "model-a2"}, APIKeyEnv: "DEEPCODE_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "DEEPCODE_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", Models: []string{"model-a1", "model-a2"}, APIKeyEnv: "DEEPSEEK_ORCA_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "DEEPSEEK_ORCA_TEST_KEY"},
 	}
 	cfg.Agent.PlannerModel = "prov-a"
 	cfg.Desktop.ProviderAccess = []string{"prov-a", "prov-b"}
@@ -818,13 +818,13 @@ func TestDeleteProviderMigratesConfigAndOpenTabs(t *testing.T) {
 
 func TestDeleteProviderRejectsRunningAffectedTab(t *testing.T) {
 	isolateDesktopUserDirs(t)
-	t.Setenv("DEEPCODE_TEST_KEY", "sk-test")
+	t.Setenv("DEEPSEEK_ORCA_TEST_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "prov-a/model-a1"
 	cfg.Providers = []config.ProviderEntry{
-		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "DEEPCODE_TEST_KEY"},
-		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "DEEPCODE_TEST_KEY"},
+		{Name: "prov-a", Kind: "openai", BaseURL: "https://a.example.com", Model: "model-a1", APIKeyEnv: "DEEPSEEK_ORCA_TEST_KEY"},
+		{Name: "prov-b", Kind: "openai", BaseURL: "https://b.example.com", Model: "model-b1", APIKeyEnv: "DEEPSEEK_ORCA_TEST_KEY"},
 	}
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -1283,7 +1283,7 @@ func TestSubmitToTabHistoryDisplaysRawInputAfterMemoryCompose(t *testing.T) {
 
 	app := NewApp()
 	app.setTestCtrl(ctrl, "deepseek/test")
-	ctrl.QueueMemory(`Saved memory "deepcode-contributions": contribution count updated`)
+	ctrl.QueueMemory(`Saved memory "deepseek-orca-contributions": contribution count updated`)
 
 	const prompt = "不要，删了"
 	app.SubmitToTab("test", prompt)
@@ -1312,7 +1312,7 @@ func TestForkCreatesActiveTabWithoutSwitchingSourceController(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	workspace := robustTempDir(t)
-	if err := os.WriteFile(filepath.Join(workspace, "deepcode.toml"), []byte("[codegraph]\nenabled = false\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspace, "deepseek-orca.toml"), []byte("[codegraph]\nenabled = false\n"), 0o644); err != nil {
 		t.Fatalf("write workspace config: %v", err)
 	}
 	dir := config.SessionDir()
@@ -1406,7 +1406,7 @@ func TestCapabilitiesShowsDefaultMCPAsInitializingNotDisabled(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1472,7 +1472,7 @@ func TestCapabilitiesMarksBackgroundRemoteMCPAuthPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1505,7 +1505,7 @@ func TestCapabilitiesDoesNotMarkRemoteMCPWithAuthHeaderPossible(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1539,7 +1539,7 @@ func TestCapabilitiesMarksAuthFailureRequired(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1574,7 +1574,7 @@ func TestClearMCPServerAuthenticationClearsConfigAndFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1637,7 +1637,7 @@ func TestUpdateMCPServerMigratesLegacyTierToBackground(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1688,7 +1688,7 @@ tier = "lazy"
 	if userPlugin.Tier != "" {
 		t.Fatalf("user plugin tier = %q, want migrated empty", userPlugin.Tier)
 	}
-	projectCfg := config.LoadForEdit(filepath.Join(dir, "deepcode.toml"))
+	projectCfg := config.LoadForEdit(filepath.Join(dir, "deepseek-orca.toml"))
 	if _, ok := findPluginEntry(projectCfg.Plugins, "playwright"); ok {
 		t.Fatalf("project plugin should be removed after desktop migration: %+v", projectCfg.Plugins)
 	}
@@ -1711,7 +1711,7 @@ func TestUpdateMCPServerSplitsPastedCommandLine(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1751,7 +1751,7 @@ func TestUpdateMCPServerRecordsReconnectFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
@@ -1770,7 +1770,7 @@ tier = "background"
 	if err := app.UpdateMCPServer("broken", MCPServerInput{
 		Name:      "broken",
 		Transport: "stdio",
-		Command:   "deepcode-missing-mcp-binary",
+		Command:   "deepseek-orca-missing-mcp-binary",
 	}); err != nil {
 		t.Fatalf("UpdateMCPServer should persist config even when reconnect fails: %v", err)
 	}
@@ -1778,7 +1778,7 @@ tier = "background"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Plugins[0].Command; got != "deepcode-missing-mcp-binary" {
+	if got := cfg.Plugins[0].Command; got != "deepseek-orca-missing-mcp-binary" {
 		t.Fatalf("updated command = %q, want missing binary", got)
 	}
 	if got := cfg.Plugins[0].Tier; got != "" {
@@ -1793,7 +1793,7 @@ tier = "background"
 			if s.Status != "failed" {
 				t.Fatalf("server status = %q, want failed; server = %+v", s.Status, s)
 			}
-			if s.Command != "deepcode-missing-mcp-binary" || s.Tier != "background" {
+			if s.Command != "deepseek-orca-missing-mcp-binary" || s.Tier != "background" {
 				t.Fatalf("server config not refreshed after failed reconnect: %+v", s)
 			}
 			return
@@ -1806,13 +1806,13 @@ func TestSetMCPServerTierRecordsConnectFailure(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
 [[plugins]]
 name = "broken"
-command = "deepcode-missing-mcp-binary"
+command = "deepseek-orca-missing-mcp-binary"
 tier = "lazy"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -1844,7 +1844,7 @@ tier = "lazy"
 	if userPlugin.Tier != "" {
 		t.Fatalf("user plugin tier = %q, want migrated empty", userPlugin.Tier)
 	}
-	projectCfg := config.LoadForEdit(filepath.Join(dir, "deepcode.toml"))
+	projectCfg := config.LoadForEdit(filepath.Join(dir, "deepseek-orca.toml"))
 	if _, ok := findPluginEntry(projectCfg.Plugins, "broken"); ok {
 		t.Fatalf("project plugin should be removed after desktop migration: %+v", projectCfg.Plugins)
 	}
@@ -1872,10 +1872,10 @@ func TestSetMCPServerTierEnablesCodegraphAndIgnoresLegacyTier(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", robustTempDir(t))
 	t.Setenv("AppData", robustTempDir(t))
 	t.Setenv("PATH", robustTempDir(t))
-	t.Setenv("DEEPCODE_CACHE_DIR", robustTempDir(t)) // isolate the codegraph bundle cache so Resolve fails deterministically
+	t.Setenv("DEEPSEEK_ORCA_CACHE_DIR", robustTempDir(t)) // isolate the codegraph bundle cache so Resolve fails deterministically
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 auto_install = true
@@ -1929,7 +1929,7 @@ func TestSetMCPServerEnabledPersistsCodegraphOff(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = true
 tier = "lazy"
@@ -1971,13 +1971,13 @@ func TestCapabilitiesMigratesFailedMCPConfiguredTierAfterRestart(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "deepcode.toml"), []byte(`
+	if err := os.WriteFile(filepath.Join(dir, "deepseek-orca.toml"), []byte(`
 [codegraph]
 enabled = false
 
 [[plugins]]
 name = "broken"
-command = "deepcode-missing-mcp-binary"
+command = "deepseek-orca-missing-mcp-binary"
 tier = "eager"
 `), 0o644); err != nil {
 		t.Fatal(err)
@@ -1988,7 +1988,7 @@ tier = "eager"
 	defer app.activeCtrl().Close()
 	recordMCPFailure(app.activeCtrl(), config.PluginEntry{
 		Name:    "broken",
-		Command: "deepcode-missing-mcp-binary",
+		Command: "deepseek-orca-missing-mcp-binary",
 		Tier:    "eager",
 	}, errors.New("connect: missing binary"))
 

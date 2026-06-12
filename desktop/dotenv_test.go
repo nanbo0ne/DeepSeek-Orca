@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 // TestUpsertEnvFile proves a new key is appended, an existing key is replaced in

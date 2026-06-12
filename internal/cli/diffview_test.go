@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 func TestDiffBodyDropsHeadersKeepsLineNumbers(t *testing.T) {

@@ -16,8 +16,8 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	"deepcode/internal/netclient"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(webFetch{}) }
@@ -258,7 +258,7 @@ func (wf webFetch) Execute(ctx context.Context, args json.RawMessage) (string, e
 	}
 	// A plain UA + Accept tip the server toward returning text/HTML rather
 	// than minified asset bundles or binary content.
-	req.Header.Set("User-Agent", "deepcode-web-fetch/1.0")
+	req.Header.Set("User-Agent", "deepseek-orca-web-fetch/1.0")
 	req.Header.Set("Accept", "text/html,text/plain,text/markdown,application/json,*/*;q=0.5")
 
 	resp, err := ssrfGuardedClient(wf.proxyURLFor).Do(req)

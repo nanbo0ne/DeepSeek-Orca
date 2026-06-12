@@ -9,10 +9,10 @@ import (
 	"sync"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/provider/openai"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/provider/openai"
+	"deepseek-orca/internal/tool"
 )
 
 type recordSink struct {

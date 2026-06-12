@@ -29,9 +29,9 @@ import { latexNormalizeForKatex } from "./latexNormalize";
 // rather than split at stray $ signs inside \text{}.
 const TEXT_MODE_PAIR = /\$\s*(\\[A-Za-z]+\{(?:[^{}]|\{[^{}]*\})*\}[^$]*?)\s*\$/g;
 
-const DM = "__DEEPCODE_MATH_DISPLAY__";
-const IM = "__DEEPCODE_MATH_INLINE__";
-const LB = "__DEEPCODE_LATEX_LINEBREAK__";
+const DM = "__DEEPSEEK_ORCA_MATH_DISPLAY__";
+const IM = "__DEEPSEEK_ORCA_MATH_INLINE__";
+const LB = "__DEEPSEEK_ORCA_LATEX_LINEBREAK__";
 const DOLLAR = "&#36;";
 
 export function normalizeMath(s: string): string {
@@ -123,11 +123,11 @@ function protectMarkdownCode(s: string): { text: string; prefix: string; segment
 }
 
 function unusedPlaceholderPrefix(s: string): string {
-  let prefix = "__DEEPCODE_PROTECTED_CODE__";
+  let prefix = "__DEEPSEEK_ORCA_PROTECTED_CODE__";
   let n = 0;
   while (s.includes(prefix)) {
     n += 1;
-    prefix = `__DEEPCODE_PROTECTED_CODE_${n}__`;
+    prefix = `__DEEPSEEK_ORCA_PROTECTED_CODE_${n}__`;
   }
   return prefix;
 }

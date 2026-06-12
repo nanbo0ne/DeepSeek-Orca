@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 const legacyEventLog = `{"type":"model.turn.started","id":1,"ts":"t","turn":0,"model":"deepseek"}

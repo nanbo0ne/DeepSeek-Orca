@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/tool"
 )
 
 // fatTool returns a fixed-size blob, standing in for a real read_file / bash

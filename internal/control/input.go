@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/skill"
 )
 
 var reComposeBlock = regexp.MustCompile(`(?s)^\s*<(?:memory-update|background-jobs)>.*?</(?:memory-update|background-jobs)>\s*\n`)

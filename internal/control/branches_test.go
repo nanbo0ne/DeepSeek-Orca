@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 func TestBranchAndSwitch(t *testing.T) {

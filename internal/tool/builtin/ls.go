@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(listDir{}) }

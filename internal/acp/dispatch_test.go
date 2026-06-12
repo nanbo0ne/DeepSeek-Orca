@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // fakeNotifier captures Notify calls and answers Request via an injectable hook,

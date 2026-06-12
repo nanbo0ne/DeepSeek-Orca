@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/netclient"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/tool"
 )
 
 // ConfineBash returns the bash built-in bound to an OS-sandbox spec, overriding
@@ -22,7 +22,7 @@ func ConfineBash(spec sandbox.Spec, timeout ...time.Duration) tool.Tool {
 	return b
 }
 
-// ConfineWebFetch returns the web_fetch built-in bound to DeepCode proxy
+// ConfineWebFetch returns the web_fetch built-in bound to DeepSeek-Orca proxy
 // settings while preserving its SSRF-guarded dialer.
 func ConfineWebFetch(proxySpec netclient.ProxySpec) tool.Tool {
 	return webFetch{proxySpec: proxySpec}
@@ -77,7 +77,7 @@ func confine(roots []string, target string) error {
 		}
 	}
 	return fmt.Errorf("path %q is outside the workspace (writes are confined to %s); "+
-		"write inside it, or widen [sandbox] workspace_root / allow_write in deepcode.toml",
+		"write inside it, or widen [sandbox] workspace_root / allow_write in deepseek-orca.toml",
 		target, strings.Join(roots, ", "))
 }
 

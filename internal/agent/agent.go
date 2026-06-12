@@ -11,15 +11,15 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepcode/internal/diff"
-	"deepcode/internal/event"
-	"deepcode/internal/evidence"
-	"deepcode/internal/instruction"
-	"deepcode/internal/jobs"
-	"deepcode/internal/memory"
-	"deepcode/internal/nilutil"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/diff"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/instruction"
+	"deepseek-orca/internal/jobs"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/nilutil"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // maxToolOutputBytes caps a single tool result before it goes into the model's
@@ -263,7 +263,7 @@ type Agent struct {
 // history — are left untouched, so the toggle costs nothing in cache hits.
 func (a *Agent) SetPlanMode(v bool) { a.planMode.Store(v) }
 
-// SetGate installs the per-call permission gate. Used by `deepcode chat` to swap the
+// SetGate installs the per-call permission gate. Used by `deepseek-orca chat` to swap the
 // headless gate built in setup for an interactive one that prompts the user;
 // nil disables gating. Safe to call before the run loop starts.
 func (a *Agent) SetGate(g Gate) {
@@ -297,7 +297,7 @@ func (a *Agent) Session() *Session {
 }
 
 // SetSession replaces the agent's conversation wholesale. Used by
-// `deepcode chat --resume` to load a saved JSONL transcript before the first turn,
+// `deepseek-orca chat --resume` to load a saved JSONL transcript before the first turn,
 // so the model picks up exactly where it left off. Callers serialise it against a
 // running turn (it only fires while idle); sessMu guards the pointer swap itself.
 func (a *Agent) SetSession(s *Session) {

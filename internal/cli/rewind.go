@@ -8,9 +8,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/checkpoint"
-	"deepcode/internal/control"
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/checkpoint"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/i18n"
 )
 
 // rewindPicker is the in-chat overlay for Esc-Esc / "/rewind". Stage 0 lists the

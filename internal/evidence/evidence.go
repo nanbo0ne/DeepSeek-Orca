@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // TodoItem mirrors the todo_write item shape the host needs for step matching.

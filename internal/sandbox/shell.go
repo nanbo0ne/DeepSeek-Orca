@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/proc"
+	"deepseek-orca/internal/proc"
 )
 
 // psUTF8Prologue forces PowerShell to emit UTF-8 instead of the host's OEM code

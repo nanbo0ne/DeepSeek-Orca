@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/i18n"
 )
 
 func renderModels(width int, refs []string, active string) string {

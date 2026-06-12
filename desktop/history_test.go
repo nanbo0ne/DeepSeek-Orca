@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {

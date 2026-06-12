@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // TestReplayPendingPromptsReEmitsBlockedApproval proves a tool approval that is

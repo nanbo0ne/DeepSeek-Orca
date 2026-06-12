@@ -38,13 +38,13 @@ func TestHideWindowPreservesExistingFlags(t *testing.T) {
 }
 
 func TestHideWindowPreservesStdoutCapture(t *testing.T) {
-	cmd := exec.Command("cmd", "/c", "echo", "deepcode-ok")
+	cmd := exec.Command("cmd", "/c", "echo", "deepseek-orca-ok")
 	HideWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("command failed: %v", err)
 	}
-	if !strings.Contains(string(out), "deepcode-ok") {
-		t.Fatalf("output = %q, want it to contain deepcode-ok", out)
+	if !strings.Contains(string(out), "deepseek-orca-ok") {
+		t.Fatalf("output = %q, want it to contain deepseek-orca-ok", out)
 	}
 }

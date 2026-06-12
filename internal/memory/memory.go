@@ -13,7 +13,7 @@ import (
 // UserDir are retained so the controller can resolve quick-add targets without
 // re-deriving discovery context.
 type Set struct {
-	Docs    []Source // DEEPCODE.md / AGENTS.md, ascending precedence
+	Docs    []Source // DEEPSEEK_ORCA.md / AGENTS.md, ascending precedence
 	Store   Store    // auto-memory store (may be a zero/disabled Store)
 	Index   string   // MEMORY.md contents at load time
 	CWD     string   // project working dir used for discovery
@@ -48,7 +48,7 @@ func Load(opts Options) *Set {
 
 // DocPath returns the doc-memory file a given scope writes to. To avoid splitting
 // a project's memory across conventions, it prefers a file that already exists
-// (DEEPCODE.md / AGENTS.md / CLAUDE.md, in that order); when none exists it
+// (DEEPSEEK_ORCA.md / AGENTS.md / CLAUDE.md, in that order); when none exists it
 // creates the universal default (AGENTS.md / AGENTS.local.md). ScopeUser →
 // <userDir>, ScopeLocal → <cwd> with the *.local.md names, anything else → <cwd>.
 // Returns "" for ScopeUser when no user dir is configured.

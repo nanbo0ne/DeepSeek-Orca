@@ -9,10 +9,10 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"deepcode/internal/control"
-	"deepcode/internal/fileref"
-	"deepcode/internal/i18n"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/fileref"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/skill"
 )
 
 // compKind distinguishes the two completion menus.

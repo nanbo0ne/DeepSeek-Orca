@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"deepcode/internal/doctor"
+	"deepseek-orca/internal/doctor"
 )
 
 func doctorCommand(args []string, version string) int {

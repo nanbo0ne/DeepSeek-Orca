@@ -1,16 +1,16 @@
-# DeepCode Desktop
+# DeepSeek-Orca Desktop
 
-DeepCode Desktop 是面向图形界面的 AI 编程 Agent。它把模型对话、项目文件、工具调用、上下文统计、回滚记录、MCP/Skill 管理和模型配置放在同一个桌面工作台里，适合在不频繁切换终端的情况下完成代码阅读、修改、调试和项目维护。
+DeepSeek-Orca Desktop 是面向图形界面的 AI 编程 Agent。它把模型对话、项目文件、工具调用、上下文统计、回滚记录、MCP/Skill 管理和模型配置放在同一个桌面工作台里，适合在不频繁切换终端的情况下完成代码阅读、修改、调试和项目维护。
 
 ## 下载与安装
 
-桌面端用户直接下载打包好的 Windows 安装器即可：`DeepCode-Setup-<version>-windows-x64.exe`。
+桌面端用户直接下载打包好的 Windows 安装器即可：`DeepSeek-Orca-Setup-<version>-windows-x64.exe`。
 
 下载后双击安装器，按安装向导选择安装目录并完成安装。桌面端不需要下载源码、npm 包或手动编译。
 
 ## 核心定位
 
-DeepCode Desktop 不是普通聊天窗口，而是一个可操作项目文件的编程工作台。它可以读取项目结构、解释代码、调用工具、修改文件、运行命令、记录会话、管理上下文，并在需要时回滚 AI 造成的改动。
+DeepSeek-Orca Desktop 不是普通聊天窗口，而是一个可操作项目文件的编程工作台。它可以读取项目结构、解释代码、调用工具、修改文件、运行命令、记录会话、管理上下文，并在需要时回滚 AI 造成的改动。
 
 桌面端适合：
 
@@ -34,7 +34,7 @@ DeepCode Desktop 不是普通聊天窗口，而是一个可操作项目文件的
 
 ## 会话与工作区
 
-DeepCode Desktop 支持多会话、多项目和独立工作区。
+DeepSeek-Orca Desktop 支持多会话、多项目和独立工作区。
 
 - 可以同时打开多个会话标签。
 - 新建会话时可以选择进入项目或使用独立工作区。
@@ -46,7 +46,7 @@ DeepCode Desktop 支持多会话、多项目和独立工作区。
 
 ## 对话能力
 
-DeepCode 可以进行普通问答，也可以执行代码任务。
+DeepSeek-Orca 可以进行普通问答，也可以执行代码任务。
 
 常见任务包括：
 
@@ -91,7 +91,7 @@ Plan 模式开启后，Agent 会更倾向于先说明目标、步骤、影响范
 
 ## 回滚与 checkpoint
 
-DeepCode Desktop 具备会话与文件回滚能力。
+DeepSeek-Orca Desktop 具备会话与文件回滚能力。
 
 - AI 修改文件前会记录 checkpoint。
 - 一个 AI 回复内的文件改动会作为同一轮事务处理。
@@ -165,7 +165,7 @@ DeepCode Desktop 具备会话与文件回滚能力。
 
 ## MCP 管理
 
-DeepCode Desktop 可以管理 MCP 服务器和 MCP 工具。
+DeepSeek-Orca Desktop 可以管理 MCP 服务器和 MCP 工具。
 
 支持能力包括：
 
@@ -210,11 +210,11 @@ CodeGraph 是内置代码智能能力，用于符号级搜索、调用关系、�
 - 调用路径追踪。
 - 文件树与符号统计。
 
-桌面安装包可随附 CodeGraph 运行时。安装后 DeepCode 会优先使用程序目录中的 CodeGraph，避免首次启动时临时下载失败。
+桌面安装包可随附 CodeGraph 运行时。安装后 DeepSeek-Orca 会优先使用程序目录中的 CodeGraph，避免首次启动时临时下载失败。
 
 ## 记忆与指令文件
 
-DeepCode 支持长期记忆和项目指令文件。
+DeepSeek-Orca 支持长期记忆和项目指令文件。
 
 记忆能力包括：
 
@@ -223,7 +223,7 @@ DeepCode 支持长期记忆和项目指令文件。
 - 保存长期参考信息。
 - 查看记忆列表。
 - 删除过期记忆。
-- 读取 AGENTS.md、DEEPCODE.md、CLAUDE.md 等项目指令。
+- 读取 AGENTS.md、DEEPSEEK_ORCA.md、CLAUDE.md 等项目指令。
 - 在未来会话中自动带入相关规则。
 
 记忆适合记录团队规范、项目架构、常用命令、代码风格和用户偏好。
@@ -242,7 +242,7 @@ DeepCode 支持长期记忆和项目指令文件。
 - token 环境变量。
 - webhook 或 websocket 模式。
 
-这些能力用于把 DeepCode 的 Agent 能力接入外部消息渠道。
+这些能力用于把 DeepSeek-Orca 的 Agent 能力接入外部消息渠道。
 
 ## 外观设置
 
@@ -265,13 +265,13 @@ DeepCode 支持长期记忆和项目指令文件。
 
 常见程序文件包括：
 
-- `deepcode-desktop.exe`：桌面端主程序。
+- `deepseek-orca-desktop.exe`：桌面端主程序。
 - `node.exe`：附带的 Node 运行时。
 - `codegraph/`：随安装包携带的 CodeGraph 运行时。
 - `uninstall.exe`：卸载程序。
 - `uninstall.bat`：兜底卸载脚本。
 
-用户数据会保存在 DeepCode 自己的数据目录中，并与其他应用的数据隔离。
+用户数据会保存在 DeepSeek-Orca 自己的数据目录中，并与其他应用的数据隔离。
 
 ## 构建与打包能力
 

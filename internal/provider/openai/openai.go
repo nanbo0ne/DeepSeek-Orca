@@ -24,8 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"deepcode/internal/netclient"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/provider"
 )
 
 // defaultStreamIdleTimeout caps how long a started SSE stream may go without any

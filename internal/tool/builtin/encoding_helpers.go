@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	fileenc "deepcode/internal/fileutil/encoding"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
 )
 
 // readFileEncoded reads a file and decodes its encoding to UTF-8.

@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepcode/internal/diff"
-	fileenc "deepcode/internal/fileutil/encoding"
+	"deepseek-orca/internal/diff"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
 )
 
 func write(t *testing.T, p, s string) {

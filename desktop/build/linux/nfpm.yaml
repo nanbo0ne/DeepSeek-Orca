@@ -7,7 +7,7 @@
 # $DEB_VERSION and $DEB_ARCH are exported by desktop-build.sh. DEB_VERSION is the tag
 # minus a leading "v" and any prerelease suffix (a strict X.Y.Z that dpkg accepts);
 # DEB_ARCH is the Go arch name, which already matches Debian's (amd64, arm64).
-name: "deepcode-desktop"
+name: "deepseek-orca-desktop"
 arch: "${DEB_ARCH}"
 platform: "linux"
 version: "${DEB_VERSION}"
@@ -15,9 +15,9 @@ section: "utils"
 priority: "optional"
 maintainer: "esengine <esengine@users.noreply.github.com>"
 description: |
-  DeepCode desktop — a Wails shell around the Go kernel.
-vendor: "DeepCode Contributors"
-homepage: "https://github.com/esengine/DeepCode"
+  DeepSeek-Orca desktop — a Wails shell around the Go kernel.
+vendor: "DeepSeek-Orca Contributors"
+homepage: "https://github.com/nanbo0ne/DeepSeek-Orca"
 license: "MIT"
 # Runtime libraries the WebKitGTK 4.1 build links against (-tags webkit2_41); apt
 # pulls them in on install. These package names ship from Ubuntu 22.04 / Debian 12 on.
@@ -25,17 +25,17 @@ depends:
   - libgtk-3-0
   - libwebkit2gtk-4.1-0
 contents:
-  - src: ./build/bin/deepcode-desktop
-    dst: /usr/bin/deepcode-desktop
+  - src: ./build/bin/deepseek-orca-desktop
+    dst: /usr/bin/deepseek-orca-desktop
     file_info:
       mode: 0755
-  - src: ./build/linux/deepcode.desktop
-    dst: /usr/share/applications/deepcode.desktop
+  - src: ./build/linux/deepseek-orca.desktop
+    dst: /usr/share/applications/deepseek-orca.desktop
     file_info:
       mode: 0644
   # appicon.png is 1024x1024 — not a standard hicolor size dir, so install it under
-  # the size-agnostic pixmaps path that the .desktop's `Icon=deepcode-desktop` finds.
+  # the size-agnostic pixmaps path that the .desktop's `Icon=deepseek-orca-desktop` finds.
   - src: ./build/appicon.png
-    dst: /usr/share/pixmaps/deepcode-desktop.png
+    dst: /usr/share/pixmaps/deepseek-orca-desktop.png
     file_info:
       mode: 0644

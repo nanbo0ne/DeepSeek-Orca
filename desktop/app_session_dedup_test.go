@@ -4,11 +4,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 func carryingController(carried []provider.Message, path string) *control.Controller {

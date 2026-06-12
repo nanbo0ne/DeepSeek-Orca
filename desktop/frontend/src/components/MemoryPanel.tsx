@@ -87,7 +87,7 @@ function errorMessage(err: unknown): string {
 }
 
 // MemoryPanel is the desktop memory manager: a right-side drawer over the loaded
-// DEEPCODE.md hierarchy and saved auto-memories. Unlike Claude Code's /memory
+// DEEPSEEK_ORCA.md hierarchy and saved auto-memories. Unlike Claude Code's /memory
 // (which shells out to $EDITOR) it edits docs in place, and unlike Codex (no UI
 // at all) it shows the saved facts. Docs are editable; facts are read-only
 // (the model owns them via the `remember` tool). Quick-add mirrors the "#"

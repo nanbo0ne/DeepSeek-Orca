@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 // mcpEntryAction assembles the DTO for a single MCP server install. The

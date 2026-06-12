@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/outputstyle"
+	"deepseek-orca/internal/outputstyle"
 )
 
 func renderOutputStyles(width int, styles []outputstyle.OutputStyle, active string) string {
@@ -24,6 +24,6 @@ func renderOutputStyles(width int, styles []outputstyle.OutputStyle, active stri
 		desc := viewCompactText(st.Description, viewBudget(width, used))
 		fmt.Fprintf(&b, "  %-16s %s  %s%s\n", st.Name, viewMeta(scopeText), desc, status)
 	}
-	b.WriteString(viewHint(viewCompactText("set agent.output_style in deepcode.toml to apply one (takes effect next session)", viewBudget(width, 2))))
+	b.WriteString(viewHint(viewCompactText("set agent.output_style in deepseek-orca.toml to apply one (takes effect next session)", viewBudget(width, 2))))
 	return strings.TrimRight(b.String(), "\n")
 }

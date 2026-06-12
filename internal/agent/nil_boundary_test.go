@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/tool"
 )
 
 type typedNilAgentSink struct{}

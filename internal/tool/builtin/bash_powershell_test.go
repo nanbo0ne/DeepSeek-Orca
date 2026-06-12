@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/sandbox"
+	"deepseek-orca/internal/sandbox"
 )
 
 func powershellPath(t *testing.T) string {
@@ -33,12 +33,12 @@ func TestBashPowerShellRunsNativeCommand(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("powershell e2e is windows-only")
 	}
-	out, err := runPS(t, "Write-Output deepcode-ok")
+	out, err := runPS(t, "Write-Output deepseek-orca-ok")
 	if err != nil {
 		t.Fatalf("powershell command failed: %v (out=%q)", err, out)
 	}
-	if !strings.Contains(out, "deepcode-ok") {
-		t.Fatalf("output = %q, want it to contain deepcode-ok", out)
+	if !strings.Contains(out, "deepseek-orca-ok") {
+		t.Fatalf("output = %q, want it to contain deepseek-orca-ok", out)
 	}
 }
 

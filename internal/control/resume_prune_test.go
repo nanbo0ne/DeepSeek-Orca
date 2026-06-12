@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 func coldResumeFixture(t *testing.T, threshold time.Duration) (*agent.Session, string) {

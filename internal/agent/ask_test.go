@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 type recordingAsker struct {

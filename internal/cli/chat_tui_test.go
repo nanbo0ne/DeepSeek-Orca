@@ -13,13 +13,13 @@ import (
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/checkpoint"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/i18n"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/checkpoint"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/provider"
 )
 
 type blockingTurnRunner struct{ started chan struct{} }
@@ -438,14 +438,14 @@ func TestMainManagerFollowsTranscriptWithoutTopPadding(t *testing.T) {
 	m := newChatTUI(ctrl, "", make(chan event.Event, 1), 80)
 	m0, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = m0.(chatTUI)
-	m.wrappedLines = []string{"deepcode chat", "› /mcp"}
+	m.wrappedLines = []string{"deepseek-orca chat", "› /mcp"}
 
 	out := ansi.Strip(m.renderTranscriptWithMainManager("Manage MCP servers\n1 servers"))
 	lines := strings.Split(out, "\n")
 	if len(lines) < 4 {
 		t.Fatalf("rendered manager area too short:\n%s", out)
 	}
-	if !strings.Contains(lines[0], "deepcode chat") || !strings.Contains(lines[1], "/mcp") {
+	if !strings.Contains(lines[0], "deepseek-orca chat") || !strings.Contains(lines[1], "/mcp") {
 		t.Fatalf("transcript lines should stay above manager:\n%s", out)
 	}
 	if strings.TrimSpace(lines[2]) != "" {
@@ -912,7 +912,7 @@ func TestAutoPlanCommandPersistsAndUpdatesController(t *testing.T) {
 
 func TestAutoPlanCommandWritesUserConfigNotProjectConfig(t *testing.T) {
 	isolateUserConfig(t)
-	projectPath := filepath.Join(mustGetwd(t), "deepcode.toml")
+	projectPath := filepath.Join(mustGetwd(t), "deepseek-orca.toml")
 	if err := os.WriteFile(projectPath, []byte("[agent]\nauto_plan = \"off\"\n"), 0o644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
@@ -974,7 +974,7 @@ func TestLanguageCommandAutoClearsPinnedLanguage(t *testing.T) {
 
 func TestLanguageCommandAutoClearsLowerPriorityUserOverride(t *testing.T) {
 	isolateUserConfig(t)
-	t.Setenv("DEEPCODE_LANG", "")
+	t.Setenv("DEEPSEEK_ORCA_LANG", "")
 	t.Setenv("LC_ALL", "")
 	t.Setenv("LC_MESSAGES", "")
 	t.Setenv("LANG", "")
@@ -990,7 +990,7 @@ func TestLanguageCommandAutoClearsLowerPriorityUserOverride(t *testing.T) {
 		t.Fatalf("save user config: %v", err)
 	}
 	projectCfg := config.Default()
-	if err := projectCfg.SaveTo("deepcode.toml"); err != nil {
+	if err := projectCfg.SaveTo("deepseek-orca.toml"); err != nil {
 		t.Fatalf("save project config: %v", err)
 	}
 

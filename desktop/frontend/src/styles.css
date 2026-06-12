@@ -1,5 +1,5 @@
 ﻿/*
- * DeepCode desktop — single-column, developer-dense, terminal-flavored chat UI.
+ * DeepSeek-Orca desktop — single-column, developer-dense, terminal-flavored chat UI.
  *
  * Multi-platform notes:
  *  - System font stack only; no web-font fetches (offline-first, consistent).
@@ -195,7 +195,7 @@
     "Helvetica Neue", Arial, sans-serif;
 }
 
-/* DeepCode brand refresh: light, blue, low-shadow product shell. */
+/* DeepSeek-Orca brand refresh: light, blue, low-shadow product shell. */
 :root,
 :root[data-theme="light"],
 :root[data-theme-style] {

@@ -87,7 +87,7 @@ import { useWindowStatePersistence } from "./lib/windowState";
 import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
 import logoWordmark from "./assets/logo-wordmark.png";
 
-const SIDEBAR_COLLAPSED_KEY = "deepcode.sidebar.collapsed";
+const SIDEBAR_COLLAPSED_KEY = "deepseek-orca.sidebar.collapsed";
 const SIDEBAR_DEFAULT_WIDTH = 264;
 const SIDEBAR_MIN_WIDTH = 264;
 const SIDEBAR_MAX_WIDTH = 300;
@@ -256,7 +256,7 @@ function fence(label: string, value: string): string {
 }
 
 function sessionItemsToMarkdown(title: string, items: Item[], live?: LiveStream): string {
-  const lines: string[] = [`# ${title.trim() || "DeepCode session"}`, ""];
+  const lines: string[] = [`# ${title.trim() || "DeepSeek-Orca session"}`, ""];
   for (const item of materializeLiveItems(items, live)) {
     switch (item.kind) {
       case "user":
@@ -315,7 +315,7 @@ function sessionItemsToJson(title: string, items: Item[], live?: LiveStream): st
 
 function safeFilename(name: string): string {
   const cleaned = name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
-  return cleaned || "deepcode-session";
+  return cleaned || "deepseek-orca-session";
 }
 
 /** Global hotkey handler for shell-expand toggle (Ctrl/Cmd+B). */
@@ -1814,8 +1814,8 @@ export default function App() {
 
         <aside className={`sidebar${sidebarCollapsed ? " sidebar--collapsed" : ""}`} aria-label={t("sidebar.navigation")}>
           <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
-            <img src={logoWordmark} alt="DeepCode" className="sidebar__brand-logo" draggable={false} />
-            <span className="sidebar__brand-text">DeepCode</span>
+            <img src={logoWordmark} alt="DeepSeek-Orca" className="sidebar__brand-logo" draggable={false} />
+            <span className="sidebar__brand-text">DeepSeek-Orca</span>
           </div>
 
           <button

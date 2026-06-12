@@ -45,9 +45,11 @@ function fmtDuration(ms: number, t: Translator): string {
 
 function currencySymbol(currency?: string): string {
   const value = (currency || "CNY").trim();
-  if (/^(cny|rmb|yuan|¥)$/i.test(value)) return "¥";
-  if (/^(usd|dollar)$/i.test(value)) return "$";
-  return value || "¥";
+  if (/^(cny|rmb|yuan|¥|￥)$/i.test(value)) return "¥";
+  if (/^(usd|dollar|\$)$/i.test(value)) return "$";
+  if (/^(eur|euro|€)$/i.test(value)) return "€";
+  if (/^(gbp|pound|£)$/i.test(value)) return "£";
+  return "¥";
 }
 
 function fmtMoney(amount: number, currency?: string): string {

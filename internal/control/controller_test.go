@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/checkpoint"
-	"deepcode/internal/event"
-	"deepcode/internal/permission"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/checkpoint"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/permission"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 type typedNilControllerSink struct{}
@@ -254,7 +254,7 @@ func TestDisconnectMCPServerRemovesLazyPlaceholder(t *testing.T) {
 func TestRemoveMCPServerRemovesUnconnectedLazyPlaceholder(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile("deepcode.toml", []byte(`
+	if err := os.WriteFile("deepseek-orca.toml", []byte(`
 [[plugins]]
 name = "mock"
 command = "mock-mcp"
@@ -373,7 +373,7 @@ func TestApprovalPersistentBashPrefixRememberRule(t *testing.T) {
 		}),
 		OnRemember: func(rule string) RememberResult {
 			remembered = rule
-			return RememberResult{Rule: rule, Path: "deepcode.toml", Saved: true}
+			return RememberResult{Rule: rule, Path: "deepseek-orca.toml", Saved: true}
 		},
 	})
 	go func() {
@@ -387,7 +387,7 @@ func TestApprovalPersistentBashPrefixRememberRule(t *testing.T) {
 	if remembered != "Bash(go test:*)" {
 		t.Fatalf("remembered rule = %q, want Bash(go test:*)", remembered)
 	}
-	if len(notices) != 1 || !strings.Contains(notices[0], "Bash(go test:*)") || !strings.Contains(notices[0], "deepcode.toml") {
+	if len(notices) != 1 || !strings.Contains(notices[0], "Bash(go test:*)") || !strings.Contains(notices[0], "deepseek-orca.toml") {
 		t.Fatalf("notices = %v, want saved rule notice", notices)
 	}
 }

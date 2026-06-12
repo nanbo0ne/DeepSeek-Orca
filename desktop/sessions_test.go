@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepcode/internal/agent"
+	"deepseek-orca/internal/agent"
 )
 
 // --- loadSessionTitles ---

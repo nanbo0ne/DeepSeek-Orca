@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/i18n"
 )
 
 // showMemory reports what memory is loaded and where it lives — the TUI analog

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/control"
+	"deepseek-orca/internal/control"
 )
 
 func testTab(id, root string) *WorkspaceTab {
@@ -77,7 +77,7 @@ model = "deepseek-v4-flash"
 api_key_env = "PROJECT_API_KEY"
 effort = "max"
 `
-	if err := os.WriteFile(filepath.Join(projectRoot, "deepcode.toml"), []byte(configBody), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "deepseek-orca.toml"), []byte(configBody), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -106,7 +106,7 @@ base_url = "https://proxy.example.com/v1"
 model = "deepseek-v4-flash"
 api_key_env = "PROJECT_API_KEY"
 `
-	if err := os.WriteFile(filepath.Join(projectRoot, "deepcode.toml"), []byte(configBody), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, "deepseek-orca.toml"), []byte(configBody), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -118,8 +118,8 @@ api_key_env = "PROJECT_API_KEY"
 	defer tab.Ctrl.Close()
 
 	got := app.EffortForTab(tab.ID)
-	if !got.Supported || got.Current != "auto" || got.Default != "high" {
-		t.Fatalf("EffortForTab model registry = %+v, want supported auto/high", got)
+	if !got.Supported || got.Current != "auto" || got.Default != "auto" {
+		t.Fatalf("EffortForTab model registry = %+v, want supported auto/auto", got)
 	}
 	wantLevels := []string{"auto", "high", "max"}
 	if len(got.Levels) != len(wantLevels) {
@@ -404,7 +404,7 @@ func TestSetBypassPreservesPlanMode(t *testing.T) {
 
 func userConfigPathForTest() string {
 	if dir, err := os.UserConfigDir(); err == nil {
-		return dir + "/deepcode/deepcode.toml"
+		return dir + "/deepseek-orca/deepseek-orca.toml"
 	}
 	return ""
 }

@@ -18,30 +18,30 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/config"
-	"deepcode/internal/event"
-	"deepcode/internal/netclient"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/tool"
-	"deepcode/internal/tool/builtin"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/tool"
+	"deepseek-orca/internal/tool/builtin"
 
-	// Blank import registers the provider kind the same way cmd/deepcode's main
+	// Blank import registers the provider kind the same way cmd/deepseek-orca's main
 	// does; importing builtin above registers the built-in tools.
-	_ "deepcode/internal/provider/openai"
+	_ "deepseek-orca/internal/provider/openai"
 )
 
 // TestBuildFoldsProjectMemoryIntoSystemPrompt is the end-to-end proof of the
-// cache-first wiring: a project DEEPCODE.md is discovered at boot and folded
+// cache-first wiring: a project DEEPSEEK_ORCA.md is discovered at boot and folded
 // into the session's system message (the cached prefix), and the `remember`
 // tool is registered. It builds a real Controller from a throwaway project dir.
 func TestBuildFoldsProjectMemoryIntoSystemPrompt(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -55,9 +55,9 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
-	writeFile(t, dir, "DEEPCODE.md", "Project rule: always run go vet before committing.")
+	writeFile(t, dir, "DEEPSEEK_ORCA.md", "Project rule: always run go vet before committing.")
 
 	ctrl, err := Build(context.Background(), Options{}) // RequireKey false: no network/key needed
 	if err != nil {
@@ -72,7 +72,7 @@ api_key_env = "DEEPCODE_TEST_KEY_UNSET"
 		t.Fatalf("base prompt missing from system message:\n%s", sys)
 	}
 	if !strings.Contains(sys, "always run go vet before committing") {
-		t.Fatalf("project DEEPCODE.md not folded into system message:\n%s", sys)
+		t.Fatalf("project DEEPSEEK_ORCA.md not folded into system message:\n%s", sys)
 	}
 	// Base must come first so it stays a valid cache prefix when memory changes.
 	if strings.Index(sys, "BASE SYSTEM PROMPT") > strings.Index(sys, "always run go vet") {
@@ -80,7 +80,7 @@ api_key_env = "DEEPCODE_TEST_KEY_UNSET"
 	}
 
 	if mem := ctrl.Memory(); mem == nil || len(mem.Docs) == 0 {
-		t.Fatal("controller memory set is empty after discovering DEEPCODE.md")
+		t.Fatal("controller memory set is empty after discovering DEEPSEEK_ORCA.md")
 	}
 }
 
@@ -92,7 +92,7 @@ func TestBuildSubagentSkillFailedContinuationPersistsTranscript(t *testing.T) {
 	registerBootSubagentTestProvider()
 	prov := &bootSubagentTestProvider{}
 	setBootSubagentTestProvider(t, prov)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -244,7 +244,7 @@ func subagentRefFromHistory(t *testing.T, msgs []provider.Message) string {
 }
 
 // TestBuildHeadlessRunRunsTaskSubagentWithoutSessionPath reproduces headless
-// `deepcode run`: a controller built via Build with NO SetSessionPath (exactly
+// `deepseek-orca run`: a controller built via Build with NO SetSessionPath (exactly
 // what internal/cli.runAgent does) must still be able to run a `task` sub-agent.
 // Before the ephemeral fallback this failed with "parent session is required".
 func TestBuildHeadlessRunRunsTaskSubagentWithoutSessionPath(t *testing.T) {
@@ -255,7 +255,7 @@ func TestBuildHeadlessRunRunsTaskSubagentWithoutSessionPath(t *testing.T) {
 	registerHeadlessTaskTestProvider()
 	prov := &headlessTaskTestProvider{}
 	setHeadlessTaskTestProvider(t, prov)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -452,7 +452,7 @@ func TestBuildHonorsSessionDirOverride(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -463,7 +463,7 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
 
 	sessionDir := filepath.Join(t.TempDir(), "desktop-workspace-sessions")
@@ -487,7 +487,7 @@ func TestBuildDiscoversSkills(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -501,9 +501,9 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
-	writeFile(t, dir, ".deepcode/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
+	writeFile(t, dir, ".deepseek-orca/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
 
 	ctrl, err := Build(context.Background(), Options{})
 	if err != nil {
@@ -557,7 +557,7 @@ func TestBuildOmitsDisabledSkillsFromPromptAndRuntimeList(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -574,9 +574,9 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
-	writeFile(t, dir, ".deepcode/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
+	writeFile(t, dir, ".deepseek-orca/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
 
 	ctrl, err := Build(context.Background(), Options{})
 	if err != nil {
@@ -611,9 +611,9 @@ func TestBuildOmitsExcludedSkillRootsFromPromptAndRuntimeList(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Chdir(dir)
 	excluded := filepath.Join(home, ".agents", "skills")
-	writeFile(t, home, ".deepcode/skills/keep.md", "---\ndescription: keep\n---\nplaybook")
+	writeFile(t, home, ".deepseek-orca/skills/keep.md", "---\ndescription: keep\n---\nplaybook")
 	writeFile(t, home, ".agents/skills/noisy.md", "---\ndescription: noisy\n---\nplaybook")
-	writeFile(t, dir, "deepcode.toml", fmt.Sprintf(`
+	writeFile(t, dir, "deepseek-orca.toml", fmt.Sprintf(`
 default_model = "test-model"
 
 [codegraph]
@@ -630,7 +630,7 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `, excluded))
 
 	ctrl, err := Build(context.Background(), Options{})
@@ -659,7 +659,7 @@ api_key_env = "DEEPCODE_TEST_KEY_UNSET"
 func TestBuildWithoutMemoryLeavesPromptUnchanged(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -673,7 +673,7 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
 
 	ctrl, err := Build(context.Background(), Options{})
@@ -686,7 +686,7 @@ api_key_env = "DEEPCODE_TEST_KEY_UNSET"
 	// The built-in skills always append a "# Skills" index to the prefix; this
 	// test is about memory, so strip that and assert the remaining base is exactly
 	// the configured prompt — i.e. no *project/ancestor* memory leaked in. (A
-	// user-global DEEPCODE.md in the real config dir could append; the test
+	// user-global DEEPSEEK_ORCA.md in the real config dir could append; the test
 	// environment has none, so the base stands alone.)
 	base := sys
 	if i := strings.Index(sys, "\n\n# Skills"); i >= 0 {
@@ -703,7 +703,7 @@ api_key_env = "DEEPCODE_TEST_KEY_UNSET"
 func TestBuildLanguagePolicyIsAppended(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -717,7 +717,7 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
 
 	ctrl, err := Build(context.Background(), Options{})
@@ -768,11 +768,11 @@ func TestRememberPermissionRuleUsesWorkspaceRoot(t *testing.T) {
 	cwd := robustTempDir(t)
 	workspace := robustTempDir(t)
 	t.Chdir(cwd)
-	writeFile(t, cwd, "deepcode.toml", `
+	writeFile(t, cwd, "deepseek-orca.toml", `
 [permissions]
 allow = ["Bash(cwd*)"]
 `)
-	writeFile(t, workspace, "deepcode.toml", `
+	writeFile(t, workspace, "deepseek-orca.toml", `
 [permissions]
 allow = ["Bash(workspace*)"]
 `)
@@ -780,11 +780,11 @@ allow = ["Bash(workspace*)"]
 	const rule = "Bash(go test ./...)"
 	rememberPermissionRule(workspace, rule)
 
-	cwdCfg := config.LoadForEdit(filepath.Join(cwd, "deepcode.toml"))
+	cwdCfg := config.LoadForEdit(filepath.Join(cwd, "deepseek-orca.toml"))
 	if hasPermissionRule(cwdCfg.Permissions.Allow, rule) {
 		t.Fatalf("remembered rule was written to cwd config: %v", cwdCfg.Permissions.Allow)
 	}
-	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "deepcode.toml"))
+	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
 	if !hasPermissionRule(workspaceCfg.Permissions.Allow, rule) {
 		t.Fatalf("remembered rule missing from workspace config: %v", workspaceCfg.Permissions.Allow)
 	}
@@ -806,7 +806,7 @@ allow = ["Bash(user)"]
 
 	const rule = "Edit(src/app.go)"
 	res := rememberPermissionRule(workspace, rule)
-	if !res.Saved || res.Path != filepath.Join(workspace, "deepcode.toml") {
+	if !res.Saved || res.Path != filepath.Join(workspace, "deepseek-orca.toml") {
 		t.Fatalf("remember result = %+v, want saved to workspace config", res)
 	}
 
@@ -814,7 +814,7 @@ allow = ["Bash(user)"]
 	if hasPermissionRule(userCfg.Permissions.Allow, rule) {
 		t.Fatalf("workspace rule was written to user config: %v", userCfg.Permissions.Allow)
 	}
-	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "deepcode.toml"))
+	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
 	if !hasPermissionRule(workspaceCfg.Permissions.Allow, rule) {
 		t.Fatalf("workspace rule missing from project config: %v", workspaceCfg.Permissions.Allow)
 	}
@@ -845,14 +845,14 @@ allow = ["Bash(user*)"]
 	if !hasPermissionRule(userCfg.Permissions.Allow, rule) {
 		t.Fatalf("empty root should remember into SourcePath config: %v", userCfg.Permissions.Allow)
 	}
-	if _, err := os.Stat(filepath.Join(cwd, "deepcode.toml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(cwd, "deepseek-orca.toml")); !os.IsNotExist(err) {
 		t.Fatalf("empty root should not create cwd config when SourcePath exists, err=%v", err)
 	}
 }
 
 func TestRememberPermissionRuleSkipsRuleCoveredByExistingAllow(t *testing.T) {
 	workspace := robustTempDir(t)
-	writeFile(t, workspace, "deepcode.toml", `
+	writeFile(t, workspace, "deepseek-orca.toml", `
 [permissions]
 allow = ["Bash(go test:*)"]
 `)
@@ -861,7 +861,7 @@ allow = ["Bash(go test:*)"]
 	if res.Saved || res.CoveredBy != "Bash(go test:*)" {
 		t.Fatalf("remember result = %+v, want already covered", res)
 	}
-	cfg := config.LoadForEdit(filepath.Join(workspace, "deepcode.toml"))
+	cfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
 	if len(cfg.Permissions.Allow) != 1 || cfg.Permissions.Allow[0] != "Bash(go test:*)" {
 		t.Fatalf("allow rules = %v, want only existing prefix", cfg.Permissions.Allow)
 	}
@@ -869,7 +869,7 @@ allow = ["Bash(go test:*)"]
 
 func TestRememberPermissionRulePrunesNarrowRulesWhenSavingBroaderRule(t *testing.T) {
 	workspace := robustTempDir(t)
-	writeFile(t, workspace, "deepcode.toml", `
+	writeFile(t, workspace, "deepseek-orca.toml", `
 [permissions]
 allow = ["Bash(go test ./...)", "Bash(go build ./...)"]
 `)
@@ -878,7 +878,7 @@ allow = ["Bash(go test ./...)", "Bash(go build ./...)"]
 	if !res.Saved || res.CoveredBy != "" {
 		t.Fatalf("remember result = %+v, want saved broader rule", res)
 	}
-	cfg := config.LoadForEdit(filepath.Join(workspace, "deepcode.toml"))
+	cfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
 	if hasPermissionRule(cfg.Permissions.Allow, "Bash(go test ./...)") {
 		t.Fatalf("narrow go test rule should be pruned: %v", cfg.Permissions.Allow)
 	}
@@ -897,7 +897,7 @@ func hasPermissionRule(rules []string, want string) bool {
 }
 
 // TestBuildMigratesLegacyConfigEndToEnd drives the real boot path: a v0.x
-// ~/.deepcode/config.json with no v1+ config present must be imported during
+// ~/.deepseek-orca/config.json with no v1+ config present must be imported during
 // Build — config written, key pinned into the env, and the user told via a notice.
 func TestBuildMigratesLegacyConfigEndToEnd(t *testing.T) {
 	home := robustTempDir(t)
@@ -911,10 +911,10 @@ func TestBuildMigratesLegacyConfigEndToEnd(t *testing.T) {
 	t.Chdir(proj)
 	// codegraph off keeps Build offline; it merges over the migrated user config
 	// without dropping the migrated plugins.
-	writeFile(t, proj, "deepcode.toml", "[codegraph]\nenabled = false\n")
-	writeFile(t, filepath.Join(home, ".deepcode"), "config.json",
+	writeFile(t, proj, "deepseek-orca.toml", "[codegraph]\nenabled = false\n")
+	writeFile(t, filepath.Join(home, ".deepseek-orca"), "config.json",
 		`{"apiKey":"sk-e2e","lang":"zh","mcpServers":{"fs":{"command":"npx","args":["-y","server-fs"]}}}`)
-	writeFile(t, filepath.Join(home, ".deepcode", "sessions"), "chat-1.events.jsonl",
+	writeFile(t, filepath.Join(home, ".deepseek-orca", "sessions"), "chat-1.events.jsonl",
 		`{"type":"user.message","id":1,"ts":"t","turn":0,"text":"hello from v0.x"}`+"\n"+
 			`{"type":"model.final","id":2,"ts":"t","turn":0,"content":"hi","toolCalls":[],"usage":{},"costUsd":0}`+"\n")
 
@@ -984,7 +984,7 @@ func TestBuildMigratesLegacySessionsFromConfigSessionDir(t *testing.T) {
 	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	proj := robustTempDir(t)
-	writeFile(t, proj, "deepcode.toml", "[codegraph]\nenabled = false\n")
+	writeFile(t, proj, "deepseek-orca.toml", "[codegraph]\nenabled = false\n")
 
 	legacyDir := config.SessionDir()
 	writeFile(t, legacyDir, "custom-root.events.jsonl",
@@ -1076,7 +1076,7 @@ func TestBuildMigratesLegacyEagerTierToBackground(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -1090,11 +1090,11 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 
 [[plugins]]
 name = "legacy-eager"
-command = "deepcode-missing-legacy-eager-mcp"
+command = "deepseek-orca-missing-legacy-eager-mcp"
 tier = "eager"
 `)
 
@@ -1110,7 +1110,7 @@ tier = "eager"
 	if len(failures) != 1 || failures[0].Name != "legacy-eager" {
 		t.Fatalf("failures = %+v, want background startup failure for migrated legacy eager plugin", failures)
 	}
-	raw, err := os.ReadFile(filepath.Join(dir, "deepcode.toml"))
+	raw, err := os.ReadFile(filepath.Join(dir, "deepseek-orca.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1124,7 +1124,7 @@ func TestBuildMigratesLegacyLazyTierToBackground(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -1138,11 +1138,11 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 
 [[plugins]]
 name = "legacy-lazy"
-command = "deepcode-missing-legacy-lazy-mcp"
+command = "deepseek-orca-missing-legacy-lazy-mcp"
 tier = "lazy"
 `)
 
@@ -1158,7 +1158,7 @@ tier = "lazy"
 	if len(failures) != 1 || failures[0].Name != "legacy-lazy" {
 		t.Fatalf("failures = %+v, want background startup failure for migrated legacy lazy plugin", failures)
 	}
-	raw, err := os.ReadFile(filepath.Join(dir, "deepcode.toml"))
+	raw, err := os.ReadFile(filepath.Join(dir, "deepseek-orca.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1174,7 +1174,7 @@ func TestBuildColdCodegraphStartsInBackground(t *testing.T) {
 	launcher := writeCodegraphHelper(t, dir)
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
-	writeFile(t, dir, "deepcode.toml", fmt.Sprintf(`
+	writeFile(t, dir, "deepseek-orca.toml", fmt.Sprintf(`
 default_model = "test-model"
 
 [codegraph]
@@ -1190,7 +1190,7 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `, launcher))
 
 	var notices []event.Event
@@ -1249,7 +1249,7 @@ func TestBuildWarmCodegraphIgnoresLegacyEagerTier(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	writeFile(t, dir, "deepcode.toml", fmt.Sprintf(`
+	writeFile(t, dir, "deepseek-orca.toml", fmt.Sprintf(`
 default_model = "test-model"
 
 [codegraph]
@@ -1265,7 +1265,7 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `, launcher))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -1287,7 +1287,7 @@ func TestBuildDefaultsToNearestGitRoot(t *testing.T) {
 	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, root, "deepcode.toml", `
+	writeFile(t, root, "deepseek-orca.toml", `
 default_model = "root-model"
 
 [codegraph]
@@ -1301,7 +1301,7 @@ name = "root-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
 	t.Chdir(subdir)
 
@@ -1326,7 +1326,7 @@ func TestBuildMigratesLegacyEagerBeforeStatsDemotion(t *testing.T) {
 		}
 	}
 
-	writeFile(t, dir, "deepcode.toml", `
+	writeFile(t, dir, "deepseek-orca.toml", `
 default_model = "test-model"
 
 [codegraph]
@@ -1340,11 +1340,11 @@ name = "test-model"
 kind = "openai"
 base_url = "https://example.invalid"
 model = "x"
-api_key_env = "DEEPCODE_TEST_KEY_UNSET"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 
 [[plugins]]
 name = "slowserver"
-command = "deepcode-missing-slow-mcp-binary"
+command = "deepseek-orca-missing-slow-mcp-binary"
 tier = "eager"
 `)
 

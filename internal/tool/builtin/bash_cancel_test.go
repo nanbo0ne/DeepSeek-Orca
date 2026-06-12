@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/sandbox"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/tool"
 )
 
 // TestBashCancelReturnsPromptly proves a cancelled bash run stops fast instead of

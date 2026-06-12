@@ -17,12 +17,12 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/boot"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 // --- WorkspaceTab -----------------------------------------------------------
@@ -633,7 +633,7 @@ func (a *App) OpenProjectTab(workspaceRoot, topicID string) (TabMeta, error) {
 }
 
 // OpenGlobalTab opens a new global-scope tab (no project root). The global
-// workspace root is the deepcode user config directory.
+// workspace root is the deepseek-orca user config directory.
 func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	globalRoot := globalWorkspaceRoot()
 	if err := os.MkdirAll(globalRoot, 0o755); err != nil {
@@ -1016,6 +1016,9 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			sessionDir = dir
 		}
 	}
+	if pinnedDir := tabPinnedSessionDir(tab.SessionPath); pinnedDir != "" {
+		sessionDir = pinnedDir
+	}
 
 	ctrl, err := boot.Build(buildCtx, boot.Options{
 		Model:          model,
@@ -1383,9 +1386,9 @@ func desktopConfigDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".deepcode")
+		return filepath.Join(home, ".deepseek-orca")
 	}
-	return filepath.Join(dir, "deepcode")
+	return filepath.Join(dir, "deepseek-orca")
 }
 
 func (a *App) saveTabsLocked() {
@@ -1802,21 +1805,21 @@ func topicTitlesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitlesFile)
 	}
-	return filepath.Join(workspaceRoot, ".deepcode", topicTitlesFile)
+	return filepath.Join(workspaceRoot, ".deepseek-orca", topicTitlesFile)
 }
 
 func topicTitleSourcesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitleSourcesFile)
 	}
-	return filepath.Join(workspaceRoot, ".deepcode", topicTitleSourcesFile)
+	return filepath.Join(workspaceRoot, ".deepseek-orca", topicTitleSourcesFile)
 }
 
 func topicCreatedAtsPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicCreatedAtsFile)
 	}
-	return filepath.Join(workspaceRoot, ".deepcode", topicCreatedAtsFile)
+	return filepath.Join(workspaceRoot, ".deepseek-orca", topicCreatedAtsFile)
 }
 
 func loadTopicTitles(workspaceRoot string) map[string]string {
@@ -3299,9 +3302,9 @@ func globalWorkspaceRoot() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".deepcode", "global-workspace")
+		return filepath.Join(home, ".deepseek-orca", "global-workspace")
 	}
-	return filepath.Join(dir, "deepcode", "global-workspace")
+	return filepath.Join(dir, "deepseek-orca", "global-workspace")
 }
 
 func ensureGlobalWorkspaceRoot() (string, error) {
@@ -3325,8 +3328,11 @@ func loadPinnedTabSession(dir, sessionPath string) (*agent.Session, string, bool
 	if sessionPath == "" || dir == "" {
 		return nil, "", false
 	}
-	path, _, err := validateSessionPath(dir, sessionPath)
-	if err != nil {
+	path, ok := validatePinnedSessionPath(dir, sessionPath)
+	if !ok {
+		path, ok = validatePinnedSessionPath(config.SessionDir(), sessionPath)
+	}
+	if !ok {
 		return nil, "", false
 	}
 	loaded, err := agent.LoadSession(path)
@@ -3337,6 +3343,50 @@ func loadPinnedTabSession(dir, sessionPath string) (*agent.Session, string, bool
 		return nil, "", false
 	}
 	return loaded, path, true
+}
+
+func validatePinnedSessionPath(dir, sessionPath string) (string, bool) {
+	dir = strings.TrimSpace(dir)
+	sessionPath = strings.TrimSpace(sessionPath)
+	if dir == "" || sessionPath == "" {
+		return "", false
+	}
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false
+	}
+	path := sessionPath
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(absDir, path)
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil || filepath.Ext(absPath) != ".jsonl" {
+		return "", false
+	}
+	rel, err := filepath.Rel(absDir, absPath)
+	if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." || filepath.IsAbs(rel) {
+		return "", false
+	}
+	if info, err := os.Lstat(absPath); err == nil && info.IsDir() {
+		return "", false
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", false
+	}
+	return absPath, true
+}
+
+func tabPinnedSessionDir(sessionPath string) string {
+	sessionPath = strings.TrimSpace(sessionPath)
+	if sessionPath == "" {
+		return ""
+	}
+	if !filepath.IsAbs(sessionPath) {
+		return ""
+	}
+	if filepath.Ext(sessionPath) != ".jsonl" {
+		return ""
+	}
+	return filepath.Dir(sessionPath)
 }
 
 func saveTabSessionMeta(tab *WorkspaceTab, path string) error {

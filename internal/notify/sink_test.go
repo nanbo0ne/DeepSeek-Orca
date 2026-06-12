@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"deepcode/internal/config"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/event"
 )
 
 var errTestFailure = errors.New("failed")

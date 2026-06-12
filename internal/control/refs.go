@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/proc"
+	"deepseek-orca/internal/proc"
 )
 
 // maxFileRefBytes caps how much of an @-referenced file is injected into a
@@ -38,7 +38,7 @@ type refKind int
 const (
 	refResource refKind = iota // an MCP resource: @<server>:<uri>
 	refFile                    // a local file or directory: @<path>
-	refImage                   // a local image attachment: @.deepcode/attachments/<file>
+	refImage                   // a local image attachment: @.deepseek-orca/attachments/<file>
 )
 
 // ref is a resolved @reference found in a submitted line.
@@ -91,7 +91,7 @@ func classifyRef(token string, known map[string]bool, exists func(string) bool) 
 }
 
 func isAttachmentRef(token string) bool {
-	return strings.HasPrefix(filepath.ToSlash(token), ".deepcode/attachments/")
+	return strings.HasPrefix(filepath.ToSlash(token), ".deepseek-orca/attachments/")
 }
 
 func isImageAttachmentRef(token string) bool {

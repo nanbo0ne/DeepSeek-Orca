@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepcode/internal/plugin"
+	"deepseek-orca/internal/plugin"
 )
 
 const mcpMaxItemsPerSection = 6

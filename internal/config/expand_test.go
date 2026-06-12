@@ -3,17 +3,17 @@ package config
 import "testing"
 
 func TestExpandVars(t *testing.T) {
-	t.Setenv("DEEPCODE_TEST_TOKEN", "sk-123")
-	t.Setenv("DEEPCODE_TEST_EMPTY", "")
+	t.Setenv("DEEPSEEK_ORCA_TEST_TOKEN", "sk-123")
+	t.Setenv("DEEPSEEK_ORCA_TEST_EMPTY", "")
 
 	cases := []struct{ in, want string }{
-		{"Bearer ${DEEPCODE_TEST_TOKEN}", "Bearer sk-123"},
-		{"${DEEPCODE_TEST_MISSING}", ""},                                   // unset, no default → empty
-		{"${DEEPCODE_TEST_MISSING:-fallback}", "fallback"},                 // unset → default
-		{"${DEEPCODE_TEST_EMPTY:-fallback}", "fallback"},                   // set-but-empty → default
-		{"${DEEPCODE_TEST_TOKEN:-fallback}", "sk-123"},                     // set → value, default ignored
+		{"Bearer ${DEEPSEEK_ORCA_TEST_TOKEN}", "Bearer sk-123"},
+		{"${DEEPSEEK_ORCA_TEST_MISSING}", ""},                                   // unset, no default → empty
+		{"${DEEPSEEK_ORCA_TEST_MISSING:-fallback}", "fallback"},                 // unset → default
+		{"${DEEPSEEK_ORCA_TEST_EMPTY:-fallback}", "fallback"},                   // set-but-empty → default
+		{"${DEEPSEEK_ORCA_TEST_TOKEN:-fallback}", "sk-123"},                     // set → value, default ignored
 		{"no vars here", "no vars here"},                                   // untouched
-		{"a${DEEPCODE_TEST_TOKEN}b${DEEPCODE_TEST_MISSING}c", "ask-123bc"}, // multiple refs
+		{"a${DEEPSEEK_ORCA_TEST_TOKEN}b${DEEPSEEK_ORCA_TEST_MISSING}c", "ask-123bc"}, // multiple refs
 	}
 	for _, c := range cases {
 		if got := ExpandVars(c.in); got != c.want {
@@ -23,14 +23,14 @@ func TestExpandVars(t *testing.T) {
 }
 
 func TestExpandedPlugin(t *testing.T) {
-	t.Setenv("DEEPCODE_TEST_KEY", "secret")
+	t.Setenv("DEEPSEEK_ORCA_TEST_KEY", "secret")
 	e := PluginEntry{
 		Name:    "x",
 		Type:    "http",
-		URL:     "https://api/${DEEPCODE_TEST_MISSING:-v1}",
-		Args:    []string{"--token", "${DEEPCODE_TEST_KEY}"},
-		Env:     map[string]string{"K": "${DEEPCODE_TEST_KEY}"},
-		Headers: map[string]string{"Authorization": "Bearer ${DEEPCODE_TEST_KEY}"},
+		URL:     "https://api/${DEEPSEEK_ORCA_TEST_MISSING:-v1}",
+		Args:    []string{"--token", "${DEEPSEEK_ORCA_TEST_KEY}"},
+		Env:     map[string]string{"K": "${DEEPSEEK_ORCA_TEST_KEY}"},
+		Headers: map[string]string{"Authorization": "Bearer ${DEEPSEEK_ORCA_TEST_KEY}"},
 	}
 	out := e.ExpandedPlugin()
 	if out.URL != "https://api/v1" {
@@ -43,7 +43,7 @@ func TestExpandedPlugin(t *testing.T) {
 		t.Errorf("env/headers not expanded: %v %v", out.Env, out.Headers)
 	}
 	// The original entry must be untouched (we returned a copy).
-	if e.Headers["Authorization"] != "Bearer ${DEEPCODE_TEST_KEY}" {
+	if e.Headers["Authorization"] != "Bearer ${DEEPSEEK_ORCA_TEST_KEY}" {
 		t.Error("ExpandedPlugin mutated the original entry")
 	}
 }

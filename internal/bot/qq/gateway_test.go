@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"deepcode/internal/bot"
+	"deepseek-orca/internal/bot"
 )
 
 func TestHandleDispatchDirectMessageUsesDirectChatType(t *testing.T) {

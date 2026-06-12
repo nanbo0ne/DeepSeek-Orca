@@ -1,4 +1,4 @@
-module deepcode
+module deepseek-orca
 
 go 1.25.0
 

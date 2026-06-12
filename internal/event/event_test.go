@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"deepcode/internal/evidence"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/provider"
 )
 
 // --- Kind constants ---

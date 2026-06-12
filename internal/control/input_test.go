@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/command"
-	"deepcode/internal/event"
-	"deepcode/internal/memory"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/skill"
 )
 
 type fakeAutoPlanClassifier struct {
@@ -60,7 +60,7 @@ func TestSkillsReflectStoreChangesAfterControllerBuild(t *testing.T) {
 	if _, ok := c.RunSkill("/hot now"); ok {
 		t.Fatal("skill should not exist before it is written")
 	}
-	writeControlSkill(t, project, ".deepcode/skills/hot/SKILL.md", "---\nname: hot\ndescription: Hot install\n---\nHot body")
+	writeControlSkill(t, project, ".deepseek-orca/skills/hot/SKILL.md", "---\nname: hot\ndescription: Hot install\n---\nHot body")
 
 	if skills := c.Skills(); len(skills) != 1 || skills[0].Name != "hot" {
 		t.Fatalf("Skills() = %+v, want newly installed hot skill", skills)

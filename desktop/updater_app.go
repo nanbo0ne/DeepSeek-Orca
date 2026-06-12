@@ -5,16 +5,16 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepcode/desktop/internal/update"
+	"deepseek-orca/desktop/internal/update"
 )
 
 // updater_app.go keeps the former updater command surface for compatibility.
-// DeepCode disables update checks and update application in the product UI.
+// DeepSeek-Orca disables update checks and update application in the product UI.
 
 // Version returns the build version injected via -ldflags (see main.go).
 func (a *App) Version() string { return version }
 
-// CheckUpdate is disabled in DeepCode builds; the product no longer performs
+// CheckUpdate is disabled in DeepSeek-Orca builds; the product no longer performs
 // automatic or manual update checks.
 func (a *App) CheckUpdate() (*UpdateInfo, error) {
 	return nil, nil
@@ -23,11 +23,11 @@ func (a *App) CheckUpdate() (*UpdateInfo, error) {
 // OpenDownloadPage is retained for API compatibility.
 func (a *App) OpenDownloadPage() {
 	if a.ctx != nil {
-		wruntime.BrowserOpenURL(a.ctx, "https://github.com/esengine/DeepCode")
+		wruntime.BrowserOpenURL(a.ctx, "https://github.com/nanbo0ne/DeepSeek-Orca")
 	}
 }
 
-// ApplyUpdate is disabled in DeepCode builds.
+// ApplyUpdate is disabled in DeepSeek-Orca builds.
 func (a *App) ApplyUpdate() error {
 	return nil
 }

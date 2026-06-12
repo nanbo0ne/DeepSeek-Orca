@@ -8,17 +8,17 @@ import (
 	"io"
 	"strings"
 
-	"deepcode/internal/event"
-	"deepcode/internal/jobs"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/jobs"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // DefaultTaskSystemPrompt steers a sub-agent toward focused, terse delivery —
 // it doesn't see the parent's conversation so it must self-contain.
-const DefaultTaskSystemPrompt = `你是由父级编程代理调用的子代理，只负责完成一个聚焦任务。
+const DefaultTaskSystemPrompt = `你是由父级编程 Agent 调用的子 Agent，只负责完成一个聚焦任务。
 使用提供的工具进行调查或执行操作。最终只返回一段简洁且自包含的答案；
-父级代理只能看到这段答案，看不到你的工具调用或推理过程。
+父级 Agent 只能看到这段答案，看不到你的工具调用或推理过程。
 如果必须澄清问题，请以一个精确问题失败返回，不要猜测。`
 
 var subagentMetaTools = []string{
@@ -290,7 +290,7 @@ func (t *TaskTool) prepareTranscriptRun(subReg *tool.Registry, modelRef, effortR
 	if t.transcripts == nil {
 		return nil, fmt.Errorf("subagent transcript store is required")
 	}
-	// Headless runs (e.g. `deepcode run`) never mint a session path, so there is
+	// Headless runs (e.g. `deepseek-orca run`) never mint a session path, so there is
 	// no parent session to own a transcript. Run the sub-agent ephemerally —
 	// exactly as before persisted transcripts existed — instead of failing the
 	// call. Continuation/fork need a persisted owner, so they error here.

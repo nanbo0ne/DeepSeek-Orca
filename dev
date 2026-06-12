@@ -4,7 +4,7 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 desktop_dir="$root/desktop"
 
-vite_port="${DEEPCODE_DESKTOP_VITE_PORT:-}"
+vite_port="${DEEPSEEK_ORCA_DESKTOP_VITE_PORT:-}"
 if [[ $# -gt 0 && "$1" =~ ^[0-9]+$ ]]; then
   vite_port="$1"
   shift
@@ -25,15 +25,15 @@ if (( vite_port < 1024 || vite_port > 36000 )); then
   exit 2
 fi
 
-wails_port="${DEEPCODE_DESKTOP_WAILS_PORT:-$((vite_port + 29000))}"
+wails_port="${DEEPSEEK_ORCA_DESKTOP_WAILS_PORT:-$((vite_port + 29000))}"
 
-export DEEPCODE_DESKTOP_VITE_PORT="$vite_port"
-export DEEPCODE_DEV=1
+export DEEPSEEK_ORCA_DESKTOP_VITE_PORT="$vite_port"
+export DEEPSEEK_ORCA_DEV=1
 # pnpm v11: suppress TTY prompts and skip lockfile age checks in headless mode.
 export PNPM_CONFIG_CONFIRM_MODULES_PURGE=false
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=0
 
-echo "DeepCode desktop dev"
+echo "DeepSeek-Orca desktop dev"
 echo "  worktree: $root"
 echo "  vite:     http://127.0.0.1:$vite_port"
 echo "  wails:    127.0.0.1:$wails_port"

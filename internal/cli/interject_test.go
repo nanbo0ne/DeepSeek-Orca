@@ -5,8 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/control"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
 )
 
 func TestInterjectQueuesWhileRunningWithoutOverwrite(t *testing.T) {

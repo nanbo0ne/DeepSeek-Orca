@@ -7,9 +7,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/config"
-	"deepcode/internal/mcpdiag"
-	"deepcode/internal/plugin"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/mcpdiag"
+	"deepseek-orca/internal/plugin"
 )
 
 const (

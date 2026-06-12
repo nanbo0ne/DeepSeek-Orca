@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/term"
 
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/i18n"
 )
 
 // errCancelled is returned by selectOne when the user aborts (q or Ctrl-C).

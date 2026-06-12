@@ -37,15 +37,15 @@ type Messages struct {
 	NoKey           string // status dot — no API key set
 	Ready           string // status dot — provider ready
 	GetStarted      string // section title above numbered steps
-	StepScaffold    string // step 1 desc — deepcode setup
+	StepScaffold    string // step 1 desc — deepseek-orca setup
 	StepSetKey      string // step 2 command label
 
-	// `deepcode init` — points to the in-session /init skill + setup
+	// `deepseek-orca init` — points to the in-session /init skill + setup
 	InitHint       string
 	StepSetKeyHint string // step 2 desc — env var hint
-	StepChatDesc   string // deepcode chat step desc
-	StepRunDesc    string // deepcode run step desc
-	HelpFooter     string // dim footer linking to deepcode help
+	StepChatDesc   string // deepseek-orca chat step desc
+	StepRunDesc    string // deepseek-orca run step desc
+	HelpFooter     string // dim footer linking to deepseek-orca help
 
 	// chat REPL
 	ChatTip           string // tip line under the chat banner
@@ -287,7 +287,7 @@ type Messages struct {
 	SelectProvidersLabel  string // multi-select label
 	EnterAPIKeysHeader    string // header before the per-env-var prompts
 	MissingKeyIntro       string // shown when re-running the key step on a configured setup
-	WroteFileFmt          string // "Wrote %s" — used for deepcode.toml and .env both
+	WroteFileFmt          string // "Wrote %s" — used for deepseek-orca.toml and .env both
 	SetupComplete         string // success line at end of init
 	SetupCancelled        string // shown when the user aborts the wizard
 	TryHintFmt            string // "Try: %s" — %s = command to try (styled)
@@ -306,7 +306,7 @@ type Messages struct {
 	NoModelsAvailableFmt       string // "%s: no models available, skipping"
 	CustomFetchEmpty           string // "/models returned an empty list — falling back to manual entry"
 	AnthropicFetchEmpty        string // "/models returned an empty list — Anthropic-compatible providers usually don't expose one, falling back to manual entry"
-	SkipStaleCustomEntryFmt    string // "skipping stale %q entry from deepcode.toml (pointing at %s) — please remove it"
+	SkipStaleCustomEntryFmt    string // "skipping stale %q entry from deepseek-orca.toml (pointing at %s) — please remove it"
 	APIKeyAlreadySetFmt        string // "reusing existing value for %s"
 	APIKeyResetPromptFmt       string // "Re-enter %s?"
 
@@ -340,7 +340,7 @@ type Messages struct {
 
 	// top-level / runAgent
 	UnknownCommandFmt         string // "unknown command %q"
-	UsageRunHint              string // "usage: deepcode run [--model NAME] <task>"
+	UsageRunHint              string // "usage: deepseek-orca run [--model NAME] <task>"
 	ErrorPrefix               string // "error:" — prefix for fatal-error output
 	ReconfigureOnUnknownModel string // shown when the configured model no longer resolves and setup is re-run
 	WriteConfigErr            string // "write config:" — prefix for write failure
@@ -404,7 +404,7 @@ var M = English
 // environment and installs it as M. Returns the resolved tag ("en", "zh") so
 // callers can log or expose it.
 //
-// Priority: override > DEEPCODE_LANG > LC_ALL > LC_MESSAGES > LANG > "en".
+// Priority: override > DEEPSEEK_ORCA_LANG > LC_ALL > LC_MESSAGES > LANG > "en".
 func DetectLanguage(override string) string {
 	for _, c := range append([]string{override}, envCandidates()...) {
 		if tag := normalize(c); tag != "" {
@@ -415,7 +415,7 @@ func DetectLanguage(override string) string {
 }
 
 func envCandidates() []string {
-	keys := []string{"DEEPCODE_LANG", "LC_ALL", "LC_MESSAGES", "LANG"}
+	keys := []string{"DEEPSEEK_ORCA_LANG", "LC_ALL", "LC_MESSAGES", "LANG"}
 	out := make([]string, len(keys))
 	for i, k := range keys {
 		out[i] = os.Getenv(k)

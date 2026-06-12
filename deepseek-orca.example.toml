@@ -1,12 +1,12 @@
-# DeepCode configuration.
-# Resolution order: flag > ./deepcode.toml > ~/.config/deepcode/config.toml > built-in defaults.
+# DeepSeek-Orca configuration.
+# Resolution order: flag > ./deepseek-orca.toml > ~/.config/deepseek-orca/config.toml > built-in defaults.
 # Secrets come from the environment via api_key_env; never put keys here.
 
 default_model = "deepseek"   # a provider name (→ its default model) or "provider/model"
-# language      = "zh"   # ui language; empty = auto-detect from $LANG / $DEEPCODE_LANG
+# language      = "zh"   # ui language; empty = auto-detect from $LANG / $DEEPSEEK_ORCA_LANG
 
 [ui]
-theme = "auto"   # auto|dark|light; controls CLI colors only; DEEPCODE_THEME can override per run
+theme = "auto"   # auto|dark|light; controls CLI colors only; DEEPSEEK_ORCA_THEME can override per run
 # theme_style = "graphite"   # graphite|ember|aurora|midnight|sandstone|porcelain|linen|glacier
 # shortcut_layout = "desktop"   # classic|desktop; compatibility setting; Shift+Tab toggles Plan, Ctrl+Y toggles YOLO
 
@@ -18,7 +18,7 @@ ask_request = true   # notify when a question is waiting
 
 [agent]
 system_prompt = """
-You are DeepCode, a coding agent focused on executing code tasks.
+You are DeepSeek-Orca, a coding agent focused on executing code tasks.
 Use the provided tools to read and write files and run shell commands.
 Principles: understand the request before acting; verify with tools instead of
 guessing; keep changes minimal and correct; briefly summarize what you did."""
@@ -35,7 +35,7 @@ compact_force_ratio = 0.9   # force compacting at this high-water mark
 # subagent_model = "deepseek-pro"   # optional default for runAs=subagent skills
 # subagent_models = { review = "deepseek-pro", security_review = "deepseek-pro" }   # per-skill overrides
 # output_style = "explanatory"   # persona/tone folded into the prompt: explanatory | learning | concise,
-#                                  or a custom .deepcode/output-styles/<name>.md ; empty = default
+#                                  or a custom .deepseek-orca/output-styles/<name>.md ; empty = default
 
 # A provider is a vendor endpoint (one base_url + key) that offers one or more
 # models. Use `models = [...]` to expose several under a single entry — switching
@@ -120,10 +120,10 @@ bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local ca
 # [codegraph]
 # enabled      = false
 # auto_install = true
-# path         = ""   # empty = cache, then PATH, then a bundle beside deepcode
+# path         = ""   # empty = cache, then PATH, then a bundle beside deepseek-orca
 
 # Skills are invokable playbooks (SKILL.md / <name>.md with frontmatter), found
-# under .deepcode/skills, .agents/skills, .agent/skills, .claude/skills (project)
+# under .deepseek-orca/skills, .agents/skills, .agent/skills, .claude/skills (project)
 # and the same dirs under ~ (global). Built-ins (explore/research/review/security-review/test)
 # ship out of the box. The model invokes them via run_skill / explore / …; you
 # invoke them via /<name>. Manage with /skill (list, show, enable, disable, new, paths).
@@ -134,10 +134,10 @@ bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local ca
 
 # Hooks run shell commands around the loop (PreToolUse / PostToolUse /
 # UserPromptSubmit / Stop). They are NOT configured here — put them in
-# settings.json: ~/.deepcode/settings.json (global, always on) and
-# <project>/.deepcode/settings.json (project, runs only after `/hooks trust`).
+# settings.json: ~/.deepseek-orca/settings.json (global, always on) and
+# <project>/.deepseek-orca/settings.json (project, runs only after `/hooks trust`).
 # Exit 0 = pass, exit 2 = block (PreToolUse / UserPromptSubmit only). Example
-# ~/.deepcode/settings.json:
+# ~/.deepseek-orca/settings.json:
 #   { "hooks": {
 #       "PreToolUse":  [ { "match": "bash", "command": "my-guard.sh" } ],
 #       "PostToolUse": [ { "match": ".*file", "command": "gofmt -w ." } ],
@@ -151,12 +151,12 @@ bash_timeout_seconds = 120   # foreground safety cap; set 0 for no tool-local ca
 # External stdio plugins (MCP-compatible); each is a standalone executable.
 # [[plugins]]
 # name    = "example"
-# command = "deepcode-plugin-example"
+# command = "deepseek-orca-plugin-example"
 # # Enabled MCP servers connect automatically in the background after session
 # # start. Use /mcp or the desktop MCP panel to refresh, reconnect, or disable.
 
 # Bot gateway: multi-channel IM bot for QQ, Feishu, and WeChat.
-# Start with `deepcode bot start --channels qq,feishu,weixin`.
+# Start with `deepseek-orca bot start --channels qq,feishu,weixin`.
 # All secrets are read from environment variables; never put keys here.
 # [bot]
 # enabled    = false

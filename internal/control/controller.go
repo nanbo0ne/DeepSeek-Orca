@@ -28,25 +28,25 @@ import (
 	"time"
 	"unicode"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/billing"
-	"deepcode/internal/checkpoint"
-	"deepcode/internal/codegraph"
-	"deepcode/internal/command"
-	"deepcode/internal/config"
-	"deepcode/internal/diff"
-	"deepcode/internal/event"
-	"deepcode/internal/hook"
-	"deepcode/internal/i18n"
-	"deepcode/internal/jobs"
-	"deepcode/internal/memory"
-	"deepcode/internal/nilutil"
-	"deepcode/internal/permission"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/skill"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/billing"
+	"deepseek-orca/internal/checkpoint"
+	"deepseek-orca/internal/codegraph"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/diff"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/hook"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/jobs"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/nilutil"
+	"deepseek-orca/internal/permission"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/skill"
+	"deepseek-orca/internal/tool"
 )
 
 // ErrTurnRunning reports that a caller tried to start a second foreground turn
@@ -1039,7 +1039,7 @@ func (c *Controller) notice(text string) {
 }
 
 // Run executes a turn synchronously, returning the agent's error. Used by the
-// headless `deepcode run` path, where the Sink renders to stdout and the caller
+// headless `deepseek-orca run` path, where the Sink renders to stdout and the caller
 // just needs the exit status — no TurnDone event, no cancel bookkeeping.
 func (c *Controller) Run(ctx context.Context, input string) error {
 	c.maybeSessionStart(ctx)
@@ -2080,7 +2080,7 @@ func (c *Controller) AddMCPServer(e config.PluginEntry) (int, error) {
 
 // ConnectMCPServer connects an MCP server entry for this session without writing
 // it to config. Desktop owns config placement so it can keep user-level settings
-// out of project deepcode.toml while preserving the CLI AddMCPServer semantics.
+// out of project deepseek-orca.toml while preserving the CLI AddMCPServer semantics.
 func (c *Controller) ConnectMCPServer(e config.PluginEntry) (int, error) {
 	return c.connectMCPServer(e)
 }
@@ -2437,7 +2437,7 @@ func (c *Controller) Bypass() bool {
 // is disabled.
 
 // QuickAdd appends a one-line note to the doc-memory file for scope (project
-// DEEPCODE.md by default) — the write side of "#<note>". Returns the file written.
+// DEEPSEEK_ORCA.md by default) — the write side of "#<note>". Returns the file written.
 func (c *Controller) QuickAdd(scope memory.Scope, note string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

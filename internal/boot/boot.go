@@ -19,27 +19,27 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/codegraph"
-	"deepcode/internal/command"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/hook"
-	"deepcode/internal/installsource"
-	"deepcode/internal/instruction"
-	"deepcode/internal/jobs"
-	"deepcode/internal/lsp"
-	"deepcode/internal/memory"
-	"deepcode/internal/netclient"
-	"deepcode/internal/outputstyle"
-	"deepcode/internal/permission"
-	"deepcode/internal/plugin"
-	"deepcode/internal/provider"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/skill"
-	"deepcode/internal/tool"
-	"deepcode/internal/tool/builtin"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/codegraph"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/hook"
+	"deepseek-orca/internal/installsource"
+	"deepseek-orca/internal/instruction"
+	"deepseek-orca/internal/jobs"
+	"deepseek-orca/internal/lsp"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/outputstyle"
+	"deepseek-orca/internal/permission"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/skill"
+	"deepseek-orca/internal/tool"
+	"deepseek-orca/internal/tool/builtin"
 )
 
 // ErrUnknownModel is returned by Build when the configured model can't be
@@ -74,7 +74,7 @@ type Options struct {
 	WorkspaceRoot string
 	// ExtraPlugins are session-scoped MCP servers supplied by a host transport
 	// (for example ACP session/new). They are connected eagerly for this
-	// controller but are not persisted to deepcode.toml.
+	// controller but are not persisted to deepseek-orca.toml.
 	ExtraPlugins []plugin.Spec
 	// SessionDir overrides where persisted chat transcripts are written. When
 	// empty, the shared CLI/global session directory is used.
@@ -105,7 +105,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 	entry, ok := cfg.ResolveModel(modelName)
 	if !ok {
-		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `deepcode setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
+		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `deepseek-orca setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
 	}
 	if opts.EffortOverride != nil {
 		entry.Effort = *opts.EffortOverride
@@ -126,7 +126,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	sink := event.Sync(opts.Sink)
 
 	if migErr != nil {
-		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "config migration from ~/.deepcode failed: " + migErr.Error()})
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "config migration from ~/.deepseek-orca failed: " + migErr.Error()})
 	} else if migrated != nil {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: migrated.Notice()})
 	}
@@ -166,7 +166,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 	sysPrompt += "\n\n" + config.LanguagePolicy
 
-	// Persistent memory (DEEPCODE.md / AGENTS.md hierarchy + auto-memory index)
+	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
 	// folds into the system prompt exactly here, once: it becomes part of the
 	// durable, cache-stable prefix every turn reuses, so memory costs nothing per
 	// turn. Mid-session changes never touch this prefix — they ride the
@@ -294,7 +294,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			}
 		default:
 			sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
-				Text: "codegraph: not installed — run `deepcode codegraph install` to enable symbol-graph tools"})
+				Text: "codegraph: not installed — run `deepseek-orca codegraph install` to enable symbol-graph tools"})
 		}
 	}
 	eagerSpecs = append(eagerSpecs, opts.ExtraPlugins...)
@@ -387,7 +387,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	subagentStore := newSubagentStore(config.SessionDir())
 
 	// Permission policy gates every tool call. The headless gate (no Approver)
-	// resolves "ask" to allow — preserving `deepcode run` autonomy — while deny
+	// resolves "ask" to allow — preserving `deepseek-orca run` autonomy — while deny
 	// rules hard-block in every mode. Interactive frontends (chat, desktop) swap
 	// in an interactive gate later via Controller.EnableInteractiveApproval.
 	// Sub-agents always run headless: they have no UI to answer a prompt, so they
@@ -491,7 +491,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		parentSession := agent.ParentSession(sctx)
 		var run *agent.SubagentRun
 		if subagentStore == nil || parentSession == "" {
-			// Headless runs (e.g. `deepcode run`) have no persistent session to
+			// Headless runs (e.g. `deepseek-orca run`) have no persistent session to
 			// own a transcript. Run the skill sub-agent ephemerally, as before
 			// persisted transcripts existed, instead of failing. Continuation and
 			// fork need a persisted owner, so they error here.
@@ -623,7 +623,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		ArchiveDir:        config.ArchiveDir(),
 	}, sink)
 
-	// Custom slash commands (.deepcode/commands + user dir). Best-effort: a malformed
+	// Custom slash commands (.deepseek-orca/commands + user dir). Best-effort: a malformed
 	// file is skipped, and a load error never blocks the session.
 	cmds, _ := command.Load(config.CommandDirsForRoot(root)...)
 
@@ -750,8 +750,8 @@ func migrateLegacySessionSources(sink event.Sink) {
 	var sources []legacySource
 	if home, herr := os.UserHomeDir(); herr == nil {
 		sources = append(sources, legacySource{
-			dir:     filepath.Join(home, ".deepcode", "sessions"),
-			label:   "~/.deepcode/sessions",
+			dir:     filepath.Join(home, ".deepseek-orca", "sessions"),
+			label:   "~/.deepseek-orca/sessions",
 			migrate: agent.MigrateLegacySessions,
 		})
 	}
@@ -806,11 +806,11 @@ func rememberPermissionRule(workspaceRoot, rule string) control.RememberResult {
 func rememberPermissionConfigPath(workspaceRoot string) string {
 	workspaceRoot = strings.TrimSpace(workspaceRoot)
 	if workspaceRoot != "" {
-		return filepath.Join(workspaceRoot, "deepcode.toml")
+		return filepath.Join(workspaceRoot, "deepseek-orca.toml")
 	}
 	path := config.SourcePath()
 	if path == "" {
-		path = "deepcode.toml" // match Config.Save() fallback
+		path = "deepseek-orca.toml" // match Config.Save() fallback
 	}
 	return path
 }

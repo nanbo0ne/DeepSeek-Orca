@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // --- NewSession ---

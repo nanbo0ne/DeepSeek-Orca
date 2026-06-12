@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/i18n"
-	"deepcode/internal/memory"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/memory"
 )
 
 func renderMemory(width int, set *memory.Set) string {

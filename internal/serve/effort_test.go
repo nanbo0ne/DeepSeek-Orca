@@ -3,7 +3,7 @@ package serve
 import (
 	"testing"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 func TestApplyEffortEditUpsertsMissingProvider(t *testing.T) {

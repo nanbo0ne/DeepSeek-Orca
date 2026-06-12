@@ -12,9 +12,9 @@
 package event
 
 import (
-	"deepcode/internal/evidence"
-	"deepcode/internal/nilutil"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/nilutil"
+	"deepseek-orca/internal/provider"
 )
 
 // Kind tags an Event. Read the field(s) documented for that kind.

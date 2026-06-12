@@ -1,0 +1,39 @@
+{
+  "name": "deepseek-orca",
+  "version": "0.0.0",
+  "description": "Cache-first DeepSeek coding agent for the terminal.",
+  "bin": {
+    "deepseek-orca": "bin/deepseek-orca.js"
+  },
+  "files": [
+    "bin/deepseek-orca.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/nanbo0ne/DeepSeek-Orca#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanbo0ne/DeepSeek-Orca.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nanbo0ne/DeepSeek-Orca/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "ai",
+    "agent",
+    "cli",
+    "coding-assistant",
+    "tui"
+  ],
+  "optionalDependencies": {
+    "@deepseek-orca/cli-darwin-arm64": "0.0.0",
+    "@deepseek-orca/cli-darwin-x64": "0.0.0",
+    "@deepseek-orca/cli-linux-arm64": "0.0.0",
+    "@deepseek-orca/cli-linux-x64": "0.0.0",
+    "@deepseek-orca/cli-win32-arm64": "0.0.0",
+    "@deepseek-orca/cli-win32-x64": "0.0.0"
+  }
+}

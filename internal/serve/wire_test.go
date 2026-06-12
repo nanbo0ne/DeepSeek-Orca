@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 func TestToWire(t *testing.T) {

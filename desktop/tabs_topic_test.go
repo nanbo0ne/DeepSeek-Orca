@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
 )
 
 func waitForTabReady(t *testing.T, app *App, tabID string) *WorkspaceTab {
@@ -252,7 +252,7 @@ func TestLegacySessionsMigrateIntoGlobalTopics(t *testing.T) {
 func TestV05LegacyEventSessionsImportIntoGlobalTopic(t *testing.T) {
 	home := isolateDesktopUserDirs(t)
 
-	legacyDir := filepath.Join(home, ".deepcode", "sessions")
+	legacyDir := filepath.Join(home, ".deepseek-orca", "sessions")
 	destDir := config.SessionDir()
 	writeLegacyEventSession(t, legacyDir, "v053-chat.events.jsonl", "hello from v0.53", "hi from v0.53", time.Now().Add(-time.Hour))
 

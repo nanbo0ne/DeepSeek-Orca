@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(globTool{}) }

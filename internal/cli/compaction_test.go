@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // TestCompactionCardLines locks the finished-compaction card: a header naming

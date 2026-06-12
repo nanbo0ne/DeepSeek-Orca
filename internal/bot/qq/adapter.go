@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/bot"
-	"deepcode/internal/config"
+	"deepseek-orca/internal/bot"
+	"deepseek-orca/internal/config"
 )
 
 // New 创建 QQ Bot 适配器。

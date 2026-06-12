@@ -3,7 +3,7 @@ package bot
 import (
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 func TestApprovalCardCarriesChatType(t *testing.T) {

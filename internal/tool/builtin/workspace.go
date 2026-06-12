@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"deepcode/internal/netclient"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/tool"
 )
 
 // Workspace builds a built-in tool set bound to a working directory, so several

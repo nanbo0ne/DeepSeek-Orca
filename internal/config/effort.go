@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepcode/internal/provider/openai"
+	"deepseek-orca/internal/provider/openai"
 )
 
 const (

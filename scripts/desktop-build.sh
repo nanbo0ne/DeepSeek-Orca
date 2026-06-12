@@ -5,12 +5,12 @@
 #
 # Output lands in <repo>/dist/ with stable, platform-keyed names that
 # desktop/cmd/sign's `manifest` subcommand maps back to update.PlatformKey:
-#   macOS:   DeepCode-darwin-<arch>.zip                  (ditto archive; updater channel)
-#            DeepCode-darwin-universal.dmg               (drag-to-install; human download)
-#   Windows: DeepCode-windows-<arch>-installer.exe       (NSIS per-user installer; updater channel)
-#            DeepCode-windows-<arch>.zip                 (portable human download)
-#   Linux:   DeepCode-linux-<arch>.tar.gz                (bare binary; updater channel)
-#            DeepCode-linux-<arch>.deb                   (Debian/Ubuntu package; human download)
+#   macOS:   DeepSeek-Orca-darwin-<arch>.zip                  (ditto archive; updater channel)
+#            DeepSeek-Orca-darwin-universal.dmg               (drag-to-install; human download)
+#   Windows: DeepSeek-Orca-windows-<arch>-installer.exe       (NSIS per-user installer; updater channel)
+#            DeepSeek-Orca-windows-<arch>.zip                 (portable human download)
+#   Linux:   DeepSeek-Orca-linux-<arch>.tar.gz                (bare binary; updater channel)
+#            DeepSeek-Orca-linux-<arch>.deb                   (Debian/Ubuntu package; human download)
 #
 # Usage: scripts/desktop-build.sh <os/arch> <version> [channel]
 #   e.g. scripts/desktop-build.sh darwin/arm64 v1.1.0
@@ -25,8 +25,8 @@ os="${PLATFORM%/*}"
 arch="${PLATFORM#*/}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APPNAME="DeepCode"            # wails.json productName -> DeepCode.app
-BINNAME="deepcode-desktop"    # wails.json outputfilename -> linux binary name
+APPNAME="DeepSeek-Orca"            # wails.json productName -> DeepSeek-Orca.app
+BINNAME="deepseek-orca-desktop"    # wails.json outputfilename -> linux binary name
 
 cd "$ROOT/desktop"
 
@@ -52,11 +52,11 @@ mkdir -p "$ROOT/dist"
 
 case "$os" in
 darwin)
-	# Wails names the bundle after outputfilename (deepcode-desktop.app); repackage
-	# it as DeepCode.app for a clean user-facing name.
+	# Wails names the bundle after outputfilename (deepseek-orca-desktop.app); repackage
+	# it as DeepSeek-Orca.app for a clean user-facing name.
 	staging=$(mktemp -d)
 	app="$staging/${APPNAME}.app"
-	cp -R "build/bin/deepcode-desktop.app" "$app"
+	cp -R "build/bin/deepseek-orca-desktop.app" "$app"
 
 	# Two signing paths, selected by HAS_APPLE_CERT (set by release-desktop.yml when
 	# the APPLE_* secrets are present). With a real Developer ID cert + notarization

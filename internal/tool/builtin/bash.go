@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"deepcode/internal/jobs"
-	"deepcode/internal/sandbox"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/jobs"
+	"deepseek-orca/internal/sandbox"
+	"deepseek-orca/internal/tool"
 )
 
 const (
@@ -270,7 +270,7 @@ func defaultBashShellPATH(ctx context.Context) string {
 	if shell == "" {
 		return ""
 	}
-	const marker = "__DEEPCODE_BASH_PATH__="
+	const marker = "__DEEPSEEK_ORCA_BASH_PATH__="
 	script := "printf '\\n" + marker + "%s\\n' \"$PATH\""
 	for _, args := range [][]string{
 		{"-l", "-i", "-c", script},

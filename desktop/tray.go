@@ -28,8 +28,8 @@ func (a *App) startTray() {
 
 	t.end = startDesktopTray(func() {
 		systray.SetIcon(trayIconBytes)
-		systray.SetTitle("DeepCode")
-		systray.SetTooltip("DeepCode")
+		systray.SetTitle("DeepSeek-Orca")
+		systray.SetTooltip("DeepSeek-Orca")
 		// Run off the systray Win32 message loop: SetOnTapped fires inside wndProc,
 		// so a blocking showFromTray (a wedged webview after sleep freezes
 		// runtime.WindowShow) would stall the whole tray's message pump (#3834). The
@@ -114,15 +114,15 @@ func trayMenuLabels(locale string) trayLabels {
 	if locale == "zh" {
 		return trayLabels{
 			openTitle:   "打开",
-			openTooltip: "打开 DeepCode 窗口",
+			openTooltip: "打开 DeepSeek-Orca 窗口",
 			quitTitle:   "退出",
-			quitTooltip: "退出 DeepCode",
+			quitTooltip: "退出 DeepSeek-Orca",
 		}
 	}
 	return trayLabels{
 		openTitle:   "Open",
-		openTooltip: "Open the DeepCode window",
+		openTooltip: "Open the DeepSeek-Orca window",
 		quitTitle:   "Quit",
-		quitTooltip: "Quit DeepCode",
+		quitTooltip: "Quit DeepSeek-Orca",
 	}
 }

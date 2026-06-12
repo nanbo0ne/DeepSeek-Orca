@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // TestStreamRetriesThenSucceeds drives the real retry path end-to-end: the

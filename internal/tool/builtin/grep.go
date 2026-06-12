@@ -15,9 +15,9 @@ import (
 
 	"golang.org/x/text/transform"
 
-	fileenc "deepcode/internal/fileutil/encoding"
-	"deepcode/internal/proc"
-	"deepcode/internal/tool"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
+	"deepseek-orca/internal/proc"
+	"deepseek-orca/internal/tool"
 )
 
 const grepMaxMatches = 200

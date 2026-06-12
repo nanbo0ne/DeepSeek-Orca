@@ -179,12 +179,12 @@ func TestSandboxEnforcesWrites(t *testing.T) {
 	if err != nil {
 		t.Skipf("no home dir: %v", err)
 	}
-	workRoot, err := os.MkdirTemp(home, ".deepcode-sbtest-work-*")
+	workRoot, err := os.MkdirTemp(home, ".deepseek-orca-sbtest-work-*")
 	if err != nil {
 		t.Skipf("cannot create work dir under home: %v", err)
 	}
 	t.Cleanup(func() { os.RemoveAll(workRoot) })
-	outside, err := os.MkdirTemp(home, ".deepcode-sbtest-out-*")
+	outside, err := os.MkdirTemp(home, ".deepseek-orca-sbtest-out-*")
 	if err != nil {
 		t.Skipf("cannot create outside dir under home: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestGoBuildUnderSandbox(t *testing.T) {
 	if err != nil {
 		t.Skipf("no home dir: %v", err)
 	}
-	work, err := os.MkdirTemp(home, ".deepcode-sbtest-go-*")
+	work, err := os.MkdirTemp(home, ".deepseek-orca-sbtest-go-*")
 	if err != nil {
 		t.Skipf("cannot create work dir under home: %v", err)
 	}

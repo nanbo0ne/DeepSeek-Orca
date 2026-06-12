@@ -3,8 +3,8 @@
 /dist/
 /stage/
 /npm/.stage/
-/deepcode
-/deepcode.exe
+/deepseek-orca
+/deepseek-orca.exe
 /_github_exports/
 
 # Website (Astro) build output
@@ -39,23 +39,23 @@ mem.prof
 /desktop/frontend/wailsjs/
 /desktop/frontend/package.json.md5
 
-# Environment / local config (deepcode.example.toml is the shared template)
+# Environment / local config (deepseek-orca.example.toml is the shared template)
 .env
 .env.local
 *.local
-/deepcode.toml
+/deepseek-orca.toml
 /desktop/.env
-/desktop/deepcode.toml
+/desktop/deepseek-orca.toml
 
 # Node / frontend dependencies and caches
 node_modules/
 .pnpm-store/
 .npm/
 
-# Project-local DeepCode state; keep the checked-in review command.
-/.deepcode/*
-!/.deepcode/commands/
-!/.deepcode/commands/review.md
+# Project-local DeepSeek-Orca state; keep the checked-in review command.
+/.deepseek-orca/*
+!/.deepseek-orca/commands/
+!/.deepseek-orca/commands/review.md
 
 # CodeGraph per-project index (rebuilt locally; never committed)
 .codegraph/

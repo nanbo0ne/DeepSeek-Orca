@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"deepcode/internal/diff"
+	"deepseek-orca/internal/diff"
 )
 
 type fakeWriter struct {

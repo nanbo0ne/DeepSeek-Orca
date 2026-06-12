@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"deepcode/internal/evidence"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/evidence"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(todoWrite{}) }

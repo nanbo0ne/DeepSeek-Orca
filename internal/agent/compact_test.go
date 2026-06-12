@@ -4,12 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // fakeProvider returns a fixed reply and records the messages it was asked to

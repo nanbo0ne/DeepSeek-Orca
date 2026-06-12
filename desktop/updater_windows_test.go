@@ -5,19 +5,19 @@ package main
 import "testing"
 
 func TestInstallerCommandPassesUnquotedDFlagLast(t *testing.T) {
-	cmd := installerCommand(`C:\Temp\deepcode-update-1.exe`, `D:\Tools\DeepCode App`)
+	cmd := installerCommand(`C:\Temp\deepseek-orca-update-1.exe`, `D:\Tools\DeepSeek-Orca App`)
 	if cmd.SysProcAttr == nil {
 		t.Fatal("expected a raw command line forcing the install dir")
 	}
 	got := cmd.SysProcAttr.CmdLine
-	want := `"C:\Temp\deepcode-update-1.exe" /D=D:\Tools\DeepCode App`
+	want := `"C:\Temp\deepseek-orca-update-1.exe" /D=D:\Tools\DeepSeek-Orca App`
 	if got != want {
 		t.Fatalf("CmdLine = %q, want %q", got, want)
 	}
 }
 
 func TestInstallerCommandWithoutDirSkipsDFlag(t *testing.T) {
-	cmd := installerCommand(`C:\Temp\deepcode-update-1.exe`, "")
+	cmd := installerCommand(`C:\Temp\deepseek-orca-update-1.exe`, "")
 	if cmd.SysProcAttr != nil {
 		t.Fatalf("no dir should leave NSIS InstallDir logic intact, got CmdLine %q", cmd.SysProcAttr.CmdLine)
 	}

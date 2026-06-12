@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"deepcode/internal/diff"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/diff"
+	"deepseek-orca/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(notebookEdit{}) }

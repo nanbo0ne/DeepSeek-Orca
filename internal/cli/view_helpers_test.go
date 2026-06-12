@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/command"
-	"deepcode/internal/hook"
-	"deepcode/internal/memory"
-	"deepcode/internal/outputstyle"
-	"deepcode/internal/plugin"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/hook"
+	"deepseek-orca/internal/memory"
+	"deepseek-orca/internal/outputstyle"
+	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/skill"
 )
 
 func TestRenderSkillListUsesSharedVisualLanguage(t *testing.T) {
@@ -60,11 +60,11 @@ func TestRenderMemoryGroupsDocsAndStore(t *testing.T) {
 		t.Fatalf("save memory: %v", err)
 	}
 	got := renderMemory(width, &memory.Set{
-		Docs:  []memory.Source{{Path: "/Users/me/project/DEEPCODE.md", Scope: memory.ScopeProject}},
+		Docs:  []memory.Source{{Path: "/Users/me/project/DEEPSEEK_ORCA.md", Scope: memory.ScopeProject}},
 		Store: store,
 		Index: store.Index(),
 	})
-	for _, want := range []string{"memory", "docs", "(project)", "DEEPCODE.md", "saved memories", "saved-fact", "Saved Fact", "doc edits apply next session"} {
+	for _, want := range []string{"memory", "docs", "(project)", "DEEPSEEK_ORCA.md", "saved memories", "saved-fact", "Saved Fact", "doc edits apply next session"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("memory view missing %q:\n%s", want, got)
 		}
@@ -136,7 +136,7 @@ func TestRenderHelpGroupsCommands(t *testing.T) {
 func TestRenderSkillPathsStaysWithinWidth(t *testing.T) {
 	width := 72
 	got := renderSkillPaths(width, []skill.Root{{
-		Dir:      "/Users/me/projects/really/deep/path/to/.deepcode/skills",
+		Dir:      "/Users/me/projects/really/deep/path/to/.deepseek-orca/skills",
 		Scope:    skill.ScopeProject,
 		Priority: 0,
 		Status:   skill.StatusMissing,

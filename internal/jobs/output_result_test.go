@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // TestOutputSurfacesResultForBufferlessJob probes a task-style job: its run func

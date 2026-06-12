@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 func waitFor(t *testing.T, cond func() bool) {

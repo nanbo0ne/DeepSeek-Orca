@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 func TestGoalCommandAutoContinuesUntilComplete(t *testing.T) {

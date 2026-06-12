@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/agent/testutil"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/agent/testutil"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 func echoRegistry() *tool.Registry {

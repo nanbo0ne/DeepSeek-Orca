@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考试日程表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .calendar-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .day-name {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .day {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 120px;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .day-number {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .day.other-month {
+            background: #f8f9fa;
+            opacity: 0.5;
+        }
+
+        .day.has-exam {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border: 2px solid #ff9a56;
+        }
+
+        .day.today {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.5);
+        }
+
+        .day.today .day-number {
+            color: white;
+        }
+
+        .today-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+        }
+
+        .exam-tag {
+            background: #ff9a56;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .exam-time {
+            font-size: 0.7rem;
+            color: #666;
+            display: block;
+        }
+
+        .exam-details {
+            margin-top: 15px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .exam-details h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .exam-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .exam-table th,
+        .exam-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .exam-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .exam-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .exam-table .course-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .exam-table .location {
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .calendar-grid, .calendar-header {
+                gap: 4px;
+            }
+            .day {
+                min-height: 80px;
+                padding: 8px;
+            }
+            .day-number {
+                font-size: 1rem;
+            }
+            .exam-tag {
+                font-size: 0.65rem;
+                padding: 2px 6px;
+            }
+            .exam-table {
+                font-size: 0.9rem;
+            }
+            .exam-table th, .exam-table td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 2025-2026学年春季学期 考试日程表</h1>
+        <div style="text-align: center; color: white; margin-bottom: 20px; font-size: 1.1rem;">
+            <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px;">
+                📌 今天是 <strong>2026年6月11日</strong> | 距离下一次考试还有 <strong>2天</strong>
+            </span>
+        </div>
+
+        <div class="calendar-header">
+            <div class="day-name">周一</div>
+            <div class="day-name">周二</div>
+            <div class="day-name">周三</div>
+            <div class="day-name">周四</div>
+            <div class="day-name">周五</div>
+            <div class="day-name">周六</div>
+            <div class="day-name">周日</div>
+        </div>
+
+        <div class="calendar-grid">
+            <div class="day other-month"><div class="day-number">26</div></div>
+            <div class="day other-month"><div class="day-number">27</div></div>
+            <div class="day other-month"><div class="day-number">28</div></div>
+            <div class="day other-month"><div class="day-number">29</div></div>
+            <div class="day other-month"><div class="day-number">30</div></div>
+            <div class="day"><div class="day-number">1</div></div>
+            <div class="day"><div class="day-number">2</div></div>
+            
+            <div class="day"><div class="day-number">3</div></div>
+            <div class="day"><div class="day-number">4</div></div>
+            <div class="day"><div class="day-number">5</div></div>
+            <div class="day"><div class="day-number">6</div></div>
+            <div class="day"><div class="day-number">7</div></div>
+            <div class="day"><div class="day-number">8</div></div>
+            <div class="day"><div class="day-number">9</div></div>
+            
+            <div class="day"><div class="day-number">10</div></div>
+            <div class="day today"><div class="day-number">11</div><span class="today-badge">今</span></div>
+            <div class="day"><div class="day-number">12</div></div>
+            <div class="day"><div class="day-number">13</div><span class="exam-tag">英语六级</span><span class="exam-time">15:00-17:25</span></div>
+            <div class="day"><div class="day-number">14</div></div>
+            <div class="day"><div class="day-number">15</div></div>
+            <div class="day"><div class="day-number">16</div></div>
+            
+            <div class="day"><div class="day-number">17</div><span class="exam-tag">电工电子技术</span><span class="exam-time">16:30-18:30</span></div>
+            <div class="day"><div class="day-number">18</div></div>
+            <div class="day"><div class="day-number">19</div></div>
+            <div class="day"><div class="day-number">20</div></div>
+            <div class="day"><div class="day-number">21</div></div>
+            <div class="day"><div class="day-number">22</div><span class="exam-tag">线性代数</span><span class="exam-time">10:30-12:30</span></div>
+            <div class="day"><div class="day-number">23</div></div>
+            
+            <div class="day"><div class="day-number">24</div><span class="exam-tag">画法几何</span><span class="exam-time">14:30-16:30</span></div>
+            <div class="day"><div class="day-number">25</div></div>
+            <div class="day"><div class="day-number">26</div><span class="exam-tag">高等数学</span><span class="exam-time">08:00-10:00</span></div>
+            <div class="day"><div class="day-number">27</div></div>
+            <div class="day"><div class="day-number">28</div></div>
+            <div class="day"><div class="day-number">29</div></div>
+            <div class="day"><div class="day-number">30</div></div>
+        </div>
+
+        <div class="exam-details">
+            <h2>📝 考试详情</h2>
+            <table class="exam-table">
+                <thead>
+                    <tr>
+                        <th>考试科目</th>
+                        <th>考试日期</th>
+                        <th>考试时间</th>
+                        <th>考场地点</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="course-name">英语六级笔试</td>
+                        <td>2026年06月13日</td>
+                        <td>15:00 - 17:25</td>
+                        <td class="location">太原理工大学-太原校区 致明楼603</td>
+                    </tr>
+                    <tr>
+                        <td class="course-name">电工电子技术B(二)</td>
+                        <td>2026年06月17日</td>
+                        <td>16:30 - 18:30</td>
+                        <td class="location">迎西校区逸夫楼501</td>
+                    </tr>
+                    <tr>
+                        <td class="course-name">线性代数</td>
+                        <td>2026年06月22日</td>
+                        <td>10:30 - 12:30</td>
+                        <td class="location">迎西校区逸夫楼404</td>
+                    </tr>
+                    <tr>
+                        <td class="course-name">画法几何及机械制图A(二)</td>
+                        <td>2026年06月24日</td>
+                        <td>14:30 - 16:30</td>
+                        <td class="location">迎西校区机械馆2007</td>
+                    </tr>
+                    <tr>
+                        <td class="course-name">高等数学A(二)</td>
+                        <td>2026年06月26日</td>
+                        <td>08:00 - 10:00</td>
+                        <td class="location">虎峪校区致远楼A101</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const exams = [
+            { date: new Date(2026, 5, 13), name: '英语六级笔试', time: '15:00 - 17:25', location: '太原理工大学-太原校区 致明楼603' },
+            { date: new Date(2026, 5, 17), name: '电工电子技术B(二)', time: '16:30 - 18:30', location: '迎西校区逸夫楼501' },
+            { date: new Date(2026, 5, 22), name: '线性代数', time: '10:30 - 12:30', location: '迎西校区逸夫楼404' },
+            { date: new Date(2026, 5, 24), name: '画法几何及机械制图A(二)', time: '14:30 - 16:30', location: '迎西校区机械馆2007' },
+            { date: new Date(2026, 5, 26), name: '高等数学A(二)', time: '08:00 - 10:00', location: '虎峪校区致远楼A101' }
+        ];
+
+        function updateToday() {
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+            
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const currentDay = today.getDate();
+
+            const nextExam = exams.filter(e => e.date > today).sort((a, b) => a.date - b.date)[0];
+            
+            let daysRemaining = 0;
+            if (nextExam) {
+                const diffTime = nextExam.date - today;
+                daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+
+            const headerDiv = document.querySelector('.container div:nth-child(2)');
+            if (headerDiv) {
+                let examInfo = '';
+                if (daysRemaining > 0) {
+                    examInfo = `距离下一次考试 <strong>${nextExam.name}</strong> 还有 <strong>${daysRemaining}天</strong>`;
+                } else if (daysRemaining === 0) {
+                    examInfo = `🎯 今天有考试：<strong>${nextExam.name}</strong>`;
+                } else {
+                    examInfo = '所有考试已结束！🎉';
+                }
+                
+                headerDiv.innerHTML = `
+                    <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px;">
+                        📌 今天是 <strong>${todayStr}</strong> | ${examInfo}
+                    </span>
+                `;
+            }
+
+            const days = document.querySelectorAll('.day');
+            days.forEach(dayEl => {
+                dayEl.classList.remove('today');
+                const dayNum = parseInt(dayEl.querySelector('.day-number').textContent);
+                
+                if (dayNum === currentDay && !dayEl.classList.contains('other-month')) {
+                    dayEl.classList.add('today');
+                    if (!dayEl.querySelector('.today-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'today-badge';
+                        badge.textContent = '今';
+                        dayEl.appendChild(badge);
+                    }
+                } else {
+                    const existingBadge = dayEl.querySelector('.today-badge');
+                    if (existingBadge) {
+                        existingBadge.remove();
+                    }
+                }
+            });
+        }
+
+        updateToday();
+        setInterval(updateToday, 24 * 60 * 60 * 1000);
+    </script>
+</body>
+</html>

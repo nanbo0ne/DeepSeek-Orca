@@ -7,16 +7,16 @@ import (
 	"runtime"
 	"strings"
 
-	"deepcode/internal/fileutil"
-	"deepcode/internal/mcpdiag"
-	"deepcode/internal/netclient"
-	"deepcode/internal/permission"
+	"deepseek-orca/internal/fileutil"
+	"deepseek-orca/internal/mcpdiag"
+	"deepseek-orca/internal/netclient"
+	"deepseek-orca/internal/permission"
 )
 
 // edit.go is the programmatic mutation surface a settings UI drives: change the
 // default model, add/remove a provider, set the planner, edit permission rules,
 // add/remove an MCP server — each validated, then persisted with SaveTo. It is
-// separate from the `deepcode setup` wizard (cli) so a GUI can apply one setting at a
+// separate from the `deepseek-orca setup` wizard (cli) so a GUI can apply one setting at a
 // time without replaying the whole interactive flow. Every mutator works on the
 // in-memory *Config; nothing writes to disk until SaveTo/Save is called, so a UI
 // can stage several changes and commit once. Mutations round-trip through
@@ -121,7 +121,7 @@ func (c *Config) SetProviderEffort(name, effort string) error {
 	return fmt.Errorf("set provider effort: no provider %q", name)
 }
 
-// SetLanguage pins the CLI UI/model language; empty/auto clears the override so runtime detection falls back to DEEPCODE_LANG / locale.
+// SetLanguage pins the CLI UI/model language; empty/auto clears the override so runtime detection falls back to DEEPSEEK_ORCA_LANG / locale.
 func (c *Config) SetLanguage(lang string) error {
 	switch strings.ToLower(strings.TrimSpace(lang)) {
 	case "", "auto":
@@ -613,7 +613,7 @@ func (c *Config) ClearPluginAuthentication(name string) (PluginEntry, bool, erro
 // ClearPluginAuthenticationInSource clears auth material in the file that actually
 // owns the MCP server. Load() merges user/project TOML and project .mcp.json into
 // one Config, so callers must not mutate that merged view and Save() it back: a
-// .mcp.json-only server would otherwise be serialized into deepcode.toml or the
+// .mcp.json-only server would otherwise be serialized into deepseek-orca.toml or the
 // user config. Source priority mirrors Load(): project TOML, user TOML, then the
 // project .mcp.json entry if TOML did not define that server.
 func ClearPluginAuthenticationInSource(name string) (PluginEntry, bool, string, error) {
@@ -638,7 +638,7 @@ func ClearPluginAuthenticationInSource(name string) (PluginEntry, bool, string, 
 }
 
 func pluginTOMLSourcePath(name string) string {
-	for _, path := range []string{"deepcode.toml", userConfigPath()} {
+	for _, path := range []string{"deepseek-orca.toml", userConfigPath()} {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
@@ -674,7 +674,7 @@ func validatePlugin(e PluginEntry) error {
 
 // SaveTo writes the configuration to path as annotated TOML, atomically: it
 // writes a sibling temp file then renames, so a crash mid-write can't leave a
-// half-written deepcode.toml that fails to parse on next load. Parent directories
+// half-written deepseek-orca.toml that fails to parse on next load. Parent directories
 // are created as needed.
 func (c *Config) SaveTo(path string) error {
 	return c.SaveToScope(path, renderScopeForPath(path))
@@ -696,7 +696,7 @@ func SaveMinimalProjectAutoPlan(path, mode string) (string, error) {
 	if err := cfg.SetAutoPlan(mode); err != nil {
 		return "", err
 	}
-	body := fmt.Sprintf(`# DeepCode project configuration.
+	body := fmt.Sprintf(`# DeepSeek-Orca project configuration.
 # Project-local overrides are merged over the user config.
 
 [agent]
@@ -713,7 +713,7 @@ func writeConfigFile(path, body string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("save: create dir: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, ".deepcode.*.toml.tmp")
+	tmp, err := os.CreateTemp(dir, ".deepseek-orca.*.toml.tmp")
 	if err != nil {
 		return fmt.Errorf("save: create temp: %w", err)
 	}
@@ -752,23 +752,23 @@ func isUserConfigPath(path string) bool {
 }
 
 // Save writes the configuration back to the file it was loaded from
-// (SourcePath), or to ./deepcode.toml when none exists yet — the conventional
+// (SourcePath), or to ./deepseek-orca.toml when none exists yet — the conventional
 // project-local target a fresh GUI session would create.
 func (c *Config) Save() error {
 	path := SourcePath()
 	if path == "" {
-		path = "deepcode.toml"
+		path = "deepseek-orca.toml"
 	}
 	return c.SaveTo(path)
 }
 
-// SaveForRoot saves the config to root's deepcode.toml, falling back to the
-// user's global config when root has no existing deepcode.toml.
+// SaveForRoot saves the config to root's deepseek-orca.toml, falling back to the
+// user's global config when root has no existing deepseek-orca.toml.
 func (c *Config) SaveForRoot(root string) error {
 	root = resolveRoot(root)
-	projectTOML := "deepcode.toml"
+	projectTOML := "deepseek-orca.toml"
 	if root != "." {
-		projectTOML = filepath.Join(root, "deepcode.toml")
+		projectTOML = filepath.Join(root, "deepseek-orca.toml")
 	}
 	if _, err := os.Stat(projectTOML); err == nil {
 		return c.SaveTo(projectTOML)

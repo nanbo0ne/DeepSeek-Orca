@@ -9,11 +9,11 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/command"
-	"deepcode/internal/control"
-	"deepcode/internal/event"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 // writeAt creates dir/rel (with parents) holding content, for fs-backed tests.

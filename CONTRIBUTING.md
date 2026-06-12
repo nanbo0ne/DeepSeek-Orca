@@ -1,6 +1,6 @@
-# Contributing to DeepCode
+# Contributing to DeepSeek-Orca
 
-Thank you for your interest in contributing to DeepCode! This guide covers
+Thank you for your interest in contributing to DeepSeek-Orca! This guide covers
 everything you need to get started.
 
 ## Prerequisites
@@ -12,9 +12,9 @@ everything you need to get started.
 ## Getting started
 
 ```bash
-git clone https://github.com/esengine/DeepCode.git
-cd DeepCode
-go build ./cmd/deepcode    # builds the CLI binary
+git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
+cd DeepSeek-Orca
+go build ./cmd/deepseek-orca    # builds the CLI binary
 go test ./...              # runs the full test suite
 ```
 
@@ -22,7 +22,7 @@ go test ./...              # runs the full test suite
 
 | Directory | Purpose |
 |-----------|---------|
-| `cmd/deepcode` | CLI entry point |
+| `cmd/deepseek-orca` | CLI entry point |
 | `internal/agent` | Agent loop, session, coordinator |
 | `internal/cli` | TUI, subcommands, setup wizard |
 | `internal/control` | Transport-agnostic controller |
@@ -33,7 +33,7 @@ go test ./...              # runs the full test suite
 | `internal/plugin` | MCP client (stdio + HTTP) |
 | `internal/event` | Typed event stream |
 | `internal/hook` | Shell hooks (PreToolUse, …) |
-| `internal/memory` | DEEPCODE.md hierarchy + auto-memory |
+| `internal/memory` | DEEPSEEK_ORCA.md hierarchy + auto-memory |
 | `internal/skill` | Skill discovery from Markdown |
 | `internal/sandbox` | OS-level sandboxing |
 | `internal/serve` | HTTP/SSE server frontend |

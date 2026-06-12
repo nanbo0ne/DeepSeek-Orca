@@ -14,8 +14,8 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/charmbracelet/x/ansi"
 
-	"deepcode/internal/event"
-	"deepcode/internal/i18n"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/i18n"
 )
 
 const tabWidth = 4

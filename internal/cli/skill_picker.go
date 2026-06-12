@@ -9,8 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/i18n"
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/skill"
 )
 
 var scopePriority = map[skill.Scope]int{

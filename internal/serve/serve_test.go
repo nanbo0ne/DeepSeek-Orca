@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/provider"
 )
 
 // fakeRunner stands in for an agent.Runner: it records the composed input and

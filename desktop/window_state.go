@@ -7,7 +7,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepcode/internal/config"
+	"deepseek-orca/internal/config"
 )
 
 // DesktopWindowState captures the window geometry to restore across launches.

@@ -42,8 +42,8 @@ const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
 const DEFAULT_THEME_STYLE: ThemeStyle = "slate";
 const DEFAULT_THEME: Theme = "light";
 
-const THEME_KEY = "deepcode-theme";
-const STYLE_KEY = "deepcode-theme-style";
+const THEME_KEY = "deepseek-orca-theme";
+const STYLE_KEY = "deepseek-orca-theme-style";
 let currentTheme: Theme = DEFAULT_THEME;
 let currentThemeStyle: ThemeStyle = DEFAULT_THEME_STYLE;
 
@@ -173,7 +173,7 @@ export function initTheme(): void {
   if (typeof window !== "undefined" && window.runtime) {
     const resolved = getResolvedTheme(theme);
     if (resolved === "light") {
-      // Light shell: matches the DeepCode blue-white surface.
+      // Light shell: matches the DeepSeek-Orca blue-white surface.
       WindowSetBackgroundColour(246, 250, 255, 255);
     } else {
       // Dark shell: matches :root --bg (#090a0c).

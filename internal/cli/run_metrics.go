@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"os"
 
-	"deepcode/internal/event"
-	"deepcode/internal/evidence"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/evidence"
 )
 
 // RunMetrics is the machine-readable token/cache/cost summary `run --metrics`

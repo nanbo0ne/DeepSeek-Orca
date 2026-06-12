@@ -1,7 +1,7 @@
 Unicode true
 
 ####
-## DeepCode per-user NSIS installer.
+## DeepSeek-Orca per-user NSIS installer.
 ##
 ## This file is COMMITTED and customized (Wails leaves an existing project.nsi
 ## untouched and only regenerates wails_tools.nsh). The customizations vs.
@@ -17,8 +17,8 @@ Unicode true
 ##      InstallLocation (HKCU\...\Uninstall\InstallLocation). When upgrading from
 ##      a build that did not write InstallLocation yet, .onInit falls back to the
 ##      old DisplayIcon path before using the default. Without this, every release
-##      forces the user back to %LOCALAPPDATA%\Programs\DeepCode even if they had
-##      moved the install to a different drive (e.g. D:\Tools\DeepCode); the silent
+##      forces the user back to %LOCALAPPDATA%\Programs\DeepSeek-Orca even if they had
+##      moved the install to a different drive (e.g. D:\Tools\DeepSeek-Orca); the silent
 ##      auto-updater would re-run with /S into the wrong dir, leaving the old
 ##      install orphaned.
 ##
@@ -29,7 +29,7 @@ Unicode true
 ## Install per-user (no admin). Must be defined BEFORE including wails_tools.nsh,
 ## which only sets the "admin" default when REQUEST_EXECUTION_LEVEL is undefined.
 !define REQUEST_EXECUTION_LEVEL "user"
-!define UNINST_KEY_NAME "DeepCode"
+!define UNINST_KEY_NAME "DeepSeek-Orca"
 
 ####
 ## Include the wails tools (auto-generated; provides INFO_* defines and the
@@ -83,17 +83,17 @@ UninstPage custom un.DeleteDataPage un.DeleteDataPageLeave
 #!finalize 'signtool --file "%1"'
 
 Name "${INFO_PRODUCTNAME}"
-OutFile "..\..\bin\DeepCode-Setup-${INFO_PRODUCTVERSION}-windows-${ARCH}.exe" # Name of the installer's file.
-!define DEEPCODE_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+OutFile "..\..\bin\DeepSeek-Orca-Setup-${INFO_PRODUCTVERSION}-windows-${ARCH}.exe" # Name of the installer's file.
+!define DEEPSEEK_ORCA_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
 InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation" # Reuse the previous install path on update; .onInit falls back to the default on first install.
-InstallDir "${DEEPCODE_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
+InstallDir "${DEEPSEEK_ORCA_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
 ShowInstDetails show # This will always show the installation details.
 
 ####
 ## Per-user uninstaller registry (HKCU). Replaces wails.writeUninstaller /
 ## wails.deleteUninstaller, which write HKLM and would fail without admin rights.
 ####
-!macro deepcode.writeUninstaller
+!macro deepseek-orca.writeUninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
     WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${INFO_COMPANYNAME}"
@@ -104,8 +104,8 @@ ShowInstDetails show # This will always show the installation details.
     WriteRegStr HKCU "${UNINST_KEY}" "QuietUninstallString" "$\"$SYSDIR\cmd.exe$\" /c $\"$INSTDIR\uninstall.bat$\""
     # Persist the resolved install path so a subsequent update picks it up
     # via InstallDirRegKey above. Without this, every release would force the
-    # user back to %LOCALAPPDATA%\Programs\DeepCode even if they had moved
-    # the install to a different drive (e.g. D:\Tools\DeepCode). The auto-
+    # user back to %LOCALAPPDATA%\Programs\DeepSeek-Orca even if they had moved
+    # the install to a different drive (e.g. D:\Tools\DeepSeek-Orca). The auto-
     # updater re-runs this installer with /S and trusts the persisted path,
     # so it has to be present before the silent re-install.
     WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
@@ -115,7 +115,7 @@ ShowInstDetails show # This will always show the installation details.
     WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" "$0"
 !macroend
 
-!macro deepcode.deleteUninstaller
+!macro deepseek-orca.deleteUninstaller
     Delete "$INSTDIR\uninstall.exe"
     Delete "$INSTDIR\uninstall.bat"
     DeleteRegKey HKCU "${UNINST_KEY}"
@@ -136,7 +136,7 @@ Function .onInit
    StrCmp $INSTDIR "" fallback done
 
 fallback:
-   StrCpy $INSTDIR "${DEEPCODE_DEFAULT_INSTALLDIR}"
+   StrCpy $INSTDIR "${DEEPSEEK_ORCA_DEFAULT_INSTALLDIR}"
 done:
 FunctionEnd
 
@@ -158,7 +158,7 @@ Section
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
 
-    !insertmacro deepcode.writeUninstaller
+    !insertmacro deepseek-orca.writeUninstaller
 SectionEnd
 
 Section "uninstall"
@@ -175,18 +175,18 @@ Section "uninstall"
     !insertmacro wails.unassociateCustomProtocols
 
     ${If} $DeleteSavedData == ${BST_CHECKED}
-        RMDir /r "$AppData\deepcode"
-        RMDir /r "$LocalAppData\deepcode"
-        RMDir /r "$Profile\.deepcode"
-        RMDir /r "$AppData\DeepCode"
-        RMDir /r "$LocalAppData\DeepCode"
+        RMDir /r "$AppData\deepseek-orca"
+        RMDir /r "$LocalAppData\deepseek-orca"
+        RMDir /r "$Profile\.deepseek-orca"
+        RMDir /r "$AppData\DeepSeek-Orca"
+        RMDir /r "$LocalAppData\DeepSeek-Orca"
         RMDir /r "$INSTDIR\data"
-        RMDir /r "$INSTDIR\.deepcode"
+        RMDir /r "$INSTDIR\.deepseek-orca"
     ${EndIf}
 
     Delete "$INSTDIR\${PRODUCT_EXECUTABLE}"
     Delete "$INSTDIR\node.exe"
-    !insertmacro deepcode.deleteUninstaller
+    !insertmacro deepseek-orca.deleteUninstaller
 
     ${If} $DeleteSavedData == ${BST_CHECKED}
         RMDir /r "$INSTDIR"
@@ -202,7 +202,7 @@ Function un.DeleteDataPage
         Abort
     ${EndIf}
 
-    ${NSD_CreateLabel} 0 0 100% 24u "是否同时删除 DeepCode 保存的数据？"
+    ${NSD_CreateLabel} 0 0 100% 24u "是否同时删除 DeepSeek-Orca 保存的数据？"
     Pop $0
     ${NSD_CreateCheckbox} 0 32u 100% 24u "删除配置、会话、记忆、缓存等保存数据（不可恢复）"
     Pop $DeleteSavedDataCheckbox

@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"deepcode/internal/command"
-	"deepcode/internal/config"
-	"deepcode/internal/tool"
-	_ "deepcode/internal/tool/builtin" // self-register built-ins for LookupBuiltin
+	"deepseek-orca/internal/command"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/tool"
+	_ "deepseek-orca/internal/tool/builtin" // self-register built-ins for LookupBuiltin
 )
 
 // fakeTool is a minimal Tool for registry projection tests. It never implements

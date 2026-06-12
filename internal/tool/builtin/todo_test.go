@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/evidence"
+	"deepseek-orca/internal/evidence"
 )
 
 func TestTodoWriteAcceptsLevels(t *testing.T) {

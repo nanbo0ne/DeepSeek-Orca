@@ -1,17 +1,17 @@
-# Migrating to DeepCode 1.0 (the Go rewrite)
+# Migrating to DeepSeek-Orca 1.0 (the Go rewrite)
 
-DeepCode 1.0 is a **ground-up rewrite in Go**. It is a new codebase, not an
+DeepSeek-Orca 1.0 is a **ground-up rewrite in Go**. It is a new codebase, not an
 incremental upgrade of the `0.x` TypeScript releases. This guide explains what
 changed and how to move over.
 
 ## TL;DR
 
-| | Legacy (v1) | DeepCode 1.0+ (v2) |
+| | Legacy (v1) | DeepSeek-Orca 1.0+ (v2) |
 |---|---|---|
 | Language | TypeScript / Node | Go |
-| Branch | [`v1`](https://github.com/esengine/DeepCode/tree/v1) (maintenance only) | `main-v2` (default, active) |
+| Branch | [`v1`](https://github.com/nanbo0ne/DeepSeek-Orca/tree/v1) (maintenance only) | `main-v2` (default, active) |
 | Versions | `0.x` (up to v0.54.x) | `1.0.0`+ |
-| Install | `npm i -g deepcode` (the `latest` tag, stays on `0.x`) | `npm i -g deepcode@next` — `latest` deliberately stays on `0.x`; or a release archive / `go build` |
+| Install | `npm i -g deepseek-orca` (the `latest` tag, stays on `0.x`) | `npm i -g deepseek-orca@next` — `latest` deliberately stays on `0.x`; or a release archive / `go build` |
 | Code intelligence | embedding semantic search | bundled [CodeGraph](https://github.com/colbymchenry/codegraph) (symbol/call graph) |
 
 "v1" and "v2" are **codebase generations**, not semver: the v1 line never reached
@@ -23,20 +23,20 @@ changed and how to move over.
 same way esbuild/biome ship native binaries via npm). The binary itself is a
 standalone Go executable; npm is only the installer, not a runtime dependency.
 
-**`npm i -g deepcode` deliberately still installs `0.x`.** A bare install — and
-`npx deepcode`, and 0.53's own `update` — follows npm's `latest` tag, which we
+**`npm i -g deepseek-orca` deliberately still installs `0.x`.** A bare install — and
+`npx deepseek-orca`, and 0.53's own `update` — follows npm's `latest` tag, which we
 keep pinned to the `0.x` line so existing users aren't pulled into the rewrite
 without asking. v1.x (Go) ships under the `next` tag; opt in explicitly:
 
 ```sh
-npm i -g deepcode@next     # or pin a version: deepcode@1.1.0
-deepcode chat
+npm i -g deepseek-orca@next     # or pin a version: deepseek-orca@1.1.0
+deepseek-orca chat
 ```
 
 `latest` will stay on `0.x` for the foreseeable future, so installing or
 updating v2 always means `@next` (or a pinned `1.x`).
 
-Prebuilt archives (`deepcode-<os>-<arch>.tar.gz` / `.zip`) and the desktop
+Prebuilt archives (`deepseek-orca-<os>-<arch>.tar.gz` / `.zip`) and the desktop
 installer are attached to each GitHub release. These are a **separate channel**
 from npm: the installer drops a standalone desktop/binary build and does not
 touch a CLI you installed with `npm i -g`, so the two coexist — an npm `0.53` in
@@ -44,22 +44,22 @@ your shell alongside a `1.x` desktop app is expected, not a conflict. Or build
 from source:
 
 ```sh
-git clone https://github.com/esengine/DeepCode   # default: main-v2 (Go)
-cd DeepCode && make build                        # -> bin/deepcode(.exe)
+git clone https://github.com/nanbo0ne/DeepSeek-Orca   # default: main-v2 (Go)
+cd DeepSeek-Orca && make build                        # -> bin/deepseek-orca(.exe)
 ```
 
 ## Configuration
 
-| Legacy | DeepCode 1.0 |
+| Legacy | DeepSeek-Orca 1.0 |
 |---|---|
-| TS config files | `deepcode.toml` (project) / `~/.config/deepcode/config.toml` (user) — see `deepcode.example.toml` |
+| TS config files | `deepseek-orca.toml` (project) / `~/.config/deepseek-orca/config.toml` (user) — see `deepseek-orca.example.toml` |
 | env / API keys | `.env` or the environment (`DEEPSEEK_API_KEY`, `MIMO_API_KEY`, …) via `api_key_env` |
-| project memory | `DEEPCODE.md` (+ auto-memory), Claude-Code-compatible |
-| MCP servers | `[[plugins]]` in `deepcode.toml`, or a Claude-Code `.mcp.json` (read as-is) |
+| project memory | `DEEPSEEK_ORCA.md` (+ auto-memory), Claude-Code-compatible |
+| MCP servers | `[[plugins]]` in `deepseek-orca.toml`, or a Claude-Code `.mcp.json` (read as-is) |
 
 On first launch v2 runs a one-time, **non-destructive** import: it reads a v0.x
-`~/.deepcode/config.json` (API key, base URL, language, MCP servers) and imports
-past sessions from `~/.deepcode/sessions` and legacy event logs already located
+`~/.deepseek-orca/config.json` (API key, base URL, language, MCP servers) and imports
+past sessions from `~/.deepseek-orca/sessions` and legacy event logs already located
 in the current user config session directory, leaves the old files untouched, and
 prints a boot notice when it does. Each session lands in the workspace it
 belonged to (read from its v0.x sidecar meta, summary carried over as the title),
@@ -89,7 +89,7 @@ and DeepSeek prefix-cache–oriented design.
 
 ## File encoding
 
-DeepCode 1.0 supports reading and editing files in UTF-8, UTF-8 BOM, UTF-16
+DeepSeek-Orca 1.0 supports reading and editing files in UTF-8, UTF-8 BOM, UTF-16
 LE/BE, and GB18030 (a superset of GBK). This matches v1's behavior.
 
 - `read_file` decodes any supported encoding to UTF-8 for the model.
@@ -104,4 +104,4 @@ Issues and PRs are labelled by line: **`v1`** (legacy TypeScript) and **`v2`**
 (Go). File new reports against the line you're using. The legacy `v1` line is in
 maintenance mode — bug fixes only, no new features.
 
-Questions? Open a [Discussion](https://github.com/esengine/DeepCode/discussions).
+Questions? Open a [Discussion](https://github.com/nanbo0ne/DeepSeek-Orca/discussions).

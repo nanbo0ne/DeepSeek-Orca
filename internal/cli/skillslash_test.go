@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"deepcode/internal/skill"
+	"deepseek-orca/internal/skill"
 )
 
 // TestSlashItemsIncludesSkills proves every loaded skill is offered in the slash

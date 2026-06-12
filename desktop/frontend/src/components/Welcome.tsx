@@ -11,7 +11,7 @@ export function Welcome({ onPrompt }: { onPrompt: (text: string) => void }) {
   return (
     <div className="welcome welcome--brand">
       <span className="welcome__brand">
-        <img src={logoWordmark} className="welcome__brand-logo" alt="DeepCode" draggable={false} />
+        <img src={logoWordmark} className="welcome__brand-logo" alt="DeepSeek-Orca" draggable={false} />
       </span>
       <h2 className="welcome__title">{t("welcome.title")}</h2>
       <div className="welcome__tag">{t("welcome.tagline")}</div>

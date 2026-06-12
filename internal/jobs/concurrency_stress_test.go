@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 )
 
 // TestManagerConcurrentAccess hammers every public Manager method from many

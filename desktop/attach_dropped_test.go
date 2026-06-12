@@ -195,7 +195,7 @@ func TestAttachDroppedOutsideWorkspaceCopiesToAttachments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AttachDropped: %v", err)
 	}
-	if got.Kind != "attachment" || !strings.HasPrefix(got.Path, ".deepcode/attachments/") || !strings.HasSuffix(got.Path, ".pdf") {
+	if got.Kind != "attachment" || !strings.HasPrefix(got.Path, ".deepseek-orca/attachments/") || !strings.HasSuffix(got.Path, ".pdf") {
 		t.Fatalf("got %+v, want copied pdf attachment", got)
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // TestStreamStallTimesOut covers issue #3374 for the Anthropic provider: a

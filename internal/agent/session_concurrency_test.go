@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // TestSessionConcurrentAddAndRead models the real hazard: the run loop appends

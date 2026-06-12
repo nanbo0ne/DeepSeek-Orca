@@ -2,12 +2,12 @@ package agent
 
 import (
 	"context"
-	"deepcode/internal/event"
+	"deepseek-orca/internal/event"
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // TestPlanModeBlocksWriters proves the read-only gate refuses non-ReadOnly

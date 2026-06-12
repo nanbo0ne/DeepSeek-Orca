@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=DeepCode
-Comment=DeepCode desktop — a Wails shell around the Go kernel
-Exec=deepcode-desktop
-Icon=deepcode-desktop
-Categories=Development;Utility;
-Terminal=false
-StartupWMClass=deepcode-desktop

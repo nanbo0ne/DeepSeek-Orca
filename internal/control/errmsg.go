@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"deepcode/internal/i18n"
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/i18n"
+	"deepseek-orca/internal/provider"
 )
 
 // explainError maps a provider HTTP failure to an actionable, localized message

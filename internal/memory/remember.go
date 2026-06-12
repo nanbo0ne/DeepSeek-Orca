@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"deepcode/internal/tool"
+	"deepseek-orca/internal/tool"
 )
 
 // rememberTool lets the model persist a durable fact to the auto-memory store.

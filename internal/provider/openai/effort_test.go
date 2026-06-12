@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 func newClient(t *testing.T, baseURL, effort string) *client {

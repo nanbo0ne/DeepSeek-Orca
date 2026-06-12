@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"deepcode/internal/provider"
+	"deepseek-orca/internal/provider"
 )
 
 // Turn describes one expected Stream call: the text, optional reasoning,

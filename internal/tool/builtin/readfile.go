@@ -1,4 +1,4 @@
-// Package builtin provides DeepCode's compile-time built-in tools. Each tool
+// Package builtin provides DeepSeek-Orca's compile-time built-in tools. Each tool
 // self-registers via init(); main blank-imports this package to wire them in.
 package builtin
 
@@ -14,8 +14,8 @@ import (
 
 	"golang.org/x/text/transform"
 
-	fileenc "deepcode/internal/fileutil/encoding"
-	"deepcode/internal/tool"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
+	"deepseek-orca/internal/tool"
 )
 
 const (

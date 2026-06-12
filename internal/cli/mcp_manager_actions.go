@@ -12,10 +12,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/mcpdiag"
-	"deepcode/internal/plugin"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/mcpdiag"
+	"deepseek-orca/internal/plugin"
 )
 
 func (m chatTUI) applyMCPAction(v mcpServerView, action mcpAction) (tea.Model, tea.Cmd) {
@@ -380,7 +380,7 @@ func mcpConfigLocation() string {
 	if path := config.UserConfigPath(); path != "" {
 		return path
 	}
-	return "deepcode.toml"
+	return "deepseek-orca.toml"
 }
 
 type mcpEditConfigLaunch struct {

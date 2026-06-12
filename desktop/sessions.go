@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"deepcode/internal/agent"
-	"deepcode/internal/config"
-	"deepcode/internal/control"
-	"deepcode/internal/fileutil"
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/fileutil"
 )
 
 // errActiveSession is returned when a delete targets the session in use.
