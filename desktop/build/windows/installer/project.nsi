@@ -67,7 +67,7 @@ Var DeleteSavedDataCheckbox
 Var DeleteSavedData
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
-!insertmacro MUI_PAGE_LICENSE "resources\eula.rtf" # Adds a EULA page to the installer
+!insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
 !insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
@@ -150,6 +150,9 @@ Section
     !insertmacro wails.files
     File /oname=node.exe "..\..\bin\node.exe"
     File /oname=uninstall.bat "resources\uninstall.bat"
+    SetOutPath "$INSTDIR\codegraph"
+    File /r "..\installer-go\payload\codegraph\*.*"
+    SetOutPath "$INSTDIR"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
@@ -186,6 +189,7 @@ Section "uninstall"
 
     Delete "$INSTDIR\${PRODUCT_EXECUTABLE}"
     Delete "$INSTDIR\node.exe"
+    RMDir /r "$INSTDIR\codegraph"
     !insertmacro deepseek-orca.deleteUninstaller
 
     ${If} $DeleteSavedData == ${BST_CHECKED}
