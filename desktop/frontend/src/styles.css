@@ -16458,16 +16458,18 @@ a[href] {
 :root[data-theme-style] .msg--user .msg__body {
   max-width: min(80%, 650px);
   padding: 11px 15px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, #1d4ed8);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--fg) 96%, var(--accent));
-  color: var(--bg);
-  box-shadow: var(--app-graphite-shadow);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 96%, #2563eb), #2563eb);
+  color: #ffffff;
+  box-shadow: 0 8px 20px -16px color-mix(in srgb, var(--accent) 70%, #000000);
 }
 
 :root[data-theme="dark"][data-theme-style] .msg--user .msg__body {
-  background: var(--fg);
-  color: var(--bg);
+  border-color: color-mix(in srgb, var(--accent) 18%, #dbeafe);
+  background: #eef5ff;
+  color: #111827;
+  box-shadow: 0 10px 24px -18px rgba(0, 0, 0, 0.7);
 }
 
 :root[data-theme-style] .msg--assistant .msg__body {
