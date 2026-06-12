@@ -1,12 +1,12 @@
-DeepSeek-Orca 用户协议
+DeepSeek-Orca End User License Agreement
 
-请在安装和使用 DeepSeek-Orca 前阅读本协议。继续安装表示你同意以下条款。
+Please read this agreement before installing or using DeepSeek-Orca. By continuing the installation, you agree to the terms below.
 
-1. DeepSeek-Orca 是用于辅助代码阅读、编辑、运行工具和管理本地会话的桌面软件。
-2. 你应自行确认模型提供商、插件、MCP 服务和本地工具调用的安全性与合规性。
-3. DeepSeek-Orca 可能会根据你的配置读取项目文件、保存会话、保存记忆、生成备份或执行本地命令。
-4. 你应在执行高风险命令、修改重要文件或使用自动权限模式前确认相关操作符合你的预期。
-5. 卸载 DeepSeek-Orca 时，你可以选择是否删除已保存的配置、会话、记忆和缓存数据。
-6. 本软件按现状提供。请在生产环境或重要项目中保留必要备份。
+1. DeepSeek-Orca is a desktop and command-line AI coding assistant for reading code, editing files, running local tools, managing conversations, and working with local project context.
+2. You are responsible for checking the safety and compliance of model providers, plugins, MCP servers, scripts, commands, and any local tools you enable.
+3. Depending on your configuration, DeepSeek-Orca may read project files, save conversations, save memory entries, create rollback backups, or execute local commands.
+4. Review high-risk operations before allowing them, especially when modifying important files or using full-access permission modes.
+5. During uninstallation, you may choose whether to remove saved configuration, conversations, memory, cache, and other user data.
+6. The software is provided as is. Keep your own backups when working on production code or important projects.
 
-如果你不同意本协议，请取消安装。
+If you do not agree with these terms, cancel the installation.

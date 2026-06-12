@@ -15,11 +15,11 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.DefaultModel = "mimo-pro"
 	orig.Language = "zh"
 	orig.UI.Theme = "light"
-	orig.UI.ThemeStyle = "glacier"
+	orig.UI.ThemeStyle = "slate"
 	orig.UI.ShortcutLayout = "desktop"
 	orig.Desktop.Language = "en"
 	orig.Desktop.Theme = "dark"
-	orig.Desktop.ThemeStyle = "graphite"
+	orig.Desktop.ThemeStyle = "slate"
 	orig.Desktop.CloseBehavior = "background"
 	orig.Desktop.CheckUpdates = boolPtr(false)
 	orig.Notifications.Enabled = true
@@ -93,8 +93,8 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	if got.UI.Theme != "light" {
 		t.Errorf("ui.theme = %q, want light", got.UI.Theme)
 	}
-	if got.UI.ThemeStyle != "glacier" {
-		t.Errorf("ui.theme_style = %q, want glacier", got.UI.ThemeStyle)
+	if got.UI.ThemeStyle != "slate" {
+		t.Errorf("ui.theme_style = %q, want slate", got.UI.ThemeStyle)
 	}
 	if got.UI.ShortcutLayout != "desktop" {
 		t.Errorf("ui.shortcut_layout = %q, want desktop", got.UI.ShortcutLayout)
@@ -105,8 +105,8 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	if got.Desktop.Theme != "dark" {
 		t.Errorf("desktop.theme = %q, want dark", got.Desktop.Theme)
 	}
-	if got.Desktop.ThemeStyle != "graphite" {
-		t.Errorf("desktop.theme_style = %q, want graphite", got.Desktop.ThemeStyle)
+	if got.Desktop.ThemeStyle != "slate" {
+		t.Errorf("desktop.theme_style = %q, want slate", got.Desktop.ThemeStyle)
 	}
 	if got.Desktop.CloseBehavior != "background" {
 		t.Errorf("desktop.close_behavior = %q, want background", got.Desktop.CloseBehavior)
@@ -354,7 +354,7 @@ func TestScopedRenderSeparatesUserAndProjectConfig(t *testing.T) {
 	c.Language = "zh"
 	c.Desktop.Language = "zh"
 	c.Desktop.Theme = "dark"
-	c.Desktop.ThemeStyle = "graphite"
+	c.Desktop.ThemeStyle = "slate"
 	c.Desktop.CloseBehavior = "background"
 	c.Desktop.CheckUpdates = boolPtr(false)
 

@@ -111,14 +111,7 @@ func themeArgItems(prior []string) []SlashItem {
 		mode string
 		desc string
 	}{
-		{"graphite", "dark", "warm clay accent"},
-		{"ember", "dark", "hot orange accent"},
-		{"aurora", "dark", "cool teal accent"},
-		{"midnight", "dark", "quiet violet accent"},
-		{"sandstone", "light", "default warm light accent"},
-		{"porcelain", "light", "soft violet light accent"},
-		{"linen", "light", "muted coral light accent"},
-		{"glacier", "light", "cool blue accent"},
+		{"slate", "native", "DeepSeek-Orca blue-white style"},
 	} {
 		items = append(items, SlashItem{Label: st.name, Insert: st.name, Hint: st.mode + " · " + st.desc})
 	}

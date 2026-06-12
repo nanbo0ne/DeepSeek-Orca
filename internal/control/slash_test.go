@@ -140,7 +140,7 @@ func TestSlashArgItems(t *testing.T) {
 	}
 	// /theme
 	items, _ = SlashArgItems("/theme ", data)
-	if !has(items, "auto") || !has(items, "light") || !has(items, "graphite") || !has(items, "glacier") {
+	if !has(items, "auto") || !has(items, "light") || !has(items, "slate") || has(items, "graphite") || has(items, "glacier") {
 		t.Errorf("/theme should offer modes and styles; got %v", labelsOf(items))
 	}
 	// a non-structured command yields nothing

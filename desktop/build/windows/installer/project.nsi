@@ -206,9 +206,9 @@ Function un.DeleteDataPage
         Abort
     ${EndIf}
 
-    ${NSD_CreateLabel} 0 0 100% 24u "是否同时删除 DeepSeek-Orca 保存的数据？"
+    ${NSD_CreateLabel} 0 0 100% 24u "Remove saved DeepSeek-Orca data?"
     Pop $0
-    ${NSD_CreateCheckbox} 0 32u 100% 24u "删除配置、会话、记忆、缓存等保存数据（不可恢复）"
+    ${NSD_CreateCheckbox} 0 32u 100% 24u "Delete configuration, conversations, memory, cache, and other saved data. This cannot be undone."
     Pop $DeleteSavedDataCheckbox
     ${NSD_Uncheck} $DeleteSavedDataCheckbox
 

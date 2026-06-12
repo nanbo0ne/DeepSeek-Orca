@@ -49,8 +49,8 @@ type cliThemeStyle struct {
 var (
 	cliDarkTheme = cliPalette{
 		name:         "dark",
-		style:        "graphite",
-		accent:       cliColor{"#d97757", 173},
+		style:        "slate",
+		accent:       cliColor{"#3b82f6", 33},
 		muted:        cliColor{"#c0c4cc", 251},
 		faint:        cliColor{"#858b96", 245},
 		success:      cliColor{"#74b87a", 108},
@@ -58,7 +58,7 @@ var (
 		err:          cliColor{"#e0696a", 167},
 		danger:       cliColor{"#e5484d", 167},
 		border:       cliColor{"#343945", 237},
-		selection:    cliColor{"#d97757", 173},
+		selection:    cliColor{"#3b82f6", 33},
 		userBubbleBG: cliColor{"#222631", 235},
 		diffAddBG:    cliColor{"#14351d", 22},
 		diffDelBG:    cliColor{"#3a1619", 52},
@@ -67,7 +67,7 @@ var (
 	}
 	cliLightTheme = cliPalette{
 		name:         "light",
-		style:        "sandstone",
+		style:        "slate",
 		accent:       cliColor{"#2f5fa8", 25},
 		muted:        cliColor{"#555049", 239},
 		faint:        cliColor{"#82796f", 243},
@@ -84,14 +84,7 @@ var (
 		toolProc:     cliColor{"#8a6bb8", 97},
 	}
 	cliThemeStyles = []cliThemeStyle{
-		{name: "graphite", mode: "dark", accent: cliColor{"#d97757", 173}, description: "warm clay accent"},
-		{name: "ember", mode: "dark", accent: cliColor{"#f06d38", 209}, description: "hot orange accent"},
-		{name: "aurora", mode: "dark", accent: cliColor{"#34c3a6", 79}, description: "cool teal accent"},
-		{name: "midnight", mode: "dark", accent: cliColor{"#b18cff", 141}, description: "quiet violet accent"},
-		{name: "sandstone", mode: "light", accent: cliColor{"#c2613f", 173}, description: "default warm light accent"},
-		{name: "porcelain", mode: "light", accent: cliColor{"#7d63c8", 104}, description: "soft violet light accent"},
-		{name: "linen", mode: "light", accent: cliColor{"#bd5d4d", 167}, description: "muted coral light accent"},
-		{name: "glacier", mode: "light", accent: cliColor{"#357fa8", 74}, description: "cool blue light accent"},
+		{name: "slate", mode: "native", accent: cliColor{"#2f6fe0", 33}, description: "DeepSeek-Orca blue-white style"},
 	}
 	activeCLITheme                  = applyCLIThemeStyle(cliDarkTheme, cliThemeStyles[0])
 	queryTerminalBackgroundForTheme = queryTerminalBackground
@@ -177,6 +170,10 @@ func applyCLIThemeStyle(base cliPalette, style cliThemeStyle) cliPalette {
 
 func cliThemeStyleByName(name string) (cliThemeStyle, bool) {
 	name = strings.ToLower(strings.TrimSpace(name))
+	switch name {
+	case "graphite", "aurora", "carbon", "nocturne", "amber", "ember", "midnight", "sandstone", "porcelain", "linen", "glacier":
+		name = "slate"
+	}
 	for _, st := range cliThemeStyles {
 		if st.name == name {
 			return st, true
@@ -186,13 +183,6 @@ func cliThemeStyleByName(name string) (cliThemeStyle, bool) {
 }
 
 func defaultCLIThemeStyle(mode string) cliThemeStyle {
-	if mode == "light" {
-		for _, st := range cliThemeStyles {
-			if st.name == "sandstone" {
-				return st
-			}
-		}
-	}
 	return cliThemeStyles[0]
 }
 

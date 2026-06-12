@@ -63,9 +63,9 @@ func TestUIThemeStyleNormalizes(t *testing.T) {
 		want string
 	}{
 		{"", ""},
-		{"AURORA", "aurora"},
-		{" nocturne ", "nocturne"},
-		{" glacier ", "glacier"},
+		{"AURORA", "slate"},
+		{" nocturne ", "slate"},
+		{" glacier ", "slate"},
 		{"unknown", ""},
 	} {
 		c.UI.ThemeStyle = tt.in
@@ -114,8 +114,8 @@ func TestDesktopPreferencesAreSeparateFromCLI(t *testing.T) {
 	if got := c.UITheme(); got != "light" {
 		t.Fatalf("CLI theme = %q, want light", got)
 	}
-	if got := c.UIThemeStyle(); got != "glacier" {
-		t.Fatalf("CLI theme style = %q, want glacier", got)
+	if got := c.UIThemeStyle(); got != "slate" {
+		t.Fatalf("CLI theme style = %q, want slate", got)
 	}
 	if got := c.DesktopLanguage(); got != "en" {
 		t.Fatalf("desktop language = %q, want en", got)
@@ -123,8 +123,8 @@ func TestDesktopPreferencesAreSeparateFromCLI(t *testing.T) {
 	if got := c.DesktopTheme(); got != "dark" {
 		t.Fatalf("desktop theme = %q, want dark", got)
 	}
-	if got := c.DesktopThemeStyle(); got != "graphite" {
-		t.Fatalf("desktop theme style = %q, want graphite", got)
+	if got := c.DesktopThemeStyle(); got != "slate" {
+		t.Fatalf("desktop theme style = %q, want slate", got)
 	}
 }
 
@@ -777,7 +777,7 @@ func TestSaveToScopesUserAndProjectFiles(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	c := Default()
 	c.Desktop.Theme = "dark"
-	c.Desktop.ThemeStyle = "graphite"
+	c.Desktop.ThemeStyle = "slate"
 	c.Desktop.CloseBehavior = "background"
 
 	userPath := UserConfigPath()

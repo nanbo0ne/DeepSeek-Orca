@@ -63,7 +63,7 @@ type Config struct {
 // DesktopConfig so desktop preferences cannot alter terminal output or prompts.
 type UIConfig struct {
 	Theme          string `toml:"theme"`           // auto|dark|light; empty resolves to auto
-	ThemeStyle     string `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	ThemeStyle     string `toml:"theme_style"`     // slate; legacy aliases normalize to slate
 	ShortcutLayout string `toml:"shortcut_layout"` // classic|desktop; accepted for compatibility
 	CloseBehavior  string `toml:"close_behavior"`  // legacy desktop close behavior; prefer desktop.close_behavior
 	ShowReasoning  bool   `toml:"show_reasoning"`  // Ctrl+O / /verbose: show thinking text in CLI; false = collapsed
@@ -75,7 +75,7 @@ type UIConfig struct {
 type DesktopConfig struct {
 	Language       string   `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
 	Theme          string   `toml:"theme"`           // auto|dark|light; empty resolves to dark
-	ThemeStyle     string   `toml:"theme_style"`     // graphite|aurora|slate|carbon|nocturne|amber and legacy aliases
+	ThemeStyle     string   `toml:"theme_style"`     // slate; legacy aliases normalize to slate
 	CloseBehavior  string   `toml:"close_behavior"`  // quit|background; desktop window close behavior
 	CheckUpdates   *bool    `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
 	ProviderAccess []string `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
@@ -123,7 +123,7 @@ func (c *Config) UIShortcutLayout() string {
 func normalizeThemeStyle(style string) string {
 	switch strings.ToLower(strings.TrimSpace(style)) {
 	case "graphite", "aurora", "slate", "carbon", "nocturne", "amber", "ember", "midnight", "sandstone", "porcelain", "linen", "glacier":
-		return strings.ToLower(strings.TrimSpace(style))
+		return "slate"
 	default:
 		return ""
 	}
@@ -153,7 +153,7 @@ func (c *Config) DesktopLanguage() string {
 }
 
 // DesktopTheme normalizes desktop.theme. New desktop users default to the light
-// graphite product look; an explicit auto/light/dark is preserved.
+// slate product look; an explicit auto/light/dark is preserved.
 func (c *Config) DesktopTheme() string {
 	switch strings.ToLower(strings.TrimSpace(c.Desktop.Theme)) {
 	case "auto":
