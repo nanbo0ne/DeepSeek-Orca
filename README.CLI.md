@@ -2,6 +2,39 @@
 
 DeepSeek-Orca CLI 是面向终端的 AI 编程 Agent。它把模型对话、项目上下文、文件工具、shell、权限控制、MCP、Skill、记忆、CodeGraph、会话恢复和自动化接口整合为一个命令行程序，适合程序员在本地项目、远程服务器、CI 辅助脚本和日常终端工作流中使用。
 
+## How to use
+
+1. 从源码构建 CLI：
+
+   ```powershell
+   git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
+   cd DeepSeek-Orca
+   go build -o bin/deepseek-orca.exe ./cmd/deepseek-orca
+   ```
+
+2. 配置 API Key。可以写入环境变量，也可以运行交互式配置：
+
+   ```powershell
+   $env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+   .\bin\deepseek-orca.exe setup
+   ```
+
+3. 在项目根目录启动交互式会话：
+
+   ```powershell
+   cd D:\your-project
+   D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
+   ```
+
+4. 也可以执行一次性任务：
+
+   ```powershell
+   D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结主要模块"
+   ```
+
+5. 常用命令包括 `/init` 生成项目记忆、`/plan` 切换计划模式、`/skills` 管理 Skill、`/mcp` 管理 MCP、`/resume` 恢复会话、`/rewind` 回滚上下文。
+6. 建议先在普通权限或 Plan 模式下让 Agent 分析项目，再逐步批准写文件和运行命令。
+
 ## 核心定位
 
 CLI 版适合已经习惯终端和 Git 工作流的用户。它可以在当前目录理解项目，调用工具读取或修改文件，执行命令，审查 diff，保存会话，并通过配置和命令组合进入更可控的自动化流程。

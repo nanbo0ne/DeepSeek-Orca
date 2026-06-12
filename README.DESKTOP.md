@@ -8,6 +8,16 @@ DeepSeek-Orca Desktop 是面向图形界面的 AI 编程 Agent。它把模型对
 
 下载后双击安装器，按安装向导选择安装目录并完成安装。桌面端不需要下载源码、npm 包或手动编译。
 
+## How to use
+
+1. 下载最新版 Windows 安装包：[DeepSeek-Orca-Setup-1.0.5-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.5/DeepSeek-Orca-Setup-1.0.5-windows-amd64.exe)。
+2. 双击安装包，阅读并同意安装协议，选择安装目录，然后完成安装。
+3. 启动 DeepSeek-Orca Desktop，在设置中填写 DeepSeek API Key 或配置 OpenAI 兼容 provider。
+4. 点击左侧的新建会话，选择进入项目文件夹或使用独立工作区。
+5. 在底部输入框描述任务，例如“解释这个项目的架构”或“修复当前测试失败”。
+6. 根据任务风险选择权限模式；复杂修改建议先打开 Plan 模式，确认方案后再执行。
+7. 如果不满意某次 AI 修改，可以在对应回复上使用回滚或分叉会话。
+
 ## 核心定位
 
 DeepSeek-Orca Desktop 不是普通聊天窗口，而是一个可操作项目文件的编程工作台。它可以读取项目结构、解释代码、调用工具、修改文件、运行命令、记录会话、管理上下文，并在需要时回滚 AI 造成的改动。
