@@ -28,6 +28,46 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APPNAME="DeepSeek-Orca"            # wails.json productName -> DeepSeek-Orca.app
 BINNAME="deepseek-orca-desktop"    # wails.json outputfilename -> linux binary name
 
+prepare_windows_installer_resources() {
+	[ "$os" = windows ] || return 0
+
+	local res="$ROOT/desktop/build/windows/installer/resources"
+	local payload="$ROOT/desktop/build/windows/installer-go/payload"
+	mkdir -p "$res" "$payload"
+
+	local node_dest="$res/node.exe"
+	if [ ! -f "$node_dest" ]; then
+		local node_src
+		node_src="$(command -v node.exe 2>/dev/null || command -v node 2>/dev/null || true)"
+		[ -n "$node_src" ] || { echo "node runtime not found on PATH" >&2; exit 1; }
+		cp "$node_src" "$node_dest"
+	fi
+
+	local cg_dest="$payload/codegraph"
+	if [ ! -x "$cg_dest/bin/codegraph.cmd" ] && [ ! -x "$cg_dest/bin/codegraph" ]; then
+		local version asset zip
+		version="$(awk '/^CODEGRAPH_VERSION[[:space:]]*:=/ { print $3; exit }' "$ROOT/Makefile")"
+		[ -n "$version" ] || version="$(awk -F'"' '/Version = / { print $2; exit }' "$ROOT/internal/codegraph/install.go")"
+		[ -n "$version" ] || { echo "CODEGRAPH_VERSION not found" >&2; exit 1; }
+		asset="codegraph-win32-x64.zip"
+		if [ -n "${RUNNER_TEMP:-}" ]; then
+			zip="$(cygpath -u "$RUNNER_TEMP")/$asset"
+		else
+			zip="$(mktemp -t "$asset.XXXXXX")"
+		fi
+		echo "==> fetching $asset ($version) for Windows installer"
+		curl -fsSL "https://github.com/colbymchenry/codegraph/releases/download/$version/$asset" -o "$zip"
+		rm -rf "$cg_dest" "$payload/.codegraph-extract"
+		mkdir -p "$payload/.codegraph-extract"
+		powershell.exe -NoProfile -Command "Expand-Archive -Force -LiteralPath '$(cygpath -w "$zip")' -DestinationPath '$(cygpath -w "$payload/.codegraph-extract")'"
+		local extracted
+		extracted="$(find "$payload/.codegraph-extract" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+		[ -n "$extracted" ] || { echo "CodeGraph archive layout not recognized" >&2; exit 1; }
+		mv "$extracted" "$cg_dest"
+		rm -rf "$payload/.codegraph-extract"
+	fi
+}
+
 cd "$ROOT/desktop"
 
 # Stamp the version resource (Windows file properties, macOS CFBundleVersion) from
@@ -37,6 +77,8 @@ cd "$ROOT/desktop"
 # installer build). The full tag still rides in ldflags for the in-app version.
 numver="${VERSION#v}"; numver="${numver%%-*}"
 node -e 'const fs=require("fs"),f="wails.json",j=JSON.parse(fs.readFileSync(f,"utf8"));j.info.productVersion=process.argv[1];fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n")' "$numver"
+
+prepare_windows_installer_resources
 
 # NSIS installer is Windows-only (Wails requires a single windows target for -nsis).
 build_args=(-clean -platform "$PLATFORM" -ldflags "-X main.version=$VERSION -X main.channel=$CHANNEL")

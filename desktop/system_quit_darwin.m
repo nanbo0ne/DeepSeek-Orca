@@ -3,32 +3,32 @@
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 
-extern void DeepSeek-OrcaMarkSystemQuit(void);
+extern void DeepSeekOrcaMarkSystemQuit(void);
 
 static NSApplicationTerminateReply (*originalApplicationShouldTerminate)(id, SEL, NSApplication *);
 static void (*originalWailsContextQuit)(id, SEL);
 
-static NSApplicationTerminateReply deepseek-orcaApplicationShouldTerminate(id self, SEL _cmd, NSApplication *sender) {
-    DeepSeek-OrcaMarkSystemQuit();
+static NSApplicationTerminateReply deepseekOrcaApplicationShouldTerminate(id self, SEL _cmd, NSApplication *sender) {
+    DeepSeekOrcaMarkSystemQuit();
     if (originalApplicationShouldTerminate != NULL) {
         return originalApplicationShouldTerminate(self, _cmd, sender);
     }
     return NSTerminateNow;
 }
 
-static void deepseek-orcaWailsContextQuit(id self, SEL _cmd) {
-    DeepSeek-OrcaMarkSystemQuit();
+static void deepseekOrcaWailsContextQuit(id self, SEL _cmd) {
+    DeepSeekOrcaMarkSystemQuit();
     if (originalWailsContextQuit != NULL) {
         originalWailsContextQuit(self, _cmd);
     }
 }
 
-void installDeepSeek-OrcaSystemQuitHook(void) {
+void installDeepSeekOrcaSystemQuitHook(void) {
     Class appDelegate = NSClassFromString(@"AppDelegate");
     SEL selector = @selector(applicationShouldTerminate:);
     Method method = appDelegate == Nil ? NULL : class_getInstanceMethod(appDelegate, selector);
     if (method != NULL) {
-        IMP replacement = (IMP)deepseek-orcaApplicationShouldTerminate;
+        IMP replacement = (IMP)deepseekOrcaApplicationShouldTerminate;
         IMP previous = method_setImplementation(method, replacement);
         originalApplicationShouldTerminate = (NSApplicationTerminateReply (*)(id, SEL, NSApplication *))previous;
     }
@@ -37,7 +37,7 @@ void installDeepSeek-OrcaSystemQuitHook(void) {
     SEL quitSelector = @selector(Quit);
     Method quitMethod = wailsContext == Nil ? NULL : class_getInstanceMethod(wailsContext, quitSelector);
     if (quitMethod != NULL) {
-        IMP replacement = (IMP)deepseek-orcaWailsContextQuit;
+        IMP replacement = (IMP)deepseekOrcaWailsContextQuit;
         IMP previous = method_setImplementation(quitMethod, replacement);
         originalWailsContextQuit = (void (*)(id, SEL))previous;
     }

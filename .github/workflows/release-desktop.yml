@@ -65,6 +65,8 @@ jobs:
           - { runner: windows-latest, platform: windows/amd64, name: windows-amd64 }
           - { runner: ubuntu-22.04, platform: linux/amd64, name: linux-amd64 }
     runs-on: ${{ matrix.runner }}
+    env:
+      HAS_MINISIGN: ${{ secrets.MINISIGN_PRIVATE_KEY != '' && secrets.MINISIGN_PASSWORD != '' }}
     defaults:
       run:
         shell: bash # desktop-build.sh is bash; windows runners default to pwsh otherwise
@@ -163,11 +165,16 @@ jobs:
         run: scripts/desktop-build.sh "${{ matrix.platform }}" "${{ steps.ver.outputs.version }}" "${{ steps.ver.outputs.channel }}"
 
       - name: Sign artifacts (minisign)
+        if: env.HAS_MINISIGN == 'true'
         working-directory: desktop
         env:
           MINISIGN_PRIVATE_KEY: ${{ secrets.MINISIGN_PRIVATE_KEY }}
           MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
         run: go run ./cmd/sign sign ../dist/*
+
+      - name: Skip signing notice
+        if: env.HAS_MINISIGN != 'true'
+        run: echo "MINISIGN secrets are not configured; publishing unsigned desktop artifacts without updater manifest."
 
       - uses: actions/upload-artifact@v7
         with:
@@ -179,6 +186,8 @@ jobs:
     name: publish release
     needs: build
     runs-on: ubuntu-latest
+    env:
+      HAS_MINISIGN: ${{ secrets.MINISIGN_PRIVATE_KEY != '' && secrets.MINISIGN_PASSWORD != '' }}
     # Stable publishes go through the `release` environment (esengine must
     # approve); canary uses the open `canary` environment so maintainers self-serve.
     environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.channel == 'canary') && 'canary' || 'release' }}
@@ -211,6 +220,7 @@ jobs:
       # Generate latest.json with GitHub release download URLs; the mirror step
       # rewrites them to R2 afterwards. GITHUB_REPOSITORY is provided by the runner.
       - name: Generate manifest
+        if: env.HAS_MINISIGN == 'true'
         working-directory: desktop
         run: go run ./cmd/sign manifest ../dist "${{ steps.ver.outputs.version }}" "${{ steps.ver.outputs.tag }}"
 

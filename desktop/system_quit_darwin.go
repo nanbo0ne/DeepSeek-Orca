@@ -4,7 +4,7 @@ package main
 
 /*
 #cgo darwin LDFLAGS: -framework Cocoa
-void installDeepSeek-OrcaSystemQuitHook(void);
+void installDeepSeekOrcaSystemQuitHook(void);
 */
 import "C"
 
@@ -14,11 +14,11 @@ var installSystemQuitHookOnce sync.Once
 
 func installSystemQuitHook() {
 	installSystemQuitHookOnce.Do(func() {
-		C.installDeepSeek-OrcaSystemQuitHook()
+		C.installDeepSeekOrcaSystemQuitHook()
 	})
 }
 
-//export DeepSeek-OrcaMarkSystemQuit
-func DeepSeek-OrcaMarkSystemQuit() {
+//export DeepSeekOrcaMarkSystemQuit
+func DeepSeekOrcaMarkSystemQuit() {
 	markSystemQuitRequested()
 }
