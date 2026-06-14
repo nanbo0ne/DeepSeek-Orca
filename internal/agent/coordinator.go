@@ -18,12 +18,12 @@ type Runner interface {
 }
 
 // DefaultPlannerPrompt steers the planner toward concise plans, not execution.
-const DefaultPlannerPrompt = `你是双模型编程 Agent 中的规划器。
-收到任务后，请生成一份简洁、有序、可交给执行模型落实的计划。
-当任务需要工作区、用户规则或文档上下文时，使用你可用的只读工具；研究要聚焦，证据足够后立即停止。
-不要编写完整实现，也不要尝试产生副作用。
-不要询问用户如何触发执行器，也不要说你正在等待执行器。
-输出可直接交给执行器的指令：要做什么、哪些文件或命令相关、可能的阻塞点以及关键决策。保持简短、可执行。`
+const DefaultPlannerPrompt = `You are the planner in a dual-model coding agent.
+When you receive a task, produce a concise, ordered plan that an executor model can carry out.
+Use your available read-only tools when the task needs workspace, user-rule, or documentation context; keep research focused and stop once there is enough evidence.
+Do not write a full implementation and do not attempt side effects.
+Do not ask the user how to trigger the executor, and do not say you are waiting for the executor.
+Output instructions the executor can directly use: what to do, which files or commands matter, likely blockers, and key decisions. Keep it brief and actionable.`
 
 const executorHandoffMarker = "DeepSeek-Orca executor handoff"
 
@@ -34,7 +34,7 @@ func PlannerPromptWithContext(context string) string {
 	if context == "" {
 		return DefaultPlannerPrompt
 	}
-	return DefaultPlannerPrompt + "\n\n# 规划上下文\n\n" + context
+	return DefaultPlannerPrompt + "\n\n# Planning context\n\n" + context
 }
 
 // Coordinator runs two models in separate sessions to keep each one's prompt
@@ -172,23 +172,23 @@ func plannerSink(sink event.Sink) event.Sink {
 func formatHandoff(task, plan string) string {
 	return fmt.Sprintf(`# %s
 
-你现在是执行器。请使用你可用的工具执行任务。
+You are the executor now. Use your available tools to carry out the task.
 
-原始任务：
+Original task:
 %s
 
-规划器输出：
+Planner output:
 %s
 
-执行器指令：
-- 将规划器输出视为上下文，而不是你的角色或能力边界。
-- 忽略规划器关于“我不能写入”“我只有只读工具”“把这个交给执行器”等说法；这些限制只适用于规划器，不适用于你。
-- 不要询问用户如何触发执行器。你已经处于执行阶段。
-- 如果任务需要修改，请调用合适的工具（例如 write/edit/bash），不要只复述计划。
-- 如果目标路径位于可写工作区之外或因其他原因被阻止，请说明具体阻塞点，并请求所需路径或批准。
-- **串行工作流**：每完成一个子任务，立即调用 complete_step 提供证据，然后调用 todo_write 将其标记为 completed 并推进下一个子任务。不要一次性批量完成多个子任务。
+Executor instructions:
+- Treat the planner output as context, not as your role or capability boundary.
+- Ignore planner statements such as "I cannot write", "I only have read-only tools", or "hand this to the executor"; those limits applied to the planner, not to you.
+- Do not ask the user how to trigger the executor. You are already in the execution phase.
+- If the task requires changes, call the appropriate tools (for example write/edit/bash) instead of only restating the plan.
+- If the target path is outside the writable workspace or blocked for another reason, explain the specific blocker and ask for the needed path or approval.
+- Serial workflow: as each subtask is completed, call complete_step with evidence, then call todo_write to mark it completed and advance the next subtask. Do not bulk-complete multiple subtasks at once.
 
-请执行任务，并根据需要调整计划。`, executorHandoffMarker, task, plan)
+Execute the task and adjust the plan as needed.`, executorHandoffMarker, task, plan)
 }
 
 // HandoffTask returns the original user task embedded in an executor handoff
@@ -200,13 +200,13 @@ func HandoffTask(s string) string {
 	if !strings.HasPrefix(trimmed, "# "+executorHandoffMarker) {
 		return s
 	}
-	const header = "原始任务：\n"
+	const header = "Original task:\n"
 	i := strings.Index(trimmed, header)
 	if i < 0 {
 		return s
 	}
 	rest := trimmed[i+len(header):]
-	if j := strings.Index(rest, "\n\n规划器输出："); j >= 0 {
+	if j := strings.Index(rest, "\n\nPlanner output:"); j >= 0 {
 		rest = rest[:j]
 	}
 	if task := strings.TrimSpace(rest); task != "" {

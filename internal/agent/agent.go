@@ -709,14 +709,14 @@ func finalReadinessCheckSource(check instruction.VerifyCheck) string {
 }
 
 func finalReadinessRetryMessage(reason string) string {
-	return "宿主的最终回复就绪检查未通过。在给出最终答案前，请补齐宿主可观察到的证据：" + reason + "。请运行必要的工具调用，满足就绪条件后再回答。"
+	return "Host final-answer readiness check failed: " + reason + "\n\nContinue the same task now. Address the readiness issue before giving the final answer."
 }
 
 func executorHandoffRetryMessage() string {
-	return `你已经处于执行阶段，规划器的只读限制不适用于你。
+	return `You are already in the executor phase; the planner's read-only constraints do not apply to you.
 
-不要以规划器身份回答，也不要询问如何触发执行器。
-现在请使用你可用的工具执行任务。如果写入或命令被权限或工作区边界阻止，请说明具体阻塞原因，并请求所需的批准或路径。`
+Do not answer as the planner, and do not ask how to trigger the executor.
+Use your available tools now to carry out the task. If a write or command is blocked by permissions or workspace boundaries, explain the specific blocker and ask for the needed approval or path.`
 }
 
 func hasVisibleFinalAnswer(text string) bool {
@@ -724,17 +724,17 @@ func hasVisibleFinalAnswer(text string) bool {
 }
 
 func emptyFinalRetryMessage() string {
-	return "上一条助手回复结束时没有任何可见答案文本。现在请继续同一个任务，并向用户提供简洁可见的答案。不要只发送推理内容。"
+	return "The previous assistant response finished without any visible answer text. Continue the same task now and provide a concise visible answer to the user. Do not send only reasoning content."
 }
 
 func streamRecoveryMessage(hasPartialText, hadPartialTool bool) string {
 	switch {
 	case hadPartialTool:
-		return "上一条助手回复在工具调用流式输出期间被中断。现在请继续同一个任务。如果仍然需要工具，请从头发起一次完整的新工具调用；不要依赖中断流中的任何不完整工具参数。"
+		return "The previous assistant response was interrupted while a tool call was streaming. Continue the same task now. If a tool is still needed, start a fresh complete tool call from scratch; do not rely on any incomplete tool arguments from the interrupted stream."
 	case hasPartialText:
-		return "上一条助手回复在流式输出期间被中断。请从上方已显示的部分助手消息之后继续同一个任务。不要重复已经可见的文本。"
+		return "The previous assistant response was interrupted during streaming. Continue the same task after the partial assistant message already shown above. Do not repeat text that is already visible."
 	default:
-		return "上一条助手回复在完成可见答案文本前被流式中断。现在请继续同一个任务，并给出下一段有用回复。"
+		return "The previous assistant response was interrupted before visible answer text was completed. Continue the same task now and provide the next useful response."
 	}
 }
 
