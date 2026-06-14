@@ -1,12 +1,12 @@
 # DeepSeek-Orca CLI
 
-DeepSeek-Orca CLI 是面向终端工作流的 AI 编程 Agent。它把模型对话、项目上下文、文件工具、shell、权限控制、MCP、Skill、记忆、CodeGraph、会话恢复和自动化接口整合为一个命令行程序，适合程序员在本地项目、远程服务器、CI 辅助脚本和日常终端工作流中使用。
+DeepSeek-Orca CLI 是面向终端工作流的 AI 编程 Agent。它适合熟悉命令行、Git、远程服务器和自动化脚本的程序员使用。
 
-本项目基于 Reasonix fork 改造而来，CLI 保留原有核心能力，并统一命名为 DeepSeek-Orca。
+本项目基于 Reasonix fork 改造而来。CLI 保留核心 Agent、工具、MCP、Skill、Memory、权限控制、回滚和会话恢复能力，并统一命名为 DeepSeek-Orca。
 
 ## How to use
 
-从源码构建 CLI：
+从源码构建：
 
 ```powershell
 git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
@@ -21,7 +21,7 @@ $env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
 .\bin\deepseek-orca.exe setup
 ```
 
-在项目根目录启动交互式会话：
+在项目目录启动交互式会话：
 
 ```powershell
 cd D:\your-project
@@ -34,33 +34,77 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
 D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结主要模块"
 ```
 
-常用 slash command：
+启动 IM 机器人网关：
 
-- `/init`：生成或更新项目记忆。
+```powershell
+D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe bot start --channels qq,weixin,feishu
+```
+
+检查机器人配置：
+
+```powershell
+D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe bot doctor
+```
+
+## 常用命令
+
+- `deepseek-orca setup`：创建或更新用户配置。
+- `deepseek-orca chat`：启动交互式 TUI。
+- `deepseek-orca run "task"`：执行一次性任务。
+- `deepseek-orca bot start --channels ...`：启动 QQ、微信、飞书/Lark 机器人网关。
+- `deepseek-orca bot doctor`：检查机器人配置。
+- `deepseek-orca bot weixin-login`：保存微信 iLink 登录 Token。
+
+会话中的常用 slash command：
+
+- `/init`：创建或更新项目指令。
 - `/plan`：切换 Plan 模式。
-- `/skill`：管理 Skill。
+- `/skill`：管理 Skill 工作流。
 - `/mcp`：管理 MCP 服务。
 - `/model`：切换模型。
 - `/resume`：恢复历史会话。
-- `/rewind`：回滚会话上下文或代码改动。
+- `/rewind`：回滚会话上下文或相关改动。
 
-## Features
+## 功能说明
 
-- 交互式 TUI：显示对话、工具调用、审批、状态栏、tokens、缓存命中、费用和上下文状态。
-- 一次性任务：适合脚本、管道和自动化。
-- 项目上下文：读取当前目录、配置、环境变量、项目指令文件、记忆、MCP、Skill 和 CodeGraph。
-- 文件工具：读取、搜索、编辑、创建文件，并记录可恢复的改动边界。
-- Shell 工具：运行项目命令、测试、构建和诊断脚本。
-- 权限控制：写文件、执行命令等操作可按规则询问、允许或阻止。
-- Plan 模式：先生成计划，再在用户确认后执行高风险改动。
-- MCP：通过外部 MCP 服务扩展工具能力。
-- Skill：复用本地 Skill 指令和工作流。
-- Memory：保存跨会话偏好、项目事实和长期上下文。
-- CodeGraph：用于符号、调用关系和代码结构查询。
-- 会话管理：保存、恢复、分叉、总结和回滚会话。
-- Provider 配置：支持 DeepSeek 预设，也支持 OpenAI-compatible endpoint。
-- DeepSeek thinking mode：按官方接口约定处理支持推理的模型与思考强度。
+- 交互式 TUI 和一次性 `run` 模式。
+- 从配置、Memory、项目指令、MCP、Skill 和 CodeGraph 加载项目上下文。
+- 文件读取、搜索、编辑和创建。
+- 运行 shell 命令，用于构建、测试和诊断。
+- 对写文件和命令执行提供权限规则。
+- Plan 模式支持先规划再执行。
+- 会话保存、恢复、分支、总结和回滚。
+- 支持 DeepSeek 和 OpenAI-compatible provider。
+- 按模型能力处理 DeepSeek thinking mode。
+- MCP 外部工具集成。
+- 本地 Skill 工作流。
+- Memory 长期偏好和项目事实。
+- QQ、微信、飞书/Lark 机器人网关。
 
-## Notes
+## QQ Bot 配置
 
-CLI 更适合熟悉终端和 Git 工作流的用户。若你希望通过图形界面管理会话、项目、上下文和回滚，请使用 DeepSeek-Orca Desktop。
+QQ 使用官方 Bot API，需要 App ID 和 App Secret。配置示例：
+
+```toml
+[bot.qq]
+enabled = true
+app_id = "your_app_id"
+app_secret_env = "QQ_BOT_APP_SECRET"
+environment = "sandbox" # or "production"
+```
+
+设置密钥：
+
+```powershell
+$env:QQ_BOT_APP_SECRET="your_app_secret"
+```
+
+如果使用桌面端设置页保存 QQ 凭据，DeepSeek-Orca 会把 `QQ_BOT_APP_SECRET` 写入本地凭据存储。
+
+## 桌面安装包
+
+桌面端通过 Windows 安装器分发：
+
+[DeepSeek-Orca Desktop 最新 Release](https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest)
+
+当前桌面端版本：**v1.0.13**。

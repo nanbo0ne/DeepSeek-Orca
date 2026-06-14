@@ -234,7 +234,13 @@ jobs:
         run: |
           args=(--title "DeepSeek-Orca Desktop ${{ steps.ver.outputs.version }}" --generate-notes)
           [ "${{ steps.ver.outputs.prerelease }}" = "true" ] && args+=(--prerelease)
-          gh release create "${{ steps.ver.outputs.tag }}" dist/* "${args[@]}"
+          if gh release view "${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.ver.outputs.tag }} already exists; updating title and replacing assets."
+            gh release edit "${{ steps.ver.outputs.tag }}" --title "DeepSeek-Orca Desktop ${{ steps.ver.outputs.version }}"
+            gh release upload "${{ steps.ver.outputs.tag }}" dist/* --clobber
+          else
+            gh release create "${{ steps.ver.outputs.tag }}" dist/* "${args[@]}"
+          fi
 
       - name: Upload canary dist for mirror
         if: steps.ver.outputs.channel == 'canary'

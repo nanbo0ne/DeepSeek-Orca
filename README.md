@@ -1,18 +1,25 @@
 # DeepSeek-Orca V1.0
 
-DeepSeek-Orca 是一个 AI 编程 Agent，提供桌面端和 CLI 两种入口。桌面端适合通过图形界面管理项目、会话、上下文、文件改动和回滚；CLI 适合程序员在终端、远程环境、脚本和自动化流程中使用。
+DeepSeek-Orca 是一个 AI 编程 Agent，基于 Reasonix fork 改造而来，提供 **桌面端** 和 **CLI** 两种入口。
 
-本项目基于 Reasonix fork 改造而来，并统一重命名为 DeepSeek-Orca。
+- **桌面端**：适合用图形界面管理项目、会话、文件改动、回滚、模型、MCP、Skill、记忆和机器人渠道。
+- **CLI**：适合程序员在终端、远程服务器、脚本和自动化流程中使用。
+
+本项目保留 Reasonix 原有的 Agent、工具、MCP、Skill、Memory、权限控制和会话恢复能力，并统一重构为 DeepSeek-Orca。
 
 ## How to use
 
-### Desktop
+### 桌面端
 
-Windows 用户直接下载打包好的安装器：
+下载打包好的 Windows 安装器：
 
-[打开最新版 GitHub Release](https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest)
+[DeepSeek-Orca-Setup-1.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.13/DeepSeek-Orca-Setup-1.0.13-windows-amd64.exe)
 
-下载文件名类似：
+也可以打开最新版 Release：
+
+[GitHub Releases](https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest)
+
+安装包文件名格式：
 
 ```text
 DeepSeek-Orca-Setup-<version>-windows-amd64.exe
@@ -43,28 +50,25 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
 
 CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 
-## Desktop Features
+## 主要功能
 
-- Codex 风格左侧会话栏：置顶、项目分组、独立工作区分组展示。
-- 新建会话时可选择进入项目或独立工作区。
-- 运行中按 Enter 会把输入加入待发送队列，Ctrl+Enter 会直接引导当前 Agent。
-- 正在运行的会话会在左侧显示转圈状态。
-- Todo 全部完成后自动移除待办框。
-- workflow 消息默认折叠，减少对话滚动长度。
-- 支持事务级回滚，可删除 AI 回复并恢复该轮文件改动。
-- 右侧上下文面板显示当前窗口占用、会话 tokens、缓存命中、费用和读取/变更文件。
-- 支持 DeepSeek、OpenAI-compatible provider、MCP、Skill、Memory、CodeGraph、权限控制和 Plan 模式。
+- 项目会话、置顶会话和独立工作区。
+- Codex 风格的桌面侧栏与会话切换。
+- workflow、工具调用、审批和推理过程默认折叠。
+- AI 文件改动支持事务级回滚。
+- Agent 运行中可排队消息，也可用 `Ctrl+Enter` 直接引导当前轮。
+- Plan 模式与权限模式相互独立。
+- 上下文、token、缓存命中、请求数量、耗时和费用统计。
+- DeepSeek 与 OpenAI-compatible provider。
+- 按 DeepSeek 官方接口约定处理 thinking mode。
+- MCP、Skill、Memory、CodeGraph 和 slash command。
+- QQ、微信、飞书/Lark 机器人渠道。
+- QQ Bot 引导式配置：去官方后台申请 App ID / App Secret，选择沙箱或正式环境，然后保存并连接。
+- Windows 一键安装包与卸载入口。
 
-## CLI Features
+## 安装后的目录结构
 
-- 交互式 TUI 和一次性 `run` 任务。
-- 读取项目上下文、项目指令文件、记忆、MCP、Skill 和 CodeGraph。
-- 支持文件读写、shell 命令、Git diff 审查、测试运行、会话恢复和回滚。
-- 支持 Plan 模式、权限规则、provider 配置和 DeepSeek thinking mode。
-
-## Installed Desktop Structure
-
-默认安装目录通常是：
+常见安装目录：
 
 ```text
 C:\Users\<你的用户名>\AppData\Local\Programs\DeepSeek-Orca
@@ -73,13 +77,23 @@ C:\Users\<你的用户名>\AppData\Local\Programs\DeepSeek-Orca
 主要文件：
 
 - `deepseek-orca-desktop.exe`：桌面端主程序。
-- `uninstall.exe`：卸载入口。
+- `uninstall.exe`：安装器生成的卸载程序。
 - `uninstall.bat`：备用卸载脚本。
 - `node.exe`：随程序携带的 Node 运行时。
-- `dist/`：桌面前端静态资源。
-- `.deepseek-orca/`：配置、凭据引用、Skill、MCP、缓存等本地数据。
-- `data/`：会话、历史、索引和工作区元数据。
+- `dist/`：桌面端前端静态资源。
+- `.deepseek-orca/`：本地配置、凭据引用、Skill、MCP、缓存等数据。
+- `data/`：会话历史、工作区元数据、索引等用户数据。
+
+## 当前版本
+
+桌面端当前版本：**v1.0.13**。
+
+本版本修复 GitHub Actions 桌面端发布流程：如果同名 GitHub Release 已存在，workflow 会覆盖上传资源，不会再因为 `release already exists` 而失败。同时保留 v1.0.12 加入的 QQ Bot 引导式配置。
+
+## 致谢
+
+DeepSeek-Orca 基于 Reasonix fork 改造。
 
 ## License
 
-MIT License. DeepSeek-Orca is based on a Reasonix fork.
+MIT License.

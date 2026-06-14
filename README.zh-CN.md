@@ -1,184 +1,73 @@
-<p align="center">
-  <img src="docs/logo.svg" alt="DeepSeek-Orca" width="640"/>
-</p>
+# DeepSeek-Orca V1.0 中文说明
 
-<p align="center">
-  <a href="./README.md">English</a>
-  &nbsp;·&nbsp;
-  <strong>简体中文</strong>
-  &nbsp;·&nbsp;
-  <a href="./docs/GUIDE.zh-CN.md">指南</a>
-  &nbsp;·&nbsp;
-  <a href="./docs/SPEC.md">规格</a>
-  &nbsp;·&nbsp;
-  <a href="https://esengine.github.io/DeepSeek-Orca/">官方网站</a>
-  &nbsp;·&nbsp;
-  <strong><a href="https://discord.gg/XF78rEME2D">Discord</a></strong>
-</p>
+DeepSeek-Orca 是基于 Reasonix fork 改造的 AI 编程 Agent，提供桌面端和 CLI 两种入口。
 
-> [!IMPORTANT]
-> **DeepSeek-Orca 1.0 是用 Go 从零重写的版本** —— 本分支(`main-v2`)已是新的默认分支,后续开发都在这里。
-> 早期的 `0.x` TypeScript 版本转为 **legacy**,保留在 [`v1`](https://github.com/nanbo0ne/DeepSeek-Orca/tree/v1) 分支(仅维护)。
-> 详见**[迁移指南](./docs/MIGRATING.md)**。`npm i -g deepseek-orca` 仍是安装命令——`1.0.0`+ 装的是 Go 二进制,`0.x` 是 legacy TS 版。
+- **桌面端**：适合通过图形界面管理项目、会话、文件改动、回滚、模型、MCP、Skill、记忆和机器人渠道。
+- **CLI**：适合程序员在终端、远程服务器、脚本、自动化流程和 CI 辅助场景中使用。
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/deepseek-orca"><img src="https://img.shields.io/npm/v/deepseek-orca.svg?style=flat-square&color=cb3837&labelColor=161b22&logo=npm&logoColor=white" alt="npm version"/></a>
-  <a href="https://github.com/nanbo0ne/DeepSeek-Orca/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/nanbo0ne/DeepSeek-Orca/ci.yml?style=flat-square&label=ci&labelColor=161b22&logo=githubactions&logoColor=white" alt="CI"/></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/deepseek-orca.svg?style=flat-square&color=8b949e&labelColor=161b22" alt="license"/></a>
-  <a href="https://www.npmjs.com/package/deepseek-orca"><img src="https://img.shields.io/npm/dm/deepseek-orca.svg?style=flat-square&color=3fb950&labelColor=161b22&label=downloads" alt="downloads"/></a>
-  <a href="https://github.com/nanbo0ne/DeepSeek-Orca/stargazers"><img src="https://img.shields.io/github/stars/nanbo0ne/DeepSeek-Orca.svg?style=flat-square&color=dbab09&labelColor=161b22&logo=github&logoColor=white" alt="GitHub stars"/></a>
-  <a href="https://atomgit.com/nanbo0ne/DeepSeek-Orca"><img src="https://atomgit.com/nanbo0ne/DeepSeek-Orca/star/badge.svg" alt="AtomGit stars"/></a>
-  <a href="https://github.com/nanbo0ne/DeepSeek-Orca/graphs/contributors"><img src="https://img.shields.io/github/contributors/nanbo0ne/DeepSeek-Orca.svg?style=flat-square&color=bc8cff&labelColor=161b22&logo=github&logoColor=white" alt="contributors"/></a>
-  <a href="https://github.com/nanbo0ne/DeepSeek-Orca/discussions"><img src="https://img.shields.io/github/discussions/nanbo0ne/DeepSeek-Orca.svg?style=flat-square&color=58a6ff&labelColor=161b22&logo=github&logoColor=white" alt="Discussions"/></a>
-  <a href="https://discord.gg/XF78rEME2D"><img src="https://img.shields.io/badge/discord-join-5865F2.svg?style=flat-square&labelColor=161b22&logo=discord&logoColor=white" alt="Discord"/></a>
-</p>
+## 如何使用
 
-<p align="center">
-  <a href="https://oosmetrics.com/repo/nanbo0ne/DeepSeek-Orca"><img src="https://api.oosmetrics.com/api/v1/badge/achievement/9e931d80-2050-4b10-902e-44970cc133ad.svg" alt="oosmetrics — Top 2 in Agents by velocity"/></a>
-  <a href="https://oosmetrics.com/repo/nanbo0ne/DeepSeek-Orca"><img src="https://api.oosmetrics.com/api/v1/badge/achievement/556d94b3-61b7-486b-baf2-888b9327deab.svg" alt="oosmetrics — Top 3 in LLMs by velocity"/></a>
-  <a href="https://oosmetrics.com/repo/nanbo0ne/DeepSeek-Orca"><img src="https://api.oosmetrics.com/api/v1/badge/achievement/0f457d4c-efca-4d15-ad2b-139691ff342c.svg" alt="oosmetrics — Top 3 in CLI by velocity"/></a>
-</p>
+### 桌面端
 
-<br/>
+下载 Windows 安装包：
 
-<h3 align="center">面向终端的 DeepSeek 原生 AI coding agent。</h3>
-<p align="center">由配置与插件驱动的极薄 harness——单一静态 Go 二进制，围绕 DeepSeek 的前缀缓存调优，长会话也能把 token 成本压低。</p>
+[DeepSeek-Orca-Setup-1.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.13/DeepSeek-Orca-Setup-1.0.13-windows-amd64.exe)
 
-<br/>
+或打开最新版 Release：
 
-> [!IMPORTANT]
-> **加入社区 · Community** — 双语 Discord，提供安装答疑（`#help` / `#求助`）、工作流展示与功能想法。→ **<https://discord.gg/XF78rEME2D>**
+[GitHub Releases](https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest)
 
-## 特性
+安装后首次启动时，填写 DeepSeek API Key，或在设置中配置其他 OpenAI-compatible provider。
 
-- **配置驱动**：provider、agent、启用的工具、插件全部在 `deepseek-orca.toml` 中声明，
-  内核无硬编码模型。
-- **多模型 · 可组合**：DeepSeek（flash/pro）与 MiMo 作为预设内置；任何 OpenAI 兼容
-  端点都只是一条配置。可选让两个模型协同（执行器 + 规划器），各自独立、缓存稳定的 session。
-- **插件驱动**：外部工具以子进程形式运行，通过 stdio JSON-RPC 通信（MCP 兼容）；
-  内置工具在编译期自注册。
-- **零摩擦分发**：`CGO_ENABLED=0` 单二进制；一条命令交叉编译到六个目标平台。
-  唯一依赖是一个 TOML 解析库。
+桌面端详细说明见 [README.DESKTOP.md](./README.DESKTOP.md)。
 
-## 安装
+### CLI
 
-```sh
-npm i -g deepseek-orca                  # 任意系统;自动拉取对应平台的原生二进制
-brew install nanbo0ne/DeepSeek-Orca/deepseek-orca   # macOS
+从源码构建：
+
+```powershell
+git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
+cd DeepSeek-Orca
+go build -o bin/deepseek-orca.exe ./cmd/deepseek-orca
 ```
 
-预编译归档(`darwin|linux|windows × amd64|arm64`)和 `SHA256SUMS` 见每个
-[GitHub release](https://github.com/nanbo0ne/DeepSeek-Orca/releases)。
+配置并启动：
 
-### 代码签名
-
-Windows 构建使用 [SignPath 基金会](https://signpath.org/) 提供的免费代码签名证书,
-通过 [SignPath.io](https://signpath.io/) 完成签名。
-
-### 从源码构建
-
-```sh
-make build      # -> bin/deepseek-orca(.exe)
-make cross      # -> dist/（darwin|linux|windows × amd64|arm64）
+```powershell
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+.\bin\deepseek-orca.exe setup
+cd D:\your-project
+D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
 ```
 
-## 快速开始
+CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 
-```sh
-deepseek-orca setup                      # 配置向导 → ./deepseek-orca.toml
-export DEEPSEEK_API_KEY=sk-...  # 或写入 .env（见 .env.example）
-deepseek-orca chat                       # 然后在会话里运行 /init 生成 AGENTS.md（项目记忆）
-deepseek-orca run "把 main.go 里的 TODO 实现掉"
-deepseek-orca run --model mimo-pro "给这个函数补单元测试"
-echo "解释这段代码" | deepseek-orca run
-```
+## 主要特性
 
-## 配置
+- 项目会话、置顶会话和独立工作区。
+- Codex 风格的桌面侧栏和会话切换。
+- workflow、工具调用、审批和推理过程默认折叠。
+- AI 文件改动支持事务级回滚。
+- Agent 运行中可排队消息，也可用 `Ctrl+Enter` 直接引导当前轮。
+- Plan 模式与权限模式相互独立。
+- 上下文、token、缓存命中、请求数量、耗时和费用统计。
+- DeepSeek 与 OpenAI-compatible provider。
+- 按 DeepSeek 官方接口约定处理 thinking mode。
+- MCP、Skill、Memory、CodeGraph 和 slash command。
+- QQ、微信、飞书/Lark 机器人渠道。
+- QQ Bot 引导式配置：去官方后台申请 App ID / App Secret，选择沙箱或正式环境，然后保存并连接。
+- Windows 一键安装包与卸载入口。
 
-一个最小的 `deepseek-orca.toml`——一个 provider 加一个默认模型——就够跑起来:
+## 当前版本
 
-```toml
-default_model = "deepseek-flash"
+桌面端当前版本：**v1.0.13**。
 
-[[providers]]
-name        = "deepseek-flash"
-kind        = "openai"
-base_url    = "https://api.deepseek.com"
-model       = "deepseek-v4-flash"
-api_key_env = "DEEPSEEK_API_KEY"
-```
-
-优先级为 **flag > `./deepseek-orca.toml` > `~/.config/deepseek-orca/config.toml` > 内置默认值**;
-密钥经环境变量通过 `api_key_env` 注入,绝不写入配置文件。权限、沙盒、插件(MCP)、
-斜杠命令、`@` 引用与双模型设置,全部在 **[指南](./docs/GUIDE.zh-CN.md)** 里。
-
-## 文档
-
-- **[指南](./docs/GUIDE.zh-CN.md)** —— 配置、权限与沙盒、插件(MCP)、斜杠命令、
-  `@` 引用、双模型协同。
-- **[规格](./docs/SPEC.md)** —— 工程契约:架构、registry、数据类型与路线图。
-- **[从 0.x 迁移](./docs/MIGRATING.md)** —— 从 legacy TypeScript 版本迁到 1.0 Go 重写版。
-- **[Checkpoints 与 rewind](./docs/CHECKPOINTS.md)** —— 基于快照的编辑安全网
-  (Esc-Esc / `/rewind`)。
-
-<br/>
-
-## Star 趋势
-
-<a href="https://www.star-history.com/?repos=esengine%2FDeepSeek-Orca&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=nanbo0ne/DeepSeek-Orca&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=nanbo0ne/DeepSeek-Orca&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=nanbo0ne/DeepSeek-Orca&type=date&legend=top-left" />
- </picture>
-</a>
-
-<br/>
-
-## 支持本项目
-
-如果 DeepSeek-Orca 帮你省了时间或 token，欢迎请杯咖啡。捐助不会换来 feature 优先级，也不会影响 issue 的处理顺序——就是「谢谢」。
-
-- **国内** — 微信支付（扫下方二维码）
-- **海外** — PayPal: [paypal.me/yuhuahui](https://paypal.me/yuhuahui)
-
-<p align="center">
-  <img src=".github/sponsor/wechat-pay.jpg" alt="微信支付收款码" width="240"/>
-</p>
-
-<br/>
+本版本修复桌面端 GitHub Release workflow：当同名 Release 已存在时，Actions 会覆盖上传资源而不是失败。同时保留 v1.0.12 加入的 QQ Bot 引导式配置。
 
 ## 致谢
 
-下面这些朋友的工作塑造了 DeepSeek-Orca 今天的样子 —— 综合 commit 数和代码量两个维度。
-**按字母顺序排列，排名不分先后。** 完整贡献者列表在
-[GitHub](https://github.com/nanbo0ne/DeepSeek-Orca/graphs/contributors)。
+DeepSeek-Orca 基于 Reasonix fork 改造。
 
-- [**ctharvey**](https://github.com/ctharvey)
-- [**dimasd-angga**](https://github.com/dimasd-angga)（Dimas D. Angga）
-- [**Evan-Pycraft**](https://github.com/Evan-Pycraft)
-- [**ForeverYoungPp**](https://github.com/ForeverYoungPp)
-- [**GTC2080**](https://github.com/GTC2080)（TaoMu）
-- [**kabaka9527**](https://github.com/kabaka9527)
-- [**lisniuse**](https://github.com/lisniuse)（Richie）
-- [**wade19990814-hue**](https://github.com/wade19990814-hue)
-- [**wviana**](https://github.com/wviana)（Wesley Viana）
+## License
 
-另外特别感谢 [**Bernardxu123**](https://github.com/Bernardxu123) 设计的项目 logo，
-以及 [AIGC Link](https://xhslink.com/m/80ngts127cA) 在小红书上的推广。
-
-<p align="center">
-  <a href="https://github.com/nanbo0ne/DeepSeek-Orca/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=nanbo0ne/DeepSeek-Orca&max=100&columns=12" alt="nanbo0ne/DeepSeek-Orca 贡献者" width="860"/>
-  </a>
-</p>
-
-<br/>
-
----
-
-<p align="center">
-  <sub>MIT —— 见 <a href="./LICENSE">LICENSE</a></sub>
-  <br/>
-  <sub>由 <a href="https://github.com/nanbo0ne/DeepSeek-Orca/graphs/contributors">nanbo0ne/DeepSeek-Orca</a> 社区共建</sub>
-</p>
+MIT License.
