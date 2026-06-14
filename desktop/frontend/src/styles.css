@@ -16081,6 +16081,8 @@ a[href] {
   flex: 0 1 116px;
   min-width: 34px;
   max-width: 116px;
+  margin-left: 0;
+  margin-right: 0;
   --wails-draggable: no-drag;
 }
 
