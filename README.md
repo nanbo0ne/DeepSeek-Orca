@@ -49,8 +49,6 @@ CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 - DeepSeek 与 OpenAI-compatible provider。
 - 按 DeepSeek 官方接口约定处理 thinking mode。
 - MCP、Skill、Memory、CodeGraph 和 slash command。
-- 机器人入口当前暂时关闭，后续版本会重新开放 QQ / 微信连接。
-- Windows 一键安装包与卸载入口。
 
 ## 安装后目录结构
 
