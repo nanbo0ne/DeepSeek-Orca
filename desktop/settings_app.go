@@ -395,14 +395,14 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 		mode = "webhook"
 	}
 	return BotSettingsView{
-		Enabled:       b.Enabled,
+		Enabled:       true,
 		Model:         b.Model,
 		WorkspaceRoot: orDefault(strings.TrimSpace(b.WorkspaceRoot), config.BotWorkspaceDir()),
 		MaxSteps:      b.MaxSteps,
 		DebounceMs:    b.DebounceMs,
 		Allowlist: BotAllowlistView{
-			Enabled:      b.Allowlist.Enabled,
-			AllowAll:     b.Allowlist.AllowAll,
+			Enabled:      true,
+			AllowAll:     true,
 			QQUsers:      nonNil(b.Allowlist.QQUsers),
 			FeishuUsers:  nonNil(b.Allowlist.FeishuUsers),
 			WeixinUsers:  nonNil(b.Allowlist.WeixinUsers),
@@ -418,7 +418,7 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 			Environment:  qqEnvironmentOrDefault(b.QQ.Environment),
 		},
 		Feishu: FeishuBotView{
-			Enabled:           b.Feishu.Enabled,
+			Enabled:           false,
 			Domain:            orDefault(strings.TrimSpace(b.Feishu.Domain), "feishu"),
 			AppID:             b.Feishu.AppID,
 			AppSecretEnv:      b.Feishu.AppSecretEnv,
@@ -454,10 +454,10 @@ func orDefault(s, def string) string {
 }
 
 func qqEnvironmentOrDefault(env string) string {
-	if strings.EqualFold(strings.TrimSpace(env), "production") {
-		return "production"
+	if strings.EqualFold(strings.TrimSpace(env), "sandbox") {
+		return "sandbox"
 	}
-	return "sandbox"
+	return "production"
 }
 
 func botDomainOrDefault(domain string) string {
@@ -1222,15 +1222,15 @@ func (a *App) SetNetwork(n NetworkView) error {
 }
 
 func (a *App) SetBotSettings(b BotSettingsView) error {
-	return a.applyConfigOnly(func(c *config.Config) error {
-		c.Bot.Enabled = b.Enabled
+	err := a.applyConfigOnly(func(c *config.Config) error {
+		c.Bot.Enabled = true
 		c.Bot.Model = strings.TrimSpace(b.Model)
 		c.Bot.WorkspaceRoot = strings.TrimSpace(b.WorkspaceRoot)
 		c.Bot.MaxSteps = b.MaxSteps
 		c.Bot.DebounceMs = b.DebounceMs
 		c.Bot.Allowlist = config.BotAllowlist{
-			Enabled:      b.Allowlist.Enabled,
-			AllowAll:     b.Allowlist.AllowAll,
+			Enabled:      true,
+			AllowAll:     true,
 			QQUsers:      trimList(b.Allowlist.QQUsers),
 			FeishuUsers:  trimList(b.Allowlist.FeishuUsers),
 			WeixinUsers:  trimList(b.Allowlist.WeixinUsers),
@@ -1239,7 +1239,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 			WeixinGroups: trimList(b.Allowlist.WeixinGroups),
 		}
 		c.Bot.QQ = config.QQBotConfig{
-			Enabled:      b.QQ.Enabled,
+			Enabled:      strings.TrimSpace(b.QQ.AppID) != "",
 			AppID:        strings.TrimSpace(b.QQ.AppID),
 			AppSecretEnv: strings.TrimSpace(b.QQ.AppSecretEnv),
 			Environment:  qqEnvironmentOrDefault(b.QQ.Environment),
@@ -1255,7 +1255,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 			RequireMention:    b.Feishu.RequireMention,
 		}
 		c.Bot.Weixin = config.WeixinBotConfig{
-			Enabled:   b.Weixin.Enabled,
+			Enabled:   true,
 			AccountID: strings.TrimSpace(b.Weixin.AccountID),
 			TokenEnv:  strings.TrimSpace(b.Weixin.TokenEnv),
 			APIBase:   strings.TrimRight(strings.TrimSpace(b.Weixin.APIBase), "/"),
@@ -1263,6 +1263,10 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 		c.Bot.Connections = botConnectionConfigs(b.Connections)
 		return nil
 	})
+	if err == nil {
+		a.restartDesktopBotGateway()
+	}
+	return err
 }
 
 func (a *App) SetBotSecret(envName, value string) error {

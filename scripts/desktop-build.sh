@@ -44,7 +44,7 @@ prepare_windows_installer_resources() {
 	fi
 
 	local cg_dest="$payload/codegraph"
-	if [ ! -x "$cg_dest/bin/codegraph.cmd" ] && [ ! -x "$cg_dest/bin/codegraph" ]; then
+	if [ ! -f "$cg_dest/bin/codegraph.cmd" ] && [ ! -f "$cg_dest/bin/codegraph" ]; then
 		local version asset zip
 		version="$(awk '/^CODEGRAPH_VERSION[[:space:]]*:=/ { print $3; exit }' "$ROOT/Makefile")"
 		[ -n "$version" ] || version="$(awk -F'"' '/Version = / { print $2; exit }' "$ROOT/internal/codegraph/install.go")"

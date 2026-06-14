@@ -32,6 +32,7 @@ const (
 	getUpdatesPath   = "/ilink/bot/getupdates"
 	sendMessagePath  = "/ilink/bot/sendmessage"
 	sendTypingPath   = "/ilink/bot/sendtyping"
+	getConfigPath    = "/ilink/bot/getconfig"
 	uploadMediaPath  = "/ilink/bot/getuploadurl"
 	getBotQRPath     = "/ilink/bot/get_bot_qrcode"
 	getQRStatusPath  = "/ilink/bot/get_qrcode_status"
@@ -40,8 +41,6 @@ const (
 	ilinkClientVersion  = (2 << 16) | (2 << 8)
 	ilinkChannelVersion = "2.2.0"
 	weixinItemText      = 1
-	weixinMsgTypeBot    = 2
-	weixinMsgStateDone  = 2
 )
 
 // ilinkUpdate 微信 iLink getupdates 返回的更新消息。
@@ -147,6 +146,13 @@ func (a *adapter) Messages() <-chan bot.InboundMessage {
 func SendText(ctx context.Context, cfg config.WeixinBotConfig, chatID, text string) (bot.SendResult, error) {
 	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "weixin"), contextTokens: make(map[string]string)}
 	return a.sendMessage(ctx, bot.OutboundMessage{ChatID: chatID, Text: text})
+}
+
+// Validate verifies that a saved Weixin/OpenClaw account token can poll updates.
+func Validate(ctx context.Context, cfg config.WeixinBotConfig) error {
+	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "weixin"), contextTokens: make(map[string]string)}
+	_, err := a.getUpdates(ctx)
+	return err
 }
 
 // token 从环境变量获取微信 token。
@@ -488,13 +494,8 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	url := a.apiBase() + sendMessagePath
 
 	payload := map[string]interface{}{
-		"base_info": map[string]string{"channel_version": ilinkChannelVersion},
 		"msg": map[string]interface{}{
-			"from_user_id":  "",
-			"to_user_id":    msg.ChatID,
-			"client_id":     fmt.Sprintf("deepseek-orca-%d", time.Now().UnixNano()),
-			"message_type":  weixinMsgTypeBot,
-			"message_state": weixinMsgStateDone,
+			"to_user_id": msg.ChatID,
 			"item_list": []map[string]interface{}{
 				{"type": weixinItemText, "text_item": map[string]string{"text": msg.Text}},
 			},
@@ -546,12 +547,16 @@ func (a *adapter) sendTyping(ctx context.Context, chatID string) error {
 	if tok == "" {
 		return fmt.Errorf("%s not set and no saved weixin account is available", a.cfg.TokenEnv)
 	}
+	ticket, err := a.getTypingTicket(ctx, chatID)
+	if err != nil {
+		return err
+	}
 
 	url := a.apiBase() + sendTypingPath
 
 	payload := map[string]interface{}{
-		"base_info":     map[string]string{"channel_version": ilinkChannelVersion},
 		"ilink_user_id": chatID,
+		"typing_ticket": ticket,
 		"status":        1,
 	}
 	if contextToken := a.contextToken(chatID); contextToken != "" {
@@ -584,4 +589,44 @@ func (a *adapter) sendTyping(ctx context.Context, chatID string) error {
 	}
 
 	return nil
+}
+
+func (a *adapter) getTypingTicket(ctx context.Context, chatID string) (string, error) {
+	tok := a.token()
+	if tok == "" {
+		return "", fmt.Errorf("%s not set and no saved weixin account is available", a.cfg.TokenEnv)
+	}
+	payload := map[string]interface{}{
+		"ilink_user_id": chatID,
+	}
+	if contextToken := a.contextToken(chatID); contextToken != "" {
+		payload["context_token"] = contextToken
+	}
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(ctx, "POST", a.apiBase()+getConfigPath, bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+	setIlinkHeaders(req, tok, body)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Ret          int    `json:"ret"`
+		Errcode      int    `json:"errcode"`
+		Errmsg       string `json:"errmsg"`
+		TypingTicket string `json:"typing_ticket"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if result.Ret != 0 || result.Errcode != 0 {
+		return "", fmt.Errorf("getconfig error ret=%d errcode=%d: %s", result.Ret, result.Errcode, result.Errmsg)
+	}
+	if result.TypingTicket == "" {
+		return "", fmt.Errorf("getconfig response missing typing_ticket")
+	}
+	return result.TypingTicket, nil
 }

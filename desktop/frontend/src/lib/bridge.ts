@@ -14,6 +14,7 @@ import type {
   BalanceInfo,
   BotConnectionView,
   BotConnectionDiagnostic,
+  BotRuntimeStatusView,
   BotInstallPollResult,
   BotInstallStartResult,
   BotSettingsView,
@@ -215,6 +216,7 @@ export interface AppBindings {
   PollBotConnectionInstall(installID: string): Promise<BotInstallPollResult>;
   DiagnoseBotConnection(id: string): Promise<BotConnectionDiagnostic>;
   TestBotConnection(id: string, target?: string): Promise<BotConnectionDiagnostic>;
+  GetBotRuntimeStatus(): Promise<BotRuntimeStatusView>;
   SetCloseBehavior(mode: string): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
@@ -2052,6 +2054,16 @@ function makeMockApp(): AppBindings {
           const diag = await this.DiagnoseBotConnection(id);
           if (target?.trim()) return { ...diag, message: `Mock test sent to ${target.trim()}`, messageId: "mock-message-id" };
           return diag;
+        },
+        async GetBotRuntimeStatus() {
+          const channels = settings.bot.connections
+            .filter((connection) => connection.enabled && (connection.provider === "qq" || connection.provider === "weixin"))
+            .map((connection) => connection.label || connection.provider);
+          return {
+            status: channels.length > 0 ? "running" : "idle",
+            message: channels.length > 0 ? `后台运行中：${channels.join("、")}` : "QQ/微信尚未连接。",
+            channels,
+          };
         },
         async SetCloseBehavior(mode: string) {
           settings.closeBehavior = mode === "quit" ? "quit" : "background";

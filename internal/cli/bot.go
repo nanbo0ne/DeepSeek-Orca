@@ -64,12 +64,11 @@ func botStart(args []string, version string) int {
 	}
 
 	if !cfg.Bot.Enabled {
-		fmt.Fprintln(os.Stderr, "error: bot is not enabled in config; set [bot] enabled = true")
-		return 1
+		cfg.Bot.Enabled = true
 	}
 	if !cfg.Bot.Allowlist.AllowAll && (!cfg.Bot.Allowlist.Enabled || botAllowlistUserCount(cfg.Bot.Allowlist) == 0) {
-		fmt.Fprintln(os.Stderr, "error: bot requires an explicit allowlist; set [bot.allowlist] enabled = true with platform user ids, or set allow_all = true intentionally")
-		return 1
+		cfg.Bot.Allowlist.Enabled = true
+		cfg.Bot.Allowlist.AllowAll = true
 	}
 
 	workspaceRoot := strings.TrimSpace(*dir)
@@ -225,7 +224,7 @@ func botDoctor(args []string) int {
 	if bc.Enabled {
 		addCheck("bot.enabled", "ok", "")
 	} else {
-		addCheck("bot.enabled", "disabled", "bot is not enabled in config")
+		addCheck("bot.enabled", "default", "bot will auto-enable at runtime")
 	}
 	if strings.TrimSpace(bc.WorkspaceRoot) != "" {
 		addCheck("bot.workspace_root", "ok", bc.WorkspaceRoot)
@@ -290,11 +289,11 @@ func botDoctor(args []string) int {
 
 	if bc.Allowlist.AllowAll {
 		addCheck("bot.allowlist", "open", "allow_all=true; every reachable user can trigger local tools")
-	} else if bc.Allowlist.Enabled {
+	} else if bc.Allowlist.Enabled && botAllowlistUserCount(bc.Allowlist) > 0 {
 		addCheck("bot.allowlist", "enabled",
 			fmt.Sprintf("qq=%d feishu=%d weixin=%d users", len(bc.Allowlist.QQUsers), len(bc.Allowlist.FeishuUsers), len(bc.Allowlist.WeixinUsers)))
 	} else {
-		addCheck("bot.allowlist", "missing", "bot start will refuse without allowlist or allow_all=true")
+		addCheck("bot.allowlist", "default-open", "no allowlist configured; runtime defaults to allow_all=true")
 	}
 
 	if *jsonOut {

@@ -29,6 +29,7 @@ import (
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/billing"
 	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/bot"
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/event"
@@ -77,6 +78,11 @@ type App struct {
 
 	mediaTokens *mediaTokenStore
 	botInstalls map[string]*botInstallSession
+
+	botGateway       *bot.BotGateway
+	botGatewayCancel context.CancelFunc
+	botRuntimeStatus string
+	botRuntimeErr    string
 }
 
 // mediaTokenEntry holds metadata for a workspace media file served via temporary URL.
@@ -269,6 +275,7 @@ func (a *App) startup(ctx context.Context) {
 	installSystemQuitHook()
 	a.startTray()
 
+	go a.restartDesktopBotGateway()
 	go a.restoreOrBuildTabs()
 }
 
@@ -458,6 +465,7 @@ func (a *App) snapshotAllTabs() {
 
 // shutdown snapshots all tabs, saves the final window geometry, and closes tabs.
 func (a *App) shutdown(context.Context) {
+	a.stopDesktopBotGateway()
 	a.stopTray()
 	// Save window geometry synchronously from Go so it's persisted even if the
 	// frontend's beforeunload promise hasn't resolved yet.

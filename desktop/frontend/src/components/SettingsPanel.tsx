@@ -23,7 +23,6 @@ import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
 import { MCPServersSettingsPage, SkillsSettingsPage } from "./CapabilitiesPanel";
 import { MemorySettingsPage } from "./MemoryPanel";
-import { CopyButton } from "./CopyButton";
 import { ModalCloseButton } from "./ModalCloseButton";
 
 const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "permissions", "sandbox", "network", "appearance"];
@@ -384,7 +383,6 @@ const REASONING_PROTOCOLS: readonly string[] = ["", "deepseek", "openai", "none"
 const PROXY_TYPES = ["http", "https", "socks5", "socks5h"] as const;
 const LANGUAGE_PREFS: LangPref[] = ["", "zh", "en"];
 const AUTO_PLAN_MODES = ["off", "on"] as const;
-const BOT_FEISHU_MODES = ["webhook", "websocket"] as const;
 
 type ProxyMode = (typeof PROXY_MODES)[number];
 type AutoPlanMode = (typeof AUTO_PLAN_MODES)[number];
@@ -414,14 +412,14 @@ function normalizeReasoningProtocol(protocol: string | undefined): string {
 
 function defaultBotSettings(): BotSettingsView {
   return {
-    enabled: false,
+    enabled: true,
     model: "",
     workspaceRoot: "",
     maxSteps: 0,
     debounceMs: 1500,
     allowlist: {
       enabled: true,
-      allowAll: false,
+      allowAll: true,
       qqUsers: [],
       feishuUsers: [],
       weixinUsers: [],
@@ -429,7 +427,7 @@ function defaultBotSettings(): BotSettingsView {
       feishuGroups: [],
       weixinGroups: [],
     },
-    qq: { enabled: false, appId: "", appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: false, environment: "sandbox" },
+    qq: { enabled: false, appId: "", appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: false, environment: "production" },
     feishu: {
       enabled: false,
       domain: "feishu",
@@ -442,7 +440,7 @@ function defaultBotSettings(): BotSettingsView {
       requireMention: true,
     },
     weixin: {
-      enabled: false,
+      enabled: true,
       accountId: "default",
       tokenEnv: "WEIXIN_BOT_TOKEN",
       tokenSet: false,
@@ -472,9 +470,9 @@ function normalizeBotSettings(bot: BotSettingsView | null | undefined): BotSetti
       feishuGroups: asArray(allowlist.feishuGroups),
       weixinGroups: asArray(allowlist.weixinGroups),
     },
-    qq: { ...fallback.qq, ...bot?.qq, environment: bot?.qq?.environment === "production" ? "production" : "sandbox" },
-    feishu: { ...fallback.feishu, ...bot?.feishu, domain: bot?.feishu?.domain === "lark" ? "lark" : "feishu", mode },
-    weixin: { ...fallback.weixin, ...bot?.weixin },
+    qq: { ...fallback.qq, ...bot?.qq, environment: bot?.qq?.environment === "sandbox" ? "sandbox" : "production" },
+    feishu: { ...fallback.feishu, ...bot?.feishu, enabled: false, domain: bot?.feishu?.domain === "lark" ? "lark" : "feishu", mode },
+    weixin: { ...fallback.weixin, ...bot?.weixin, enabled: true },
     connections: asArray(bot?.connections).map(normalizeBotConnection),
   };
 }
@@ -858,7 +856,7 @@ function NetworkSection({ s, busy, apply }: SectionProps) {
   );
 }
 
-type BotChannelID = "qq" | "feishu" | "weixin";
+type BotChannelID = "qq" | "weixin";
 type BotInstallTarget = "qq" | "feishu" | "lark" | "weixin";
 type BotInstallState = {
   target: BotInstallTarget | "";
@@ -866,31 +864,38 @@ type BotInstallState = {
   status: "idle" | "starting" | "showing" | "manual" | "connected" | "error";
   message: string;
 };
-const BOT_INSTALL_TARGETS: BotInstallTarget[] = ["qq", "feishu", "lark", "weixin"];
+const BOT_INSTALL_TARGETS: BotInstallTarget[] = ["qq", "weixin", "feishu", "lark"];
 
 function BotsSection({ s, busy, apply }: SectionProps) {
   const t = useT();
   const savedBot = normalizeBotSettings(s.bot);
   const [draft, setDraft] = useState<BotSettingsView>(savedBot);
-  const [secrets, setSecrets] = useState<Record<BotChannelID, string>>({ qq: "", feishu: "", weixin: "" });
+  const [secrets, setSecrets] = useState<Record<BotChannelID, string>>({ qq: "", weixin: "" });
   const [install, setInstall] = useState<BotInstallState>({ target: "", result: null, status: "idle", message: "" });
   const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
   const [testTargets, setTestTargets] = useState<Record<string, string>>({});
+  const [runtime, setRuntime] = useState<{ status: string; message: string; channels: string[] } | null>(null);
   const refs = allRefs(s);
 
   useEffect(() => {
     setDraft(normalizeBotSettings(s.bot));
-    setSecrets({ qq: "", feishu: "", weixin: "" });
+    setSecrets({ qq: "", weixin: "" });
     setTestTargets({});
   }, [s.bot]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void app.GetBotRuntimeStatus?.().then((next) => {
+      if (!cancelled) setRuntime(next);
+    }).catch(() => {
+      if (!cancelled) setRuntime(null);
+    });
+    return () => { cancelled = true; };
+  }, [draft.connections.length, install.status]);
+
   const dirty = JSON.stringify(sanitizeBotDraft(draft)) !== JSON.stringify(sanitizeBotDraft(savedBot));
-  const setAllowlist = (next: Partial<BotSettingsView["allowlist"]>) =>
-    setDraft((prev) => ({ ...prev, allowlist: { ...prev.allowlist, ...next } }));
   const setQQ = (next: Partial<BotSettingsView["qq"]>) =>
     setDraft((prev) => ({ ...prev, qq: { ...prev.qq, ...next } }));
-  const setFeishu = (next: Partial<BotSettingsView["feishu"]>) =>
-    setDraft((prev) => ({ ...prev, feishu: { ...prev.feishu, ...next } }));
   const setWeixin = (next: Partial<BotSettingsView["weixin"]>) =>
     setDraft((prev) => ({ ...prev, weixin: { ...prev.weixin, ...next } }));
   const setConnections = (mapper: (connections: BotConnectionView[]) => BotConnectionView[]) =>
@@ -899,13 +904,17 @@ function BotsSection({ s, busy, apply }: SectionProps) {
 
   const saveBot = () => app.SetBotSettings(sanitizeBotDraft(draft));
   const startInstall = async (target: BotInstallTarget) => {
+    if (target === "feishu" || target === "lark") {
+      setInstall({ target, result: null, status: "error", message: t("settings.botUnavailable") });
+      return;
+    }
     if (target === "qq") {
       setInstall({ target, result: null, status: "manual", message: t("settings.botQQManualHint") });
       return;
     }
     setInstall({ target, result: null, status: "starting", message: "" });
-    const provider = target === "weixin" ? "weixin" : "feishu";
-    const domain = target === "lark" ? "lark" : target === "weixin" ? "weixin" : "feishu";
+    const provider = "weixin";
+    const domain = "weixin";
     const result = await app.StartBotConnectionInstall(provider, domain);
     if (!result.ok) {
       setInstall({ target, result, status: "error", message: result.message || t("settings.botInstallFailed") });
@@ -1013,13 +1022,10 @@ function BotsSection({ s, busy, apply }: SectionProps) {
           </button>
         }
       >
-        <SettingsField label={t("settings.botEnableBot")}>
-          <ToggleSegment
-            value={draft.enabled}
-            disabled={busy}
-            onChange={(enabled) => setDraft((prev) => ({ ...prev, enabled }))}
-          />
-        </SettingsField>
+        <div className={`bot-runtime-status bot-runtime-status--${runtime?.status ?? "idle"}`}>
+          <strong>{runtime?.message || t("settings.botRuntimeIdle")}</strong>
+          <span>{t("settings.botRuntimeAuto")}</span>
+        </div>
         <details className="bot-advanced">
           <summary>{t("settings.botAdvancedRuntime")}</summary>
           <div className="bot-advanced__body">
@@ -1085,8 +1091,8 @@ function BotsSection({ s, busy, apply }: SectionProps) {
               <button
                 key={target}
                 type="button"
-                className={`bot-connect-target${install.target === target ? " bot-connect-target--active" : ""}`}
-                disabled={busy || install.status === "starting"}
+                className={`bot-connect-target${install.target === target ? " bot-connect-target--active" : ""}${target === "feishu" || target === "lark" ? " bot-connect-target--disabled" : ""}`}
+                disabled={busy || install.status === "starting" || target === "feishu" || target === "lark"}
                 onClick={() => void startInstall(target)}
               >
                 <strong>{botTargetLabel(target, t)}</strong>
@@ -1175,7 +1181,6 @@ function BotsSection({ s, busy, apply }: SectionProps) {
                 busy={busy}
                 secrets={secrets}
                 setQQ={setQQ}
-                setFeishu={setFeishu}
                 setWeixin={setWeixin}
                 setSecrets={setSecrets}
                 saveSecret={saveSecret}
@@ -1186,32 +1191,6 @@ function BotsSection({ s, busy, apply }: SectionProps) {
         </div>
       </SettingsSection>
 
-      <SettingsSection title={t("settings.botAccessControl")} description={t("settings.botAccessControlHint")}>
-        <SettingsField label={t("settings.botAccessMode")}>
-          <ToggleSegment
-            value={draft.allowlist.enabled && draft.allowlist.allowAll}
-            disabled={busy}
-            onLabel={t("settings.botAccessAll")}
-            offLabel={t("settings.botAccessWhitelist")}
-            onChange={(allowAll) => setAllowlist({ enabled: true, allowAll })}
-          />
-        </SettingsField>
-        <details className="bot-advanced">
-          <summary>{t("settings.botEditAllowlist")}</summary>
-          <div className="bot-advanced__body">
-            <SettingsField label={t("settings.botAllowlistEntries")} stacked>
-              <div className="bot-list-grid">
-                <BotListInput label={t("settings.botQQUsers")} value={draft.allowlist.qqUsers} disabled={busy || !draft.allowlist.enabled || draft.allowlist.allowAll} onChange={(qqUsers) => setAllowlist({ qqUsers })} />
-                <BotListInput label={t("settings.botQQGroups")} value={draft.allowlist.qqGroups} disabled={busy || !draft.allowlist.enabled || draft.allowlist.allowAll} onChange={(qqGroups) => setAllowlist({ qqGroups })} />
-                <BotListInput label={t("settings.botFeishuUsers")} value={draft.allowlist.feishuUsers} disabled={busy || !draft.allowlist.enabled || draft.allowlist.allowAll} onChange={(feishuUsers) => setAllowlist({ feishuUsers })} />
-                <BotListInput label={t("settings.botFeishuGroups")} value={draft.allowlist.feishuGroups} disabled={busy || !draft.allowlist.enabled || draft.allowlist.allowAll} onChange={(feishuGroups) => setAllowlist({ feishuGroups })} />
-                <BotListInput label={t("settings.botWeixinUsers")} value={draft.allowlist.weixinUsers} disabled={busy || !draft.allowlist.enabled || draft.allowlist.allowAll} onChange={(weixinUsers) => setAllowlist({ weixinUsers })} />
-                <BotListInput label={t("settings.botWeixinGroups")} value={draft.allowlist.weixinGroups} disabled={busy || !draft.allowlist.enabled || draft.allowlist.allowAll} onChange={(weixinGroups) => setAllowlist({ weixinGroups })} />
-              </div>
-            </SettingsField>
-          </div>
-        </details>
-      </SettingsSection>
     </>
   );
 }
@@ -1251,11 +1230,6 @@ function botConnectionMeta(connection: BotConnectionView, t: ReturnType<typeof u
 
 function firstConnectionRemote(connection: BotConnectionView): string {
   return connection.sessionMappings.find((mapping) => mapping.remoteId.trim())?.remoteId ?? "";
-}
-
-function botWebhookURL(port: number | null | undefined): string {
-  const safePort = port && port > 0 ? port : 8080;
-  return `http://127.0.0.1:${safePort}/feishu/event`;
 }
 
 function QQConnectPanel({
@@ -1328,7 +1302,6 @@ function BotLegacyAdvancedFields({
   busy,
   secrets,
   setQQ,
-  setFeishu,
   setWeixin,
   setSecrets,
   saveSecret,
@@ -1338,7 +1311,6 @@ function BotLegacyAdvancedFields({
   busy: boolean;
   secrets: Record<BotChannelID, string>;
   setQQ: (next: Partial<BotSettingsView["qq"]>) => void;
-  setFeishu: (next: Partial<BotSettingsView["feishu"]>) => void;
   setWeixin: (next: Partial<BotSettingsView["weixin"]>) => void;
   setSecrets: Dispatch<SetStateAction<Record<BotChannelID, string>>>;
   saveSecret: (channel: BotChannelID, envName: string) => Promise<void>;
@@ -1364,51 +1336,6 @@ function BotLegacyAdvancedFields({
           <input className="mem-input" value={draft.qq.appId} disabled={busy} placeholder="1020..." onChange={(e) => setQQ({ appId: e.target.value })} />
         </BotCardField>
         <BotSecretField label={t("settings.botAppSecret")} envName={draft.qq.appSecretEnv} secretSet={draft.qq.secretSet} value={secrets.qq} busy={busy} onValue={(value) => setSecrets((prev) => ({ ...prev, qq: value }))} onSave={() => void saveSecret("qq", draft.qq.appSecretEnv)} onClear={() => void clearSecret(draft.qq.appSecretEnv)} />
-      </BotChannelCard>
-
-      <BotChannelCard
-        title={t("settings.botFeishu")}
-        description={t("settings.botFeishuHint")}
-        enabled={draft.feishu.enabled}
-        secretSet={draft.feishu.secretSet}
-        busy={busy}
-        onEnabled={(enabled) => setFeishu({ enabled })}
-        advanced={
-          <>
-            <BotCardField label={t("settings.botFeishuMode")}>
-              <div className="set-seg">
-                {BOT_FEISHU_MODES.map((mode) => (
-                  <button key={mode} type="button" className={`set-seg__btn${draft.feishu.mode === mode ? " set-seg__btn--on" : ""}`} disabled={busy} onClick={() => setFeishu({ mode })}>
-                    {t(`settings.botFeishuMode.${mode}`)}
-                  </button>
-                ))}
-              </div>
-            </BotCardField>
-            <BotCardField label={t("settings.botWebhookPort")}>
-              <input className="mem-input set-narrow" value={draft.feishu.webhookPort ? String(draft.feishu.webhookPort) : ""} placeholder="8080" disabled={busy || draft.feishu.mode !== "webhook"} inputMode="numeric" onChange={(e) => setFeishu({ webhookPort: parseNonNegativeInt(e.target.value) })} />
-            </BotCardField>
-            <BotCardField label={t("settings.botWebhookURL")}>
-              <div className="bot-secret-row">
-                <input className="mem-input" value={botWebhookURL(draft.feishu.webhookPort)} disabled readOnly />
-                <CopyButton text={botWebhookURL(draft.feishu.webhookPort)} label={t("settings.botCopyWebhook")} />
-              </div>
-            </BotCardField>
-            <BotCardField label={t("settings.botRequireMention")}>
-              <ToggleSegment value={draft.feishu.requireMention} disabled={busy} onChange={(requireMention) => setFeishu({ requireMention })} />
-            </BotCardField>
-            <BotCardField label={t("settings.botSecretEnv")}>
-              <input className="mem-input" value={draft.feishu.appSecretEnv} disabled={busy} placeholder="FEISHU_BOT_APP_SECRET" spellCheck={false} onChange={(e) => setFeishu({ appSecretEnv: e.target.value })} />
-            </BotCardField>
-          </>
-        }
-      >
-        <BotCardField label={t("settings.botAppId")}>
-          <input className="mem-input" value={draft.feishu.appId} disabled={busy} placeholder="cli_..." onChange={(e) => setFeishu({ appId: e.target.value })} />
-        </BotCardField>
-        <BotSecretField label={t("settings.botAppSecret")} envName={draft.feishu.appSecretEnv} secretSet={draft.feishu.secretSet} value={secrets.feishu} busy={busy} onValue={(value) => setSecrets((prev) => ({ ...prev, feishu: value }))} onSave={() => void saveSecret("feishu", draft.feishu.appSecretEnv)} onClear={() => void clearSecret(draft.feishu.appSecretEnv)} />
-        <BotCardField label={t("settings.botVerificationToken")}>
-          <input className="mem-input" type="password" value={draft.feishu.verificationToken} disabled={busy} onChange={(e) => setFeishu({ verificationToken: e.target.value })} />
-        </BotCardField>
       </BotChannelCard>
 
       <BotChannelCard
@@ -1587,41 +1514,6 @@ function BotCardField({ label, children }: { label: ReactNode; children: ReactNo
   );
 }
 
-function BotListInput({
-  label,
-  value,
-  disabled,
-  onChange,
-}: {
-  label: ReactNode;
-  value: string[];
-  disabled: boolean;
-  onChange: (value: string[]) => void;
-}) {
-  const t = useT();
-  return (
-    <label className="bot-list-input">
-      <span>{label}</span>
-      <textarea
-        className="mem-textarea bot-list-input__textarea"
-        value={joinBotList(value)}
-        disabled={disabled}
-        placeholder={t("settings.botListPlaceholder")}
-        spellCheck={false}
-        onChange={(e) => onChange(parseBotList(e.target.value))}
-      />
-    </label>
-  );
-}
-
-function parseBotList(text: string): string[] {
-  return uniqueStrings(text.split(/[\n,，]+/).map((item) => item.trim()).filter(Boolean));
-}
-
-function joinBotList(value: string[]): string {
-  return asArray(value).join("\n");
-}
-
 function parseNonNegativeInt(value: string): number {
   const n = Number.parseInt(value.trim(), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -1631,12 +1523,15 @@ function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
   const bot = normalizeBotSettings(draft);
   return {
     ...bot,
+    enabled: true,
     model: bot.model.trim(),
     workspaceRoot: bot.workspaceRoot.trim(),
     maxSteps: Math.max(0, Math.floor(bot.maxSteps || 0)),
     debounceMs: Math.max(0, Math.floor(bot.debounceMs || 0)),
     allowlist: {
       ...bot.allowlist,
+      enabled: true,
+      allowAll: true,
       qqUsers: uniqueStrings(bot.allowlist.qqUsers.map((v) => v.trim())),
       feishuUsers: uniqueStrings(bot.allowlist.feishuUsers.map((v) => v.trim())),
       weixinUsers: uniqueStrings(bot.allowlist.weixinUsers.map((v) => v.trim())),
@@ -1648,10 +1543,11 @@ function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
       ...bot.qq,
       appId: bot.qq.appId.trim(),
       appSecretEnv: bot.qq.appSecretEnv.trim(),
-      environment: bot.qq.environment === "production" ? "production" : "sandbox",
+      environment: bot.qq.environment === "sandbox" ? "sandbox" : "production",
     },
     feishu: {
       ...bot.feishu,
+      enabled: false,
       domain: bot.feishu.domain === "lark" ? "lark" : "feishu",
       appId: bot.feishu.appId.trim(),
       appSecretEnv: bot.feishu.appSecretEnv.trim(),
@@ -1661,6 +1557,7 @@ function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
     },
     weixin: {
       ...bot.weixin,
+      enabled: true,
       accountId: bot.weixin.accountId.trim(),
       tokenEnv: bot.weixin.tokenEnv.trim(),
       apiBase: bot.weixin.apiBase.trim().replace(/\/+$/, ""),

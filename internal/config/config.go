@@ -952,10 +952,11 @@ func Default() *Config {
 		LSP:     LSPConfig{Enabled: true},
 		Network: NetworkConfig{ProxyMode: netclient.ModeAuto},
 		Bot: BotConfig{
+			Enabled:    true,
 			MaxSteps:   25,
 			DebounceMs: 1500,
-			Allowlist:  BotAllowlist{Enabled: true},
-			QQ:         QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET", Environment: "sandbox"},
+			Allowlist:  BotAllowlist{Enabled: true, AllowAll: true},
+			QQ:         QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET", Environment: "production"},
 			Feishu:     FeishuBotConfig{Domain: "feishu", AppSecretEnv: "FEISHU_BOT_APP_SECRET", Mode: "webhook", WebhookPort: 8080, RequireMention: true},
 			Weixin:     WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
 		},

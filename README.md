@@ -1,11 +1,6 @@
-# DeepSeek-Orca V1.0
+﻿# DeepSeek-Orca V1.0
 
-DeepSeek-Orca 是一个 AI 编程 Agent，基于 Reasonix fork 改造而来，提供 **桌面端** 和 **CLI** 两种入口。
-
-- **桌面端**：适合用图形界面管理项目、会话、文件改动、回滚、模型、MCP、Skill、记忆和机器人渠道。
-- **CLI**：适合程序员在终端、远程服务器、脚本和自动化流程中使用。
-
-本项目保留 Reasonix 原有的 Agent、工具、MCP、Skill、Memory、权限控制和会话恢复能力，并统一重构为 DeepSeek-Orca。
+DeepSeek-Orca 是一个 AI 编程 Agent，基于 Reasonix fork 改造而来，提供桌面端和 CLI 两种入口。它保留 Reasonix 的 Agent、工具、MCP、Skill、Memory、权限控制、会话恢复和机器人能力，并针对 DeepSeek / OpenAI-compatible 工作流做了桌面体验重构。
 
 ## How to use
 
@@ -13,17 +8,7 @@ DeepSeek-Orca 是一个 AI 编程 Agent，基于 Reasonix fork 改造而来，�
 
 下载打包好的 Windows 安装器：
 
-[DeepSeek-Orca-windows-amd64-installer.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.13/DeepSeek-Orca-windows-amd64-installer.exe)
-
-也可以打开最新版 Release：
-
-[GitHub Releases](https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest)
-
-安装包文件名格式：
-
-```text
-DeepSeek-Orca-windows-amd64-installer.exe
-```
+[DeepSeek-Orca-windows-amd64-installer.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest)
 
 双击安装器，阅读并同意许可协议，选择安装目录，然后启动 DeepSeek-Orca Desktop。首次启动时填写 DeepSeek API Key，或在设置中配置 OpenAI-compatible provider。
 
@@ -62,11 +47,20 @@ CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 - DeepSeek 与 OpenAI-compatible provider。
 - 按 DeepSeek 官方接口约定处理 thinking mode。
 - MCP、Skill、Memory、CodeGraph 和 slash command。
-- QQ、微信、飞书/Lark 机器人渠道。
-- QQ Bot 引导式配置：去官方后台申请 App ID / App Secret，选择沙箱或正式环境，然后保存并连接。
+- QQ 与微信机器人渠道；飞书/Lark 暂未开放。
 - Windows 一键安装包与卸载入口。
 
-## 安装后的目录结构
+## 机器人说明
+
+桌面端中，QQ 和微信连接成功后会自动在后台运行机器人网关，不需要手动启动，也不需要设置白名单。所有能给机器人发消息的用户默认都可以使用机器人。
+
+QQ 使用官方 Bot API，需要先在 QQ 机器人官方后台申请 App ID / App Secret，然后在桌面设置页填写并验证。
+
+微信使用 ClawBot / OpenClaw Weixin 风格的扫码登录流程。扫码确认后，DeepSeek-Orca 会保存本地 token，并自动验证 `getupdates` 是否可用。
+
+飞书和 Lark 暂时置灰，不作为当前版本可用渠道。
+
+## 安装后目录结构
 
 常见安装目录：
 
@@ -82,13 +76,7 @@ C:\Users\<你的用户名>\AppData\Local\Programs\DeepSeek-Orca
 - `node.exe`：随程序携带的 Node 运行时。
 - `dist/`：桌面端前端静态资源。
 - `.deepseek-orca/`：本地配置、凭据引用、Skill、MCP、缓存等数据。
-- `data/`：会话历史、工作区元数据、索引等用户数据。
-
-## 当前版本
-
-桌面端当前版本：**v1.0.13**。
-
-本版本修复 GitHub Actions 桌面端发布流程：如果同名 GitHub Release 已存在，workflow 会覆盖上传资源，不会再因为 `release already exists` 而失败。同时保留 v1.0.12 加入的 QQ Bot 引导式配置。
+- `data/`：会话、历史记录、索引和工作区元数据。
 
 ## 致谢
 

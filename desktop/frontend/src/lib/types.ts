@@ -719,6 +719,12 @@ export interface BotConnectionDiagnostic {
   messageId: string;
 }
 
+export interface BotRuntimeStatusView {
+  status: string;
+  message: string;
+  channels: string[];
+}
+
 export interface SettingsView {
   defaultModel: string;
   plannerModel: string;

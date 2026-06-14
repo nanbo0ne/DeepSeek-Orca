@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"deepseek-orca/internal/bot"
+	"deepseek-orca/internal/config"
 
 	"golang.org/x/net/websocket"
 )
@@ -36,6 +37,8 @@ const (
 	opHello        = 10
 	opHeartbeatAck = 11
 )
+
+var qqTokenEndpoint = qqTokenURL
 
 // gatewayPayload QQ WebSocket 消息载荷。
 type gatewayPayload struct {
@@ -122,7 +125,7 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 	body := fmt.Sprintf(`{"appId":"%s","clientSecret":"%s"}`,
 		a.cfg.AppID, os.Getenv(a.cfg.AppSecretEnv))
 
-	req, err := http.NewRequestWithContext(ctx, "POST", qqTokenURL, bytes.NewBufferString(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", qqTokenEndpoint, bytes.NewBufferString(body))
 	if err != nil {
 		return "", err
 	}
@@ -134,15 +137,26 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("QQ token HTTP %d: %s", resp.StatusCode, trimQQBody(data))
+	}
 	var result struct {
 		AccessToken string `json:"access_token"`
 		ExpiresIn   int    `json:"expires_in"`
+		Code        int    `json:"code"`
+		ErrCode     int    `json:"errcode"`
+		Message     string `json:"message"`
+		ErrMsg      string `json:"errmsg"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return "", err
 	}
 	if result.AccessToken == "" {
-		return "", fmt.Errorf("empty access token")
+		if result.Message != "" || result.ErrMsg != "" || result.Code != 0 || result.ErrCode != 0 {
+			return "", fmt.Errorf("QQ token error code=%d errcode=%d: %s", result.Code, result.ErrCode, firstNonEmptyQQ(result.Message, result.ErrMsg))
+		}
+		return "", fmt.Errorf("QQ token response did not include access_token")
 	}
 	a.tokenMu.Lock()
 	a.token = result.AccessToken
@@ -153,6 +167,60 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 	}
 	a.tokenMu.Unlock()
 	return result.AccessToken, nil
+}
+
+// Validate verifies QQ App ID / Secret by requesting an access token.
+func Validate(ctx context.Context, cfg config.QQBotConfig) error {
+	if cfg.AppID == "" {
+		return fmt.Errorf("QQ App ID is empty")
+	}
+	if cfg.AppSecretEnv == "" || os.Getenv(cfg.AppSecretEnv) == "" {
+		return fmt.Errorf("%s is not set", firstNonEmptyQQ(cfg.AppSecretEnv, "QQ_BOT_APP_SECRET"))
+	}
+	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "qq")}
+	_, err := a.getAccessToken(ctx)
+	return err
+}
+
+// ProbeGateway performs a short QQ gateway handshake and then closes the socket.
+func ProbeGateway(ctx context.Context, cfg config.QQBotConfig) error {
+	if err := Validate(ctx, cfg); err != nil {
+		return err
+	}
+	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "qq")}
+	token, err := a.getAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	probeCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- a.connectGateway(probeCtx, token) }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(8 * time.Second):
+		cancel()
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func trimQQBody(data []byte) string {
+	if len(data) > 300 {
+		data = data[:300]
+	}
+	return string(data)
+}
+
+func firstNonEmptyQQ(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (a *adapter) connectGateway(ctx context.Context, token string) error {

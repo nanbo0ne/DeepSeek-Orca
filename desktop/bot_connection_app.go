@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/bot/feishu"
+	"deepseek-orca/internal/bot/qq"
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
 )
@@ -139,6 +138,13 @@ func (a *App) ConnectQQBot(req QQBotConnectRequest) (BotConnectionView, error) {
 	} else if !envIsSet(secretEnv) {
 		return BotConnectionView{}, fmt.Errorf("QQ App Secret is required")
 	}
+	qqCfg := config.QQBotConfig{Enabled: true, AppID: appID, AppSecretEnv: secretEnv, Environment: env}
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer cancel()
+	if err := qq.Validate(ctx, qqCfg); err != nil {
+		return BotConnectionView{}, fmt.Errorf("QQ 凭据验证失败：%w", err)
+	}
+	_ = qq.ProbeGateway(ctx, qqCfg)
 	conn, err := a.upsertBotConnection(config.BotConnectionConfig{
 		ID:       connectionID("qq", "qq"),
 		Provider: "qq",
@@ -153,6 +159,8 @@ func (a *App) ConnectQQBot(req QQBotConnectRequest) (BotConnectionView, error) {
 		},
 	}, func(c *config.Config) {
 		c.Bot.Enabled = true
+		c.Bot.Allowlist.Enabled = true
+		c.Bot.Allowlist.AllowAll = true
 		c.Bot.QQ.Enabled = true
 		c.Bot.QQ.AppID = appID
 		c.Bot.QQ.AppSecretEnv = secretEnv
@@ -161,6 +169,7 @@ func (a *App) ConnectQQBot(req QQBotConnectRequest) (BotConnectionView, error) {
 	if err != nil {
 		return BotConnectionView{}, err
 	}
+	a.restartDesktopBotGateway()
 	return conn, nil
 }
 
@@ -184,6 +193,13 @@ func (a *App) PollBotConnectionInstall(installID string) (BotInstallPollResult, 
 		if result == nil {
 			return BotInstallPollResult{Status: status, Message: weixinInstallStatusMessage(status)}, nil
 		}
+		verifyCfg := config.WeixinBotConfig{Enabled: true, AccountID: result.AccountID, TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: result.BaseURL}
+		verifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		verifyErr := weixin.Validate(verifyCtx, verifyCfg)
+		cancel()
+		if verifyErr != nil {
+			return BotInstallPollResult{Status: "error", Error: "微信登录已保存，但连接验证失败：" + verifyErr.Error()}, nil
+		}
 		a.deleteBotInstall(installID)
 		conn, err := a.upsertBotConnection(config.BotConnectionConfig{
 			ID:         connectionID("weixin", "weixin"),
@@ -195,6 +211,8 @@ func (a *App) PollBotConnectionInstall(installID string) (BotInstallPollResult, 
 			Credential: config.BotConnectionCredential{AccountID: result.AccountID, TokenEnv: "WEIXIN_BOT_TOKEN"},
 		}, func(c *config.Config) {
 			c.Bot.Enabled = true
+			c.Bot.Allowlist.Enabled = true
+			c.Bot.Allowlist.AllowAll = true
 			c.Bot.Weixin.Enabled = true
 			c.Bot.Weixin.AccountID = result.AccountID
 			c.Bot.Weixin.APIBase = result.BaseURL
@@ -205,6 +223,7 @@ func (a *App) PollBotConnectionInstall(installID string) (BotInstallPollResult, 
 		if err != nil {
 			return BotInstallPollResult{Status: "error", Error: err.Error()}, nil
 		}
+		a.restartDesktopBotGateway()
 		return BotInstallPollResult{Done: true, Status: "connected", Connection: conn, Message: "微信已连接。"}, nil
 	}
 	return a.pollFeishuConnectionInstall(installID, session)
@@ -216,25 +235,44 @@ func (a *App) DiagnoseBotConnection(id string) (BotConnectionDiagnostic, error) 
 		return BotConnectionDiagnostic{ID: id, Status: "error", Message: err.Error()}, nil
 	}
 	for _, conn := range cfg.Bot.Connections {
-		if conn.ID == id {
-			status := "ok"
-			message := "连接配置已保存。"
-			if !conn.Enabled {
-				status = "disabled"
-				message = "连接已保存但未启用。"
-			} else if conn.Status != "connected" {
-				status = firstNonEmptyBot(conn.Status, "pending")
-				message = firstNonEmptyBot(conn.LastError, "连接还未完成。")
-			} else if conn.Credential.AppSecretEnv != "" && strings.TrimSpace(conn.Credential.AppSecretEnv) != "" && !envIsSet(conn.Credential.AppSecretEnv) {
-				status = "warning"
-				message = conn.Credential.AppSecretEnv + " 未设置。"
+		if conn.ID != strings.TrimSpace(id) {
+			continue
+		}
+		if !conn.Enabled {
+			return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "disabled", Message: "连接已保存但未启用。"}, nil
+		}
+		switch conn.Provider {
+		case "qq":
+			qqCfg := cfg.Bot.QQ
+			qqCfg.Enabled = true
+			qqCfg.AppID = firstNonEmptyBot(conn.Credential.AppID, qqCfg.AppID)
+			qqCfg.AppSecretEnv = firstNonEmptyBot(conn.Credential.AppSecretEnv, qqCfg.AppSecretEnv)
+			qqCfg.Environment = firstNonEmptyBot(conn.Credential.Environment, qqCfg.Environment)
+			ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+			err := qq.Validate(ctx, qqCfg)
+			cancel()
+			if err != nil {
+				return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "error", Message: "QQ 验证失败：" + err.Error()}, nil
 			}
-			return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: status, Message: message}, nil
+			return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "ok", Message: "QQ 凭据验证通过，桌面端会自动在后台接收消息。"}, nil
+		case "weixin":
+			wxCfg := cfg.Bot.Weixin
+			wxCfg.Enabled = true
+			wxCfg.AccountID = firstNonEmptyBot(conn.Credential.AccountID, wxCfg.AccountID)
+			wxCfg.TokenEnv = firstNonEmptyBot(conn.Credential.TokenEnv, wxCfg.TokenEnv)
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			err := weixin.Validate(ctx, wxCfg)
+			cancel()
+			if err != nil {
+				return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "error", Message: "微信验证失败：" + err.Error()}, nil
+			}
+			return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "ok", Message: "微信连接验证通过，桌面端会自动在后台接收消息。"}, nil
+		default:
+			return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "unavailable", Message: "该渠道暂未开放。"}, nil
 		}
 	}
 	return BotConnectionDiagnostic{ID: id, Status: "missing", Message: "未找到连接。"}, nil
 }
-
 func (a *App) TestBotConnection(id, target string) (BotConnectionDiagnostic, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -250,31 +288,23 @@ func (a *App) TestBotConnection(id, target string) (BotConnectionDiagnostic, err
 	if conn == nil {
 		return BotConnectionDiagnostic{ID: id, Status: "missing", Message: "未找到连接。"}, nil
 	}
-	target = firstNonEmptyBot(strings.TrimSpace(target), firstSessionRemoteID(conn.SessionMappings))
-	if conn.Provider != "feishu" && conn.Provider != "weixin" {
-		return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "warning", Message: "当前渠道暂不支持桌面端主动发送测试消息，可使用诊断检查基础配置。"}, nil
+	if conn.Provider == "qq" {
+		return a.DiagnoseBotConnection(conn.ID)
 	}
+	if conn.Provider != "weixin" {
+		return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "unavailable", Message: "该渠道暂未开放。"}, nil
+	}
+	target = firstNonEmptyBot(strings.TrimSpace(target), firstSessionRemoteID(conn.SessionMappings))
 	if target == "" {
 		return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "warning", Message: "请输入测试会话 ID 后再发送测试消息。"}, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	var result bot.SendResult
-	switch conn.Provider {
-	case "feishu":
-		feishuCfg := cfg.Bot.Feishu
-		feishuCfg.Enabled = true
-		feishuCfg.Domain = firstNonEmptyBot(conn.Domain, feishuCfg.Domain)
-		feishuCfg.AppID = firstNonEmptyBot(conn.Credential.AppID, feishuCfg.AppID)
-		feishuCfg.AppSecretEnv = firstNonEmptyBot(conn.Credential.AppSecretEnv, feishuCfg.AppSecretEnv)
-		result, err = feishu.SendText(ctx, feishuCfg, target, "DeepSeek-Orca bot 测试消息：连接和发送链路可用。")
-	case "weixin":
-		weixinCfg := cfg.Bot.Weixin
-		weixinCfg.Enabled = true
-		weixinCfg.AccountID = firstNonEmptyBot(conn.Credential.AccountID, weixinCfg.AccountID)
-		weixinCfg.TokenEnv = firstNonEmptyBot(conn.Credential.TokenEnv, weixinCfg.TokenEnv)
-		result, err = weixin.SendText(ctx, weixinCfg, target, "DeepSeek-Orca bot 测试消息：连接和发送链路可用。")
-	}
+	weixinCfg := cfg.Bot.Weixin
+	weixinCfg.Enabled = true
+	weixinCfg.AccountID = firstNonEmptyBot(conn.Credential.AccountID, weixinCfg.AccountID)
+	weixinCfg.TokenEnv = firstNonEmptyBot(conn.Credential.TokenEnv, weixinCfg.TokenEnv)
+	result, err := weixin.SendText(ctx, weixinCfg, target, "DeepSeek-Orca bot 测试消息：连接和发送链路可用。")
 	if err != nil {
 		return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "error", Message: err.Error()}, nil
 	}
@@ -285,7 +315,6 @@ func (a *App) TestBotConnection(id, target string) (BotConnectionDiagnostic, err
 	}
 	return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "ok", Message: msg, MessageID: result.MessageID}, nil
 }
-
 func (a *App) startFeishuConnectionInstall(domain string) (BotInstallStartResult, error) {
 	base := feishuAccountsBase(domain)
 	if _, err := postFeishuInstallForm(base, map[string]string{"action": "init"}); err != nil {

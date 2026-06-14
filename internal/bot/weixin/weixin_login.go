@@ -122,7 +122,7 @@ func Login(ctx context.Context, out io.Writer, timeout time.Duration) (*LoginRes
 		return nil, err
 	}
 	if out != nil {
-		fmt.Fprintln(out, "请使用微信扫描以下二维码链接：")
+		fmt.Fprintln(out, "请使用微信扫描下面的二维码链接：")
 		if session.QRCodeURL != "" {
 			fmt.Fprintln(out, session.QRCodeURL)
 		} else {
@@ -140,7 +140,7 @@ func Login(ctx context.Context, out io.Writer, timeout time.Duration) (*LoginRes
 		result, status, err := PollLogin(ctx, session)
 		if err != nil {
 			if out != nil {
-				fmt.Fprintf(out, "二维码状态查询失败: %v\n", err)
+				fmt.Fprintf(out, "二维码状态查询失败：%v\n", err)
 			}
 			continue
 		}
@@ -152,9 +152,9 @@ func Login(ctx context.Context, out io.Writer, timeout time.Duration) (*LoginRes
 			case "wait", "", "<nil>":
 				fmt.Fprint(out, ".")
 			case "scaned":
-				fmt.Fprintln(out, "\n已扫码，请在微信里确认...")
+				fmt.Fprintln(out, "\n已扫码，请在微信里确认。")
 			default:
-				fmt.Fprintf(out, "\n二维码状态: %s\n", status)
+				fmt.Fprintf(out, "\n二维码状态：%s\n", status)
 			}
 		}
 	}

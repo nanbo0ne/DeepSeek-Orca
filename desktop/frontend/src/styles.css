@@ -10660,6 +10660,29 @@ a[href] {
   display: grid;
   gap: 16px;
 }
+.bot-runtime-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-elev));
+  color: var(--fg);
+  padding: 10px 12px;
+}
+.bot-runtime-status strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-control);
+}
+.bot-runtime-status span {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  font-size: var(--font-control-small);
+}
 .bot-connect-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -10727,6 +10750,11 @@ a[href] {
 .bot-connect-target:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+.bot-connect-target--disabled {
+  background: color-mix(in srgb, var(--bg-elev) 70%, var(--bg-elev-2));
+  border-style: dashed;
+  filter: grayscale(0.25);
 }
 .bot-connect-target strong,
 .bot-connect-target span {

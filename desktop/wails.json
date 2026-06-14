@@ -1,19 +1,19 @@
 {
-    "$schema": "https://wails.io/schemas/config.v2.json",
-    "name": "deepseek-orca-desktop",
-    "outputfilename": "deepseek-orca-desktop",
-    "frontend:install": "npm install --cache D:\\AI-Reasonix\\.npm-cache",
-    "frontend:build": "npm run build",
-    "frontend:dev:watcher": "npm run dev",
-    "frontend:dev:serverUrl": "auto",
-    "author": {
-        "name": "esengine"
-    },
-    "info": {
-        "companyName": "DeepSeek-Orca",
-        "productName": "DeepSeek-Orca",
-        "productVersion": "1.0.13",
-        "copyright": "Copyright (c) 2026 DeepSeek-Orca Contributors",
-        "comments": "DeepSeek-Orca desktop - a Wails shell around the Go kernel."
-    }
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "deepseek-orca-desktop",
+  "outputfilename": "deepseek-orca-desktop",
+  "frontend:install": "npm install --cache D:\\AI-Reasonix\\.npm-cache",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "esengine"
+  },
+  "info": {
+    "companyName": "DeepSeek-Orca",
+    "productName": "DeepSeek-Orca",
+    "productVersion": "1.0.14",
+    "copyright": "Copyright (c) 2026 DeepSeek-Orca Contributors",
+    "comments": "DeepSeek-Orca desktop - a Wails shell around the Go kernel."
+  }
 }
