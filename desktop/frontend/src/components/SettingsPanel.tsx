@@ -2,7 +2,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
-import { app } from "../lib/bridge";
+import { app, openExternal } from "../lib/bridge";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import {
@@ -429,7 +429,7 @@ function defaultBotSettings(): BotSettingsView {
       feishuGroups: [],
       weixinGroups: [],
     },
-    qq: { enabled: false, appId: "", appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: false },
+    qq: { enabled: false, appId: "", appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: false, environment: "sandbox" },
     feishu: {
       enabled: false,
       domain: "feishu",
@@ -472,7 +472,7 @@ function normalizeBotSettings(bot: BotSettingsView | null | undefined): BotSetti
       feishuGroups: asArray(allowlist.feishuGroups),
       weixinGroups: asArray(allowlist.weixinGroups),
     },
-    qq: { ...fallback.qq, ...bot?.qq },
+    qq: { ...fallback.qq, ...bot?.qq, environment: bot?.qq?.environment === "production" ? "production" : "sandbox" },
     feishu: { ...fallback.feishu, ...bot?.feishu, domain: bot?.feishu?.domain === "lark" ? "lark" : "feishu", mode },
     weixin: { ...fallback.weixin, ...bot?.weixin },
     connections: asArray(bot?.connections).map(normalizeBotConnection),
@@ -493,6 +493,7 @@ function normalizeBotConnection(raw: any) {
       appSecretEnv: String(credential.appSecretEnv ?? "").trim(),
       accountId: String(credential.accountId ?? "").trim(),
       tokenEnv: String(credential.tokenEnv ?? "").trim(),
+      environment: String(credential.environment ?? "").trim(),
       secretSet: Boolean(credential.secretSet),
     },
     sessionMappings: asArray(raw?.sessionMappings).map((item: any) => ({
@@ -862,7 +863,7 @@ type BotInstallTarget = "qq" | "feishu" | "lark" | "weixin";
 type BotInstallState = {
   target: BotInstallTarget | "";
   result: BotInstallStartResult | null;
-  status: "idle" | "starting" | "showing" | "connected" | "error";
+  status: "idle" | "starting" | "showing" | "manual" | "connected" | "error";
   message: string;
 };
 const BOT_INSTALL_TARGETS: BotInstallTarget[] = ["qq", "feishu", "lark", "weixin"];
@@ -899,7 +900,7 @@ function BotsSection({ s, busy, apply }: SectionProps) {
   const saveBot = () => app.SetBotSettings(sanitizeBotDraft(draft));
   const startInstall = async (target: BotInstallTarget) => {
     if (target === "qq") {
-      setInstall({ target, result: null, status: "error", message: t("settings.botInstallManualQQ") });
+      setInstall({ target, result: null, status: "manual", message: t("settings.botQQManualHint") });
       return;
     }
     setInstall({ target, result: null, status: "starting", message: "" });
@@ -911,6 +912,29 @@ function BotsSection({ s, busy, apply }: SectionProps) {
       return;
     }
     setInstall({ target, result, status: "showing", message: result.message || t("settings.botInstallScanHint") });
+  };
+  const saveQQConnection = async (connect: boolean) => {
+    const appId = draft.qq.appId.trim();
+    const appSecret = secrets.qq.trim();
+    const environment = draft.qq.environment === "production" ? "production" : "sandbox";
+    await apply(async () => {
+      if (connect) {
+        const connection = await app.ConnectQQBot({ appId, appSecret, environment });
+        setDraft((prev) => ({
+          ...prev,
+          enabled: true,
+          qq: { ...prev.qq, enabled: true, appId, appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: true, environment },
+          connections: [...prev.connections.filter((c) => c.id !== connection.id), connection],
+        }));
+        setInstall({ target: "qq", result: null, status: "connected", message: t("settings.botQQConnected") });
+      } else {
+        await saveBot();
+        if (appSecret) await app.SetBotSecret(draft.qq.appSecretEnv.trim() || "QQ_BOT_APP_SECRET", appSecret);
+        setDraft((prev) => ({ ...prev, qq: { ...prev.qq, secretSet: prev.qq.secretSet || Boolean(appSecret), environment } }));
+        setInstall((prev) => ({ ...prev, target: "qq", status: "manual", message: t("settings.botQQSaved") }));
+      }
+    });
+    setSecrets((prev) => ({ ...prev, qq: "" }));
   };
   const pollInstall = async () => {
     if (!install.result?.installId || !install.target) return;
@@ -1071,24 +1095,37 @@ function BotsSection({ s, busy, apply }: SectionProps) {
             ))}
           </div>
 
-          <div className="bot-connect-panel">
-            <div className="bot-connect-panel__qr">
-              {install.status === "showing" && install.result?.url ? (
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=196x196&data=${encodeURIComponent(install.result.url)}`} alt={t("settings.botInstallQrAlt")} />
-              ) : (
-                <div className="bot-connect-panel__placeholder">{install.status === "starting" ? t("settings.botInstallStarting") : t("settings.botInstallPick")}</div>
-              )}
-            </div>
-            <div className="bot-connect-panel__body">
-              <strong>{install.target ? botTargetLabel(install.target, t) : t("settings.botInstallTitle")}</strong>
-              <p>{install.message || t("settings.botInstallSubtitle")}</p>
-              {install.result?.userCode ? <code>{install.result.userCode}</code> : null}
-              {install.status === "showing" ? (
-                <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => void pollInstall()}>
-                  {t("settings.botInstallCheck")}
-                </button>
-              ) : null}
-            </div>
+          <div className={`bot-connect-panel${install.target === "qq" ? " bot-connect-panel--qq" : ""}`}>
+            {install.target === "qq" ? (
+              <QQConnectPanel
+                draft={draft}
+                secret={secrets.qq}
+                busy={busy}
+                setQQ={setQQ}
+                setSecret={(value) => setSecrets((prev) => ({ ...prev, qq: value }))}
+                onApply={(connect) => void saveQQConnection(connect)}
+              />
+            ) : (
+              <>
+                <div className="bot-connect-panel__qr">
+                  {install.status === "showing" && install.result?.url ? (
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=196x196&data=${encodeURIComponent(install.result.url)}`} alt={t("settings.botInstallQrAlt")} />
+                  ) : (
+                    <div className="bot-connect-panel__placeholder">{install.status === "starting" ? t("settings.botInstallStarting") : t("settings.botInstallPick")}</div>
+                  )}
+                </div>
+                <div className="bot-connect-panel__body">
+                  <strong>{install.target ? botTargetLabel(install.target, t) : t("settings.botInstallTitle")}</strong>
+                  <p>{install.message || t("settings.botInstallSubtitle")}</p>
+                  {install.result?.userCode ? <code>{install.result.userCode}</code> : null}
+                  {install.status === "showing" ? (
+                    <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => void pollInstall()}>
+                      {t("settings.botInstallCheck")}
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="bot-connection-list">
@@ -1206,7 +1243,9 @@ function botConnectionLabel(connection: BotConnectionView, t: ReturnType<typeof 
 
 function botConnectionMeta(connection: BotConnectionView, t: ReturnType<typeof useT>): string {
   const status = connection.status === "connected" ? t("settings.botConnectionConnected") : connection.status || t("settings.botConnectionDisconnected");
-  const secret = connection.credential.secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing");
+  const secret = connection.provider === "weixin"
+    ? (connection.credential.secretSet ? t("settings.botLoginTokenSet") : t("settings.botLoginTokenMissing"))
+    : (connection.credential.secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing"));
   return `${status} · ${secret}`;
 }
 
@@ -1217,6 +1256,71 @@ function firstConnectionRemote(connection: BotConnectionView): string {
 function botWebhookURL(port: number | null | undefined): string {
   const safePort = port && port > 0 ? port : 8080;
   return `http://127.0.0.1:${safePort}/feishu/event`;
+}
+
+function QQConnectPanel({
+  draft,
+  secret,
+  busy,
+  setQQ,
+  setSecret,
+  onApply,
+}: {
+  draft: BotSettingsView;
+  secret: string;
+  busy: boolean;
+  setQQ: (next: Partial<BotSettingsView["qq"]>) => void;
+  setSecret: (value: string) => void;
+  onApply: (connect: boolean) => void;
+}) {
+  const t = useT();
+  const env = draft.qq.environment === "production" ? "production" : "sandbox";
+  const canSave = Boolean(draft.qq.appId.trim() && (secret.trim() || draft.qq.secretSet));
+  return (
+    <div className="bot-qq-connect">
+      <div className="bot-qq-connect__head">
+        <div>
+          <strong>{t("settings.botQQConfigureTitle")}</strong>
+          <p>{t("settings.botQQConfigureHint")}</p>
+        </div>
+      </div>
+      <div className="bot-qq-connect__rows">
+        <label className="bot-qq-connect__row">
+          <span>{t("settings.botAppId")}</span>
+          <input className="mem-input" value={draft.qq.appId} disabled={busy} placeholder="1020..." spellCheck={false} onChange={(e) => setQQ({ appId: e.target.value })} />
+        </label>
+        <label className="bot-qq-connect__row">
+          <span>{t("settings.botAppSecret")}</span>
+          <input className="mem-input" value={secret} type="password" disabled={busy} placeholder={draft.qq.secretSet ? t("settings.botSecretReplace") : t("settings.botSecretPaste")} spellCheck={false} onChange={(e) => setSecret(e.target.value)} />
+        </label>
+        <div className="bot-qq-connect__row">
+          <span>{t("settings.botQQEnvironment")}</span>
+          <div className="set-seg">
+            <button type="button" className={`set-seg__btn${env === "sandbox" ? " set-seg__btn--on" : ""}`} disabled={busy} onClick={() => setQQ({ environment: "sandbox" })}>
+              {t("settings.botQQEnvSandbox")}
+            </button>
+            <button type="button" className={`set-seg__btn${env === "production" ? " set-seg__btn--on" : ""}`} disabled={busy} onClick={() => setQQ({ environment: "production" })}>
+              {t("settings.botQQEnvProduction")}
+            </button>
+          </div>
+        </div>
+        <div className="bot-qq-connect__row">
+          <span>{t("settings.botQQApply")}</span>
+          <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => openExternal("https://q.qq.com/qqbot/#/developer/developer-setting")}>
+            {t("settings.botQQApplyButton")}
+          </button>
+        </div>
+      </div>
+      <div className="bot-qq-connect__actions">
+        <button type="button" className="btn btn--secondary btn--small" disabled={busy || !canSave} onClick={() => onApply(false)}>
+          {t("settings.botQQSave")}
+        </button>
+        <button type="button" className="btn btn--primary btn--small" disabled={busy || !canSave} onClick={() => onApply(true)}>
+          {t("settings.botQQSaveConnect")}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function BotLegacyAdvancedFields({
@@ -1312,6 +1416,7 @@ function BotLegacyAdvancedFields({
         description={t("settings.botWeixinHint")}
         enabled={draft.weixin.enabled}
         secretSet={draft.weixin.tokenSet}
+        secretSetLabel={draft.weixin.tokenSet ? t("settings.botLoginTokenSet") : t("settings.botLoginTokenMissing")}
         busy={busy}
         onEnabled={(enabled) => setWeixin({ enabled })}
         advanced={
@@ -1375,6 +1480,7 @@ function BotChannelCard({
   description,
   enabled,
   secretSet,
+  secretSetLabel,
   busy,
   onEnabled,
   advanced,
@@ -1384,6 +1490,7 @@ function BotChannelCard({
   description: ReactNode;
   enabled: boolean;
   secretSet: boolean;
+  secretSetLabel?: ReactNode;
   busy: boolean;
   onEnabled: (enabled: boolean) => void;
   advanced?: ReactNode;
@@ -1398,7 +1505,7 @@ function BotChannelCard({
           <span>{description}</span>
         </div>
         <span className={`badge ${secretSet ? "badge--project" : "badge--feedback"}`}>
-          {secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing")}
+          {secretSetLabel ?? (secretSet ? t("settings.botSecretSet") : t("settings.botSecretMissing"))}
         </span>
       </div>
       <div className="bot-channel-card__switch">
@@ -1541,6 +1648,7 @@ function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
       ...bot.qq,
       appId: bot.qq.appId.trim(),
       appSecretEnv: bot.qq.appSecretEnv.trim(),
+      environment: bot.qq.environment === "production" ? "production" : "sandbox",
     },
     feishu: {
       ...bot.feishu,

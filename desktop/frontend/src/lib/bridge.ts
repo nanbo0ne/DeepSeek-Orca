@@ -12,6 +12,7 @@ import { modeWithAutoApproveTools, modeWithPlan, normalizeCollaborationMode, nor
 
 import type {
   BalanceInfo,
+  BotConnectionView,
   BotConnectionDiagnostic,
   BotInstallPollResult,
   BotInstallStartResult,
@@ -209,6 +210,7 @@ export interface AppBindings {
   SetBotSettings(b: BotSettingsView): Promise<void>;
   SetBotSecret(envName: string, value: string): Promise<void>;
   ClearBotSecret(envName: string): Promise<void>;
+  ConnectQQBot(req: { appId: string; appSecret: string; environment: string }): Promise<BotConnectionView>;
   StartBotConnectionInstall(provider: string, domain: string): Promise<BotInstallStartResult>;
   PollBotConnectionInstall(installID: string): Promise<BotInstallPollResult>;
   DiagnoseBotConnection(id: string): Promise<BotConnectionDiagnostic>;
@@ -635,7 +637,7 @@ function makeMockApp(): AppBindings {
         feishuGroups: [],
         weixinGroups: [],
       },
-      qq: { enabled: false, appId: "", appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: false },
+      qq: { enabled: false, appId: "", appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: false, environment: "sandbox" },
       feishu: {
         enabled: false,
         domain: "feishu",
@@ -1962,6 +1964,41 @@ function makeMockApp(): AppBindings {
           if (settings.bot.feishu.appSecretEnv === name) settings.bot.feishu.secretSet = false;
           if (settings.bot.weixin.tokenEnv === name) settings.bot.weixin.tokenSet = false;
         },
+        async ConnectQQBot(req: { appId: string; appSecret: string; environment: string }) {
+          const now = new Date().toISOString();
+          const environment = req.environment === "production" ? "production" : "sandbox";
+          settings.bot.enabled = true;
+          settings.bot.qq = {
+            ...settings.bot.qq,
+            enabled: true,
+            appId: req.appId.trim(),
+            appSecretEnv: "QQ_BOT_APP_SECRET",
+            secretSet: true,
+            environment,
+          };
+          const connection = {
+            id: "qq-qq",
+            provider: "qq",
+            domain: "qq",
+            label: "QQ",
+            enabled: true,
+            status: "connected",
+            credential: {
+              appId: req.appId.trim(),
+              appSecretEnv: "QQ_BOT_APP_SECRET",
+              accountId: "",
+              tokenEnv: "",
+              environment,
+              secretSet: true,
+            },
+            sessionMappings: [],
+            lastError: "",
+            createdAt: now,
+            updatedAt: now,
+          };
+          settings.bot.connections = [...settings.bot.connections.filter((c) => c.id !== connection.id), connection];
+          return connection;
+        },
         async StartBotConnectionInstall(provider: string, domain: string) {
           const normalizedProvider = provider === "weixin" ? "weixin" : "feishu";
           const normalizedDomain = normalizedProvider === "weixin" ? "weixin" : domain === "lark" ? "lark" : "feishu";
@@ -1994,6 +2031,7 @@ function makeMockApp(): AppBindings {
               appSecretEnv: provider === "feishu" ? (domain === "lark" ? "LARK_BOT_APP_SECRET" : "FEISHU_BOT_APP_SECRET") : "",
               accountId: provider === "weixin" ? "mock-account" : "",
               tokenEnv: provider === "weixin" ? "WEIXIN_BOT_TOKEN" : "",
+              environment: "",
               secretSet: true,
             },
             sessionMappings: [],

@@ -10752,6 +10752,62 @@ a[href] {
   background: var(--bg-elev);
   padding: 16px;
 }
+.bot-connect-panel--qq {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+.bot-qq-connect {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+}
+.bot-qq-connect__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bot-qq-connect__head strong {
+  display: block;
+  color: var(--fg);
+  font-size: var(--font-control);
+  font-weight: 760;
+}
+.bot-qq-connect__head p {
+  margin: 4px 0 0;
+  color: var(--fg-dim);
+  font-size: var(--font-caption);
+  line-height: 1.5;
+}
+.bot-qq-connect__rows {
+  display: grid;
+}
+.bot-qq-connect__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(220px, 300px);
+  align-items: center;
+  gap: 18px;
+  min-height: 58px;
+  border-top: 1px dashed var(--border);
+}
+.bot-qq-connect__row > span {
+  color: var(--fg);
+  font-size: var(--font-control);
+}
+.bot-qq-connect__row .mem-input {
+  width: 100%;
+}
+.bot-qq-connect__row .btn,
+.bot-qq-connect__row .set-seg {
+  justify-self: end;
+}
+.bot-qq-connect__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 2px;
+}
 .bot-connect-panel__qr {
   display: grid;
   place-items: center;
@@ -11220,6 +11276,15 @@ a[href] {
   }
   .bot-connect-panel {
     grid-template-columns: 1fr;
+  }
+  .bot-qq-connect__row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px 0;
+  }
+  .bot-qq-connect__row .btn,
+  .bot-qq-connect__row .set-seg {
+    justify-self: start;
   }
   .bot-connection-row {
     align-items: flex-start;

@@ -625,6 +625,7 @@ export interface QQBotView {
   appId: string;
   appSecretEnv: string;
   secretSet: boolean;
+  environment: "sandbox" | "production" | string;
 }
 
 export interface FeishuBotView {
@@ -652,6 +653,7 @@ export interface BotConnectionCredentialView {
   appSecretEnv: string;
   accountId: string;
   tokenEnv: string;
+  environment: "sandbox" | "production" | string;
   secretSet: boolean;
 }
 

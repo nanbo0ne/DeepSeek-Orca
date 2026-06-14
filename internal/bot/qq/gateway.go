@@ -18,12 +18,15 @@ import (
 )
 
 const (
-	qqTokenURL      = "https://bots.qq.com/app/getAppAccessToken"
-	qqGatewayURL    = "wss://api.sgroup.qq.com/websocket"
-	qqSendMsgURL    = "https://api.sgroup.qq.com/v2/users/%s/messages"
-	qqSendGroupURL  = "https://api.sgroup.qq.com/v2/groups/%s/messages"
-	qqSendGuildURL  = "https://api.sgroup.qq.com/v2/channels/%s/messages"
-	qqSendDirectURL = "https://api.sgroup.qq.com/v2/dms/%s/messages"
+	qqTokenURL               = "https://bots.qq.com/app/getAppAccessToken"
+	qqProductionRESTBase     = "https://api.sgroup.qq.com"
+	qqProductionGatewayURL   = "wss://api.sgroup.qq.com/websocket"
+	qqSandboxRESTBase        = "https://sandbox.api.sgroup.qq.com"
+	qqSandboxGatewayURL      = "wss://sandbox.api.sgroup.qq.com/websocket"
+	qqSendMsgPathTemplate    = "/v2/users/%s/messages"
+	qqSendGroupPathTemplate  = "/v2/groups/%s/messages"
+	qqSendGuildPathTemplate  = "/v2/channels/%s/messages"
+	qqSendDirectPathTemplate = "/v2/dms/%s/messages"
 
 	opDispatch     = 0
 	opHeartbeat    = 1
@@ -153,7 +156,8 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 }
 
 func (a *adapter) connectGateway(ctx context.Context, token string) error {
-	cfg, err := websocket.NewConfig(qqGatewayURL, qqGatewayURL)
+	gatewayURL := qqGatewayURL(a.cfg.Environment)
+	cfg, err := websocket.NewConfig(gatewayURL, gatewayURL)
 	if err != nil {
 		return err
 	}
@@ -352,7 +356,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 		payload["msg_id"] = msg.ReplyToMsgID
 	}
 
-	url := qqSendURL(msg)
+	url := qqSendURL(a.cfg.Environment, msg)
 
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
@@ -383,15 +387,37 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	return bot.SendResult{MessageID: result.ID}, nil
 }
 
-func qqSendURL(msg bot.OutboundMessage) string {
+func qqGatewayURL(environment string) string {
+	if qqEnvironment(environment) == "sandbox" {
+		return qqSandboxGatewayURL
+	}
+	return qqProductionGatewayURL
+}
+
+func qqRESTBase(environment string) string {
+	if qqEnvironment(environment) == "sandbox" {
+		return qqSandboxRESTBase
+	}
+	return qqProductionRESTBase
+}
+
+func qqEnvironment(environment string) string {
+	if environment == "sandbox" {
+		return "sandbox"
+	}
+	return "production"
+}
+
+func qqSendURL(environment string, msg bot.OutboundMessage) string {
+	base := qqRESTBase(environment)
 	switch msg.ChatType {
 	case bot.ChatGroup:
-		return fmt.Sprintf(qqSendGroupURL, msg.ChatID)
+		return base + fmt.Sprintf(qqSendGroupPathTemplate, msg.ChatID)
 	case bot.ChatGuild, bot.ChatThread:
-		return fmt.Sprintf(qqSendGuildURL, msg.ChatID)
+		return base + fmt.Sprintf(qqSendGuildPathTemplate, msg.ChatID)
 	case bot.ChatDirect:
-		return fmt.Sprintf(qqSendDirectURL, msg.ChatID)
+		return base + fmt.Sprintf(qqSendDirectPathTemplate, msg.ChatID)
 	default:
-		return fmt.Sprintf(qqSendMsgURL, msg.ChatID)
+		return base + fmt.Sprintf(qqSendMsgPathTemplate, msg.ChatID)
 	}
 }

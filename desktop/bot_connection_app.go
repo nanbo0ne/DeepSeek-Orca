@@ -23,7 +23,14 @@ type BotConnectionCredentialView struct {
 	AppSecretEnv string `json:"appSecretEnv"`
 	AccountID    string `json:"accountId"`
 	TokenEnv     string `json:"tokenEnv"`
+	Environment  string `json:"environment"`
 	SecretSet    bool   `json:"secretSet"`
+}
+
+type QQBotConnectRequest struct {
+	AppID       string `json:"appId"`
+	AppSecret   string `json:"appSecret"`
+	Environment string `json:"environment"`
 }
 
 type BotConnectionSessionMappingView struct {
@@ -115,6 +122,46 @@ func (a *App) StartBotConnectionInstall(provider, domain string) (BotInstallStar
 		return BotInstallStartResult{OK: false, Provider: provider, Domain: domain, Message: "unsupported bot provider"}, nil
 	}
 	return a.startFeishuConnectionInstall(domain)
+}
+
+func (a *App) ConnectQQBot(req QQBotConnectRequest) (BotConnectionView, error) {
+	appID := strings.TrimSpace(req.AppID)
+	appSecret := strings.TrimSpace(req.AppSecret)
+	env := qqEnvironmentOrDefault(req.Environment)
+	if appID == "" {
+		return BotConnectionView{}, fmt.Errorf("QQ App ID is required")
+	}
+	secretEnv := "QQ_BOT_APP_SECRET"
+	if appSecret != "" {
+		if err := upsertDotEnv(secretEnv, appSecret); err != nil {
+			return BotConnectionView{}, err
+		}
+	} else if !envIsSet(secretEnv) {
+		return BotConnectionView{}, fmt.Errorf("QQ App Secret is required")
+	}
+	conn, err := a.upsertBotConnection(config.BotConnectionConfig{
+		ID:       connectionID("qq", "qq"),
+		Provider: "qq",
+		Domain:   "qq",
+		Label:    "QQ",
+		Enabled:  true,
+		Status:   "connected",
+		Credential: config.BotConnectionCredential{
+			AppID:        appID,
+			AppSecretEnv: secretEnv,
+			Environment:  env,
+		},
+	}, func(c *config.Config) {
+		c.Bot.Enabled = true
+		c.Bot.QQ.Enabled = true
+		c.Bot.QQ.AppID = appID
+		c.Bot.QQ.AppSecretEnv = secretEnv
+		c.Bot.QQ.Environment = env
+	})
+	if err != nil {
+		return BotConnectionView{}, err
+	}
+	return conn, nil
 }
 
 func (a *App) PollBotConnectionInstall(installID string) (BotInstallPollResult, error) {
@@ -463,11 +510,15 @@ func postFeishuInstallFormResult(base string, body map[string]string) (map[strin
 }
 
 func botConnectionView(conn config.BotConnectionConfig) BotConnectionView {
+	secretSet := envIsSet(firstNonEmptyBot(conn.Credential.AppSecretEnv, conn.Credential.TokenEnv))
+	if conn.Provider == "weixin" && !secretSet {
+		secretSet = weixin.HasSavedAccount(conn.Credential.AccountID)
+	}
 	return BotConnectionView{
 		ID: conn.ID, Provider: conn.Provider, Domain: conn.Domain, Label: conn.Label, Enabled: conn.Enabled, Status: conn.Status,
 		Credential: BotConnectionCredentialView{
-			AppID: conn.Credential.AppID, AppSecretEnv: conn.Credential.AppSecretEnv, AccountID: conn.Credential.AccountID, TokenEnv: conn.Credential.TokenEnv,
-			SecretSet: envIsSet(firstNonEmptyBot(conn.Credential.AppSecretEnv, conn.Credential.TokenEnv)),
+			AppID: conn.Credential.AppID, AppSecretEnv: conn.Credential.AppSecretEnv, AccountID: conn.Credential.AccountID, TokenEnv: conn.Credential.TokenEnv, Environment: conn.Credential.Environment,
+			SecretSet: secretSet,
 		},
 		SessionMappings: botSessionMappingViews(conn.SessionMappings),
 		LastError:       conn.LastError, CreatedAt: conn.CreatedAt, UpdatedAt: conn.UpdatedAt,
@@ -498,6 +549,7 @@ func botConnectionConfig(view BotConnectionView) config.BotConnectionConfig {
 			AppSecretEnv: strings.TrimSpace(view.Credential.AppSecretEnv),
 			AccountID:    strings.TrimSpace(view.Credential.AccountID),
 			TokenEnv:     strings.TrimSpace(view.Credential.TokenEnv),
+			Environment:  strings.TrimSpace(view.Credential.Environment),
 		},
 		SessionMappings: botSessionMappingConfigs(view.SessionMappings),
 		LastError:       strings.TrimSpace(view.LastError),

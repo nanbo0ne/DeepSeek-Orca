@@ -291,6 +291,7 @@ type QQBotConfig struct {
 	Enabled      bool   `toml:"enabled"`
 	AppID        string `toml:"app_id"`
 	AppSecretEnv string `toml:"app_secret_env"` // e.g. QQ_BOT_APP_SECRET
+	Environment  string `toml:"environment"`    // sandbox|production
 }
 
 // FeishuBotConfig configures Feishu/Lark custom app bots.
@@ -336,6 +337,7 @@ type BotConnectionCredential struct {
 	AppSecretEnv string `toml:"app_secret_env"`
 	AccountID    string `toml:"account_id"`
 	TokenEnv     string `toml:"token_env"`
+	Environment  string `toml:"environment"`
 }
 
 type BotConnectionSessionMapping struct {
@@ -953,7 +955,7 @@ func Default() *Config {
 			MaxSteps:   25,
 			DebounceMs: 1500,
 			Allowlist:  BotAllowlist{Enabled: true},
-			QQ:         QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET"},
+			QQ:         QQBotConfig{AppSecretEnv: "QQ_BOT_APP_SECRET", Environment: "sandbox"},
 			Feishu:     FeishuBotConfig{Domain: "feishu", AppSecretEnv: "FEISHU_BOT_APP_SECRET", Mode: "webhook", WebhookPort: 8080, RequireMention: true},
 			Weixin:     WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
 		},

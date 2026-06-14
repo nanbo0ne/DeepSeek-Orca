@@ -11,6 +11,7 @@ import (
 
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/boot"
+	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/provider"
@@ -95,6 +96,7 @@ type QQBotView struct {
 	AppID        string `json:"appId"`
 	AppSecretEnv string `json:"appSecretEnv"`
 	SecretSet    bool   `json:"secretSet"`
+	Environment  string `json:"environment"`
 }
 
 type FeishuBotView struct {
@@ -413,6 +415,7 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 			AppID:        b.QQ.AppID,
 			AppSecretEnv: b.QQ.AppSecretEnv,
 			SecretSet:    strings.TrimSpace(b.QQ.AppSecretEnv) != "" && os.Getenv(b.QQ.AppSecretEnv) != "",
+			Environment:  qqEnvironmentOrDefault(b.QQ.Environment),
 		},
 		Feishu: FeishuBotView{
 			Enabled:           b.Feishu.Enabled,
@@ -429,11 +432,18 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 			Enabled:   b.Weixin.Enabled,
 			AccountID: b.Weixin.AccountID,
 			TokenEnv:  b.Weixin.TokenEnv,
-			TokenSet:  strings.TrimSpace(b.Weixin.TokenEnv) != "" && os.Getenv(b.Weixin.TokenEnv) != "",
+			TokenSet:  weixinTokenAvailable(b.Weixin),
 			APIBase:   b.Weixin.APIBase,
 		},
 		Connections: botConnectionViews(b.Connections),
 	}
+}
+
+func weixinTokenAvailable(c config.WeixinBotConfig) bool {
+	if strings.TrimSpace(c.TokenEnv) != "" && os.Getenv(c.TokenEnv) != "" {
+		return true
+	}
+	return weixin.HasSavedAccount(c.AccountID)
 }
 
 func orDefault(s, def string) string {
@@ -441,6 +451,13 @@ func orDefault(s, def string) string {
 		return def
 	}
 	return s
+}
+
+func qqEnvironmentOrDefault(env string) string {
+	if strings.EqualFold(strings.TrimSpace(env), "production") {
+		return "production"
+	}
+	return "sandbox"
 }
 
 func botDomainOrDefault(domain string) string {
@@ -1225,6 +1242,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 			Enabled:      b.QQ.Enabled,
 			AppID:        strings.TrimSpace(b.QQ.AppID),
 			AppSecretEnv: strings.TrimSpace(b.QQ.AppSecretEnv),
+			Environment:  qqEnvironmentOrDefault(b.QQ.Environment),
 		}
 		c.Bot.Feishu = config.FeishuBotConfig{
 			Enabled:           b.Feishu.Enabled,

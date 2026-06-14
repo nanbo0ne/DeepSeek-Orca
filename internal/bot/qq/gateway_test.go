@@ -40,9 +40,23 @@ func TestHandleDispatchDirectMessageUsesDirectChatType(t *testing.T) {
 }
 
 func TestQQSendURLDirectMessage(t *testing.T) {
-	got := qqSendURL(bot.OutboundMessage{ChatType: bot.ChatDirect, ChatID: "guild-1"})
-	want := fmt.Sprintf(qqSendDirectURL, "guild-1")
+	got := qqSendURL("production", bot.OutboundMessage{ChatType: bot.ChatDirect, ChatID: "guild-1"})
+	want := qqProductionRESTBase + fmt.Sprintf(qqSendDirectPathTemplate, "guild-1")
 	if got != want {
 		t.Fatalf("url = %q, want %q", got, want)
+	}
+}
+
+func TestQQEnvironmentURLs(t *testing.T) {
+	if got := qqGatewayURL("sandbox"); got != qqSandboxGatewayURL {
+		t.Fatalf("sandbox gateway = %q, want %q", got, qqSandboxGatewayURL)
+	}
+	if got := qqGatewayURL("production"); got != qqProductionGatewayURL {
+		t.Fatalf("production gateway = %q, want %q", got, qqProductionGatewayURL)
+	}
+	got := qqSendURL("sandbox", bot.OutboundMessage{ChatType: bot.ChatGroup, ChatID: "group-1"})
+	want := qqSandboxRESTBase + fmt.Sprintf(qqSendGroupPathTemplate, "group-1")
+	if got != want {
+		t.Fatalf("sandbox send URL = %q, want %q", got, want)
 	}
 }
