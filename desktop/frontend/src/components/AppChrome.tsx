@@ -1,5 +1,6 @@
-import { Minus, PanelLeft, PanelRight, Search, Square, X } from "lucide-react";
+import { Bot, FolderOpen, Minus, PanelLeft, PanelRight, Search, Square, Sparkles, X } from "lucide-react";
 import { useT } from "../lib/i18n";
+import { Tooltip } from "./Tooltip";
 
 type DesktopPlatform = "darwin" | "windows" | "linux";
 
@@ -14,6 +15,12 @@ interface AppChromeProps {
   workspacePanelRenderable: boolean;
   workspaceTogglePressed: boolean;
   workspacePanelLabel: string;
+  botStatusLabel: string;
+  statusLights: Array<{ key: string; label: string; tone: "neutral" | "info" | "success" | "warn" | "danger"; active: boolean }>;
+  onOpenProject: () => void;
+  onOpenView: () => void;
+  onOpenSkills: () => void;
+  onOpenBotPanel: () => void;
   onToggleSidebar: () => void;
   onToggleWorkspacePanel: () => void;
   onOpenPalette: () => void;
@@ -30,6 +37,12 @@ export function AppChrome({
   workspacePanelRenderable,
   workspaceTogglePressed,
   workspacePanelLabel,
+  botStatusLabel,
+  statusLights,
+  onOpenProject,
+  onOpenView,
+  onOpenSkills,
+  onOpenBotPanel,
   onToggleSidebar,
   onToggleWorkspacePanel,
   onOpenPalette,
@@ -73,8 +86,44 @@ export function AppChrome({
       </button>
 
       <div className="app-chrome__drag-surface" aria-hidden="true" />
-      <div
-        className={[
+      <nav className="app-chrome__actions" aria-label={t("topbar.actions")}>
+        <Tooltip label={t("topbar.openProject")}>
+          <button type="button" className="app-chrome__action" onClick={onOpenProject} aria-label={t("topbar.openProject")}>
+            <FolderOpen size={14} />
+            <span>{t("topbar.openProject")}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={t("topbar.view")}>
+          <button type="button" className="app-chrome__action" onClick={onOpenView} aria-label={t("topbar.view")}>
+            <Square size={14} />
+            <span>{t("topbar.view")}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={t("topbar.skills")}>
+          <button type="button" className="app-chrome__action" onClick={onOpenSkills} aria-label={t("topbar.skills")}>
+            <Sparkles size={14} />
+            <span>{t("topbar.skills")}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={botStatusLabel}>
+          <button type="button" className="app-chrome__action" onClick={onOpenBotPanel} aria-label={botStatusLabel}>
+            <Bot size={14} />
+            <span>{t("topbar.bot")}</span>
+          </button>
+        </Tooltip>
+      </nav>
+
+      <div className="app-chrome__drag-surface app-chrome__drag-surface--center" aria-hidden="true" />
+
+      <div className="app-chrome__status" aria-label={t("topbar.statusLights")}>
+        {statusLights.map((light) => (
+          <Tooltip key={light.key} label={light.label}>
+            <span className={`app-chrome__status-light app-chrome__status-light--${light.tone}${light.active ? " app-chrome__status-light--active" : ""}`} />
+          </Tooltip>
+        ))}
+      </div>
+
+      <div className={[
           "app-chrome__tools",
           workspaceTogglePressed ? "app-chrome__tools--workspace-pressed" : "",
         ].filter(Boolean).join(" ")}

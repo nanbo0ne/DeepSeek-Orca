@@ -362,6 +362,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		} else {
 			b.WriteString("# model = \"\"   # empty = default_model\n")
 		}
+		if c.Bot.WorkspaceRoot != "" {
+			fmt.Fprintf(&b, "workspace_root = %q\n", c.Bot.WorkspaceRoot)
+		} else {
+			b.WriteString("# workspace_root = \"\"   # empty = isolated user bot workspace\n")
+		}
 		fmt.Fprintf(&b, "max_steps = %d\n", c.Bot.MaxSteps)
 		fmt.Fprintf(&b, "debounce_ms = %d\n", c.Bot.DebounceMs)
 		b.WriteString("\n[bot.allowlist]\n")

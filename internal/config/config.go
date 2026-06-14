@@ -63,7 +63,7 @@ type Config struct {
 // DesktopConfig so desktop preferences cannot alter terminal output or prompts.
 type UIConfig struct {
 	Theme          string `toml:"theme"`           // auto|dark|light; empty resolves to auto
-	ThemeStyle     string `toml:"theme_style"`     // slate; legacy aliases normalize to slate
+	ThemeStyle     string `toml:"theme_style"`     // slate|aurora|carbon|pop; legacy aliases normalize to the closest style
 	ShortcutLayout string `toml:"shortcut_layout"` // classic|desktop; accepted for compatibility
 	CloseBehavior  string `toml:"close_behavior"`  // legacy desktop close behavior; prefer desktop.close_behavior
 	ShowReasoning  bool   `toml:"show_reasoning"`  // Ctrl+O / /verbose: show thinking text in CLI; false = collapsed
@@ -75,7 +75,7 @@ type UIConfig struct {
 type DesktopConfig struct {
 	Language       string   `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
 	Theme          string   `toml:"theme"`           // auto|dark|light; empty resolves to dark
-	ThemeStyle     string   `toml:"theme_style"`     // slate; legacy aliases normalize to slate
+	ThemeStyle     string   `toml:"theme_style"`     // slate|aurora|carbon|pop; legacy aliases normalize to the closest style
 	CloseBehavior  string   `toml:"close_behavior"`  // quit|background; desktop window close behavior
 	CheckUpdates   *bool    `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
 	ProviderAccess []string `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
@@ -122,8 +122,14 @@ func (c *Config) UIShortcutLayout() string {
 
 func normalizeThemeStyle(style string) string {
 	switch strings.ToLower(strings.TrimSpace(style)) {
-	case "graphite", "aurora", "slate", "carbon", "nocturne", "amber", "ember", "midnight", "sandstone", "porcelain", "linen", "glacier":
+	case "slate", "graphite", "midnight", "sandstone", "porcelain", "linen", "glacier", "nocturne":
 		return "slate"
+	case "aurora":
+		return "aurora"
+	case "carbon":
+		return "carbon"
+	case "pop", "pop-paint", "poppaint", "amber", "ember":
+		return "pop"
 	default:
 		return ""
 	}
@@ -254,20 +260,21 @@ func (c CodegraphConfig) ResolvedTier() string {
 	return "background"
 }
 
-// BotConfig 鎺у埗澶氭笭閬?IM bot 娑堟伅缃戝叧銆?
+// BotConfig controls the multi-channel IM bot gateway.
 type BotConfig struct {
-	Enabled     bool                  `toml:"enabled"`
-	Model       string                `toml:"model"` // 鐢ㄤ簬 bot 鐨勬ā鍨嬪悕锛岀┖鍒欑敤 default_model
-	MaxSteps    int                   `toml:"max_steps"`
-	DebounceMs  int                   `toml:"debounce_ms"` // 娑堟伅鍚堝苟绐楀彛锛屾绉?
-	Allowlist   BotAllowlist          `toml:"allowlist"`
-	QQ          QQBotConfig           `toml:"qq"`
-	Feishu      FeishuBotConfig       `toml:"feishu"`
-	Weixin      WeixinBotConfig       `toml:"weixin"`
-	Connections []BotConnectionConfig `toml:"connections"`
+	Enabled       bool                  `toml:"enabled"`
+	Model         string                `toml:"model"` // empty = default_model
+	WorkspaceRoot string                `toml:"workspace_root"`
+	MaxSteps      int                   `toml:"max_steps"`
+	DebounceMs    int                   `toml:"debounce_ms"`
+	Allowlist     BotAllowlist          `toml:"allowlist"`
+	QQ            QQBotConfig           `toml:"qq"`
+	Feishu        FeishuBotConfig       `toml:"feishu"`
+	Weixin        WeixinBotConfig       `toml:"weixin"`
+	Connections   []BotConnectionConfig `toml:"connections"`
 }
 
-// BotAllowlist 鎺у埗鍝簺鐢ㄦ埛鍙互浣跨敤 bot銆?
+// BotAllowlist restricts which remote users/groups may invoke the bot.
 type BotAllowlist struct {
 	Enabled      bool     `toml:"enabled"`
 	AllowAll     bool     `toml:"allow_all"`
@@ -279,30 +286,30 @@ type BotAllowlist struct {
 	WeixinGroups []string `toml:"weixin_groups"`
 }
 
-// QQBotConfig QQ 瀹樻柟 Bot API v2 閰嶇疆銆?
+// QQBotConfig configures QQ official Bot API v2.
 type QQBotConfig struct {
 	Enabled      bool   `toml:"enabled"`
 	AppID        string `toml:"app_id"`
-	AppSecretEnv string `toml:"app_secret_env"` // 鐜鍙橀噺鍚嶏紝濡?QQ_BOT_APP_SECRET
+	AppSecretEnv string `toml:"app_secret_env"` // e.g. QQ_BOT_APP_SECRET
 }
 
-// FeishuBotConfig 椋炰功鑷缓搴旂敤 Bot 閰嶇疆銆?
+// FeishuBotConfig configures Feishu/Lark custom app bots.
 type FeishuBotConfig struct {
 	Enabled           bool   `toml:"enabled"`
-	Domain            string `toml:"domain"` // feishu锛堥粯璁わ級| lark
+	Domain            string `toml:"domain"` // feishu|lark
 	AppID             string `toml:"app_id"`
-	AppSecretEnv      string `toml:"app_secret_env"`     // 濡?FEISHU_BOT_APP_SECRET
-	VerificationToken string `toml:"verification_token"` // 浜嬩欢璁㈤槄楠岃瘉 token
-	Mode              string `toml:"mode"`               // webhook锛堥粯璁わ級| websocket
-	WebhookPort       int    `toml:"webhook_port"`       // webhook 妯″紡绔彛
+	AppSecretEnv      string `toml:"app_secret_env"`     // e.g. FEISHU_BOT_APP_SECRET
+	VerificationToken string `toml:"verification_token"` // webhook challenge token
+	Mode              string `toml:"mode"`               // webhook|websocket
+	WebhookPort       int    `toml:"webhook_port"`
 	RequireMention    bool   `toml:"require_mention"`
 }
 
-// WeixinBotConfig 寰俊 iLink Bot 閰嶇疆銆?
+// WeixinBotConfig configures WeChat iLink bot access.
 type WeixinBotConfig struct {
 	Enabled   bool   `toml:"enabled"`
 	AccountID string `toml:"account_id"`
-	TokenEnv  string `toml:"token_env"` // 鐜鍙橀噺鍚嶏紝濡?WEIXIN_BOT_TOKEN
+	TokenEnv  string `toml:"token_env"` // e.g. WEIXIN_BOT_TOKEN
 	APIBase   string `toml:"api_base"`  // iLink API base URL
 }
 
@@ -1645,6 +1652,17 @@ func MemoryUserDir() string {
 		return ""
 	}
 	return filepath.Join(dir, "deepseek-orca")
+}
+
+// BotWorkspaceDir is the default isolated workspace for mobile/IM bot sessions.
+// Keeping it under the DeepSeek-Orca user root prevents bot turns from writing
+// into whatever directory happened to launch the CLI.
+func BotWorkspaceDir() string {
+	base := MemoryUserDir()
+	if base == "" {
+		return ""
+	}
+	return filepath.Join(base, "bot-workspace")
 }
 
 // ConventionDirs are the parent directories scanned for agent assets (skills,

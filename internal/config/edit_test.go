@@ -63,7 +63,9 @@ func TestUIThemeStyleNormalizes(t *testing.T) {
 		want string
 	}{
 		{"", ""},
-		{"AURORA", "slate"},
+		{"AURORA", "aurora"},
+		{" carbon ", "carbon"},
+		{" pop-paint ", "pop"},
 		{" nocturne ", "slate"},
 		{" glacier ", "slate"},
 		{"unknown", ""},

@@ -416,6 +416,7 @@ function defaultBotSettings(): BotSettingsView {
   return {
     enabled: false,
     model: "",
+    workspaceRoot: "",
     maxSteps: 0,
     debounceMs: 1500,
     allowlist: {
@@ -458,6 +459,7 @@ function normalizeBotSettings(bot: BotSettingsView | null | undefined): BotSetti
   return {
     ...fallback,
     ...bot,
+    workspaceRoot: String(bot?.workspaceRoot ?? fallback.workspaceRoot).trim(),
     maxSteps: Math.max(0, Number(bot?.maxSteps ?? fallback.maxSteps) || 0),
     debounceMs: Number(bot?.debounceMs) || fallback.debounceMs,
     allowlist: {
@@ -1030,6 +1032,16 @@ function BotsSection({ s, busy, apply }: SectionProps) {
                 />
               </div>
             </SettingsField>
+            <SettingsField label={t("settings.botWorkspaceRoot")} hint={t("settings.botWorkspaceRootHint")}>
+              <input
+                className="mem-input set-grow"
+                value={draft.workspaceRoot}
+                placeholder={t("settings.botWorkspaceRootDefault")}
+                disabled={busy}
+                spellCheck={false}
+                onChange={(e) => setDraft((prev) => ({ ...prev, workspaceRoot: e.target.value }))}
+              />
+            </SettingsField>
           </div>
         </details>
       </SettingsSection>
@@ -1513,6 +1525,7 @@ function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
   return {
     ...bot,
     model: bot.model.trim(),
+    workspaceRoot: bot.workspaceRoot.trim(),
     maxSteps: Math.max(0, Math.floor(bot.maxSteps || 0)),
     debounceMs: Math.max(0, Math.floor(bot.debounceMs || 0)),
     allowlist: {
@@ -3259,6 +3272,9 @@ function SandboxSection({ s, busy, apply }: SectionProps) {
 // reflect the live token values for the currently-resolved light/dark mode.
 const THEME_STYLE_META: Record<ThemeStyle, { name: string; zh: DictKey; note: DictKey; desc: DictKey }> = {
   slate: { name: "Slate", zh: "settings.style.slate.zh", note: "settings.style.slate.note", desc: "settings.style.slate.desc" },
+  aurora: { name: "Aurora", zh: "settings.style.aurora.zh", note: "settings.style.aurora.note", desc: "settings.style.aurora.desc" },
+  carbon: { name: "Carbon", zh: "settings.style.carbon.zh", note: "settings.style.carbon.note", desc: "settings.style.carbon.desc" },
+  pop: { name: "Pop Paint", zh: "settings.style.pop.zh", note: "settings.style.pop.note", desc: "settings.style.pop.desc" },
 };
 
 function AppearanceSection({

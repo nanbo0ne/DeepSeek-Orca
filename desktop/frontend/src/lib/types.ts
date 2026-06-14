@@ -678,6 +678,7 @@ export interface BotConnectionView {
 export interface BotSettingsView {
   enabled: boolean;
   model: string;
+  workspaceRoot: string;
   maxSteps: number;
   debounceMs: number;
   allowlist: BotAllowlistView;

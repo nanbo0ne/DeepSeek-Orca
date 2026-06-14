@@ -253,7 +253,7 @@ close_behavior = "quit"
 	}
 
 	got := NewApp().Settings()
-	if got.DesktopLanguage != "en" || got.DesktopTheme != "dark" || got.DesktopThemeStyle != "graphite" || got.CloseBehavior != "background" {
+	if got.DesktopLanguage != "en" || got.DesktopTheme != "dark" || got.DesktopThemeStyle != "slate" || got.CloseBehavior != "background" {
 		t.Fatalf("desktop settings = lang:%q theme:%q style:%q close:%q, want user-level desktop prefs", got.DesktopLanguage, got.DesktopTheme, got.DesktopThemeStyle, got.CloseBehavior)
 	}
 }
@@ -285,7 +285,7 @@ close_behavior = "quit"
 	if got.ConfigPath != config.UserConfigPath() {
 		t.Fatalf("Settings configPath = %q, want user config %q", got.ConfigPath, config.UserConfigPath())
 	}
-	if got.DefaultModel != "legacy-provider/legacy-model" || got.DesktopLanguage != "zh" || got.DesktopTheme != "light" || got.DesktopThemeStyle != "glacier" || got.CloseBehavior != "quit" {
+	if got.DefaultModel != "legacy-provider/legacy-model" || got.DesktopLanguage != "zh" || got.DesktopTheme != "light" || got.DesktopThemeStyle != "slate" || got.CloseBehavior != "quit" {
 		t.Fatalf("Settings did not seed from legacy project config: %+v", got)
 	}
 	if _, err := os.Stat(config.UserConfigPath()); !os.IsNotExist(err) {
@@ -295,7 +295,7 @@ close_behavior = "quit"
 		t.Fatalf("SetDesktopLanguage: %v", err)
 	}
 	userCfg := config.LoadForEdit(config.UserConfigPath())
-	if userCfg.DesktopLanguage() != "en" || userCfg.DesktopTheme() != "light" || userCfg.DesktopThemeStyle() != "glacier" || userCfg.DesktopCloseBehavior() != "quit" {
+	if userCfg.DesktopLanguage() != "en" || userCfg.DesktopTheme() != "light" || userCfg.DesktopThemeStyle() != "slate" || userCfg.DesktopCloseBehavior() != "quit" {
 		t.Fatalf("saved user config did not preserve seeded desktop prefs: lang:%q theme:%q style:%q close:%q", userCfg.DesktopLanguage(), userCfg.DesktopTheme(), userCfg.DesktopThemeStyle(), userCfg.DesktopCloseBehavior())
 	}
 }
@@ -869,7 +869,7 @@ func TestMigrateDesktopPreferencesDoesNotOverwriteExistingConfig(t *testing.T) {
 	}
 
 	got := config.LoadForEdit(config.UserConfigPath())
-	if got.DesktopLanguage() != "en" || got.DesktopTheme() != "dark" || got.DesktopThemeStyle() != "graphite" {
+	if got.DesktopLanguage() != "en" || got.DesktopTheme() != "dark" || got.DesktopThemeStyle() != "slate" {
 		t.Fatalf("desktop prefs after migration = lang:%q theme:%q style:%q, want existing config preserved", got.DesktopLanguage(), got.DesktopTheme(), got.DesktopThemeStyle())
 	}
 }

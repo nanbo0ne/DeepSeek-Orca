@@ -46,9 +46,9 @@ func botCommand(args []string, version string) int {
 
 func botStart(args []string, version string) int {
 	fs := flag.NewFlagSet("bot start", flag.ContinueOnError)
-	channels := fs.String("channels", "", "启用的平台，逗号分隔：qq,feishu,weixin")
-	dir := fs.String("dir", "", "工作目录")
-	model := fs.String("model", "", "模型名（空则用 default_model）")
+	channels := fs.String("channels", "", "enabled channels, comma-separated: qq,feishu,weixin")
+	dir := fs.String("dir", "", "workspace directory; empty uses [bot] workspace_root or the isolated bot workspace")
+	model := fs.String("model", "", "model name; empty uses [bot] model or default_model")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -64,7 +64,7 @@ func botStart(args []string, version string) int {
 	}
 
 	if !cfg.Bot.Enabled {
-		fmt.Fprintln(os.Stderr, "error: bot is not enabled in config — set [bot] enabled = true")
+		fmt.Fprintln(os.Stderr, "error: bot is not enabled in config; set [bot] enabled = true")
 		return 1
 	}
 	if !cfg.Bot.Allowlist.AllowAll && (!cfg.Bot.Allowlist.Enabled || botAllowlistUserCount(cfg.Bot.Allowlist) == 0) {
@@ -72,14 +72,26 @@ func botStart(args []string, version string) int {
 		return 1
 	}
 
-	workspaceRoot := *dir
+	workspaceRoot := strings.TrimSpace(*dir)
+	if workspaceRoot == "" {
+		workspaceRoot = strings.TrimSpace(cfg.Bot.WorkspaceRoot)
+	}
+	if workspaceRoot == "" {
+		workspaceRoot = config.BotWorkspaceDir()
+	}
 	if workspaceRoot == "" {
 		if wd, err := os.Getwd(); err == nil {
 			workspaceRoot = wd
 		}
 	}
+	if workspaceRoot != "" {
+		if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "error: create bot workspace %q: %v\n", workspaceRoot, err)
+			return 1
+		}
+	}
 
-	// 确定启用的平台
+	// Determine enabled platforms.
 	enabledPlatforms := make(map[bot.Platform]bool)
 	if *channels != "" {
 		for _, ch := range strings.Split(*channels, ",") {
@@ -109,11 +121,11 @@ func botStart(args []string, version string) int {
 		}
 	}
 	if !hasEnabled {
-		fmt.Fprintln(os.Stderr, "error: no bot channels enabled — enable at least one in config")
+		fmt.Fprintln(os.Stderr, "error: no bot channels enabled; enable at least one in config")
 		return 1
 	}
 
-	modelName := *model
+	modelName := strings.TrimSpace(*model)
 	if modelName == "" {
 		modelName = cfg.Bot.Model
 	}
@@ -123,7 +135,7 @@ func botStart(args []string, version string) int {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	// 构建网关配置
+	// Build gateway config.
 	gwCfg := bot.GatewayConfig{
 		Model:         modelName,
 		MaxSteps:      cfg.Bot.MaxSteps,
@@ -146,7 +158,7 @@ func botStart(args []string, version string) int {
 		Debounce: time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
 	}
 
-	// 创建适配器
+	// Create channel adapters.
 	adapters := make(map[bot.Platform]bot.Adapter)
 	if enabledPlatforms[bot.PlatformQQ] {
 		adapters[bot.PlatformQQ] = qq.New(cfg.Bot.QQ, logger)
@@ -160,7 +172,7 @@ func botStart(args []string, version string) int {
 
 	gw := bot.NewGateway(gwCfg, adapters, logger)
 
-	// 信号处理
+	// Handle shutdown signals.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -172,6 +184,7 @@ func botStart(args []string, version string) int {
 	}()
 
 	fmt.Fprintf(os.Stderr, "deepseek-orca bot starting (model: %s, channels: %s)...\n", modelName, *channels)
+	fmt.Fprintf(os.Stderr, "workspace: %s\n", workspaceRoot)
 	fmt.Fprintf(os.Stderr, "version: %s\n", version)
 
 	if err := gw.Start(ctx); err != nil {
@@ -179,14 +192,14 @@ func botStart(args []string, version string) int {
 		return 1
 	}
 
-	// 等待信号或 context 取消
+	// Wait for a signal or context cancellation.
 	<-ctx.Done()
 	return 0
 }
 
 func botDoctor(args []string) int {
 	fs := flag.NewFlagSet("bot doctor", flag.ContinueOnError)
-	jsonOut := fs.Bool("json", false, "JSON 格式输出")
+	jsonOut := fs.Bool("json", false, "output JSON")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -199,27 +212,29 @@ func botDoctor(args []string) int {
 	}
 
 	bc := cfg.Bot
-
 	type checkResult struct {
 		Name   string `json:"name"`
 		Status string `json:"status"`
 		Detail string `json:"detail,omitempty"`
 	}
-
 	var results []checkResult
-
 	addCheck := func(name, status, detail string) {
 		results = append(results, checkResult{Name: name, Status: status, Detail: detail})
 	}
 
-	// 基础检查
 	if bc.Enabled {
 		addCheck("bot.enabled", "ok", "")
 	} else {
 		addCheck("bot.enabled", "disabled", "bot is not enabled in config")
 	}
+	if strings.TrimSpace(bc.WorkspaceRoot) != "" {
+		addCheck("bot.workspace_root", "ok", bc.WorkspaceRoot)
+	} else if def := config.BotWorkspaceDir(); def != "" {
+		addCheck("bot.workspace_root", "default", def)
+	} else {
+		addCheck("bot.workspace_root", "warning", "unable to resolve default bot workspace")
+	}
 
-	// QQ 检查
 	if bc.QQ.Enabled {
 		addCheck("bot.qq.enabled", "ok", "")
 		secret := os.Getenv(bc.QQ.AppSecretEnv)
@@ -237,7 +252,6 @@ func botDoctor(args []string) int {
 		addCheck("bot.qq", "disabled", "")
 	}
 
-	// 飞书检查
 	if bc.Feishu.Enabled {
 		addCheck("bot.feishu.enabled", "ok", "")
 		secret := os.Getenv(bc.Feishu.AppSecretEnv)
@@ -260,7 +274,6 @@ func botDoctor(args []string) int {
 		addCheck("bot.feishu", "disabled", "")
 	}
 
-	// 微信检查
 	if bc.Weixin.Enabled {
 		addCheck("bot.weixin.enabled", "ok", "")
 		token := os.Getenv(bc.Weixin.TokenEnv)
@@ -275,15 +288,11 @@ func botDoctor(args []string) int {
 		addCheck("bot.weixin", "disabled", "")
 	}
 
-	// Allowlist 检查
 	if bc.Allowlist.AllowAll {
-		addCheck("bot.allowlist", "open", "allow_all=true — every reachable user can trigger local tools")
+		addCheck("bot.allowlist", "open", "allow_all=true; every reachable user can trigger local tools")
 	} else if bc.Allowlist.Enabled {
 		addCheck("bot.allowlist", "enabled",
-			fmt.Sprintf("qq=%d feishu=%d weixin=%d users",
-				len(bc.Allowlist.QQUsers),
-				len(bc.Allowlist.FeishuUsers),
-				len(bc.Allowlist.WeixinUsers)))
+			fmt.Sprintf("qq=%d feishu=%d weixin=%d users", len(bc.Allowlist.QQUsers), len(bc.Allowlist.FeishuUsers), len(bc.Allowlist.WeixinUsers)))
 	} else {
 		addCheck("bot.allowlist", "missing", "bot start will refuse without allowlist or allow_all=true")
 	}
@@ -300,18 +309,17 @@ func botDoctor(args []string) int {
 		fmt.Println("]")
 	} else {
 		for _, r := range results {
-			marker := "✓"
+			marker := "OK"
 			if r.Status == "missing" || r.Status == "disabled" {
-				marker = "✗"
+				marker = "!!"
 			}
 			fmt.Printf("  %s %s: %s", marker, r.Name, r.Status)
 			if r.Detail != "" {
-				fmt.Printf(" — %s", r.Detail)
+				fmt.Printf(" - %s", r.Detail)
 			}
 			fmt.Println()
 		}
 	}
-
 	return 0
 }
 
@@ -321,7 +329,7 @@ func botAllowlistUserCount(a config.BotAllowlist) int {
 
 func botWeixinLogin(args []string) int {
 	fs := flag.NewFlagSet("bot weixin-login", flag.ContinueOnError)
-	timeoutSeconds := fs.Int("timeout", 480, "登录超时时间（秒）")
+	timeoutSeconds := fs.Int("timeout", 480, "login timeout in seconds")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -344,14 +352,13 @@ func botWeixinLogin(args []string) int {
 		fmt.Fprintf(os.Stderr, "error: weixin login failed: %v\n", err)
 		return 1
 	}
-	fmt.Printf("\n微信登录成功: account_id=%s user_id=%s base_url=%s\n", result.AccountID, result.UserID, result.BaseURL)
-	fmt.Println("凭据已保存到 DeepSeek-Orca 用户配置目录；也可以把 [bot.weixin] account_id 设置为该 account_id。")
-
+	fmt.Printf("\nWeChat login succeeded: account_id=%s user_id=%s base_url=%s\n", result.AccountID, result.UserID, result.BaseURL)
+	fmt.Println("Credential saved to the DeepSeek-Orca user config directory; you can also set [bot.weixin] account_id to this account_id.")
 	return 0
 }
 
 func botUsage() {
-	fmt.Print(`deepseek-orca bot — multi-channel IM bot gateway (QQ / Feishu / WeChat)
+	fmt.Print(`deepseek-orca bot - multi-channel IM bot gateway (QQ / Feishu / WeChat)
 
 Usage:
   deepseek-orca bot start   [--channels qq,feishu,weixin] [--dir PATH] [--model NAME]
@@ -359,9 +366,9 @@ Usage:
   deepseek-orca bot weixin-login [--timeout SECONDS]
 
 Subcommands:
-  start         启动 bot 网关
-  doctor        诊断 bot 配置和连通性
-  weixin-login  微信 iLink 二维码登录
+  start         Start the bot gateway
+  doctor        Diagnose bot configuration and connectivity
+  weixin-login  Log in to WeChat iLink by QR code
 
 Examples:
   deepseek-orca bot start --channels qq,feishu
@@ -370,7 +377,7 @@ Examples:
 
 Configuration:
   Edit deepseek-orca.toml:
-    [bot]           enabled / model / max_steps
+    [bot]           enabled / model / workspace_root / max_steps
     [bot.allowlist]  enabled / qq_users / feishu_users / weixin_users
     [bot.qq]         enabled / app_id / app_secret_env
     [bot.feishu]     enabled / app_id / app_secret_env / verification_token / mode

@@ -1,7 +1,7 @@
 // theme.ts manages the appearance override. The stylesheet follows the OS via
 // prefers-color-scheme unless data-theme forces "dark" or "light". DeepSeek-Orca
-// keeps one native visual direction, "slate", so desktop and CLI stay visually
-// consistent.
+// keeps a small set of visual directions. Theme (light/dark/auto) is separate
+// from style so each direction has both light and dark variants.
 //
 // When running inside the Wails shell, applyTheme also syncs the native window
 // theme (title bar, traffic lights, etc.) so the OS chrome matches the webview.
@@ -16,7 +16,7 @@ import {
 export type Theme = "auto" | "light" | "dark";
 export type ResolvedTheme = Exclude<Theme, "auto">;
 
-export const THEME_STYLES = ["slate"] as const;
+export const THEME_STYLES = ["slate", "aurora", "carbon", "pop"] as const;
 
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 
@@ -24,16 +24,18 @@ export type ThemeStyle = (typeof THEME_STYLES)[number];
 // from previous versions still resolve to a valid value.
 const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
   graphite: "slate",
-  aurora: "slate",
-  carbon: "slate",
+  aurora: "aurora",
+  carbon: "carbon",
   nocturne: "slate",
-  amber: "slate",
-  ember: "slate",
+  amber: "pop",
+  ember: "pop",
   midnight: "slate",
   sandstone: "slate",
   porcelain: "slate",
   linen: "slate",
   glacier: "slate",
+  poppaint: "pop",
+  "pop-paint": "pop",
 };
 
 const DEFAULT_THEME_STYLE: ThemeStyle = "slate";
