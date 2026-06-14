@@ -1,4 +1,4 @@
-﻿// Wire contract 鈥?mirrors desktop/wire.go (itself mirroring internal/serve/wire.go).
+// Wire contract - mirrors desktop/wire.go (itself mirroring internal/serve/wire.go).
 // One event channel carries every kind; `kind` discriminates the payload.
 
 export type EventKind =
@@ -41,8 +41,8 @@ export interface WireTool {
   readOnly: boolean;
   truncated?: boolean;
   durationMs?: number;
-  partial?: boolean; // an early dispatch (name only) 鈥?a full one with args follows
-  parentId?: string; // set on a sub-agent's calls 鈥?the parent `task` call's id
+  partial?: boolean; // an early dispatch (name only) - a full one with args follows
+  parentId?: string; // set on a sub-agent's calls - the parent `task` call's id
   profile?: WireProfile; // subagent model/effort resolved for this call
 }
 
@@ -53,8 +53,8 @@ export interface WireUsage {
   cacheHitTokens: number;
   cacheMissTokens: number;
   reasoningTokens?: number;
-  // Session-cumulative cache tokens 鈥?the status bar shows the aggregate
-  // hit-rate (危hit/危(hit+miss)), steadier than the single-turn cacheHitTokens.
+  // Session-cumulative cache tokens - the status bar shows the aggregate
+  // hit-rate (hit/(hit+miss)), steadier than the single-turn cacheHitTokens.
   sessionCacheHitTokens: number;
   sessionCacheMissTokens: number;
   cost?: number;
@@ -255,7 +255,7 @@ export interface SessionMeta {
   deletedAt?: number; // unix milliseconds, present for trashed sessions
   current: boolean;
   open: boolean;
-  scope?: string;       // "project" | "global"; empty for legacy 鈫?treated as "global"
+  scope?: string;       // "project" | "global"; empty for legacy -> treated as "global"
   workspaceRoot?: string;
   topicId?: string;
   topicTitle?: string;
@@ -413,7 +413,7 @@ export interface ComposerInsertRequest {
   text: string;
 }
 
-// MCP & Skills drawer (desktop/app.go Capabilities) 鈥?the GUI counterpart to
+// MCP & Skills drawer (desktop/app.go Capabilities) - the GUI counterpart to
 // /mcp + /skill: connected/failed servers and discoverable skills.
 export interface ServerView {
   name: string;
@@ -479,7 +479,7 @@ export interface MCPServerInput {
 }
 
 export interface ModelInfo {
-  ref: string; // "provider/model" 鈥?pass to SetModel
+  ref: string; // "provider/model" - pass to SetModel
   provider: string;
   model: string;
   current: boolean;
@@ -493,7 +493,7 @@ export interface EffortInfo {
 }
 
 // Slash sub-command / argument completion (desktop/app.go SlashArgs). Mirrors the
-// CLI's arg hints so the composer can suggest e.g. /skill 鈫?list/show/new/paths.
+// CLI's arg hints so the composer can suggest e.g. /skill -> list/show/new/paths.
 export interface SlashArgItem {
   label: string;
   insert: string; // token to place at the current position
@@ -557,7 +557,7 @@ export interface ProviderView {
 
 // BalanceInfo is the wallet-balance readout (desktop/app.go Balance). available
 // is false when the provider declares no balanceUrl or a fetch failed; display is
-// the formatted amount (e.g. "楼110.00").
+// the formatted amount (e.g. "¥110.00").
 export interface BalanceInfo {
   available: boolean;
   display: string;
@@ -606,6 +606,9 @@ export interface AgentView {
   temperature: number;
   maxSteps: number;
   plannerMaxSteps: number;
+  softCompactRatio: number;
+  compactRatio: number;
+  compactForceRatio: number;
   systemPrompt: string;
 }
 

@@ -223,7 +223,7 @@ export interface AppBindings {
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
-  SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, systemPrompt: string): Promise<void>;
+  SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, softCompactRatio: number, compactRatio: number, compactForceRatio: number, systemPrompt: string): Promise<void>;
   SetTrayLocale(locale: "en" | "zh"): Promise<void>;
   // SetBypass is the legacy Wails name for YOLO/full-access tool auto-approval
   // (ask questions and plan approvals still wait; deny rules still apply).
@@ -622,7 +622,7 @@ function makeMockApp(): AppBindings {
       noProxy: "",
       proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "" },
     },
-    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, systemPrompt: "你是 DeepSeek-Orca，一个专注于代码任务的智能编程 Agent。" },
+    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, softCompactRatio: 0.5, compactRatio: 0.8, compactForceRatio: 0.9, systemPrompt: "你是 DeepSeek-Orca，一个专注于代码任务的智能编程 Agent。" },
     bot: {
       enabled: false,
       model: "",
@@ -2088,8 +2088,8 @@ function makeMockApp(): AppBindings {
             settings.desktopThemeStyle = style;
           }
         },
-    async SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, systemPrompt: string) {
-      settings.agent = { temperature, maxSteps, plannerMaxSteps, systemPrompt };
+    async SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, softCompactRatio: number, compactRatio: number, compactForceRatio: number, systemPrompt: string) {
+      settings.agent = { temperature, maxSteps, plannerMaxSteps, softCompactRatio, compactRatio, compactForceRatio, systemPrompt };
     },
     async SetTrayLocale(_locale: "en" | "zh") {},
     async SetAutoApproveTools(on: boolean) {

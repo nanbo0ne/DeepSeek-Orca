@@ -4,7 +4,7 @@
 // - sendmessage / sendtyping
 // - context_token 持久化
 // - 二维码登录
-// - DM allowlist（默认只对 allowlist 内用户开放 DM；群聊默认关闭）
+// - 默认允许所有进入渠道的用户消息，具体访问控制由上层 BotGateway 统一处理
 package weixin
 
 import (
@@ -48,12 +48,12 @@ type ilinkUpdate struct {
 	UpdateID   int64  `json:"update_id"`
 	UpdateType string `json:"update_type"`
 	Message    struct {
-		MessageID string `json:"message_id"`
-		ChatID    string `json:"chat_id"`
-		ChatType  string `json:"chat_type"`
+		MessageID flexString `json:"message_id"`
+		ChatID    flexString `json:"chat_id"`
+		ChatType  string     `json:"chat_type"`
 		From      struct {
-			UserID   string `json:"user_id"`
-			UserName string `json:"user_name"`
+			UserID   flexString `json:"user_id"`
+			UserName string     `json:"user_name"`
 		} `json:"from"`
 		Text      string `json:"text"`
 		Timestamp int64  `json:"timestamp"`
@@ -61,13 +61,13 @@ type ilinkUpdate struct {
 }
 
 type ilinkMessage struct {
-	MessageID    string `json:"message_id"`
-	FromUserID   string `json:"from_user_id"`
-	ToUserID     string `json:"to_user_id"`
-	RoomID       string `json:"room_id"`
-	ChatRoomID   string `json:"chat_room_id"`
-	ContextToken string `json:"context_token"`
-	MsgType      int    `json:"msg_type"`
+	MessageID    flexString `json:"message_id"`
+	FromUserID   flexString `json:"from_user_id"`
+	ToUserID     flexString `json:"to_user_id"`
+	RoomID       flexString `json:"room_id"`
+	ChatRoomID   flexString `json:"chat_room_id"`
+	ContextToken flexString `json:"context_token"`
+	MsgType      int        `json:"msg_type"`
 	ItemList     []struct {
 		Type     int `json:"type"`
 		TextItem struct {
@@ -87,6 +87,30 @@ type ilinkResponse struct {
 	GetUpdatesBuf        string         `json:"get_updates_buf"`
 	LongpollingTimeoutMs int            `json:"longpolling_timeout_ms"`
 }
+
+type flexString string
+
+func (s *flexString) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = flexString(str)
+		return nil
+	}
+	var num json.Number
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&num); err == nil {
+		*s = flexString(num.String())
+		return nil
+	}
+	if string(data) == "null" {
+		*s = ""
+		return nil
+	}
+	return fmt.Errorf("expected string or number, got %s", string(data))
+}
+
+func (s flexString) String() string { return string(s) }
 
 // adapter 微信适配器实现。
 type adapter struct {
@@ -386,11 +410,11 @@ func (a *adapter) handleUpdate(upd ilinkUpdate) {
 	ib := bot.InboundMessage{
 		Platform:  bot.PlatformWeixin,
 		ChatType:  chatType,
-		ChatID:    m.ChatID,
-		UserID:    m.From.UserID,
+		ChatID:    m.ChatID.String(),
+		UserID:    m.From.UserID.String(),
 		UserName:  m.From.UserName,
 		Text:      m.Text,
-		MessageID: m.MessageID,
+		MessageID: m.MessageID.String(),
 	}
 
 	select {
@@ -401,7 +425,8 @@ func (a *adapter) handleUpdate(upd ilinkUpdate) {
 }
 
 func (a *adapter) handleIlinkMessage(m ilinkMessage) {
-	if m.FromUserID == "" || m.FromUserID == a.accountID() {
+	fromUserID := m.FromUserID.String()
+	if fromUserID == "" || fromUserID == a.accountID() {
 		return
 	}
 	text := extractIlinkText(m.ItemList)
@@ -412,17 +437,17 @@ func (a *adapter) handleIlinkMessage(m ilinkMessage) {
 	if chatID == "" {
 		return
 	}
-	if m.ContextToken != "" {
-		a.setContextToken(chatID, m.ContextToken)
+	if m.ContextToken.String() != "" {
+		a.setContextToken(chatID, m.ContextToken.String())
 	}
 	ib := bot.InboundMessage{
 		Platform:  bot.PlatformWeixin,
 		ChatType:  chatType,
 		ChatID:    chatID,
-		UserID:    m.FromUserID,
-		UserName:  m.FromUserID,
+		UserID:    fromUserID,
+		UserName:  fromUserID,
 		Text:      text,
-		MessageID: m.MessageID,
+		MessageID: m.MessageID.String(),
 	}
 	select {
 	case a.msgCh <- ib:
@@ -447,14 +472,15 @@ func extractIlinkText(items []struct {
 }
 
 func guessIlinkChat(m ilinkMessage, accountID string) (bot.ChatType, string) {
-	roomID := firstNonEmptyString(m.RoomID, m.ChatRoomID)
+	roomID := firstNonEmptyString(m.RoomID.String(), m.ChatRoomID.String())
 	if roomID != "" {
 		return bot.ChatGroup, roomID
 	}
-	if m.ToUserID != "" && accountID != "" && m.ToUserID != accountID && m.MsgType == 1 {
-		return bot.ChatGroup, m.ToUserID
+	toUserID := m.ToUserID.String()
+	if toUserID != "" && accountID != "" && toUserID != accountID && m.MsgType == 1 {
+		return bot.ChatGroup, toUserID
 	}
-	return bot.ChatDM, m.FromUserID
+	return bot.ChatDM, m.FromUserID.String()
 }
 
 func setIlinkHeaders(req *http.Request, token string, body []byte) {
@@ -521,10 +547,10 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	defer resp.Body.Close()
 
 	var result struct {
-		Ret       int    `json:"ret"`
-		Errcode   int    `json:"errcode"`
-		Errmsg    string `json:"errmsg"`
-		MessageID string `json:"message_id"`
+		Ret       int        `json:"ret"`
+		Errcode   int        `json:"errcode"`
+		Errmsg    string     `json:"errmsg"`
+		MessageID flexString `json:"message_id"`
 	}
 	respBody, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(respBody, &result); err != nil {
@@ -538,7 +564,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 		return bot.SendResult{}, fmt.Errorf("sendmessage error ret=%d errcode=%d: %s", result.Ret, result.Errcode, result.Errmsg)
 	}
 
-	return bot.SendResult{MessageID: result.MessageID}, nil
+	return bot.SendResult{MessageID: result.MessageID.String()}, nil
 }
 
 // sendTyping 发送"正在输入"状态。

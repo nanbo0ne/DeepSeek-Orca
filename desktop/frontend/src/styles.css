@@ -9506,6 +9506,28 @@ a[href] {
   text-align: center;
 }
 
+.compact-ratio-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.compact-ratio-control__range {
+  flex: 1 1 auto;
+  min-width: 160px;
+  accent-color: var(--accent);
+}
+
+.compact-ratio-control__value {
+  width: 48px;
+  flex: 0 0 48px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .settings-page .settings-model-current {
   margin-top: 14px;
 }

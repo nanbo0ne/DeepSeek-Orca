@@ -139,6 +139,9 @@ export function ContextPanel({
     reasoningTokens,
     cacheHitTokens,
     cacheMissTokens,
+    currentPromptTokens,
+    currentCompletionTokens,
+    currentReasoningTokens,
   } = computeContextPanelUsage({ context, info, usage, sessionTokens });
   const sessionCostValue = info?.sessionCost && info.sessionCost > 0 ? info.sessionCost : sessionCost && sessionCost > 0 ? sessionCost : info?.sessionCostUsd ?? 0;
   const cost = sessionCostValue;
@@ -152,11 +155,14 @@ export function ContextPanel({
     ? Math.round((cacheHitTokens / (cacheHitTokens + cacheMissTokens)) * 100)
     : 0;
   const otherTokens = Math.max(0, totalTokens - promptTokens - completionTokens - reasoningTokens);
-  const totalBreakdown = promptTokens + completionTokens + reasoningTokens + otherTokens;
-  const safeBreakdown = Math.max(totalBreakdown, 1);
-  const promptPct = Math.min(100, (promptTokens / safeBreakdown) * usagePct);
-  const completionPct = Math.min(100, (completionTokens / safeBreakdown) * usagePct);
-  const reasoningPct = Math.min(100, (reasoningTokens / safeBreakdown) * usagePct);
+  const currentBreakdown = currentPromptTokens + currentCompletionTokens + currentReasoningTokens;
+  const displayPromptTokens = currentBreakdown > 0 ? currentPromptTokens : promptTokens;
+  const displayCompletionTokens = currentBreakdown > 0 ? currentCompletionTokens : completionTokens;
+  const displayReasoningTokens = currentBreakdown > 0 ? currentReasoningTokens : reasoningTokens;
+  const safeBreakdown = Math.max(displayPromptTokens + displayCompletionTokens + displayReasoningTokens, 1);
+  const promptPct = Math.min(100, (displayPromptTokens / safeBreakdown) * usagePct);
+  const completionPct = Math.min(100, (displayCompletionTokens / safeBreakdown) * usagePct);
+  const reasoningPct = Math.min(100, (displayReasoningTokens / safeBreakdown) * usagePct);
   const otherPct = Math.max(0, Math.min(100, usagePct - promptPct - completionPct - reasoningPct));
   const eventTimes = [
     ...readFiles.map((file) => file.time),

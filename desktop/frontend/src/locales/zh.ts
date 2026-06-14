@@ -633,6 +633,8 @@ export const zh: Record<DictKey, string> = {
   "settings.plannerMaxSteps": "规划轮数上限",
   "settings.plannerMaxStepsHint": "限制独立规划器在执行前读取文件和搜索代码的只读轮数。",
   "settings.plannerMaxStepsDisabledHint": "仅在“模型”页选择独立规划模型后生效。",
+  "settings.compactRatio": "自动压缩阈值",
+  "settings.compactRatioHint": "当前请求上下文接近模型窗口的该比例时，自动把较早对话摘要化并保留最近消息。压缩后右侧上下文统计会重新计算。",
   "settings.stepLimit.unlimited": "不限",
   "settings.stepLimit.custom": "自定义",
   "settings.keySet": "已设密钥",

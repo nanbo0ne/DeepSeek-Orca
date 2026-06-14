@@ -631,6 +631,8 @@ export const en = {
   "settings.plannerMaxSteps": "Planner step limit",
   "settings.plannerMaxStepsHint": "Caps the dedicated planner's read-only file and code search rounds before execution.",
   "settings.plannerMaxStepsDisabledHint": "Only applies when a dedicated planner model is selected on the Models page.",
+  "settings.compactRatio": "Auto compact threshold",
+  "settings.compactRatioHint": "When the current request approaches this share of the model context window, older turns are summarized while recent messages stay verbatim. The right context panel refreshes after compaction.",
   "settings.stepLimit.unlimited": "Unlimited",
   "settings.stepLimit.custom": "Custom",
   "settings.keySet": "key set",

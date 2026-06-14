@@ -190,10 +190,10 @@ func (c *Config) DesktopCheckUpdates() bool {
 
 // LSPConfig governs the optional Language Server Protocol tools (lsp_definition,
 // lsp_references, lsp_hover, lsp_diagnostics). Enabled defaults to true; the
-// servers themselves are never bundled 鈥?each resolves on PATH and the tool
+// servers themselves are never bundled - each resolves on PATH and the tool
 // returns an install hint when it is missing, so the capability is dormant until
 // the user installs a server. Servers overrides or extends the built-in language
-// 鈫?server map, keyed by language id (e.g. "go", "rust", "python").
+// -> server map, keyed by language id (e.g. "go", "rust", "python").
 type LSPConfig struct {
 	Enabled bool                 `toml:"enabled"`
 	Servers map[string]LSPServer `toml:"servers"`
@@ -219,7 +219,7 @@ type StatuslineConfig struct {
 	Command string `toml:"command"`
 }
 
-// CodegraphConfig governs the built-in CodeGraph MCP server 鈥?symbol/call-graph
+// CodegraphConfig governs the built-in CodeGraph MCP server - symbol/call-graph
 // code intelligence (tree-sitter + SQLite) that gives the agent codegraph_*
 // search / context / explore / trace / node tools. Enabled defaults to true so
 // upgrades keep it for existing configs; first-run scaffolds write enabled =
@@ -380,7 +380,7 @@ func (c *Config) NetworkProxySpec() netclient.ProxySpec {
 // Only for an auto-detected proxy (auto/env): that proxy is typically a
 // GFW-circumvention one not meant for domestic endpoints (e.g. mimo), so keep
 // them direct. An explicit proxy_mode = "custom" is the user saying "route
-// everything through this" 鈥?e.g. a mandatory corporate proxy 鈥?so honor it for
+// everything through this" - e.g. a mandatory corporate proxy - so honor it for
 // every provider; a custom-proxy user who wants a host direct uses
 // network.no_proxy instead (#3635).
 func (c *Config) directProxyHosts() []string {
@@ -411,7 +411,7 @@ func (c *Config) NetworkProxyMode() string {
 }
 
 // SkillsConfig configures skill discovery. Paths adds extra "custom"-scope skill
-// roots 鈥?each a directory of SKILL.md / <name>.md playbooks 鈥?scanned between
+// roots - each a directory of SKILL.md / <name>.md playbooks - scanned between
 // the project roots (.deepseek-orca/.agents/.agent/.claude under the workspace) and
 // the global roots. ExcludedPaths hides matching discovery roots without deleting
 // folders. ~, relative paths, and ${VAR} expansion are supported. DisabledSkills
@@ -626,7 +626,7 @@ type ProviderEntry struct {
 	// SupportedEfforts lists the /effort levels this provider/model exposes.
 	// When non-empty, it overrides the built-in defaults derived from
 	// Kind/BaseURL and makes /effort configurable. "auto" is the implicit
-	// prefix 鈥?always accepted. DefaultEffort resolves it; omit DefaultEffort
+	// prefix - always accepted. DefaultEffort resolves it; omit DefaultEffort
 	// (or set one outside this list) to fall back to SupportedEfforts[0].
 	SupportedEfforts []string `toml:"supported_efforts"`
 	// DefaultEffort is the /effort level used when the user picks "auto" or
@@ -651,7 +651,7 @@ func (e *ProviderEntry) ModelList() []string {
 
 // IsLikelyChatModel reports whether a model ID looks like a chat/completion
 // model rather than a specialised audio/vision/embedding model. It applies a
-// conservative name-based heuristic 鈥?the OpenAI-compatible /models API does
+// conservative name-based heuristic - the OpenAI-compatible /models API does
 // not return capability/modality metadata, so this is the most reliable
 // fallback until providers add such fields.
 //
@@ -662,7 +662,7 @@ func (e *ProviderEntry) ModelList() []string {
 //     and each token is compared against a set of known non-chat keywords.
 //
 // "voice" is intentionally absent from the non-chat set because it is too
-// broad 鈥?legitimate future chat models may include it in their name.
+// broad - legitimate future chat models may include it in their name.
 func IsLikelyChatModel(model string) bool {
 	model = strings.TrimSpace(model)
 	if model == "" {
@@ -789,7 +789,7 @@ func (c *Config) BashTimeoutSeconds() int {
 	return *c.Tools.BashTimeoutSeconds
 }
 
-// SearchConfig tunes the grep tool's engine. Engine is "auto" (default 鈥?use
+// SearchConfig tunes the grep tool's engine. Engine is "auto" (default - use
 // ripgrep when it's on PATH, else the native Go scanner), "native" (always Go),
 // or "rg" (require ripgrep; warn at startup and fall back to native if absent).
 // RgPath optionally points at a specific ripgrep binary instead of a PATH lookup.
@@ -829,12 +829,12 @@ type PluginEntry struct {
 	// Nil preserves historical behavior: configured servers start automatically.
 	AutoStart *bool `toml:"auto_start"`
 	// Tier selects how aggressively the server is connected at boot:
-	//   "eager"      鈥?blocks startup until the handshake completes; required for
+	//   "eager"      - blocks startup until the handshake completes; required for
 	//                  servers whose tools the system prompt depends on.
-	//   "lazy"       鈥?registers placeholder tools immediately (from on-disk
+	//   "lazy"       - registers placeholder tools immediately (from on-disk
 	//                  schema cache when available) and only spawns the real
 	//                  subprocess on first model use. Kept for legacy configs.
-	//   "background" 鈥?placeholder + spawn fired at boot but not waited on;
+	//   "background" - placeholder + spawn fired at boot but not waited on;
 	//                  swap happens once the spawn finishes.
 	// Empty defaults to "background" so enabled MCPs connect automatically
 	// without blocking chat. Unknown non-empty values fall back to "lazy".
@@ -918,7 +918,7 @@ func Default() *Config {
 			CompactRatio:      0.8,
 			CompactForceRatio: 0.9,
 		},
-		// Mode "ask" with no rules keeps `deepseek-orca run` autonomous (no TTY 鈫?ask
+		// Mode "ask" with no rules keeps `deepseek-orca run` autonomous (no TTY -> ask
 		// resolves to allow) while `deepseek-orca chat` prompts before writers. Users add
 		// deny/allow rules to harden or quiet specific tools.
 		Permissions: PermissionsConfig{Mode: "ask"},
@@ -1028,7 +1028,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
-	// in. An existing config 鈥?even one without a [codegraph] section 鈥?keeps the
+	// in. An existing config - even one without a [codegraph] section - keeps the
 	// built-in default (on), so an upgrade never silently drops code intelligence.
 	if !sawConfigFile {
 		cfg.Codegraph.Enabled = false
@@ -1038,7 +1038,7 @@ func LoadForRoot(root string) (*Config, error) {
 
 // backfillDeepSeekPro restores deepseek-pro for configs the pre-fix setup wizard
 // wrote with only deepseek-v4-flash: a keyless /models probe used to drop the Pro
-// SKU, leaving users unable to switch to it. In-memory only 鈥?the user's file is
+// SKU, leaving users unable to switch to it. In-memory only - the user's file is
 // untouched. Narrowly scoped to the official DeepSeek endpoint (which is known to
 // serve pro) so a custom flash-only deployment isn't given an entry that 404s.
 func backfillDeepSeekPro(c *Config) {
@@ -1588,7 +1588,7 @@ func ArchiveDir() string {
 
 // SessionDir is where chat sessions are persisted (one .jsonl per session).
 // Used by `deepseek-orca chat --continue` / `--resume` to find the recent ones. Empty
-// if the user config dir can't be resolved 鈥?sessions then aren't saved.
+// if the user config dir can't be resolved - sessions then aren't saved.
 func SessionDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -1622,7 +1622,7 @@ func WorkspaceSlug(absPath string) string {
 // handshake snapshots, plugin startup-latency telemetry. Lives beside the
 // existing dirs (UserConfigDir/deepseek-orca/...) so the whole deepseek-orca state tree
 // shares one root the user can wipe in a single rm. Empty when the OS dir is
-// unavailable 鈥?callers must tolerate that (caching is best-effort).
+// unavailable - callers must tolerate that (caching is best-effort).
 func CacheDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -1631,7 +1631,7 @@ func CacheDir() string {
 	return filepath.Join(dir, "deepseek-orca", "cache")
 }
 
-// MemoryUserDir returns the deepseek-orca user config root (鈥?deepseek-orca), under which
+// MemoryUserDir returns the deepseek-orca user config root (~/.config/deepseek-orca), under which
 // the user-global DEEPSEEK_ORCA.md and the per-project auto-memory store live. Empty
 // when the user config dir can't be resolved, which disables user-scoped memory.
 func MemoryUserDir() string {
@@ -1657,14 +1657,14 @@ func BotWorkspaceDir() string {
 // commands), in canonical-first order. .deepseek-orca is ours; .agents / .agent /
 // .claude let users drop in assets authored for other agent tools without moving
 // files. Shared so skills (internal/skill) and commands (CommandDirs) discover
-// the same set. Note: hooks are NOT scanned across these 鈥?a .claude/settings.json
+// the same set. Note: hooks are NOT scanned across these - a .claude/settings.json
 // uses a different hook schema that can't be parsed as ours, so hooks stay in
 // .deepseek-orca/settings.json (see internal/hook).
 var ConventionDirs = []string{".deepseek-orca", ".agents", ".agent", ".claude"}
 
 // conventionSubdirsAsc joins sub under each ConventionDir of base, in ascending
 // priority (reverse of ConventionDirs) so the canonical .deepseek-orca ends up the
-// highest-priority entry 鈥?command.Load lets a later directory win on a clash.
+// highest-priority entry - command.Load lets a later directory win on a clash.
 func conventionSubdirsAsc(base, sub string) []string {
 	out := make([]string, 0, len(ConventionDirs))
 	for i := len(ConventionDirs) - 1; i >= 0; i-- {
@@ -1675,9 +1675,9 @@ func conventionSubdirsAsc(base, sub string) []string {
 
 // CommandDirs returns the directories scanned for custom slash commands, lowest
 // priority first, so a later (more specific) directory overrides an earlier one
-// on a name clash. Order: home-dir convention dirs (~/.claude/commands 鈥?~/.deepseek-orca/commands),
+// on a name clash. Order: home-dir convention dirs (~/.claude/commands -> ~/.deepseek-orca/commands),
 // the legacy XDG user dir (~/.config/deepseek-orca/commands), then the project's
-// convention dirs (.claude/commands 鈥?.deepseek-orca/commands). Scanning the .claude /
+// convention dirs (.claude/commands -> .deepseek-orca/commands). Scanning the .claude /
 // .agents / .agent dirs lets commands authored for other agent tools (same .md +
 // frontmatter format) work here unchanged.
 func CommandDirs() []string {
@@ -1686,7 +1686,7 @@ func CommandDirs() []string {
 
 // CommandDirsForRoot is like CommandDirs but resolves the project convention
 // dirs under root instead of the current working directory. Global (home/XDG)
-// dirs are unchanged 鈥?they are always user-scoped.
+// dirs are unchanged - they are always user-scoped.
 func CommandDirsForRoot(root string) []string {
 	root = resolveRoot(root)
 	var dirs []string
@@ -1741,9 +1741,9 @@ func (c *Config) Provider(name string) (*ProviderEntry, bool) {
 
 // ResolveModel resolves a model reference to a provider entry whose Model is the
 // selected model string (a copy, so the config's lists stay intact). It accepts:
-//   - "provider/model" 鈥?that exact model under that provider;
-//   - a provider name   鈥?the provider's default model;
-//   - a bare model name 鈥?the (first) provider that lists it.
+//   - "provider/model" - that exact model under that provider;
+//   - a provider name   - the provider's default model;
+//   - a bare model name - the (first) provider that lists it.
 //
 // The returned entry is ready to build a provider from (NewProvider reads .Model),
 // so a single "vendor with many models" entry yields one instance per model
@@ -1765,14 +1765,14 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 			return &cp, true
 		}
 	}
-	// a provider name 鈫?its default model
+	// a provider name -> its default model
 	if e, found := c.Provider(ref); found {
 		cp := *e
 		cp.Model = e.DefaultModel()
 		applyResolvedModelPricing(&cp)
 		return &cp, true
 	}
-	// a bare model name 鈫?the provider that lists it
+	// a bare model name -> the provider that lists it
 	for i := range c.Providers {
 		if c.Providers[i].HasModel(ref) {
 			cp := c.Providers[i]
@@ -1814,7 +1814,7 @@ func (e *ProviderEntry) APIKey() string {
 	return os.Getenv(e.APIKeyEnv)
 }
 
-// Configured reports whether the provider's api_key_env is set 鈥?the same check
+// Configured reports whether the provider's api_key_env is set - the same check
 // Validate enforces, so pickers can filter on it.
 func (e *ProviderEntry) Configured() bool {
 	return e.APIKey() != ""

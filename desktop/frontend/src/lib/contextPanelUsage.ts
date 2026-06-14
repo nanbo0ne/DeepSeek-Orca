@@ -9,6 +9,11 @@ export interface ContextPanelUsageSummary {
   reasoningTokens: number;
   cacheHitTokens: number;
   cacheMissTokens: number;
+  currentPromptTokens: number;
+  currentCompletionTokens: number;
+  currentReasoningTokens: number;
+  currentCacheHitTokens: number;
+  currentCacheMissTokens: number;
 }
 
 interface ContextPanelUsageInput {
@@ -54,11 +59,17 @@ export function computeContextPanelUsage({
     positive(info?.cacheMissTokens) > 0
   );
 
-  const promptTokens = hasSessionBreakdown ? sessionPromptTokens : hasPanelBreakdown ? positive(info?.promptTokens) : inputTokensFromUsage(usage);
-  const completionTokens = hasSessionBreakdown ? sessionCompletionTokens : hasPanelBreakdown ? positive(info?.completionTokens) : positive(usage?.completionTokens);
-  const reasoningTokens = hasSessionBreakdown ? sessionReasoningTokens : hasPanelBreakdown ? positive(info?.reasoningTokens) : positive(usage?.reasoningTokens);
-  const cacheHitTokens = hasSessionBreakdown ? sessionCacheHitTokens : hasPanelBreakdown ? positive(info?.cacheHitTokens) : positive(usage?.cacheHitTokens);
-  const cacheMissTokens = hasSessionBreakdown ? sessionCacheMissTokens : hasPanelBreakdown ? positive(info?.cacheMissTokens) : positive(usage?.cacheMissTokens);
+  const currentPromptTokens = hasPanelBreakdown ? positive(info?.promptTokens) : inputTokensFromUsage(usage);
+  const currentCompletionTokens = hasPanelBreakdown ? positive(info?.completionTokens) : positive(usage?.completionTokens);
+  const currentReasoningTokens = hasPanelBreakdown ? positive(info?.reasoningTokens) : positive(usage?.reasoningTokens);
+  const currentCacheHitTokens = hasPanelBreakdown ? positive(info?.cacheHitTokens) : positive(usage?.cacheHitTokens);
+  const currentCacheMissTokens = hasPanelBreakdown ? positive(info?.cacheMissTokens) : positive(usage?.cacheMissTokens);
+
+  const promptTokens = hasSessionBreakdown ? sessionPromptTokens : currentPromptTokens;
+  const completionTokens = hasSessionBreakdown ? sessionCompletionTokens : currentCompletionTokens;
+  const reasoningTokens = hasSessionBreakdown ? sessionReasoningTokens : currentReasoningTokens;
+  const cacheHitTokens = hasSessionBreakdown ? sessionCacheHitTokens : currentCacheHitTokens;
+  const cacheMissTokens = hasSessionBreakdown ? sessionCacheMissTokens : currentCacheMissTokens;
 
   const totalTokens =
     positive(info?.totalTokens) ||
@@ -81,5 +92,10 @@ export function computeContextPanelUsage({
     reasoningTokens,
     cacheHitTokens,
     cacheMissTokens,
+    currentPromptTokens,
+    currentCompletionTokens,
+    currentReasoningTokens,
+    currentCacheHitTokens,
+    currentCacheMissTokens,
   };
 }

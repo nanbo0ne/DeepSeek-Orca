@@ -45,6 +45,7 @@ CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 - Agent 运行中可排队消息，也可用 `Ctrl+Enter` 直接引导当前轮。
 - Plan 模式与权限模式相互独立。
 - 上下文、token、缓存命中、请求数量、耗时和费用统计。
+- 自动上下文压缩，可在设置中调整触发阈值；压缩后右侧上下文窗口会重新计算。
 - DeepSeek 与 OpenAI-compatible provider。
 - 按 DeepSeek 官方接口约定处理 thinking mode。
 - MCP、Skill、Memory、CodeGraph 和 slash command。
@@ -57,7 +58,7 @@ CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 
 QQ 使用官方 Bot API，需要先在 QQ 机器人官方后台申请 App ID / App Secret，然后在桌面设置页填写并验证。
 
-微信使用 ClawBot / OpenClaw Weixin 风格的扫码登录流程。扫码确认后，DeepSeek-Orca 会保存本地 token，并自动验证 `getupdates` 是否可用。
+微信使用 ClawBot / OpenClaw Weixin 风格的扫码登录流程。扫码确认后，DeepSeek-Orca 会保存本地 token，并自动验证 `getupdates` 是否可用；数字型消息 ID、用户 ID 和 `context_token` 会自动兼容。
 
 飞书和 Lark 暂时置灰，不作为当前版本可用渠道。
 

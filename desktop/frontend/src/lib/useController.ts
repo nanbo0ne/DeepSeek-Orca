@@ -663,6 +663,12 @@ export function useController() {
         app.EffortForTab(targetTabId).then((effort) => dispatchTo(targetTabId, { type: "effort", effort })).catch(() => {});
         void refreshCheckpoints(targetTabId);
       }
+      if (e.kind === "compaction_done") {
+        app
+          .ContextUsageForTab(targetTabId)
+          .then((context) => dispatchTo(targetTabId, { type: "context", context }))
+          .catch(() => {});
+      }
       if (e.kind === "turn_done" || e.kind === "notice") {
         app.JobsForTab(targetTabId).then((jobs) => dispatchTo(targetTabId, { type: "jobs", jobs: asArray(jobs) })).catch(() => {});
       }

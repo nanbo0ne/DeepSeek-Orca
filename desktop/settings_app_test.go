@@ -129,7 +129,7 @@ func TestSetAgentParamsPersistsStepLimitsToUserConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
-	if err := app.SetAgentParams(0.35, 37, 9, "custom system"); err != nil {
+	if err := app.SetAgentParams(0.35, 37, 9, 0.45, 0.75, 0.88, "custom system"); err != nil {
 		t.Fatalf("SetAgentParams: %v", err)
 	}
 
@@ -140,6 +140,9 @@ func TestSetAgentParamsPersistsStepLimitsToUserConfig(t *testing.T) {
 	if view.Agent.Temperature != 0.35 || view.Agent.SystemPrompt != "custom system" {
 		t.Fatalf("Settings().Agent did not preserve other agent params: %+v", view.Agent)
 	}
+	if view.Agent.SoftCompactRatio != 0.45 || view.Agent.CompactRatio != 0.75 || view.Agent.CompactForceRatio != 0.88 {
+		t.Fatalf("Settings().Agent compact ratios = %+v, want 0.45/0.75/0.88", view.Agent)
+	}
 
 	cfg := config.LoadForEdit(config.UserConfigPath())
 	if cfg.Agent.MaxSteps != 37 || cfg.Agent.PlannerMaxSteps != 9 {
@@ -147,6 +150,9 @@ func TestSetAgentParamsPersistsStepLimitsToUserConfig(t *testing.T) {
 	}
 	if cfg.Agent.Temperature != 0.35 || cfg.Agent.SystemPrompt != "custom system" {
 		t.Fatalf("saved config did not preserve other agent params: %+v", cfg.Agent)
+	}
+	if cfg.Agent.SoftCompactRatio != 0.45 || cfg.Agent.CompactRatio != 0.75 || cfg.Agent.CompactForceRatio != 0.88 {
+		t.Fatalf("saved config compact ratios = %.2f/%.2f/%.2f, want 0.45/0.75/0.88", cfg.Agent.SoftCompactRatio, cfg.Agent.CompactRatio, cfg.Agent.CompactForceRatio)
 	}
 }
 

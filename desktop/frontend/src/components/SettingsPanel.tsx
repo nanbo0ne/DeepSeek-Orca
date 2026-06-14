@@ -708,6 +708,48 @@ function stepLimitLabel(value: number, t: ReturnType<typeof useT>): string {
   return value === 0 ? t("settings.stepLimit.unlimited") : String(value);
 }
 
+function CompactRatioControl({
+  value,
+  busy,
+  onChange,
+}: {
+  value: number;
+  busy: boolean;
+  onChange: (value: number) => void;
+}) {
+  const normalized = Math.round(clampNumber(value || 0.8, 0.2, 0.95) * 100);
+  const [draft, setDraft] = useState(normalized);
+  useEffect(() => setDraft(normalized), [normalized]);
+  const commit = (pct: number) => {
+    const next = Math.round(clampNumber(pct, 20, 95));
+    setDraft(next);
+    if (next !== normalized) onChange(next / 100);
+  };
+  return (
+    <div className="compact-ratio-control">
+      <input
+        className="compact-ratio-control__range"
+        type="range"
+        min={20}
+        max={95}
+        step={5}
+        value={draft}
+        disabled={busy}
+        onChange={(e) => setDraft(Number(e.target.value))}
+        onBlur={(e) => commit(Number(e.currentTarget.value))}
+        onMouseUp={(e) => commit(Number((e.currentTarget as HTMLInputElement).value))}
+        onTouchEnd={(e) => commit(Number((e.currentTarget as HTMLInputElement).value))}
+        onKeyUp={(e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") {
+            commit(Number((e.currentTarget as HTMLInputElement).value));
+          }
+        }}
+      />
+      <span className="compact-ratio-control__value">{draft}%</span>
+    </div>
+  );
+}
+
 function NetworkSection({ s, busy, apply }: SectionProps) {
   const t = useT();
   const savedNetwork = normalizeNetworkView(s.network);
@@ -1549,10 +1591,19 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
   const providerLabel = defaultProvider ? modelProviderLabel(defaultProvider, defaultProviderView, t) : t("common.none");
   const plannerLabel = plannerSelectRef || t("settings.plannerNone");
   const keyStatusLabel = defaultProviderView?.keySet ? t("settings.keySet") : t("settings.noKey");
-  const agent = s.agent ?? { temperature: 0, maxSteps: 0, plannerMaxSteps: 12, systemPrompt: "" };
-  const setAgentSteps = (maxSteps: number, plannerMaxSteps: number) => (
-    app.SetAgentParams(agent.temperature, maxSteps, plannerMaxSteps, agent.systemPrompt)
-  );
+  const agent = normalizeAgentView(s.agent);
+  const setAgentParams = (patch: Partial<typeof agent>) => {
+    const next = normalizeAgentView({ ...agent, ...patch });
+    return app.SetAgentParams(
+      next.temperature,
+      next.maxSteps,
+      next.plannerMaxSteps,
+      next.softCompactRatio,
+      next.compactRatio,
+      next.compactForceRatio,
+      next.systemPrompt,
+    );
+  };
 
   useEffect(() => {
     if (subtab !== "usage") return;
@@ -1678,7 +1729,7 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
                 value={agent.maxSteps}
                 presets={[0, 10, 25, 50]}
                 busy={busy}
-                onChange={(next) => void apply(() => setAgentSteps(next, agent.plannerMaxSteps))}
+                onChange={(next) => void apply(() => setAgentParams({ maxSteps: next }))}
               />
             </SettingsField>
             <SettingsField label={t("settings.plannerMaxSteps")} hint={plannerSelectRef ? t("settings.plannerMaxStepsHint") : t("settings.plannerMaxStepsDisabledHint")}>
@@ -1686,7 +1737,14 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
                 value={agent.plannerMaxSteps}
                 presets={[6, 12, 25, 0]}
                 busy={busy}
-                onChange={(next) => void apply(() => setAgentSteps(agent.maxSteps, next))}
+                onChange={(next) => void apply(() => setAgentParams({ plannerMaxSteps: next }))}
+              />
+            </SettingsField>
+            <SettingsField label={t("settings.compactRatio")} hint={t("settings.compactRatioHint")}>
+              <CompactRatioControl
+                value={agent.compactRatio}
+                busy={busy}
+                onChange={(next) => void apply(() => setAgentParams(compactRatioPatch(next)))}
               />
             </SettingsField>
           </SettingsSection>
@@ -3282,6 +3340,32 @@ function AppearanceSection({
       </SettingsField>
     </SettingsSection>
   );
+}
+
+function normalizeAgentView(agent: Partial<SettingsView["agent"]> | undefined) {
+  return {
+    temperature: Number.isFinite(agent?.temperature) ? Number(agent?.temperature) : 0,
+    maxSteps: Math.max(0, Math.floor(agent?.maxSteps ?? 0)),
+    plannerMaxSteps: Math.max(0, Math.floor(agent?.plannerMaxSteps ?? 12)),
+    softCompactRatio: clampNumber(agent?.softCompactRatio ?? 0.5, 0.1, 0.85),
+    compactRatio: clampNumber(agent?.compactRatio ?? 0.8, 0.2, 0.95),
+    compactForceRatio: clampNumber(agent?.compactForceRatio ?? 0.9, 0.3, 0.98),
+    systemPrompt: agent?.systemPrompt ?? "",
+  };
+}
+
+function compactRatioPatch(compactRatio: number) {
+  const trigger = clampNumber(compactRatio, 0.2, 0.95);
+  return {
+    compactRatio: trigger,
+    softCompactRatio: clampNumber(Math.min(trigger - 0.1, 0.5), 0.1, 0.85),
+    compactForceRatio: clampNumber(Math.max(trigger + 0.05, 0.9), 0.3, 0.98),
+  };
+}
+
+function clampNumber(v: number, min: number, max: number): number {
+  if (!Number.isFinite(v)) return min;
+  return Math.max(min, Math.min(max, v));
 }
 
 function textSizeName(size: TextSize, t: ReturnType<typeof useT>): string {

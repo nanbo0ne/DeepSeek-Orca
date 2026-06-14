@@ -55,6 +55,8 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe bot doctor
 - `deepseek-orca bot doctor`：检查机器人配置。
 - `deepseek-orca bot weixin-login`：保存微信 iLink / OpenClaw 登录 token。
 
+微信 iLink / OpenClaw 返回的数字型 `message_id`、`from_user_id`、`chat_id` 和 `context_token` 会自动按字符串兼容处理。
+
 会话中的常用 slash command：
 
 - `/init`：创建或更新项目指令。
@@ -108,6 +110,7 @@ deepseek-orca bot start --channels qq,weixin
 - 对写文件和命令执行提供权限规则。
 - Plan 模式支持先规划再执行。
 - 会话保存、恢复、分支、总结和回滚。
+- 自动上下文压缩，压缩阈值可通过 `[agent] compact_ratio` 调整。
 - 支持 DeepSeek 和 OpenAI-compatible provider。
 - 按模型能力处理 DeepSeek thinking mode。
 - MCP 外部工具集成。

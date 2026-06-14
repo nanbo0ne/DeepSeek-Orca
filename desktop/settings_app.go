@@ -74,10 +74,13 @@ type NetworkView struct {
 }
 
 type AgentView struct {
-	Temperature     float64 `json:"temperature"`
-	MaxSteps        int     `json:"maxSteps"`
-	PlannerMaxSteps int     `json:"plannerMaxSteps"`
-	SystemPrompt    string  `json:"systemPrompt"`
+	Temperature       float64 `json:"temperature"`
+	MaxSteps          int     `json:"maxSteps"`
+	PlannerMaxSteps   int     `json:"plannerMaxSteps"`
+	SystemPrompt      string  `json:"systemPrompt"`
+	SoftCompactRatio  float64 `json:"softCompactRatio"`
+	CompactRatio      float64 `json:"compactRatio"`
+	CompactForceRatio float64 `json:"compactForceRatio"`
 }
 
 type BotAllowlistView struct {
@@ -322,7 +325,7 @@ func (a *App) Settings() SettingsView {
 				Deny:  []string{},
 			},
 			Sandbox:           SandboxView{Bash: "enforce", AllowWrite: []string{}},
-			Agent:             AgentView{PlannerMaxSteps: 12},
+			Agent:             AgentView{PlannerMaxSteps: 12, SoftCompactRatio: 0.5, CompactRatio: 0.8, CompactForceRatio: 0.9},
 			Bot:               botSettingsView(config.BotConfig{}),
 			AutoPlan:          "off",
 			DesktopTheme:      "light",
@@ -367,7 +370,7 @@ func (a *App) Settings() SettingsView {
 				Password: cfg.Network.Proxy.Password,
 			},
 		},
-		Agent:             AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt},
+		Agent:             AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, SoftCompactRatio: compactRatioOrDefault(cfg.Agent.SoftCompactRatio, 0.5), CompactRatio: compactRatioOrDefault(cfg.Agent.CompactRatio, 0.8), CompactForceRatio: compactRatioOrDefault(cfg.Agent.CompactForceRatio, 0.9)},
 		Bot:               botSettingsView(cfg.Bot),
 		DesktopLanguage:   cfg.DesktopLanguage(),
 		DesktopTheme:      "light",
@@ -1353,14 +1356,53 @@ func (a *App) MigrateDesktopPreferences(language, theme, style string) error {
 
 // SetAgentParams updates sampling temperature, optional step guards, and the
 // base system prompt.
-func (a *App) SetAgentParams(temperature float64, maxSteps int, plannerMaxSteps int, systemPrompt string) error {
+func (a *App) SetAgentParams(temperature float64, maxSteps int, plannerMaxSteps int, softCompactRatio float64, compactRatio float64, compactForceRatio float64, systemPrompt string) error {
 	return a.applyConfigChange(func(c *config.Config) error {
 		c.Agent.Temperature = temperature
 		c.Agent.MaxSteps = maxSteps
 		c.Agent.PlannerMaxSteps = plannerMaxSteps
+		softCompactRatio, compactRatio, compactForceRatio = normalizeCompactRatios(softCompactRatio, compactRatio, compactForceRatio)
+		c.Agent.SoftCompactRatio = softCompactRatio
+		c.Agent.CompactRatio = compactRatio
+		c.Agent.CompactForceRatio = compactForceRatio
 		c.Agent.SystemPrompt = systemPrompt
 		return nil
 	})
+}
+
+func compactRatioOrDefault(v, def float64) float64 {
+	if v <= 0 {
+		return def
+	}
+	return v
+}
+
+func normalizeCompactRatios(soft, trigger, force float64) (float64, float64, float64) {
+	soft = clampFloat(compactRatioOrDefault(soft, 0.5), 0.1, 0.85)
+	trigger = clampFloat(compactRatioOrDefault(trigger, 0.8), 0.2, 0.95)
+	force = clampFloat(compactRatioOrDefault(force, 0.9), 0.3, 0.98)
+	if soft >= trigger {
+		soft = clampFloat(trigger-0.1, 0.1, 0.85)
+	}
+	if force <= trigger {
+		force = clampFloat(trigger+0.05, 0.3, 0.98)
+	}
+	if soft >= trigger {
+		soft = 0.5
+		trigger = 0.8
+		force = 0.9
+	}
+	return soft, trigger, force
+}
+
+func clampFloat(v, min, max float64) float64 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
 }
 
 // trimList drops blank entries from a string slice (and returns a non-nil slice).

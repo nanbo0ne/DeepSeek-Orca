@@ -116,5 +116,30 @@ eq(
   "keeps the real context snapshot when it is available",
 );
 
+{
+  const got = computeContextPanelUsage({
+    context: { used: 6000, window: 100000, sessionTokens: 50000 },
+    info: {
+      usedTokens: 6000,
+      windowTokens: 100000,
+      promptTokens: 5900,
+      completionTokens: 80,
+      totalTokens: 50000,
+      reasoningTokens: 20,
+      cacheHitTokens: 3000,
+      cacheMissTokens: 2900,
+      sessionPromptTokens: 42000,
+      sessionCompletionTokens: 7500,
+      sessionReasoningTokens: 500,
+      requestCount: 10,
+      readFiles: [],
+      changedFiles: [],
+    },
+  });
+  eq(got.promptTokens, 42000, "keeps persisted cumulative prompt tokens for metrics");
+  eq(got.currentPromptTokens, 5900, "keeps current prompt tokens for the context-window bar after compaction");
+  eq(got.usedTokens, 6000, "uses recalculated compacted context usage after compaction");
+}
+
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);
