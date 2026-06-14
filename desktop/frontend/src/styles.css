@@ -12456,7 +12456,7 @@ a[href] {
 }
 
 .app-chrome__tools--workspace-pressed .app-chrome__command {
-  animation: app-chrome-command-follow-toggle 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 @keyframes app-chrome-command-follow-toggle {
@@ -15963,6 +15963,12 @@ a[href] {
   background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 
+:root[data-theme-style] .app-chrome__panel-toggle:active,
+:root[data-theme-style] .app-chrome__panel-toggle:active::before,
+:root[data-theme-style] .app-chrome__panel-toggle:active svg {
+  transform: none;
+}
+
 :root[data-theme-style] .app-chrome__drag-surface {
   flex: 0 1 14px;
   min-width: 4px;
@@ -16092,6 +16098,15 @@ a[href] {
   max-width: 112px;
   flex: 0 1 112px;
   overflow: hidden;
+  transform: none;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    color var(--dur-fast);
+}
+
+:root[data-theme-style] .app-chrome__command:active {
+  transform: none;
 }
 
 :root[data-theme-style] .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:hover,
