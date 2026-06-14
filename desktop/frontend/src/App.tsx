@@ -74,13 +74,7 @@ import { blobToBase64, renderSessionImageBlob, renderSessionPdfBlob } from "./li
 import {
   applyTheme,
   clearLegacyThemePreference,
-  getTheme,
-  getThemeStyle,
-  isThemeStyle,
-  normalizeThemePreference,
-  normalizeThemeStyleForTheme,
   readLegacyThemePreference,
-  type Theme,
 } from "./lib/theme";
 import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from "./lib/textSize";
 import { useWindowStatePersistence } from "./lib/windowState";
@@ -96,9 +90,6 @@ const CHAT_MIN_WIDTH = 400;
 const CHAT_COMFORT_MIN_WIDTH = 560;
 const WORKSPACE_RESIZER_WIDTH = 8;
 
-function isThemeMode(value: string): value is Theme {
-  return value === "auto" || value === "light" || value === "dark";
-}
 const RIGHT_DOCK_TREE_DEFAULT_WIDTH = 300;
 const RIGHT_DOCK_TREE_MIN_WIDTH = 300;
 const RIGHT_DOCK_TREE_MAX_WIDTH = 560;
@@ -524,9 +515,9 @@ export default function App() {
 
   const applyDesktopPreferences = useCallback(
     (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage">) => {
-      const nextTheme = normalizeThemePreference(settings.desktopTheme);
-      const nextStyle = normalizeThemeStyleForTheme(settings.desktopThemeStyle, nextTheme);
-      applyTheme(nextTheme, nextStyle, { persist: false });
+      void settings.desktopTheme;
+      void settings.desktopThemeStyle;
+      applyTheme("light", "slate", { persist: false });
       setLocalePref(normalizeLangPref(settings.desktopLanguage));
     },
     [setLocalePref],
@@ -537,9 +528,11 @@ export default function App() {
     const syncDesktopPreferences = async () => {
       const legacyLanguage = readLegacyLangPref();
       const legacyTheme = readLegacyThemePreference();
-      if (legacyLanguage || legacyTheme.hasValue) {
-        await app.MigrateDesktopPreferences(legacyLanguage, legacyTheme.theme, legacyTheme.style);
+      if (legacyLanguage) {
+        await app.MigrateDesktopPreferences(legacyLanguage, "light", "slate");
         clearLegacyLangPref();
+      }
+      if (legacyTheme.hasValue) {
         clearLegacyThemePreference();
       }
       const settings = await app.Settings();
@@ -1066,32 +1059,6 @@ export default function App() {
       if (collaborationMode === "goal" && !goal.trim()) {
         applyGoal(trimmed);
         send(trimmed, `/goal ${submitText.trim()}`);
-        return;
-      }
-      const theme = /^\/theme(?:\s+(\S+))?$/.exec(trimmed);
-      if (theme) {
-        const arg = theme[1]?.toLowerCase();
-        if (!arg) {
-          const cur = getTheme();
-          notice(t("settings.themeCurrent", { theme: cur, style: getThemeStyle(cur) }));
-          return;
-        }
-        if (isThemeMode(arg)) {
-          const next = arg;
-          const style = getThemeStyle(next);
-          await app.SetDesktopAppearance(next, style);
-          applyTheme(next, style);
-          notice(t("settings.themeChanged", { theme: next, style }));
-          return;
-        }
-        if (isThemeStyle(arg)) {
-          const cur = getTheme();
-          await app.SetDesktopAppearance(cur, arg);
-          applyTheme(cur, arg);
-          notice(t("settings.themeChanged", { theme: cur, style: arg }));
-          return;
-        }
-        notice(t("settings.themeUnknown", { name: arg }), "warn");
         return;
       }
       if (runningRef.current) {

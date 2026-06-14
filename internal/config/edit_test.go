@@ -63,9 +63,9 @@ func TestUIThemeStyleNormalizes(t *testing.T) {
 		want string
 	}{
 		{"", ""},
-		{"AURORA", "aurora"},
-		{" carbon ", "carbon"},
-		{" pop-paint ", "pop"},
+		{"AURORA", "slate"},
+		{" carbon ", "slate"},
+		{" pop-paint ", "slate"},
 		{" nocturne ", "slate"},
 		{" glacier ", "slate"},
 		{"unknown", ""},
@@ -122,8 +122,8 @@ func TestDesktopPreferencesAreSeparateFromCLI(t *testing.T) {
 	if got := c.DesktopLanguage(); got != "en" {
 		t.Fatalf("desktop language = %q, want en", got)
 	}
-	if got := c.DesktopTheme(); got != "dark" {
-		t.Fatalf("desktop theme = %q, want dark", got)
+	if got := c.DesktopTheme(); got != "light" {
+		t.Fatalf("desktop theme = %q, want light", got)
 	}
 	if got := c.DesktopThemeStyle(); got != "slate" {
 		t.Fatalf("desktop theme style = %q, want slate", got)

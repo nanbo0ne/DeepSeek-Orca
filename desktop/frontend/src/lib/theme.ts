@@ -1,41 +1,39 @@
-// theme.ts manages the appearance override. The stylesheet follows the OS via
-// prefers-color-scheme unless data-theme forces "dark" or "light". DeepSeek-Orca
-// keeps a small set of visual directions. Theme (light/dark/auto) is separate
-// from style so each direction has both light and dark variants.
+// theme.ts keeps the desktop shell on the fixed DeepSeek-Orca light product
+// theme. Older versions exposed multiple modes/styles, so the helpers still
+// accept legacy inputs but normalize them to the single supported appearance.
 //
 // When running inside the Wails shell, applyTheme also syncs the native window
 // theme (title bar, traffic lights, etc.) so the OS chrome matches the webview.
 
 import {
-  WindowSetDarkTheme,
   WindowSetLightTheme,
-  WindowSetSystemDefaultTheme,
   WindowSetBackgroundColour,
 } from "../../wailsjs/runtime/runtime";
 
 export type Theme = "auto" | "light" | "dark";
 export type ResolvedTheme = Exclude<Theme, "auto">;
 
-export const THEME_STYLES = ["slate", "aurora", "carbon", "pop"] as const;
+export const THEME_STYLES = ["slate"] as const;
 
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 
-// Old style identifiers map to the closest new direction so settings stored
-// from previous versions still resolve to a valid value.
+// Old style identifiers resolve to the fixed default so stale local settings
+// cannot switch the app into another visual direction.
 const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
   graphite: "slate",
-  aurora: "aurora",
-  carbon: "carbon",
+  aurora: "slate",
+  carbon: "slate",
   nocturne: "slate",
-  amber: "pop",
-  ember: "pop",
+  amber: "slate",
+  ember: "slate",
   midnight: "slate",
   sandstone: "slate",
   porcelain: "slate",
   linen: "slate",
   glacier: "slate",
-  poppaint: "pop",
-  "pop-paint": "pop",
+  pop: "slate",
+  poppaint: "slate",
+  "pop-paint": "slate",
 };
 
 const DEFAULT_THEME_STYLE: ThemeStyle = "slate";
@@ -50,21 +48,8 @@ export function normalizeThemePreference(value: unknown): Theme {
   if (typeof value === "object" && value !== null) {
     return normalizeThemePreference((value as { mode?: unknown }).mode);
   }
-  if (typeof value !== "string") return DEFAULT_THEME;
-  switch (value) {
-    case "auto":
-      return "auto";
-    case "light":
-    case "focus":
-    case "forest":
-      return "light";
-    case "dark":
-    case "midnight":
-    case "contrast":
-      return "dark";
-    default:
-      return DEFAULT_THEME;
-  }
+  void value;
+  return DEFAULT_THEME;
 }
 
 export function isThemeStyle(value: unknown): value is ThemeStyle {
@@ -76,9 +61,8 @@ export function getTheme(): Theme {
 }
 
 export function getResolvedTheme(theme: Theme = getTheme()): ResolvedTheme {
-  if (theme === "light" || theme === "dark") return theme;
-  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches) return "light";
-  return "dark";
+  void theme;
+  return "light";
 }
 
 // Direction is orthogonal to theme, but keep this helper so callers that
@@ -108,23 +92,17 @@ export function applyTheme(theme: Theme, style: ThemeStyle = getThemeStyle(theme
   const root = document.documentElement;
   root.removeAttribute("data-theme-mode");
   root.removeAttribute("data-theme-scheme");
-  if (theme === "auto") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", theme);
+  root.setAttribute("data-theme", DEFAULT_THEME);
 
-  const nextStyle: ThemeStyle = isThemeStyle(style) ? style : DEFAULT_THEME_STYLE;
-  currentTheme = theme;
-  currentThemeStyle = nextStyle;
-  root.setAttribute("data-theme-style", nextStyle);
+  void theme;
+  void style;
+  currentTheme = DEFAULT_THEME;
+  currentThemeStyle = DEFAULT_THEME_STYLE;
+  root.setAttribute("data-theme-style", DEFAULT_THEME_STYLE);
 
   // Sync the native window theme (title bar, traffic lights) to match.
   if (typeof window !== "undefined" && window.runtime) {
-    if (theme === "auto") {
-      WindowSetSystemDefaultTheme();
-    } else if (theme === "light") {
-      WindowSetLightTheme();
-    } else if (theme === "dark") {
-      WindowSetDarkTheme();
-    }
+    WindowSetLightTheme();
   }
 
   void options;
@@ -141,16 +119,7 @@ export function readLegacyThemePreference(): { theme: Theme; style: ThemeStyle; 
     return { theme: DEFAULT_THEME, style: DEFAULT_THEME_STYLE, hasValue: false };
   }
   const hasValue = rawTheme !== null || rawStyle !== null;
-  let theme = DEFAULT_THEME;
-  if (rawTheme) {
-    try {
-      theme = normalizeThemePreference(JSON.parse(rawTheme) as unknown);
-    } catch {
-      theme = normalizeThemePreference(rawTheme);
-    }
-  }
-  const style = normalizeThemeStyleForTheme(rawStyle ?? undefined, theme);
-  return { theme, style, hasValue };
+  return { theme: DEFAULT_THEME, style: DEFAULT_THEME_STYLE, hasValue };
 }
 
 export function clearLegacyThemePreference(): void {
@@ -170,13 +139,7 @@ export function initTheme(): void {
   applyTheme(theme, getThemeStyle(theme), { persist: false });
 
   if (typeof window !== "undefined" && window.runtime) {
-    const resolved = getResolvedTheme(theme);
-    if (resolved === "light") {
-      // Light shell: matches the DeepSeek-Orca blue-white surface.
-      WindowSetBackgroundColour(246, 250, 255, 255);
-    } else {
-      // Dark shell: matches :root --bg (#090a0c).
-      WindowSetBackgroundColour(9, 10, 12, 255);
-    }
+    // Light shell: matches the DeepSeek-Orca blue-white surface.
+    WindowSetBackgroundColour(246, 250, 255, 255);
   }
 }

@@ -39,6 +39,7 @@ CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 
 - 项目会话、置顶会话和独立工作区。
 - Codex 风格的桌面侧栏与会话切换。
+- 统一浅色 DeepSeek-Orca 外观，设置中只保留字号与字体。
 - workflow、工具调用、审批和推理过程默认折叠。
 - AI 文件改动支持事务级回滚。
 - Agent 运行中可排队消息，也可用 `Ctrl+Enter` 直接引导当前轮。

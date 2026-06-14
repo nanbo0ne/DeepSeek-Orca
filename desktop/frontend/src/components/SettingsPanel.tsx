@@ -5,16 +5,6 @@ import { useDeferredClose } from "../lib/useMountTransition";
 import { app, openExternal } from "../lib/bridge";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
-import {
-  THEME_STYLES,
-  applyTheme,
-  getTheme,
-  getThemeStyle,
-  normalizeThemePreference,
-  normalizeThemeStyleForTheme,
-  type Theme,
-  type ThemeStyle,
-} from "../lib/theme";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
 import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProviderView, SettingsTab, SettingsView } from "../lib/types";
@@ -35,8 +25,6 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
   const [s, setS] = useState<SettingsView | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [theme, setThemeState] = useState<Theme>(getTheme());
-  const [themeStyle, setThemeStyleState] = useState<ThemeStyle>(() => getThemeStyle(getTheme()));
   const [textSize, setTextSizeState] = useState<TextSize>(getTextSize());
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(getFontFamily());
   const [tab, setTab] = useState<SettingsTab>(initialTab === "providers" ? "models" : initialTab ?? "general");
@@ -48,14 +36,6 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
     void reload();
     if (initialTab) setTab(initialTab === "providers" ? "models" : initialTab);
   }, [initialTab]);
-  useEffect(() => {
-    if (!s) return;
-    const nextTheme = normalizeThemePreference(s.desktopTheme);
-    const nextStyle = normalizeThemeStyleForTheme(s.desktopThemeStyle, nextTheme);
-    setThemeState(nextTheme);
-    setThemeStyleState(nextStyle);
-  }, [s?.desktopTheme, s?.desktopThemeStyle]);
-
   // apply runs a mutation, re-reads settings, and refreshes the topbar/model.
   const apply = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -134,20 +114,8 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
                 {tab === "appearance" && s && (
                   <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}>
                     <AppearanceSection
-                      theme={theme}
-                      themeStyle={themeStyle}
                       textSize={textSize}
                       fontFamily={fontFamily}
-                      onTheme={(nextTheme) => {
-                        applyTheme(nextTheme, themeStyle, { persist: false });
-                        setThemeState(nextTheme);
-                        void apply(() => app.SetDesktopAppearance(nextTheme, themeStyle));
-                      }}
-                      onThemeStyle={(style) => {
-                        applyTheme(theme, style, { persist: false });
-                        setThemeStyleState(style);
-                        void apply(() => app.SetDesktopAppearance(theme, style));
-                      }}
                       onTextSize={(size) => {
                         applyTextSize(size);
                         setTextSizeState(size);
@@ -550,8 +518,8 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     autoApproveTools: Boolean(view.autoApproveTools ?? view.bypass),
     bypass: Boolean(view.autoApproveTools ?? view.bypass),
     desktopLanguage: normalizeLangPref(view.desktopLanguage),
-    desktopTheme: normalizeThemePreference(view.desktopTheme),
-    desktopThemeStyle: normalizeThemeStyleForTheme(view.desktopThemeStyle, normalizeThemePreference(view.desktopTheme)),
+    desktopTheme: "light",
+    desktopThemeStyle: "slate",
     closeBehavior: normalizeCloseBehavior(view.closeBehavior),
     checkUpdates: view.checkUpdates !== false,
   };
@@ -3272,86 +3240,20 @@ function SandboxSection({ s, busy, apply }: SectionProps) {
   );
 }
 
-// Visual-style metadata for the appearance theme cards. The two surface
-// swatches + accent are read from CSS variables at render time so they always
-// reflect the live token values for the currently-resolved light/dark mode.
-const THEME_STYLE_META: Record<ThemeStyle, { name: string; zh: DictKey; note: DictKey; desc: DictKey }> = {
-  slate: { name: "Slate", zh: "settings.style.slate.zh", note: "settings.style.slate.note", desc: "settings.style.slate.desc" },
-  aurora: { name: "Aurora", zh: "settings.style.aurora.zh", note: "settings.style.aurora.note", desc: "settings.style.aurora.desc" },
-  carbon: { name: "Carbon", zh: "settings.style.carbon.zh", note: "settings.style.carbon.note", desc: "settings.style.carbon.desc" },
-  pop: { name: "Pop Paint", zh: "settings.style.pop.zh", note: "settings.style.pop.note", desc: "settings.style.pop.desc" },
-};
-
 function AppearanceSection({
-  theme,
-  themeStyle,
   textSize,
   fontFamily,
-  onTheme,
-  onThemeStyle,
   onTextSize,
   onFontFamily,
 }: {
-  theme: Theme;
-  themeStyle: ThemeStyle;
   textSize: TextSize;
   fontFamily: FontFamily;
-  onTheme: (t: Theme) => void;
-  onThemeStyle: (style: ThemeStyle) => void;
   onTextSize: (size: TextSize) => void;
   onFontFamily: (font: FontFamily) => void;
 }) {
   const t = useT();
-  const themeOptions: Theme[] = ["auto", "light", "dark"];
   return (
     <SettingsSection title={t("settings.appearance")}>
-      <SettingsField label={t("settings.theme")}>
-        <div className="set-seg">
-          {themeOptions.map((opt) => (
-            <button
-              key={opt}
-              className={`set-seg__btn${theme === opt ? " set-seg__btn--on" : ""}`}
-              onClick={() => onTheme(opt)}
-            >
-              {themeName(opt, t)}
-            </button>
-          ))}
-        </div>
-      </SettingsField>
-      <SettingsField label={t("settings.themeStyle")} stacked>
-        <div className="theme-card-grid">
-          {THEME_STYLES.map((opt) => {
-            const meta = THEME_STYLE_META[opt];
-            const selected = themeStyle === opt;
-            return (
-              <button
-                key={opt}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                className={`theme-card${selected ? " theme-card--on" : ""}`}
-                onClick={() => onThemeStyle(opt)}
-              >
-                <span className="theme-card__head">
-                  <span className="theme-card__name">
-                    {meta.name} <span className="theme-card__zh">{t(meta.zh)}</span>
-                  </span>
-                  <span className="theme-card__tag">{t(meta.note)}</span>
-                </span>
-                <span className="theme-card__swatches" data-theme-style-card={opt}>
-                  <span className="theme-card__swatch theme-card__swatch--bg" />
-                  <span className="theme-card__swatch theme-card__swatch--surface" />
-                  <span className="theme-card__swatch theme-card__swatch--accent" />
-                </span>
-                <span className="theme-card__desc">{t(meta.desc)}</span>
-                <span className="theme-card__check" aria-hidden="true">
-                  <Check size={13} strokeWidth={3} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </SettingsField>
       <SettingsField label={t("settings.textSize")}>
         <div className="set-seg">
           {TEXT_SIZES.map((size) => (
@@ -3380,17 +3282,6 @@ function AppearanceSection({
       </SettingsField>
     </SettingsSection>
   );
-}
-
-function themeName(theme: Theme, t: ReturnType<typeof useT>): string {
-  switch (theme) {
-    case "auto":
-      return t("settings.themeAuto");
-    case "light":
-      return t("settings.themeLight");
-    case "dark":
-      return t("settings.themeDark");
-  }
 }
 
 function textSizeName(size: TextSize, t: ReturnType<typeof useT>): string {

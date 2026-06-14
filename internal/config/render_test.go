@@ -102,8 +102,8 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	if got.Desktop.Language != "en" {
 		t.Errorf("desktop.language = %q, want en", got.Desktop.Language)
 	}
-	if got.Desktop.Theme != "dark" {
-		t.Errorf("desktop.theme = %q, want dark", got.Desktop.Theme)
+	if got.Desktop.Theme != "light" {
+		t.Errorf("desktop.theme = %q, want light", got.Desktop.Theme)
 	}
 	if got.Desktop.ThemeStyle != "slate" {
 		t.Errorf("desktop.theme_style = %q, want slate", got.Desktop.ThemeStyle)
@@ -359,7 +359,7 @@ func TestScopedRenderSeparatesUserAndProjectConfig(t *testing.T) {
 	c.Desktop.CheckUpdates = boolPtr(false)
 
 	user := RenderTOMLForScope(c, RenderScopeUser)
-	for _, want := range []string{"config_version = 2", "[desktop]", `theme = "dark"`, `close_behavior = "background"`, `check_updates = false`, "[notifications]"} {
+	for _, want := range []string{"config_version = 2", "[desktop]", `theme = "light"`, `close_behavior = "background"`, `check_updates = false`, "[notifications]"} {
 		if !strings.Contains(user, want) {
 			t.Fatalf("user render missing %q:\n%s", want, user)
 		}

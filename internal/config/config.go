@@ -63,7 +63,7 @@ type Config struct {
 // DesktopConfig so desktop preferences cannot alter terminal output or prompts.
 type UIConfig struct {
 	Theme          string `toml:"theme"`           // auto|dark|light; empty resolves to auto
-	ThemeStyle     string `toml:"theme_style"`     // slate|aurora|carbon|pop; legacy aliases normalize to the closest style
+	ThemeStyle     string `toml:"theme_style"`     // slate; legacy aliases normalize to the default style
 	ShortcutLayout string `toml:"shortcut_layout"` // classic|desktop; accepted for compatibility
 	CloseBehavior  string `toml:"close_behavior"`  // legacy desktop close behavior; prefer desktop.close_behavior
 	ShowReasoning  bool   `toml:"show_reasoning"`  // Ctrl+O / /verbose: show thinking text in CLI; false = collapsed
@@ -74,8 +74,8 @@ type UIConfig struct {
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
 	Language       string   `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
-	Theme          string   `toml:"theme"`           // auto|dark|light; empty resolves to dark
-	ThemeStyle     string   `toml:"theme_style"`     // slate|aurora|carbon|pop; legacy aliases normalize to the closest style
+	Theme          string   `toml:"theme"`           // desktop is fixed to light; legacy values are ignored
+	ThemeStyle     string   `toml:"theme_style"`     // desktop is fixed to slate; legacy values are ignored
 	CloseBehavior  string   `toml:"close_behavior"`  // quit|background; desktop window close behavior
 	CheckUpdates   *bool    `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
 	ProviderAccess []string `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
@@ -122,14 +122,8 @@ func (c *Config) UIShortcutLayout() string {
 
 func normalizeThemeStyle(style string) string {
 	switch strings.ToLower(strings.TrimSpace(style)) {
-	case "slate", "graphite", "midnight", "sandstone", "porcelain", "linen", "glacier", "nocturne":
+	case "slate", "graphite", "midnight", "sandstone", "porcelain", "linen", "glacier", "nocturne", "aurora", "carbon", "pop", "pop-paint", "poppaint", "amber", "ember":
 		return "slate"
-	case "aurora":
-		return "aurora"
-	case "carbon":
-		return "carbon"
-	case "pop", "pop-paint", "poppaint", "amber", "ember":
-		return "pop"
 	default:
 		return ""
 	}
@@ -158,25 +152,16 @@ func (c *Config) DesktopLanguage() string {
 	}
 }
 
-// DesktopTheme normalizes desktop.theme. New desktop users default to the light
-// slate product look; an explicit auto/light/dark is preserved.
+// DesktopTheme normalizes desktop.theme. The desktop shell now uses one fixed
+// DeepSeek-Orca product look, so legacy auto/dark values are ignored.
 func (c *Config) DesktopTheme() string {
-	switch strings.ToLower(strings.TrimSpace(c.Desktop.Theme)) {
-	case "auto":
-		return "auto"
-	case "light":
-		return "light"
-	case "dark":
-		return "dark"
-	default:
-		return "light"
-	}
+	return "light"
 }
 
-// DesktopThemeStyle normalizes desktop.theme_style. Empty means the frontend
-// chooses the default style for the resolved desktop theme.
+// DesktopThemeStyle normalizes desktop.theme_style to the single supported
+// visual direction.
 func (c *Config) DesktopThemeStyle() string {
-	return normalizeThemeStyle(c.Desktop.ThemeStyle)
+	return "slate"
 }
 
 // DesktopCloseBehavior normalizes the desktop close-window preference. It falls

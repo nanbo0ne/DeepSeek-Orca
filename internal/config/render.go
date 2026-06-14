@@ -83,9 +83,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		} else {
 			b.WriteString("# language = \"zh\"   # desktop UI language; empty/auto = browser/OS auto-detect\n")
 		}
-		fmt.Fprintf(&b, "theme = %q   # desktop only: auto|dark|light\n", c.DesktopTheme())
+		fmt.Fprintf(&b, "theme = %q   # desktop fixed product theme; legacy values are ignored\n", c.DesktopTheme())
 		if style := c.DesktopThemeStyle(); style != "" {
-			fmt.Fprintf(&b, "theme_style = %q   # desktop accent palette\n", style)
+			fmt.Fprintf(&b, "theme_style = %q   # desktop fixed visual style\n", style)
 		} else {
 			b.WriteString("# theme_style = \"slate\"   # DeepSeek-Orca native blue-white style\n")
 		}

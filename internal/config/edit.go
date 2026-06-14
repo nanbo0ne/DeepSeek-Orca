@@ -155,25 +155,9 @@ func (c *Config) SetDesktopLanguage(lang string) error {
 // SetDesktopAppearance sets desktop-only theme preferences. It must not affect
 // CLI theme settings or provider-visible request data.
 func (c *Config) SetDesktopAppearance(theme, style string) error {
-	switch strings.ToLower(strings.TrimSpace(theme)) {
-	case "auto":
-		c.Desktop.Theme = "auto"
-	case "light":
-		c.Desktop.Theme = "light"
-	case "", "dark":
-		c.Desktop.Theme = "dark"
-	default:
-		return fmt.Errorf("desktop theme %q: must be auto|dark|light", theme)
-	}
-	if strings.TrimSpace(style) == "" {
-		c.Desktop.ThemeStyle = ""
-		return nil
-	}
-	normalized := normalizeThemeStyle(style)
-	if normalized == "" {
-		return fmt.Errorf("desktop theme style %q: must be slate", style)
-	}
-	c.Desktop.ThemeStyle = normalized
+	_, _ = theme, style
+	c.Desktop.Theme = "light"
+	c.Desktop.ThemeStyle = "slate"
 	return nil
 }
 

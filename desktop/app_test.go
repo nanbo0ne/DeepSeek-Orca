@@ -253,7 +253,7 @@ close_behavior = "quit"
 	}
 
 	got := NewApp().Settings()
-	if got.DesktopLanguage != "en" || got.DesktopTheme != "dark" || got.DesktopThemeStyle != "slate" || got.CloseBehavior != "background" {
+	if got.DesktopLanguage != "en" || got.DesktopTheme != "light" || got.DesktopThemeStyle != "slate" || got.CloseBehavior != "background" {
 		t.Fatalf("desktop settings = lang:%q theme:%q style:%q close:%q, want user-level desktop prefs", got.DesktopLanguage, got.DesktopTheme, got.DesktopThemeStyle, got.CloseBehavior)
 	}
 }
@@ -869,7 +869,7 @@ func TestMigrateDesktopPreferencesDoesNotOverwriteExistingConfig(t *testing.T) {
 	}
 
 	got := config.LoadForEdit(config.UserConfigPath())
-	if got.DesktopLanguage() != "en" || got.DesktopTheme() != "dark" || got.DesktopThemeStyle() != "slate" {
+	if got.DesktopLanguage() != "en" || got.DesktopTheme() != "light" || got.DesktopThemeStyle() != "slate" {
 		t.Fatalf("desktop prefs after migration = lang:%q theme:%q style:%q, want existing config preserved", got.DesktopLanguage(), got.DesktopTheme(), got.DesktopThemeStyle())
 	}
 }

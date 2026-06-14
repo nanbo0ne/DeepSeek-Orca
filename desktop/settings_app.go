@@ -326,7 +326,7 @@ func (a *App) Settings() SettingsView {
 			Bot:               botSettingsView(config.BotConfig{}),
 			AutoPlan:          "off",
 			DesktopTheme:      "light",
-			DesktopThemeStyle: "graphite",
+			DesktopThemeStyle: "slate",
 			CloseBehavior:     "background",
 			CheckUpdates:      true,
 			ExpandThinking:    false,
@@ -370,8 +370,8 @@ func (a *App) Settings() SettingsView {
 		Agent:             AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt},
 		Bot:               botSettingsView(cfg.Bot),
 		DesktopLanguage:   cfg.DesktopLanguage(),
-		DesktopTheme:      cfg.DesktopTheme(),
-		DesktopThemeStyle: cfg.DesktopThemeStyle(),
+		DesktopTheme:      "light",
+		DesktopThemeStyle: "slate",
 		CloseBehavior:     cfg.DesktopCloseBehavior(),
 		CheckUpdates:      cfg.DesktopCheckUpdates(),
 		ExpandThinking:    cfg.Desktop.ExpandThinking,
@@ -1317,7 +1317,7 @@ func (a *App) SetTrayLocale(locale string) error {
 // SetDesktopAppearance updates only desktop theme preferences. It does not
 // rebuild the active controller and must stay out of provider-visible requests.
 func (a *App) SetDesktopAppearance(theme, style string) error {
-	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopAppearance(theme, style) })
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopAppearance("light", "slate") })
 }
 
 // SetDesktopCheckUpdates updates only the desktop startup update-check
@@ -1343,7 +1343,7 @@ func (a *App) MigrateDesktopPreferences(language, theme, style string) error {
 			}
 		}
 		if strings.TrimSpace(c.Desktop.Theme) == "" && strings.TrimSpace(c.Desktop.ThemeStyle) == "" {
-			if err := c.SetDesktopAppearance(theme, style); err != nil {
+			if err := c.SetDesktopAppearance("light", "slate"); err != nil {
 				return err
 			}
 		}
