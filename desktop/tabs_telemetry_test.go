@@ -72,9 +72,49 @@ func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	app := &App{tabs: map[string]*WorkspaceTab{"tab": tab}}
 	if context := app.ContextUsageForTab("tab"); context.SessionTokens != 140 {
 		t.Fatalf("context usage session tokens = %d, want 140", context.SessionTokens)
+	} else if context.SessionCacheHitTokens != 70 || context.SessionCacheMissTokens != 30 {
+		t.Fatalf("context cache tokens = hit %d miss %d, want 70/30", context.SessionCacheHitTokens, context.SessionCacheMissTokens)
+	} else if context.SessionCost <= 0 || context.SessionCurrency == "" {
+		t.Fatalf("context cost = %f %q, want positive non-empty currency", context.SessionCost, context.SessionCurrency)
 	}
 	if panel := app.ContextPanel("tab"); panel.TotalTokens != 140 {
 		t.Fatalf("context panel total tokens = %d, want 140", panel.TotalTokens)
+	}
+}
+
+func TestContextUsageRestoresLastUsageEventAfterRestart(t *testing.T) {
+	tab := &WorkspaceTab{}
+	tab.recordUsage(event.Event{
+		Usage: &provider.Usage{
+			PromptTokens:     100,
+			CompletionTokens: 40,
+			TotalTokens:      140,
+			CacheHitTokens:   70,
+			CacheMissTokens:  30,
+			ReasoningTokens:  10,
+		},
+		SessionHit:  70,
+		SessionMiss: 30,
+		Pricing:     &provider.Pricing{CacheHit: 1, Input: 2, Output: 3, Currency: "楼"},
+	})
+	snapshot := tab.telemetrySnapshot()
+
+	restored := &WorkspaceTab{
+		ID:                   "tab",
+		readTelemetry:        snapshot.ReadFiles,
+		usageTelemetry:       snapshot.Usage,
+		usageTelemetryEvents: snapshot.UsageEvents,
+	}
+	app := &App{tabs: map[string]*WorkspaceTab{"tab": restored}}
+	context := app.ContextUsageForTab("tab")
+	if context.TotalTokens != 140 || context.PromptTokens != 100 || context.CompletionTokens != 40 || context.ReasoningTokens != 10 {
+		t.Fatalf("restored last usage = %+v, want latest event tokens", context)
+	}
+	if context.CacheHitTokens != 70 || context.CacheMissTokens != 30 || context.SessionCacheHitTokens != 70 || context.SessionCacheMissTokens != 30 {
+		t.Fatalf("restored cache = %+v, want latest and session cache", context)
+	}
+	if context.SessionCost <= 0 || context.SessionCurrency == "" {
+		t.Fatalf("restored cost = %f %q, want persisted cost with currency", context.SessionCost, context.SessionCurrency)
 	}
 }
 

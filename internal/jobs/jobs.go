@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"deepseek-orca/internal/event"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
 	"deepseek-orca/internal/nilutil"
 )
 
@@ -195,8 +196,8 @@ func (m *Manager) Output(id string) (text string, status Status, ok bool) {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	full := j.buf.String()
-	text = full[j.readOffset:]
+	full := j.buf.Bytes()
+	text = fileenc.DecodeText(full[j.readOffset:])
 	j.readOffset = len(full)
 	// A task job streams nothing to the buffer — its answer lands in result. Once
 	// it is terminal with no buffered output, surface that result once so a task's
@@ -292,7 +293,7 @@ func (m *Manager) results(targets []*Job) []Result {
 		j.mu.Lock()
 		text := j.result
 		if text == "" {
-			text = j.buf.String()
+			text = fileenc.DecodeText(j.buf.Bytes())
 		}
 		out = append(out, Result{ID: j.ID, Kind: j.Kind, Label: j.Label, Status: j.status, Output: text})
 		j.mu.Unlock()

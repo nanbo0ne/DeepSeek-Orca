@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	fileenc "deepseek-orca/internal/fileutil/encoding"
 	"deepseek-orca/internal/jobs"
 	"deepseek-orca/internal/sandbox"
 	"deepseek-orca/internal/tool"
@@ -182,7 +183,7 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 	// Kill the group so those don't accumulate into an OOM (#3702). On cancel/
 	// timeout setKillTree's Cancel already did this; this covers normal exit.
 	reapTree(cmd)
-	out := buf.String()
+	out := fileenc.DecodeText(buf.Bytes())
 
 	if errors.Is(context.Cause(runCtx), errBashTimeout) {
 		return out, fmt.Errorf("command timed out (> %s)", timeout)

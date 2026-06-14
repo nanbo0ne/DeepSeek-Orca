@@ -1726,6 +1726,24 @@ type ContextInfo struct {
 	Window        int     `json:"window"`
 	SessionTokens int     `json:"sessionTokens"`
 	CompactRatio  float64 `json:"compactRatio,omitempty"`
+
+	PromptTokens     int `json:"promptTokens,omitempty"`
+	CompletionTokens int `json:"completionTokens,omitempty"`
+	TotalTokens      int `json:"totalTokens,omitempty"`
+	ReasoningTokens  int `json:"reasoningTokens,omitempty"`
+	CacheHitTokens   int `json:"cacheHitTokens,omitempty"`
+	CacheMissTokens  int `json:"cacheMissTokens,omitempty"`
+
+	SessionPromptTokens     int     `json:"sessionPromptTokens,omitempty"`
+	SessionCompletionTokens int     `json:"sessionCompletionTokens,omitempty"`
+	SessionReasoningTokens  int     `json:"sessionReasoningTokens,omitempty"`
+	SessionCacheHitTokens   int     `json:"sessionCacheHitTokens,omitempty"`
+	SessionCacheMissTokens  int     `json:"sessionCacheMissTokens,omitempty"`
+	RequestCount            int     `json:"requestCount,omitempty"`
+	ElapsedMs               int64   `json:"elapsedMs,omitempty"`
+	SessionCost             float64 `json:"sessionCost,omitempty"`
+	SessionCurrency         string  `json:"sessionCurrency,omitempty"`
+	SessionCostUsd          float64 `json:"sessionCostUsd,omitempty"`
 }
 
 // ContextUsage returns the latest context-window gauge numbers.
@@ -1742,15 +1760,46 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 	}
 	a.mu.RUnlock()
 
-	var sessionTokens int
+	var info ContextInfo
 	if tab != nil {
-		sessionTokens = tab.telemetrySnapshot().Usage.TotalTokens
+		telemetry := tab.telemetrySnapshot()
+		usage := telemetry.Usage
+		info.SessionTokens = usage.TotalTokens
+		info.SessionPromptTokens = usage.PromptTokens
+		info.SessionCompletionTokens = usage.CompletionTokens
+		info.SessionReasoningTokens = usage.ReasoningTokens
+		info.SessionCacheHitTokens = usage.CacheHitTokens
+		info.SessionCacheMissTokens = usage.CacheMissTokens
+		info.RequestCount = usage.RequestCount
+		info.ElapsedMs = usage.ElapsedMs
+		info.SessionCost = usage.SessionCost
+		info.SessionCurrency = usage.SessionCurrency
+		info.SessionCostUsd = usage.SessionCostUsd
+		if last, ok := lastUsageTelemetryEvent(telemetry.UsageEvents); ok {
+			info.PromptTokens = last.PromptTokens
+			info.CompletionTokens = last.CompletionTokens
+			info.TotalTokens = last.TotalTokens
+			info.ReasoningTokens = last.ReasoningTokens
+			info.CacheHitTokens = last.CacheHitTokens
+			info.CacheMissTokens = last.CacheMissTokens
+		}
 	}
 	if ctrl == nil {
-		return ContextInfo{SessionTokens: sessionTokens}
+		return info
 	}
 	used, window := ctrl.ContextSnapshot()
-	return ContextInfo{Used: used, Window: window, SessionTokens: sessionTokens, CompactRatio: ctrl.CompactRatio()}
+	info.Used = used
+	info.Window = window
+	info.CompactRatio = ctrl.CompactRatio()
+	if u := ctrl.LastUsage(); u != nil {
+		info.PromptTokens = u.PromptTokens
+		info.CompletionTokens = u.CompletionTokens
+		info.TotalTokens = u.TotalTokens
+		info.ReasoningTokens = u.ReasoningTokens
+		info.CacheHitTokens = u.CacheHitTokens
+		info.CacheMissTokens = u.CacheMissTokens
+	}
+	return info
 }
 
 // BalanceInfo is the wallet-balance readout for the status bar. Available is true

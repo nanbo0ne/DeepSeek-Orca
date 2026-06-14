@@ -116,6 +116,33 @@ function usageTotalTokens(usage?: WireUsage): number {
   return Math.max(0, promptTokens + usage.completionTokens);
 }
 
+function usageFromContext(context: State["context"], fallback?: WireUsage): WireUsage | undefined {
+  const sessionHit = context.sessionCacheHitTokens ?? fallback?.sessionCacheHitTokens ?? 0;
+  const sessionMiss = context.sessionCacheMissTokens ?? fallback?.sessionCacheMissTokens ?? 0;
+  const promptTokens = context.promptTokens ?? fallback?.promptTokens ?? context.sessionPromptTokens ?? 0;
+  const completionTokens = context.completionTokens ?? fallback?.completionTokens ?? 0;
+  const totalTokens = context.totalTokens ?? fallback?.totalTokens ?? Math.max(0, promptTokens + completionTokens);
+  const cacheHitTokens = context.cacheHitTokens ?? fallback?.cacheHitTokens ?? sessionHit;
+  const cacheMissTokens = context.cacheMissTokens ?? fallback?.cacheMissTokens ?? sessionMiss;
+  const reasoningTokens = context.reasoningTokens ?? fallback?.reasoningTokens ?? 0;
+  if (promptTokens + completionTokens + totalTokens + cacheHitTokens + cacheMissTokens + reasoningTokens + sessionHit + sessionMiss <= 0) {
+    return fallback;
+  }
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    cacheHitTokens,
+    cacheMissTokens,
+    reasoningTokens,
+    sessionCacheHitTokens: sessionHit,
+    sessionCacheMissTokens: sessionMiss,
+    cost: fallback?.cost,
+    costUsd: fallback?.costUsd,
+    currency: fallback?.currency ?? context.sessionCurrency,
+  };
+}
+
 function sameMeta(a?: Meta, b?: Meta): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
@@ -451,7 +478,14 @@ export function reducer(s: State, a: Action): State {
       const sessionTokens = typeof a.context.sessionTokens === "number"
         ? Math.max(0, a.context.sessionTokens)
         : s.sessionTokens;
-      return { ...s, context: a.context, sessionTokens };
+      const usage = usageFromContext(a.context, s.usage);
+      const sessionCost = typeof a.context.sessionCost === "number" && a.context.sessionCost > 0
+        ? a.context.sessionCost
+        : typeof a.context.sessionCostUsd === "number" && a.context.sessionCostUsd > 0
+          ? a.context.sessionCostUsd
+          : s.sessionCost;
+      const sessionCurrency = a.context.sessionCurrency || usage?.currency || s.sessionCurrency || "楼";
+      return { ...s, context: a.context, usage, sessionTokens, sessionCost, sessionCurrency };
     }
     case "balance": return { ...s, balance: a.balance };
     case "effort": return { ...s, effort: a.effort };

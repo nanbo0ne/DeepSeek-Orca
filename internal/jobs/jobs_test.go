@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"deepseek-orca/internal/event"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func waitFor(t *testing.T, cond func() bool) {
@@ -74,6 +75,27 @@ func TestOutputStreamsIncrementally(t *testing.T) {
 	}
 	if !strings.Contains(txt, "second") || strings.Contains(txt, "first") {
 		t.Errorf("incremental output = %q, want only the new 'second' chunk", txt)
+	}
+}
+
+func TestOutputDecodesGB18030(t *testing.T) {
+	m := NewManager(event.Discard)
+	defer m.Close()
+
+	want := "\u7834\u89e3\u5668\u8bf4\u660e.txt"
+	gb, _ := simplifiedchinese.GB18030.NewEncoder().String(want)
+	j := m.Start("bash", "", func(_ context.Context, out io.Writer) (string, error) {
+		_, _ = out.Write([]byte(gb))
+		return "", nil
+	})
+	m.Wait(context.Background(), []string{j.ID}, 5)
+
+	text, status, ok := m.Output(j.ID)
+	if !ok || status != Done {
+		t.Fatalf("Output after done: ok=%v status=%s", ok, status)
+	}
+	if text != want {
+		t.Fatalf("decoded output = %q, want %q", text, want)
 	}
 }
 

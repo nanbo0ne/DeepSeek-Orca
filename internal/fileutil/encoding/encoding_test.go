@@ -122,6 +122,14 @@ func TestDecodeGB18030(t *testing.T) {
 	}
 }
 
+func TestDecodeTextGB18030(t *testing.T) {
+	want := "\u7834\u89e3\u5668\u8bf4\u660e.txt\n\u7f51\u76d8\u6765\u6e90.url"
+	gb, _ := simplifiedchinese.GB18030.NewEncoder().String(want)
+	if got := DecodeText([]byte(gb)); got != want {
+		t.Errorf("DecodeText GB18030 = %q", got)
+	}
+}
+
 func TestDecodeLossyUTF8(t *testing.T) {
 	in := []byte{0xFF, 0xFE, 'a'}
 	out := Decode(in, LossyUTF8)

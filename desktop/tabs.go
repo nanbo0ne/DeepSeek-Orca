@@ -120,6 +120,15 @@ type tabTelemetrySnapshot struct {
 	UsageEvents []usageTelemetryEvent `json:"usageEvents,omitempty"`
 }
 
+func lastUsageTelemetryEvent(events []usageTelemetryEvent) (usageTelemetryEvent, bool) {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].PromptTokens+events[i].CompletionTokens+events[i].TotalTokens+events[i].CacheHitTokens+events[i].CacheMissTokens+events[i].ReasoningTokens > 0 {
+			return events[i], true
+		}
+	}
+	return usageTelemetryEvent{}, false
+}
+
 func cloneStringPtr(v *string) *string {
 	if v == nil {
 		return nil

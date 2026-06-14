@@ -282,6 +282,23 @@ export interface ContextInfo {
   window: number;
   sessionTokens: number;
   compactRatio?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  reasoningTokens?: number;
+  cacheHitTokens?: number;
+  cacheMissTokens?: number;
+  sessionPromptTokens?: number;
+  sessionCompletionTokens?: number;
+  sessionReasoningTokens?: number;
+  sessionCacheHitTokens?: number;
+  sessionCacheMissTokens?: number;
+  requestCount?: number;
+  elapsedMs?: number;
+  sessionCost?: number;
+  sessionCurrency?: string;
+  // Deprecated compatibility alias. Prefer sessionCost + sessionCurrency.
+  sessionCostUsd?: number;
 }
 
 export interface Meta {

@@ -7,6 +7,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 	"unicode/utf8"
 
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -141,6 +142,18 @@ func Decode(data []byte, enc Kind) []byte {
 	// UTF8 and LossyUTF8 both pass through — LossyUTF8 is already
 	// "best effort" and Go strings can hold arbitrary bytes.
 	return data
+}
+
+// DecodeText converts arbitrary command/file output bytes into a valid UTF-8
+// string. It preserves valid UTF-8 exactly, otherwise it tries the same CJK-
+// friendly detection used by file tools and finally replaces undecodable bytes.
+func DecodeText(data []byte) string {
+	if utf8.Valid(data) {
+		return string(data)
+	}
+	enc, raw := Detect(data)
+	decoded := Decode(raw, enc)
+	return strings.ToValidUTF8(string(decoded), "\uFFFD")
 }
 
 // Decoder returns a streaming transform.Transformer for the given encoding,
