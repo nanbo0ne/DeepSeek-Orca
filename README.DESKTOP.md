@@ -8,7 +8,7 @@ DeepSeek-Orca Desktop 是一个 Windows 桌面 AI 编程 Agent。它把项目会
 
 1. 下载 Windows 安装器：
 
-   [DeepSeek-Orca-Setup-1.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.13/DeepSeek-Orca-Setup-1.0.13-windows-amd64.exe)
+   [DeepSeek-Orca-windows-amd64-installer.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.13/DeepSeek-Orca-windows-amd64-installer.exe)
 
 2. 双击安装器，阅读并同意许可协议，选择安装目录。
 3. 启动 DeepSeek-Orca Desktop。
