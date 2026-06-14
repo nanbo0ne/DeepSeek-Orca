@@ -4,14 +4,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
 
-// BuildSessionKey 根据 Hermes 模式生成稳定的 session key：
-//   - DM：按 chat 隔离（同一 DM 会话共享历史）
-//   - 群聊：按 user 隔离（每人独立会话）
-//   - thread：共享（thread 内所有人共享上下文）
+// BuildSessionKey returns a stable key for the remote IM conversation.
+//
+//   - DM: one shared session per direct chat.
+//   - Group/guild: isolate by user inside the group.
+//   - Thread: share one session inside the thread.
 func BuildSessionKey(src SessionSource) string {
 	var scope string
 	switch src.ChatType {
@@ -36,8 +38,8 @@ func BuildSessionKey(src SessionSource) string {
 	return hex.EncodeToString(h[:])[:16]
 }
 
-// slashCommands 是绕过忙碌队列的命令集合。
 var slashCommands = map[string]bool{
+	"/start":   true,
 	"/stop":    true,
 	"/new":     true,
 	"/reset":   true,
@@ -48,7 +50,8 @@ var slashCommands = map[string]bool{
 	"/help":    true,
 }
 
-// IsSlashBypass 判断消息是否为绕过队列的斜杠命令。
+// IsSlashBypass reports whether text is a management command that must bypass
+// the per-session turn queue.
 func IsSlashBypass(text string) bool {
 	if len(text) == 0 {
 		return false
@@ -63,21 +66,19 @@ func IsSlashBypass(text string) bool {
 	return slashCommands[cmd]
 }
 
-// pendingTurn 是等待执行的一轮对话。
 type pendingTurn struct {
 	msg       InboundMessage
 	timestamp time.Time
 }
 
-// SessionManager 管理 session 级别的并发控制：同一 session 同时只跑一个任务。
+// SessionManager keeps only one running task per selected bot session.
 type SessionManager struct {
 	mu       sync.Mutex
-	active   map[string]bool          // session key -> 是否正在运行
-	pending  map[string][]pendingTurn // session key -> 等待队列
+	active   map[string]bool
+	pending  map[string][]pendingTurn
 	debounce time.Duration
 }
 
-// NewSessionManager 创建一个新的 session 管理器。debounce 是消息合并窗口。
 func NewSessionManager(debounce time.Duration) *SessionManager {
 	if debounce <= 0 {
 		debounce = 1500 * time.Millisecond
@@ -89,23 +90,18 @@ func NewSessionManager(debounce time.Duration) *SessionManager {
 	}
 }
 
-// TryAcquire 尝试获取 session 锁。如果 session 正忙且消息非绕过命令，返回 false。
-// 返回 (acquired, merged) — merged 为 true 表示消息已合并到等待队列。
 func (sm *SessionManager) TryAcquire(key string, msg InboundMessage) (acquired bool, merged bool) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	if sm.active[key] {
-		// 绕过命令立即返回 true（让调用方直接处理）
 		if IsSlashBypass(msg.Text) {
 			return true, false
 		}
-		// 合并到等待队列（debounce 合并：同时段内同 session 多条消息取最新）
 		queue := sm.pending[key]
 		if len(queue) > 0 {
 			last := &queue[len(queue)-1]
 			if msg.Text != "" && time.Since(last.timestamp) < sm.debounce {
-				// 合并：替换最后一条的 text（连续输入合并为一次 turn）
 				if last.msg.Text != "" {
 					last.msg.Text = last.msg.Text + "\n" + msg.Text
 				} else {
@@ -124,7 +120,6 @@ func (sm *SessionManager) TryAcquire(key string, msg InboundMessage) (acquired b
 	return true, false
 }
 
-// Release 释放 session 锁，返回等待队列中的下一条消息（合并后）。
 func (sm *SessionManager) Release(key string) *InboundMessage {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -136,38 +131,31 @@ func (sm *SessionManager) Release(key string) *InboundMessage {
 		return nil
 	}
 
-	// 取出等待队列，合并其中所有消息
 	var merged *InboundMessage
 	for i := range queue {
 		if merged == nil {
 			m := queue[i].msg
 			merged = &m
-		} else {
-			if queue[i].msg.Text != "" {
-				merged.Text = merged.Text + "\n" + queue[i].msg.Text
-			}
+		} else if queue[i].msg.Text != "" {
+			merged.Text = strings.TrimSpace(merged.Text + "\n" + queue[i].msg.Text)
 		}
 	}
 	delete(sm.pending, key)
-	// active 保持 true，因为调用方会立即用 merged 消息开始新 turn
 	return merged
 }
 
-// IsActive 返回 session 是否有正在运行的任务。
 func (sm *SessionManager) IsActive(key string) bool {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	return sm.active[key]
 }
 
-// ActiveCount 返回当前活跃 session 数。
 func (sm *SessionManager) ActiveCount() int {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	return len(sm.active)
 }
 
-// ForceRelease 强制释放 session（用于 session 关闭或错误恢复）。
 func (sm *SessionManager) ForceRelease(key string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()

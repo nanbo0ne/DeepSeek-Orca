@@ -11,7 +11,7 @@ import (
 	"deepseek-orca/internal/event"
 )
 
-// renderSink 将 DeepSeek-Orca 事件流渲染为平台消息。
+// renderSink renders DeepSeek-Orca event streams into platform messages.
 type renderSink struct {
 	ctx      context.Context
 	adapter  Adapter
@@ -22,11 +22,10 @@ type renderSink struct {
 	ctrl     *control.Controller
 	onAsk    func(event.Ask)
 
-	// 渲染缓冲
 	buf        strings.Builder
 	thinking   strings.Builder
 	inThinking bool
-	toolNames  map[string]string // tool ID -> name
+	toolNames  map[string]string
 	lastFlush  time.Time
 }
 
@@ -53,26 +52,22 @@ func (s *renderSink) Emit(e event.Event) {
 		s.toolNames = make(map[string]string)
 
 	case event.Reasoning:
-		if !s.inThinking {
-			s.inThinking = true
-		}
+		s.inThinking = true
 		s.thinking.WriteString(e.Text)
 
 	case event.Text:
-		if s.inThinking {
-			s.inThinking = false
-		}
+		s.inThinking = false
 		s.buf.WriteString(e.Text)
 		s.maybeFlush()
 
 	case event.Message:
-		// full message received, do nothing extra
+		// Full message received; streaming text has already been emitted.
 
 	case event.ToolDispatch:
 		s.toolNames[e.Tool.ID] = e.Tool.Name
-		txt := fmt.Sprintf("\n🔧 执行工具: %s", e.Tool.Name)
+		txt := fmt.Sprintf("\n[工具] 执行：%s", e.Tool.Name)
 		if e.Tool.ReadOnly {
-			txt += " (只读)"
+			txt += "（只读）"
 		}
 		s.buf.WriteString(txt)
 		s.maybeFlush()
@@ -83,14 +78,13 @@ func (s *renderSink) Emit(e event.Event) {
 			name = e.Tool.ID
 		}
 		if e.Tool.Err != "" {
-			fmt.Fprintf(&s.buf, "\n❌ %s 出错: %s", name, e.Tool.Err)
+			fmt.Fprintf(&s.buf, "\n[失败] %s 出错：%s", name, e.Tool.Err)
 		} else {
-			// 截断输出
 			output := e.Tool.Output
 			if len(output) > 500 {
-				output = output[:500] + "\n... (已截断)"
+				output = output[:500] + "\n...（已截断）"
 			}
-			fmt.Fprintf(&s.buf, "\n✅ %s 完成", name)
+			fmt.Fprintf(&s.buf, "\n[完成] %s", name)
 			if output != "" {
 				fmt.Fprintf(&s.buf, "\n```\n%s\n```", output)
 			}
@@ -98,12 +92,10 @@ func (s *renderSink) Emit(e event.Event) {
 		s.maybeFlush()
 
 	case event.ToolProgress:
-		// 流式输出，不单独渲染
 		s.maybeFlush()
 
 	case event.ApprovalRequest:
-		// 发送审批请求
-		approvalText := fmt.Sprintf("⚠️ 需要批准操作:\n工具: %s\n操作: %s\n\nID: `%s`\n用 /approve %s 批准，/deny %s 拒绝。",
+		approvalText := fmt.Sprintf("需要批准操作\n工具：%s\n操作：%s\n\nID：`%s`\n使用 `/approve %s` 批准，或 `/deny %s` 拒绝。",
 			e.Approval.Tool, e.Approval.Subject, e.Approval.ID, e.Approval.ID, e.Approval.ID)
 		msg := OutboundMessage{
 			ChatID:       s.chatID,
@@ -123,24 +115,23 @@ func (s *renderSink) Emit(e event.Event) {
 		if s.onAsk != nil {
 			s.onAsk(e.Ask)
 		}
-		// 发送问答请求
 		var qb strings.Builder
-		qb.WriteString("❓ 请回答以下问题:\n")
+		qb.WriteString("请回答以下问题：\n")
 		for i, q := range e.Ask.Questions {
 			fmt.Fprintf(&qb, "\n**%d. %s**\n", i+1, q.Prompt)
 			for j, opt := range q.Options {
 				fmt.Fprintf(&qb, "  %d. %s", j+1, opt.Label)
 				if opt.Description != "" {
-					fmt.Fprintf(&qb, " — %s", opt.Description)
+					fmt.Fprintf(&qb, " - %s", opt.Description)
 				}
 				qb.WriteString("\n")
 			}
 			if q.Multi {
-				qb.WriteString("  (可多选)\n")
+				qb.WriteString("  （可多选，用逗号分隔）\n")
 			}
 		}
-		fmt.Fprintf(&qb, "\nID: `%s`", e.Ask.ID)
-		fmt.Fprintf(&qb, "\n用 /answer %s <选项编号或文本> 回答。", e.Ask.ID)
+		fmt.Fprintf(&qb, "\nID：`%s`", e.Ask.ID)
+		fmt.Fprintf(&qb, "\n使用 `/answer %s <选项编号或文本>` 回答。", e.Ask.ID)
 		msg := OutboundMessage{
 			ChatID:       s.chatID,
 			ChatType:     s.chatType,
@@ -153,17 +144,14 @@ func (s *renderSink) Emit(e event.Event) {
 		_ = s.send(msg)
 
 	case event.TurnDone:
-		// 刷新缓冲
 		s.flush()
-		if e.Err != nil {
-			if !strings.Contains(e.Err.Error(), "context canceled") {
-				_ = s.send(OutboundMessage{
-					ChatID:       s.chatID,
-					ChatType:     s.chatType,
-					Text:         fmt.Sprintf("❌ 执行出错: %v", e.Err),
-					ReplyToMsgID: s.replyTo,
-				})
-			}
+		if e.Err != nil && !strings.Contains(e.Err.Error(), "context canceled") {
+			_ = s.send(OutboundMessage{
+				ChatID:       s.chatID,
+				ChatType:     s.chatType,
+				Text:         fmt.Sprintf("执行出错：%v", e.Err),
+				ReplyToMsgID: s.replyTo,
+			})
 		}
 
 	case event.Notice:
@@ -171,7 +159,7 @@ func (s *renderSink) Emit(e event.Event) {
 			_ = s.send(OutboundMessage{
 				ChatID:       s.chatID,
 				ChatType:     s.chatType,
-				Text:         fmt.Sprintf("⚠️ %s", e.Text),
+				Text:         fmt.Sprintf("提示：%s", e.Text),
 				ReplyToMsgID: s.replyTo,
 			})
 		}
@@ -180,7 +168,7 @@ func (s *renderSink) Emit(e event.Event) {
 		_ = s.send(OutboundMessage{
 			ChatID:       s.chatID,
 			ChatType:     s.chatType,
-			Text:         "🔄 正在压缩上下文...",
+			Text:         "正在压缩上下文...",
 			ReplyToMsgID: s.replyTo,
 		})
 	}
@@ -225,7 +213,7 @@ func approvalCard(a event.Approval, chatType ChatType) *InteractiveCard {
 	return &InteractiveCard{
 		Header: "需要批准操作",
 		Elements: []InteractiveCardElement{
-			{Tag: "markdown", Content: fmt.Sprintf("**工具**: %s\n\n**操作**: %s\n\nID: `%s`", a.Tool, a.Subject, a.ID)},
+			{Tag: "markdown", Content: fmt.Sprintf("**工具**：%s\n\n**操作**：%s\n\nID：`%s`", a.Tool, a.Subject, a.ID)},
 			{Tag: "action", Extra: map[string]any{
 				"actions": []map[string]any{
 					{"tag": "button", "text": map[string]string{"tag": "plain_text", "content": "允许一次"}, "type": "primary", "value": cardActionValue("/approve "+a.ID, chatType)},

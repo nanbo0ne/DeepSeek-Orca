@@ -4,8 +4,15 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
+
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 // fakeAdapter 是一个内存中的假适配器，用于测试 BotGateway。
@@ -191,5 +198,114 @@ func TestGatewayAllowAll(t *testing.T) {
 
 	if !gw.checkAllowlist(PlatformQQ, InboundMessage{Platform: PlatformQQ, ChatType: ChatDM, UserID: "any_user"}) {
 		t.Error("allow_all should allow everyone")
+	}
+}
+
+func TestGatewayStartListsRecentSessions(t *testing.T) {
+	fa := newFakeAdapter(PlatformQQ, "fake-qq")
+	cfg := GatewayConfig{
+		Enabled:   map[Platform]bool{PlatformQQ: true},
+		Allowlist: AllowlistConfig{AllowAll: true},
+		SessionLister: func(limit int) ([]sessionChoice, error) {
+			return []sessionChoice{
+				{Number: 1, Title: "修复登录", Location: "proj-a", Turns: 3},
+				{Number: 2, Title: "解释代码", Location: "独立工作区", Turns: 1},
+			}, nil
+		},
+	}
+	gw := NewGateway(cfg, map[Platform]Adapter{PlatformQQ: fa}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	gw.handleMessage(context.Background(), PlatformQQ, fa, InboundMessage{
+		ChatType:  ChatDM,
+		ChatID:    "chat-1",
+		UserID:    "user-1",
+		Text:      "/start",
+		MessageID: "msg-1",
+	})
+
+	sent := fa.sentMessages()
+	if len(sent) != 1 {
+		t.Fatalf("sent count = %d, want 1", len(sent))
+	}
+	if !strings.Contains(sent[0].Text, "1. 修复登录") || !strings.Contains(sent[0].Text, "2. 解释代码") {
+		t.Fatalf("/start list text missing sessions: %q", sent[0].Text)
+	}
+}
+
+func TestGatewayStartReportsEmptySessions(t *testing.T) {
+	fa := newFakeAdapter(PlatformWeixin, "fake-weixin")
+	cfg := GatewayConfig{
+		Enabled:       map[Platform]bool{PlatformWeixin: true},
+		Allowlist:     AllowlistConfig{AllowAll: true},
+		SessionLister: func(limit int) ([]sessionChoice, error) { return nil, nil },
+	}
+	gw := NewGateway(cfg, map[Platform]Adapter{PlatformWeixin: fa}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	gw.handleMessage(context.Background(), PlatformWeixin, fa, InboundMessage{
+		ChatType:  ChatDM,
+		ChatID:    "chat-empty",
+		UserID:    "user-1",
+		Text:      "/start",
+		MessageID: "msg-1",
+	})
+
+	sent := fa.sentMessages()
+	if len(sent) != 1 || !strings.Contains(sent[0].Text, "暂无可恢复的对话") {
+		t.Fatalf("empty list response = %#v", sent)
+	}
+}
+
+func TestGatewaySelectsListedSessionAndShowsAssistantTail(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	sess := agent.NewSession("sys")
+	sess.Add(provider.Message{Role: provider.RoleUser, Content: "第一条问题"})
+	sess.Add(provider.Message{Role: provider.RoleAssistant, Content: "这是 AI 的一段比较长的回复，用来确认机器人进入历史会话之后，会把最后一段回复的结尾发送给用户。"})
+	if err := sess.Save(path); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	fa := newFakeAdapter(PlatformFeishu, "fake-feishu")
+	buildCalls := 0
+	cfg := GatewayConfig{
+		Enabled:   map[Platform]bool{PlatformFeishu: true},
+		Allowlist: AllowlistConfig{AllowAll: true},
+		SessionLister: func(limit int) ([]sessionChoice, error) {
+			return []sessionChoice{{
+				Number:        1,
+				Path:          path,
+				Title:         "历史调试",
+				Location:      "proj-a",
+				WorkspaceRoot: dir,
+				Turns:         1,
+				LastAssistant: "…最后一段回复的结尾发送给用户。",
+			}}, nil
+		},
+		BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+			buildCalls++
+			return control.New(control.Options{SessionDir: dir, SessionPath: path, Sink: sink, Label: "test"}), nil
+		},
+	}
+	gw := NewGateway(cfg, map[Platform]Adapter{PlatformFeishu: fa}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	msg := InboundMessage{ChatType: ChatDM, ChatID: "chat-1", UserID: "user-1", MessageID: "msg-1"}
+	msg.Text = "/start"
+	gw.handleMessage(context.Background(), PlatformFeishu, fa, msg)
+	msg.Text = "1"
+	msg.MessageID = "msg-2"
+	gw.handleMessage(context.Background(), PlatformFeishu, fa, msg)
+
+	sent := fa.sentMessages()
+	if len(sent) != 2 {
+		t.Fatalf("sent count = %d, want 2: %#v", len(sent), sent)
+	}
+	if !strings.Contains(sent[1].Text, "已进入：历史调试") || !strings.Contains(sent[1].Text, "最后一段回复的结尾") {
+		t.Fatalf("selection response = %q", sent[1].Text)
+	}
+	if buildCalls != 1 {
+		t.Fatalf("build calls = %d, want 1", buildCalls)
+	}
+	key := controllerKeyForSession(path)
+	if _, ok := gw.controllers[key]; !ok {
+		t.Fatalf("selected controller %q not registered", key)
 	}
 }
