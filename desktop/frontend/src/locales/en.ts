@@ -988,6 +988,7 @@ export const en = {
   "turnActions.rewind": "Rollback",
   "transcript.showEarlierHistory": "Show {n} earlier turns",
   "transcript.toolCount": "{n} tools",
+  "transcript.followLatest": "Follow latest output",
   "notice.info": "Notice",
   "notice.warning": "Warning",
   "steer.kind": "Guidance",

@@ -109,13 +109,6 @@ export const initialState: State = {
   seq: 0,
 };
 
-function usageTotalTokens(usage?: WireUsage): number {
-  if (!usage) return 0;
-  if (usage.totalTokens > 0) return usage.totalTokens;
-  const promptTokens = usage.promptTokens || usage.cacheHitTokens + usage.cacheMissTokens;
-  return Math.max(0, promptTokens + usage.completionTokens);
-}
-
 function usageFromContext(context: State["context"], fallback?: WireUsage): WireUsage | undefined {
   const sessionHit = context.sessionCacheHitTokens ?? fallback?.sessionCacheHitTokens ?? 0;
   const sessionMiss = context.sessionCacheMissTokens ?? fallback?.sessionCacheMissTokens ?? 0;
@@ -387,11 +380,9 @@ function applyEvent(s: State, e: WireEvent): State {
         : 0;
       const used = usagePromptTokens > 0 ? usagePromptTokens : s.context.used;
       const turnTokens = s.turnTokens + (e.usage?.completionTokens ?? 0);
-      const sessionTokens = s.sessionTokens + usageTotalTokens(e.usage);
-      const usageCost = e.usage?.cost ?? e.usage?.costUsd ?? 0;
-      const sessionCost = s.sessionCost + usageCost;
+      const sessionTokens = Math.max(0, s.context.sessionTokens ?? s.sessionTokens, s.sessionTokens);
       const sessionCurrency = e.usage?.currency || s.sessionCurrency || "¥";
-      return { ...s, usage: e.usage, context: { ...s.context, used, sessionTokens }, turnTokens, sessionTokens, sessionCost, sessionCurrency };
+      return { ...s, usage: e.usage, context: { ...s.context, used, sessionTokens }, turnTokens, sessionTokens, sessionCurrency };
     }
     case "notice":
       return { ...s, running: s.turnActive ? s.running : false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "" }] };
@@ -484,7 +475,7 @@ export function reducer(s: State, a: Action): State {
         : typeof a.context.sessionCostUsd === "number" && a.context.sessionCostUsd > 0
           ? a.context.sessionCostUsd
           : s.sessionCost;
-      const sessionCurrency = a.context.sessionCurrency || usage?.currency || s.sessionCurrency || "楼";
+      const sessionCurrency = a.context.sessionCurrency || usage?.currency || s.sessionCurrency || "¥";
       return { ...s, context: a.context, usage, sessionTokens, sessionCost, sessionCurrency };
     }
     case "balance": return { ...s, balance: a.balance };

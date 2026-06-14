@@ -53,5 +53,31 @@ eq(guided.items.filter((it) => it.kind === "user").length, 1, "guidance is not c
 const duplicateSteer = reducer(guided, { type: "event", e: { kind: "steer", text: "please keep going" } as WireEvent });
 eq(duplicateSteer.items.filter((it) => it.kind === "steer").length, 1, "backend steer confirmation does not duplicate guidance");
 
+const persistedTotals = reducer(
+  { ...initialState, context: { used: 8000, window: 128000, sessionTokens: 10000 }, sessionTokens: 10000, sessionCost: 0.02 },
+  {
+    type: "event",
+    e: {
+      kind: "usage",
+      usage: {
+        promptTokens: 50000,
+        completionTokens: 2000,
+        totalTokens: 52000,
+        reasoningTokens: 1000,
+        cacheHitTokens: 45000,
+        cacheMissTokens: 5000,
+        sessionCacheHitTokens: 0,
+        sessionCacheMissTokens: 0,
+        cost: 0.1,
+        currency: "¥",
+      },
+    } as WireEvent,
+  },
+);
+eq(persistedTotals.context.used, 50000, "usage updates the current context estimate");
+eq(persistedTotals.sessionTokens, 10000, "usage does not temporarily duplicate persisted session tokens");
+eq(persistedTotals.context.sessionTokens, 10000, "context session total stays on persisted telemetry");
+eq(persistedTotals.sessionCost, 0.02, "usage does not temporarily duplicate persisted session cost");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

@@ -8,7 +8,7 @@ DeepSeek-Orca Desktop 是面向 Windows 的 AI 编程 Agent 工作台。它把�
 
 1. 下载 Windows 安装器：
 
-   [DeepSeek-Orca-Setup-1.0.19-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.19/DeepSeek-Orca-Setup-1.0.19-windows-amd64.exe)
+   [DeepSeek-Orca-Setup-1.0.20-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.20/DeepSeek-Orca-Setup-1.0.20-windows-amd64.exe)
 
 2. 双击安装器，阅读并同意许可协议，选择安装目录。
 3. 启动 DeepSeek-Orca Desktop。
@@ -21,6 +21,7 @@ Agent 正在运行时：
 
 - 按 `Enter` 会把输入加入待发送队列。
 - 按 `Ctrl+Enter` 会把输入作为“引导”发送给正在运行的 Agent。
+- 模型流式输出时不会强制锁住滚动；点击对话区的向下圆形按钮才会重新跟随最新输出。
 
 ## 功能说明
 
@@ -30,6 +31,7 @@ Agent 正在运行时：
 - workflow 折叠：推理、工具调用、审批和后台任务默认折叠，需要时可展开查看。
 - 回滚：删除 AI 回复时，可以回滚该回复关联的文件改动。
 - 运行中排队：模型还在思考时，新输入不会丢失，可以排队或直接引导。
+- 自由滚动：模型生成回复时用户可以继续翻看上文，需要回到底部时再点击“跟随最新输出”按钮。
 - 上下文统计：显示上下文窗口、token、缓存命中、请求数、耗时和费用。
 - CONTEXT CHECKPOINT：当对话接近模型上下文窗口阈值时，DeepSeek-Orca 会生成面向接续模型的交接摘要，保留当前进度、关键决策、约束和下一步；手动 `/compact` 也会执行同样的交接式压缩。压缩后右侧上下文窗口会重新计算。
 - 权限模式：支持 review、auto、yolo，其中 yolo 表示完全访问权限。

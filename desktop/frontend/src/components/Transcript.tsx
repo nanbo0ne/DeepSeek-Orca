@@ -6,7 +6,7 @@ import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
 import { AssistantMessage, TurnActions, UserMessage } from "./Message";
 import { ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon } from "./ProcessCard";
 import { ToolCard } from "./ToolCard";
-import { ChevronRight } from "lucide-react";
+import { ArrowDown, ChevronRight } from "lucide-react";
 import { Welcome } from "./Welcome";
 
 type ToolItem = Extract<Item, { kind: "tool" }>;
@@ -81,6 +81,10 @@ function repinIfWasPinned(
     if (stick.current) el.scrollTop = el.scrollHeight;
     frame.current = null;
   });
+}
+
+function nearBottom(el: HTMLDivElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 }
 
 // Summarise a warm turn for its compact card.
@@ -169,6 +173,8 @@ export function Transcript({
   const resizeFrame = useRef<number | null>(null);
   const lastClientHeight = useRef<number | null>(null);
   const lastFooterHeight = useRef<number | null>(null);
+  const [showFollowButton, setShowFollowButton] = useState(false);
+  const t = useT();
 
   const questions = useMemo<QuestionAnchor[]>(() => {
     const anchors: QuestionAnchor[] = [];
@@ -182,39 +188,66 @@ export function Transcript({
   }, [items]);
   const showQuestionNav = questionNavigator && questions.length >= QUESTION_NAV_MIN_COUNT;
 
+  const updateFollowButton = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    setShowFollowButton(!nearBottom(el));
+  }, []);
+
+  const scrollToBottom = useCallback((follow: boolean) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stick.current = follow;
+    if (resizeFrame.current !== null) {
+      cancelAnimationFrame(resizeFrame.current);
+      resizeFrame.current = null;
+    }
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      setShowFollowButton(false);
+    });
+  }, []);
+
   const onScroll = () => {
     const el = scrollRef.current;
-    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (!el) return;
+    if (!nearBottom(el)) stick.current = false;
+    updateFollowButton(el);
   };
 
   // Track question count so we can detect when the user sends a new message.
   const prevQuestionsLen = useRef(0);
 
-  // When the user submits a new message (questions array grows), force-scroll
-  // to the bottom regardless of the current stick state.
+  // When the user submits a new message, reveal it once. Do not keep the
+  // viewport locked while the model streams; the user can freely scroll until
+  // they explicitly press the follow button.
   useEffect(() => {
     if (questions.length > prevQuestionsLen.current) {
-      stick.current = true;
       const el = scrollRef.current;
       if (el) {
         requestAnimationFrame(() => {
           el.scrollTop = el.scrollHeight;
+          stick.current = false;
+          updateFollowButton(el);
         });
       }
     }
     prevQuestionsLen.current = questions.length;
-  }, [questions]);
+  }, [questions, updateFollowButton]);
 
   const contentVersion = useMemo(() => scrollVersion(items), [items]);
   useEffect(() => {
-    if (!stick.current) return;
     const el = scrollRef.current;
     if (!el) return;
+    if (!stick.current) {
+      const id = requestAnimationFrame(() => updateFollowButton(el));
+      return () => cancelAnimationFrame(id);
+    }
     const id = requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
+      setShowFollowButton(false);
     });
     return () => cancelAnimationFrame(id);
-  }, [contentVersion, live?.text?.length ?? 0, live?.reasoning?.length ?? 0]);
+  }, [contentVersion, live?.text?.length ?? 0, live?.reasoning?.length ?? 0, updateFollowButton]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -447,6 +480,18 @@ export function Transcript({
         )}
         {hotZoneNodes}
       </LiveStreamContext.Provider>
+
+      {!empty && showFollowButton && (
+        <button
+          type="button"
+          className="transcript-follow"
+          aria-label={t("transcript.followLatest")}
+          title={t("transcript.followLatest")}
+          onClick={() => scrollToBottom(true)}
+        >
+          <ArrowDown size={18} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

@@ -95,7 +95,7 @@ func TestContextUsageRestoresLastUsageEventAfterRestart(t *testing.T) {
 		},
 		SessionHit:  70,
 		SessionMiss: 30,
-		Pricing:     &provider.Pricing{CacheHit: 1, Input: 2, Output: 3, Currency: "楼"},
+		Pricing:     &provider.Pricing{CacheHit: 1, Input: 2, Output: 3, Currency: "¥"},
 	})
 	snapshot := tab.telemetrySnapshot()
 

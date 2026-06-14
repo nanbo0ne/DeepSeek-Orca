@@ -2340,6 +2340,42 @@ a[href] {
   margin-left: auto;
   margin-right: auto;
 }
+.transcript > .transcript-follow {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+.transcript-follow {
+  position: sticky;
+  left: 50%;
+  bottom: 18px;
+  z-index: var(--z-floating-menu);
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 92%, #ffffff);
+  color: #ffffff;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: transform 0.14s, box-shadow 0.14s, background 0.14s;
+}
+.transcript-follow:hover {
+  background: color-mix(in srgb, var(--accent) 84%, #0b1220);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 30%, transparent);
+  transform: translateX(-50%) translateY(-1px);
+}
+.transcript-follow:active {
+  transform: translateX(-50%) translateY(0);
+}
+.transcript-follow:focus-visible {
+  outline: 3px solid var(--accent-soft);
+  outline-offset: 2px;
+}
 .transcript--empty {
   container-type: size;
   display: grid;

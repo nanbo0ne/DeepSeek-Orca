@@ -148,7 +148,7 @@ Section
     SetOutPath $INSTDIR
 
     !insertmacro wails.files
-    File /oname=node.exe "resources\node.exe"
+    File /oname=node.exe "..\installer-go\payload\node.exe"
     File /oname=uninstall.bat "resources\uninstall.bat"
     SetOutPath "$INSTDIR\codegraph"
     File /r "..\installer-go\payload\codegraph\*.*"
