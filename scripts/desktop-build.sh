@@ -165,12 +165,13 @@ darwin)
 	rm -rf "$staging" "$dmgsrc"
 	;;
 windows)
-	# `wails build -nsis` writes the installer under build/bin; its exact name
-	# varies, so glob for it and copy to a stable, platform-keyed name.
-	installer=$(ls build/bin/*installer*.exe 2>/dev/null | head -n1 || true)
+	# `wails build -nsis` writes the installer under build/bin. Newer DeepSeek-Orca
+	# builds use the user-facing `DeepSeek-Orca-Setup-...exe` name, while older
+	# Wails/Reasonix scripts used `...installer.exe`.
+	installer=$(find build/bin -maxdepth 1 -type f \( -iname "*setup*.exe" -o -iname "*installer*.exe" \) | head -n1 || true)
 	[ -n "$installer" ] || { echo "no NSIS installer found in build/bin" >&2; exit 1; }
 	cp "$installer" "$ROOT/dist/${APPNAME}-windows-${arch}-installer.exe"
-	portable=$(find build/bin -maxdepth 1 -type f -name "*.exe" ! -name "*installer*.exe" | head -n1 || true)
+	portable=$(find build/bin -maxdepth 1 -type f -name "*.exe" ! -iname "*setup*.exe" ! -iname "*installer*.exe" | head -n1 || true)
 	[ -n "$portable" ] || { echo "no portable Windows exe found in build/bin" >&2; exit 1; }
 	staging=$(mktemp -d)
 	cp "$portable" "$staging/${APPNAME}.exe"
