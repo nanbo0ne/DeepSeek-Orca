@@ -131,11 +131,11 @@ func TestMaybeCompactForceRatioStillFolds(t *testing.T) {
 	}
 	found := false
 	for _, m := range sess.Snapshot() {
-		if strings.Contains(m.Content, summaryTagOpen) {
+		if strings.Contains(m.Content, checkpointTagOpen) {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("no compaction summary in session after forced fold")
+		t.Error("no context checkpoint in session after forced fold")
 	}
 }

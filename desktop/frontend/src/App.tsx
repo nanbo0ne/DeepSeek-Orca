@@ -1756,7 +1756,6 @@ export default function App() {
           workspacePanelRenderable={workspacePanelRenderable}
           workspaceTogglePressed={workspaceTogglePressed}
           workspacePanelLabel={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}
-          botStatusLabel={t("topbar.botStatus")}
           statusLights={[
             { key: "read", label: t("topbar.statusRead"), tone: "info", active: readingActive },
             { key: "write", label: t("topbar.statusWrite"), tone: "warn", active: writingActive },
@@ -1765,7 +1764,6 @@ export default function App() {
           onOpenProject={() => void switchFolder()}
           onOpenView={openWorkbenchView}
           onOpenSkills={() => setSettingsTarget("skills")}
-          onOpenBotPanel={() => setSettingsTarget("bots")}
           onToggleSidebar={toggleSidebar}
           onToggleWorkspacePanel={toggleWorkspacePanel}
           onOpenPalette={() => void openPalette()}

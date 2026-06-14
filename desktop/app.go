@@ -275,7 +275,6 @@ func (a *App) startup(ctx context.Context) {
 	installSystemQuitHook()
 	a.startTray()
 
-	go a.restartDesktopBotGateway()
 	go a.restoreOrBuildTabs()
 }
 

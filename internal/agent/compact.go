@@ -30,42 +30,48 @@ const (
 	fallbackTokPerChar       = 0.25  // ~4 chars/token, used before any usage is available to calibrate
 )
 
-// summaryTag wraps the compaction summary so the model can distinguish it from
-// live user input and later strip or skip it when reasoning about the current turn.
+// checkpointTag wraps the compaction handoff so the model can distinguish it
+// from live user input and later strip or skip it when reasoning about the
+// current turn.
 const (
-	summaryTagOpen  = "<compaction-summary>"
-	summaryTagClose = "</compaction-summary>"
+	checkpointTagOpen  = "<context-checkpoint>"
+	checkpointTagClose = "</context-checkpoint>"
 )
 
-// summarySystemPrompt steers the executor to distill older history into a
-// structured briefing it can keep relying on after the originals are dropped.
-// The section layout mirrors what a coding agent actually needs to resume work
-// mid-task: the goal verbatim, the concrete state of the code, and an explicit
-// next step — so the post-compaction turn doesn't lose the thread or re-derive
-// decisions already made.
-const summarySystemPrompt = `你正在压缩一个编程 Agent 对话的较早部分，以节省上下文。
-后续 Agent 只会保留你的摘要（原始消息会被丢弃），因此它必须仅凭这份摘要就能继续任务。
-请按以下固定标题写一份简报；某个标题没有内容时可以省略：
+// checkpointSystemPrompt instructs the model to write a handoff packet for the
+// next LLM that will continue the same task. The shape mirrors what a coding
+// agent needs after older turns are dropped: what was done, what is important
+// to remember, what remains, and any concrete references needed to continue.
+const checkpointSystemPrompt = `你正在执行 CONTEXT CHECKPOINT 压缩。请为另一个将接续任务的大语言模型（LLM）创建一个交接摘要。
 
-## Goal
-用户的请求和意图，尽量贴近用户原话。包含明确要求、约束和偏好。
+目标：让接续模型只看这份摘要，也能无缝继续当前任务。
 
-## Decisions & rationale
-目前已经做出的关键选择以及原因，避免后续重复争论或反向修改。
+必须包含：
 
-## Files & code
-已经读取或修改的文件，以及重要事实：函数签名、行号位置、数据形状和已应用的具体编辑。要具体，这能让后续 Agent 不用重新读取所有内容也能行动。
+## 当前进度
+已经做了什么，当前推进到哪里，哪些关键决策已经定下。
 
-## Commands & outcomes
-已经运行的命令（构建、测试、git 等）及其相关结果：哪些通过、哪些失败，以及关键错误文本。
+## 重要上下文与约束
+必须保留的用户偏好、项目约束、文件位置、命名规则、行为要求。
 
-## Errors & fixes
-遇到的问题以及如何解决（或尚未解决），避免重复走同样的弯路。
+## 尚待完成
+明确列出下一步要做什么，按优先级从高到低写。
 
-## Pending & next step
-仍在进行或尚未开始的事项，以及下一步最具体的行动。
+## 继续所需资料
+任何关键数据、示例、路径、参考文件、命令、错误信息或注意事项。
 
-规则：保持简洁，使用要点或短语，不写长篇散文。标识符、路径和数字必须原样保留。不要编造消息中没有的信息；未知内容宁可省略，不要猜测。`
+要求：
+- 简洁、有条理，像交接给下一位执行者
+- 不要复述完整对话
+- 不要编造不存在的信息
+- 如果某项信息不确定，直接说明不确定
+- 保留关键专有名词、路径、数字和约束原文
+- 输出中文
+
+可选补充：
+- 如果用户有明确偏好，也要写进摘要
+- 如果有未解决的 bug 或风险，也要写清楚
+`
 
 // maybeCompact compacts the session when the last turn's prompt has grown to the
 // configured fraction of the context window. It is a no-op when compaction is
@@ -75,6 +81,19 @@ func (a *Agent) maybeCompact(ctx context.Context, u *provider.Usage) {
 		return
 	}
 	high := int(float64(a.contextWindow) * a.compactRatio)
+	if a.autoCompactCooldown {
+		if u.PromptTokens < high {
+			a.autoCompactCooldown = false
+		} else {
+			if !a.compactStuck {
+				a.compactStuck = true
+				a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: fmt.Sprintf(
+					"Auto-compaction paused: context_window=%d is still above the %.0f%% compact threshold immediately after a CONTEXT CHECKPOINT. Raise context_window or reduce large tool output to avoid repeated checkpoints.",
+					a.contextWindow, a.compactRatio*100)})
+			}
+			return
+		}
+	}
 	soft := int(float64(a.contextWindow) * a.softCompactRatio)
 	// Between the soft ratio and the trigger, report growing context once without
 	// rewriting the prefix — a compaction here would needlessly crater the cache.
@@ -111,6 +130,7 @@ func (a *Agent) maybeCompact(ctx context.Context, u *provider.Usage) {
 		a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: fmt.Sprintf("compaction skipped: %v", err)})
 		return
 	}
+	a.autoCompactCooldown = true
 	// A healthy compaction drops the prompt under the trigger, so the next turn
 	// won't compact. Compacting on consecutive turns means the kept tail alone
 	// exceeds the trigger — the system prompt plus one verbatim turn is bigger than
@@ -199,7 +219,7 @@ func (a *Agent) compact(ctx context.Context, trigger, instructions string, force
 
 	a.sink.Emit(event.Event{Kind: event.CompactionStarted, Compaction: event.Compaction{Trigger: trigger}})
 
-	// A PreCompact hook can steer what the summary keeps; its stdout joins any
+	// A PreCompact hook can steer what the checkpoint keeps; its stdout joins any
 	// explicit /compact <focus> text.
 	if a.hooks != nil {
 		if hookInstr := a.hooks.PreCompact(ctx, trigger); hookInstr != "" {
@@ -220,27 +240,28 @@ func (a *Agent) compact(ctx context.Context, trigger, instructions string, force
 		archived = path
 	}
 
-	summary, err := a.summarize(ctx, region, instructions)
+	checkpoint, err := a.summarize(ctx, region, instructions)
 	if err != nil {
 		a.emitCompactionAborted(trigger)
 		return err
 	}
 
-	compacted := make([]provider.Message, 0, head+1+len(msgs)-start)
+	tail := trimTailForCheckpoint(msgs, head, start, checkpoint, a.contextWindow, a.tailFloor())
+	compacted := make([]provider.Message, 0, head+1+len(tail))
 	compacted = append(compacted, msgs[:head]...)
 	compacted = append(compacted, provider.Message{
 		Role: provider.RoleUser,
-		Content: summaryTagOpen + "\n" +
-			"Summary of earlier conversation (older messages were compacted to save context):\n" +
-			summary + "\n" +
-			summaryTagClose,
+		Content: checkpointTagOpen + "\n" +
+			"CONTEXT CHECKPOINT\n" +
+			checkpoint + "\n" +
+			checkpointTagClose,
 	})
-	compacted = append(compacted, msgs[start:]...)
+	compacted = append(compacted, tail...)
 	a.session.Replace(compacted)
 	a.session.IncrementRewrite()
 
 	a.sink.Emit(event.Event{Kind: event.CompactionDone, Compaction: event.Compaction{
-		Trigger: trigger, Messages: len(region), Summary: summary, Archive: archived,
+		Trigger: trigger, Messages: len(region), Summary: checkpoint, Archive: archived,
 	}})
 	return nil
 }
@@ -415,14 +436,46 @@ func charsOfMessages(msgs []provider.Message) int {
 	return n
 }
 
+// trimTailForCheckpoint prefers landing the post-checkpoint context near the
+// target ratio. If the checkpoint plus recent tail is still too large, drop the
+// oldest recent turns while keeping a small floor and never starting on an
+// orphan tool result.
+func trimTailForCheckpoint(msgs []provider.Message, head, start int, checkpoint string, window int, minKeep int) []provider.Message {
+	if start < head {
+		start = head
+	}
+	tail := append([]provider.Message(nil), msgs[start:]...)
+	if window <= 0 || len(tail) <= minKeep {
+		return tail
+	}
+	target := int(float64(window) * defaultCompactTarget)
+	if target <= 0 {
+		return tail
+	}
+	checkpointMsg := provider.Message{
+		Role: provider.RoleUser,
+		Content: checkpointTagOpen + "\n" +
+			"CONTEXT CHECKPOINT\n" +
+			checkpoint + "\n" +
+			checkpointTagClose,
+	}
+	for len(tail) > minKeep && estimateMessagesTokens(append([]provider.Message{checkpointMsg}, tail...)) > target {
+		tail = tail[1:]
+		for len(tail) > minKeep && tail[0].Role == provider.RoleTool {
+			tail = tail[1:]
+		}
+	}
+	return tail
+}
+
 // summarize asks the executor's own provider (no tools) to distill the region
-// into a briefing, returning the collected text. instructions, when non-empty,
-// is appended to the system prompt as extra focus guidance (from /compact <focus>
-// and/or a PreCompact hook).
+// into a checkpoint handoff, returning the collected text. instructions, when
+// non-empty, is appended to the system prompt as extra focus guidance (from
+// /compact <focus> and/or a PreCompact hook).
 func (a *Agent) summarize(ctx context.Context, region []provider.Message, instructions string) (string, error) {
-	sys := summarySystemPrompt
+	sys := checkpointSystemPrompt
 	if strings.TrimSpace(instructions) != "" {
-		sys += "\n\nAdditional focus for this compaction (prioritize keeping this):\n" + strings.TrimSpace(instructions)
+		sys += "\n\nAdditional focus for this CONTEXT CHECKPOINT (prioritize keeping this):\n" + strings.TrimSpace(instructions)
 	}
 	ch, err := a.prov.Stream(ctx, provider.Request{
 		Messages: []provider.Message{

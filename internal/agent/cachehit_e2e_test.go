@@ -570,7 +570,7 @@ func isSummarizeRequest(body []byte) bool {
 		Content string `json:"content"`
 	}
 	_ = json.Unmarshal(msgs[0], &m)
-	return m.Role == "system" && strings.Contains(m.Content, "compacting the earlier part")
+	return m.Role == "system" && strings.Contains(m.Content, "CONTEXT CHECKPOINT")
 }
 
 func commonPrefixMsgs(a, b []json.RawMessage) int {

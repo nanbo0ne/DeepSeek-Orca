@@ -15,7 +15,19 @@ import { MCPServersSettingsPage, SkillsSettingsPage } from "./CapabilitiesPanel"
 import { MemorySettingsPage } from "./MemoryPanel";
 import { ModalCloseButton } from "./ModalCloseButton";
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "models", "bots", "mcp", "skills", "memory", "permissions", "sandbox", "network", "appearance"];
+const BOT_SETTINGS_ENABLED = false;
+const SETTINGS_TABS: SettingsTab[] = [
+  "general",
+  "models",
+  ...(BOT_SETTINGS_ENABLED ? (["bots"] as SettingsTab[]) : []),
+  "mcp",
+  "skills",
+  "memory",
+  "permissions",
+  "sandbox",
+  "network",
+  "appearance",
+];
 
 // SettingsPanel is the desktop settings centre — a centred modal with left
 // navigation and a right content area. It hosts all settings pages plus MCP,
@@ -27,14 +39,14 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
   const [err, setErr] = useState<string | null>(null);
   const [textSize, setTextSizeState] = useState<TextSize>(getTextSize());
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(getFontFamily());
-  const [tab, setTab] = useState<SettingsTab>(initialTab === "providers" ? "models" : initialTab ?? "general");
+  const [tab, setTab] = useState<SettingsTab>(normalizeInitialSettingsTab(initialTab));
   // Play the modal exit animation, then let the parent unmount us.
   const { status, requestClose } = useDeferredClose(onClose, 240);
 
   const reload = async () => setS(normalizeSettingsView(await app.Settings().catch(() => null)));
   useEffect(() => {
     void reload();
-    if (initialTab) setTab(initialTab === "providers" ? "models" : initialTab);
+    if (initialTab) setTab(normalizeInitialSettingsTab(initialTab));
   }, [initialTab]);
   // apply runs a mutation, re-reads settings, and refreshes the topbar/model.
   const apply = async (fn: () => Promise<void>) => {
@@ -73,7 +85,7 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
   // The settings-reliant pages (general, models, network, permissions,
   // sandbox, appearance) need SettingsView loaded. MCP, Skills, and Memory
   // load their own data and render regardless.
-  const needsSettings = tab === "general" || tab === "models" || tab === "bots" || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance";
+  const needsSettings = tab === "general" || tab === "models" || (BOT_SETTINGS_ENABLED && tab === "bots") || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance";
 
   return (
     <div className="management-modal-backdrop settings-modal-backdrop" data-state={status} onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
@@ -104,7 +116,7 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
               <>
                 {tab === "general" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><GeneralSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "models" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><ModelsSection s={s} busy={busy} apply={apply} backgroundApply={backgroundApply} /></SettingsPageShell>}
-                {tab === "bots" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><BotsSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
+                {BOT_SETTINGS_ENABLED && tab === "bots" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><BotsSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "mcp" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MCPServersSettingsPage /></SettingsPageShell>}
                 {tab === "skills" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><SkillsSettingsPage /></SettingsPageShell>}
                 {tab === "memory" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MemorySettingsPage /></SettingsPageShell>}
@@ -246,6 +258,12 @@ type SectionProps = {
 type ModelsSectionProps = SectionProps & {
   backgroundApply: (fn: () => Promise<void>) => Promise<void>;
 };
+
+function normalizeInitialSettingsTab(tab?: SettingsTab): SettingsTab {
+  if (tab === "providers") return "models";
+  if (tab === "bots") return "general";
+  return tab ?? "general";
+}
 
 function settingsTabLabel(id: SettingsTab, t: ReturnType<typeof useT>): string {
   switch (id) {

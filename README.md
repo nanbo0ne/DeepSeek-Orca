@@ -1,6 +1,6 @@
 ﻿# DeepSeek-Orca V1.0
 
-DeepSeek-Orca 是一个 AI 编程 Agent，基于 Reasonix fork 改造而来，提供桌面端和 CLI 两种入口。它保留 Reasonix 的 Agent、工具、MCP、Skill、Memory、权限控制、会话恢复和机器人能力，并针对 DeepSeek / OpenAI-compatible 工作流做了桌面体验重构。
+DeepSeek-Orca 是一个 AI 编程 Agent，基于 Reasonix fork 改造而来，提供桌面端和 CLI 两种入口。它保留 Reasonix 的 Agent、工具、MCP、Skill、Memory、权限控制和会话恢复能力，并针对 DeepSeek / OpenAI-compatible 工作流做了桌面体验重构。
 
 ## How to use
 
@@ -45,22 +45,12 @@ CLI 详细说明见 [README.CLI.md](./README.CLI.md)。
 - Agent 运行中可排队消息，也可用 `Ctrl+Enter` 直接引导当前轮。
 - Plan 模式与权限模式相互独立。
 - 上下文、token、缓存命中、请求数量、耗时和费用统计。
-- 自动上下文压缩，可在设置中调整触发阈值；压缩后右侧上下文窗口会重新计算。
+- CONTEXT CHECKPOINT 上下文交接：自动达到阈值或手动 `/compact` 时，生成面向接续模型的交接摘要；压缩后右侧上下文窗口会重新计算。
 - DeepSeek 与 OpenAI-compatible provider。
 - 按 DeepSeek 官方接口约定处理 thinking mode。
 - MCP、Skill、Memory、CodeGraph 和 slash command。
-- QQ 与微信机器人渠道；飞书/Lark 暂未开放。
+- 机器人入口当前暂时关闭，后续版本会重新开放 QQ / 微信连接。
 - Windows 一键安装包与卸载入口。
-
-## 机器人说明
-
-桌面端中，QQ 和微信连接成功后会自动在后台运行机器人网关，不需要手动启动，也不需要设置白名单。所有能给机器人发消息的用户默认都可以使用机器人。
-
-QQ 使用官方 Bot API，需要先在 QQ 机器人官方后台申请 App ID / App Secret，然后在桌面设置页填写并验证。
-
-微信使用 ClawBot / OpenClaw Weixin 风格的扫码登录流程。扫码确认后，DeepSeek-Orca 会保存本地 token，并自动验证 `getupdates` 是否可用；数字型消息 ID、用户 ID 和 `context_token` 会自动兼容。
-
-飞书和 Lark 暂时置灰，不作为当前版本可用渠道。
 
 ## 安装后目录结构
 

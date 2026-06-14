@@ -891,6 +891,7 @@ function SteerCard({ text }: { text: string }) {
 
 function CompactionCard({ item }: { item: CompactionItem }) {
   const t = useT();
+  const trigger = item.trigger === "manual" ? "manual" : item.trigger === "auto" ? "auto" : item.trigger;
   if (item.pending) {
     return (
       <ProcessCard
@@ -909,7 +910,7 @@ function CompactionCard({ item }: { item: CompactionItem }) {
       icon={<ProcessCompactIcon size={12} />}
       kind="context"
       name={t("compaction.title")}
-      meta={`${t("compaction.messages", { n: item.messages })}${item.trigger ? ` · ${item.trigger}` : ""}`}
+      meta={`${t("compaction.messages", { n: item.messages })}${trigger ? ` - ${trigger}` : ""}`}
       className="compaction"
     >
       <pre className="compaction__summary">{item.summary}</pre>

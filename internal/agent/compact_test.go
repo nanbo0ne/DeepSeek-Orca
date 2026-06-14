@@ -4,10 +4,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"deepseek-orca/internal/event"
 	"strings"
 	"testing"
 
+	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/provider"
 	"deepseek-orca/internal/tool"
 )
@@ -129,7 +129,7 @@ func TestCompactReplacesHistory(t *testing.T) {
 		t.Errorf("message 0 = %s, want system", sess.Messages[0].Role)
 	}
 	summary := sess.Messages[1]
-	if summary.Role != provider.RoleUser || !strings.Contains(summary.Content, "Summary of earlier") || !strings.Contains(summary.Content, "do X") {
+	if summary.Role != provider.RoleUser || !strings.Contains(summary.Content, "<context-checkpoint>") || !strings.Contains(summary.Content, "CONTEXT CHECKPOINT") || !strings.Contains(summary.Content, "do X") {
 		t.Errorf("summary message = %+v", summary)
 	}
 	if sess.Messages[2].Content != "next" || sess.Messages[3].Content != "ok" {
@@ -224,11 +224,37 @@ func TestCompactInjectsFocusAndPreCompactHook(t *testing.T) {
 		t.Fatalf("summarizer wasn't asked with a system prompt: %+v", prov.got)
 	}
 	sys := prov.got[0].Content
+	if !strings.Contains(sys, "CONTEXT CHECKPOINT") {
+		t.Errorf("checkpoint system prompt missing CONTEXT CHECKPOINT: %q", sys)
+	}
 	if !strings.Contains(sys, "focus on the auth refactor") {
 		t.Errorf("summary system prompt missing the /compact focus text: %q", sys)
 	}
 	if !strings.Contains(sys, "KEEP-THE-MIGRATION-PLAN") {
 		t.Errorf("summary system prompt missing the PreCompact hook output: %q", sys)
+	}
+}
+
+func TestManualCompactBypassesAutoCooldown(t *testing.T) {
+	prov := &fakeProvider{reply: "- checkpoint"}
+	sess := &Session{Messages: []provider.Message{
+		{Role: provider.RoleSystem, Content: "sys"},
+		{Role: provider.RoleUser, Content: strings.Repeat("old context ", 200)},
+		{Role: provider.RoleAssistant, Content: "old answer"},
+		{Role: provider.RoleUser, Content: "next"},
+		{Role: provider.RoleAssistant, Content: "ok"},
+	}}
+	a := New(prov, tool.NewRegistry(), sess, Options{ContextWindow: 100, RecentKeep: 2, ArchiveDir: t.TempDir()}, event.Discard)
+	a.autoCompactCooldown = true
+
+	if err := a.CompactNow(context.Background(), "manual focus"); err != nil {
+		t.Fatalf("CompactNow: %v", err)
+	}
+	if len(prov.got) == 0 {
+		t.Fatal("manual compact should bypass the auto cooldown")
+	}
+	if !strings.Contains(prov.got[0].Content, "manual focus") {
+		t.Fatalf("manual focus missing from checkpoint prompt: %q", prov.got[0].Content)
 	}
 }
 
@@ -359,7 +385,7 @@ func TestMaybeCompactThreshold(t *testing.T) {
 	sess = newSess()
 	a = New(&fakeProvider{reply: "s"}, tool.NewRegistry(), sess, Options{ContextWindow: 100, RecentKeep: 2, ArchiveDir: t.TempDir()}, event.Discard)
 	a.maybeCompact(context.Background(), &provider.Usage{PromptTokens: 80})
-	if !strings.Contains(sess.Messages[1].Content, "Summary of earlier") {
+	if !strings.Contains(sess.Messages[1].Content, "<context-checkpoint>") {
 		t.Errorf("compact threshold should fold the large early message, got: %+v", sess.Messages[1])
 	}
 
@@ -384,11 +410,11 @@ func TestMaybeCompactForceCeilingBypassesEconomics(t *testing.T) {
 	a := New(prov, tool.NewRegistry(), sess, Options{ContextWindow: 100, RecentKeep: 2, ArchiveDir: t.TempDir()}, event.Discard)
 
 	a.maybeCompact(context.Background(), &provider.Usage{PromptTokens: 90})
-	// The token-budgeted tail keeps "small old answer", next, ok, so only the
-	// single early message folds — force bypasses the economics skip and installs
-	// a summary at index 1, leaving the count at 5.
-	if got := len(sess.Messages); got != 5 {
-		t.Fatalf("len = %d, want 5 after forced single-message fold: %+v", got, sess.Messages)
+	// The checkpoint target may shorten the recent tail to land below the target
+	// context budget, but it keeps the minimum recent messages.
+	//
+	if got := len(sess.Messages); got != 4 {
+		t.Fatalf("len = %d, want 4 after target-bounded checkpoint: %+v", got, sess.Messages)
 	}
 	if !strings.Contains(sess.Messages[1].Content, "forced summary") {
 		t.Fatalf("forced compact did not install summary: %+v", sess.Messages)

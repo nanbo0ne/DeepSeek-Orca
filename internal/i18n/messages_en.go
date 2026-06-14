@@ -81,14 +81,14 @@ var English = Messages{
 	LanguageHint:       "switch with /language <auto|en|zh>",
 	LanguageChangedFmt: "language set to %s (resolved: %s)",
 
-	CompactionWorking: "compacting conversation…",
-	CompactionTitle:   "Context compacted",
+	CompactionWorking: "creating context checkpoint...",
+	CompactionTitle:   "CONTEXT CHECKPOINT",
 	CompactionUnit:    "messages",
 	CompactionAuto:    "auto",
 	CompactionManual:  "manual",
 
-	SlashCompactDone:   "session compacted — older middle replaced by a summary, recent turns kept",
-	SlashCompactFailed: "compaction failed",
+	SlashCompactDone:   "CONTEXT CHECKPOINT created - context handed off",
+	SlashCompactFailed: "context checkpoint failed",
 	SlashNewDone:       "new session started — previous transcript saved",
 	SlashNewFailed:     "could not start a new session",
 	SlashClearPrompt:   "Clear current context without saving?",

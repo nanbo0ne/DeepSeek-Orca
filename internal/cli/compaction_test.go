@@ -21,7 +21,7 @@ func TestCompactionCardLines(t *testing.T) {
 	if !strings.Contains(lines[0], "◆") {
 		t.Errorf("header should carry the card glyph, got %q", lines[0])
 	}
-	for _, want := range []string{"Context compacted", "12", "auto"} {
+	for _, want := range []string{"CONTEXT CHECKPOINT", "12", "auto"} {
 		if !strings.Contains(lines[0], want) {
 			t.Errorf("header missing %q: %q", want, lines[0])
 		}

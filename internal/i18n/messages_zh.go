@@ -82,14 +82,14 @@ var Chinese = Messages{
 	LanguageHint:       "使用 /language <auto|en|zh> 切换",
 	LanguageChangedFmt: "语言已设为 %s（当前解析为：%s）",
 
-	CompactionWorking: "正在压缩对话…",
-	CompactionTitle:   "上下文已压缩",
+	CompactionWorking: "正在生成上下文交接...",
+	CompactionTitle:   "CONTEXT CHECKPOINT",
 	CompactionUnit:    "条消息",
 	CompactionAuto:    "自动",
 	CompactionManual:  "手动",
 
-	SlashCompactDone:   "已压缩 — 旧的中段换成一段摘要，最近几轮保留原样",
-	SlashCompactFailed: "压缩失败",
+	SlashCompactDone:   "已生成 CONTEXT CHECKPOINT，上下文已交接",
+	SlashCompactFailed: "上下文交接失败",
 	SlashNewDone:       "已开启新会话 — 之前的对话已存档",
 	SlashNewFailed:     "新建会话失败",
 	SlashClearPrompt:   "清空当前上下文且不保存？",

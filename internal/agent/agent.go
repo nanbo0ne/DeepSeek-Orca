@@ -222,10 +222,10 @@ type Agent struct {
 	memQueue memory.Queue
 
 	// Context management: when a turn's prompt nears contextWindow, the older
-	// middle of the session is summarized away, keeping a token-bounded recent
-	// tail verbatim (recentKeep is the message floor) and archiving the originals
-	// under archiveDir. compactStuck latches when compaction can't get the prompt
-	// under the window (consecutiveCompacts crosses the limit), so auto-compaction
+	// middle of the session is turned into a context-checkpoint handoff, keeping a
+	// token-bounded recent tail verbatim (recentKeep is the message floor) and
+	// archiving the originals under archiveDir. compactStuck latches when the
+	// checkpoint plus the minimum tail cannot buy enough room, so auto-compaction
 	// pauses instead of looping. softCompactNoticed gates the one-shot soft-ratio
 	// notice so it fires once per approach, not every turn.
 	contextWindow       int
@@ -233,6 +233,7 @@ type Agent struct {
 	compactRatio        float64
 	compactForceRatio   float64
 	softCompactNoticed  bool
+	autoCompactCooldown bool
 	recentKeep          int
 	archiveDir          string
 	compactStuck        bool

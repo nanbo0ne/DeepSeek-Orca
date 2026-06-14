@@ -72,7 +72,7 @@ func IsSyntheticUserMessage(content string) bool {
 // injected by the controller (planApprovedMessage), agent loop
 // (streamRecoveryMessage, finalReadinessRetryMessage, emptyFinalRetryMessage,
 // executorHandoffRetryMessage in internal/agent/agent.go), and compaction
-// folds (internal/agent/compact.go), which store summaries as user-role
+// folds (internal/agent/compact.go), which store checkpoints as user-role
 // messages the chat UI must never render as user bubbles (#3653).
 var syntheticPrefixes = []string{
 	"Plan approved — plan mode is off",
@@ -88,6 +88,7 @@ var syntheticPrefixes = []string{
 	"上一条助手回复在流式输出期间被中断",
 	"上一条助手回复在完成可见答案文本前被流式中断",
 	"上一条助手回复结束时没有任何可见答案文本",
+	"<context-checkpoint>",
 	"<compaction-summary>",
 	"Summary of the later conversation (compacted from here on):",
 	"Summary of earlier conversation (compacted up to here):",

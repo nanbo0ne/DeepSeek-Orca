@@ -1,4 +1,4 @@
-import { Bot, FolderOpen, Minus, PanelLeft, PanelRight, Search, Square, Sparkles, X } from "lucide-react";
+import { FolderOpen, Minus, PanelLeft, PanelRight, Search, Square, Sparkles, X } from "lucide-react";
 import { useT } from "../lib/i18n";
 import { Tooltip } from "./Tooltip";
 
@@ -15,12 +15,10 @@ interface AppChromeProps {
   workspacePanelRenderable: boolean;
   workspaceTogglePressed: boolean;
   workspacePanelLabel: string;
-  botStatusLabel: string;
   statusLights: Array<{ key: string; label: string; tone: "neutral" | "info" | "success" | "warn" | "danger"; active: boolean }>;
   onOpenProject: () => void;
   onOpenView: () => void;
   onOpenSkills: () => void;
-  onOpenBotPanel: () => void;
   onToggleSidebar: () => void;
   onToggleWorkspacePanel: () => void;
   onOpenPalette: () => void;
@@ -37,12 +35,10 @@ export function AppChrome({
   workspacePanelRenderable,
   workspaceTogglePressed,
   workspacePanelLabel,
-  botStatusLabel,
   statusLights,
   onOpenProject,
   onOpenView,
   onOpenSkills,
-  onOpenBotPanel,
   onToggleSidebar,
   onToggleWorkspacePanel,
   onOpenPalette,
@@ -103,12 +99,6 @@ export function AppChrome({
           <button type="button" className="app-chrome__action" onClick={onOpenSkills} aria-label={t("topbar.skills")}>
             <Sparkles size={14} />
             <span>{t("topbar.skills")}</span>
-          </button>
-        </Tooltip>
-        <Tooltip label={botStatusLabel}>
-          <button type="button" className="app-chrome__action" onClick={onOpenBotPanel} aria-label={botStatusLabel}>
-            <Bot size={14} />
-            <span>{t("topbar.bot")}</span>
           </button>
         </Tooltip>
       </nav>

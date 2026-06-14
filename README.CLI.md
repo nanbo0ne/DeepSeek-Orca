@@ -34,26 +34,14 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
 D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结主要模块"
 ```
 
-启动 IM 机器人网关：
-
-```powershell
-D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe bot start --channels qq,weixin
-```
-
-检查机器人配置：
-
-```powershell
-D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe bot doctor
-```
+机器人功能当前暂时关闭；后续版本会重新开放 QQ / 微信连接。
 
 ## 常用命令
 
 - `deepseek-orca setup`：创建或更新用户配置。
 - `deepseek-orca chat`：启动交互式 TUI。
 - `deepseek-orca run "task"`：执行一次性任务。
-- `deepseek-orca bot start --channels qq,weixin`：启动 QQ / 微信机器人网关。
-- `deepseek-orca bot doctor`：检查机器人配置。
-- `deepseek-orca bot weixin-login`：保存微信 iLink / OpenClaw 登录 token。
+- 机器人相关命令当前不作为推荐入口，等待后续版本重新开放。
 
 微信 iLink / OpenClaw 返回的数字型 `message_id`、`from_user_id`、`chat_id` 和 `context_token` 会自动按字符串兼容处理。
 
@@ -67,40 +55,6 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe bot doctor
 - `/resume`：恢复历史会话。
 - `/rewind`：回滚会话上下文或相关改动。
 
-## 机器人说明
-
-CLI 机器人默认启用，并默认允许所有用户消息进入机器人；不再因为缺少白名单而拒绝启动。
-
-QQ 使用官方 Bot API：
-
-```toml
-[bot.qq]
-enabled = true
-app_id = "your_app_id"
-app_secret_env = "QQ_BOT_APP_SECRET"
-environment = "production"
-```
-
-设置密钥：
-
-```powershell
-$env:QQ_BOT_APP_SECRET="your_app_secret"
-```
-
-微信使用扫码登录：
-
-```powershell
-deepseek-orca bot weixin-login
-```
-
-然后启动：
-
-```powershell
-deepseek-orca bot start --channels qq,weixin
-```
-
-飞书/Lark 暂未开放，不建议在当前版本中启用。
-
 ## 功能说明
 
 - 交互式 TUI 和一次性 `run` 模式。
@@ -110,13 +64,13 @@ deepseek-orca bot start --channels qq,weixin
 - 对写文件和命令执行提供权限规则。
 - Plan 模式支持先规划再执行。
 - 会话保存、恢复、分支、总结和回滚。
-- 自动上下文压缩，压缩阈值可通过 `[agent] compact_ratio` 调整。
+- CONTEXT CHECKPOINT 上下文交接：自动达到阈值或手动 `/compact` 时，生成面向接续模型的交接摘要；阈值可通过 `[agent] compact_ratio` 调整。
 - 支持 DeepSeek 和 OpenAI-compatible provider。
 - 按模型能力处理 DeepSeek thinking mode。
 - MCP 外部工具集成。
 - 本地 Skill 工作流。
 - Memory 长期偏好和项目事实。
-- QQ / 微信机器人网关。
+- 机器人入口当前暂时关闭。
 
 ## 桌面安装包
 

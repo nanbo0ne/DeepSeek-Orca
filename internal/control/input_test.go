@@ -621,7 +621,12 @@ func TestIsSyntheticUserMessage(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "compaction fold summary",
+			name:  "context checkpoint fold",
+			input: "<context-checkpoint>\nCONTEXT CHECKPOINT\nDid things with tools.\n</context-checkpoint>",
+			want:  true,
+		},
+		{
+			name:  "legacy compaction fold summary",
 			input: "<compaction-summary>\nSummary of earlier conversation (older messages were compacted to save context):\nDid things with tools.\n</compaction-summary>",
 			want:  true,
 		},
