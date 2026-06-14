@@ -176,6 +176,11 @@ export interface ContextPanelInfo {
   reasoningTokens: number;
   cacheHitTokens: number;
   cacheMissTokens: number;
+  sessionPromptTokens?: number;
+  sessionCompletionTokens?: number;
+  sessionReasoningTokens?: number;
+  sessionCacheHitTokens?: number;
+  sessionCacheMissTokens?: number;
   requestCount?: number;
   elapsedMs?: number;
   sessionCost?: number;

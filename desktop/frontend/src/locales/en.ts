@@ -958,6 +958,9 @@ export const en = {
   // todo bar
   "todo.title": "To-dos",
   "todo.dismiss": "Dismiss the task list",
+  "queuedPrompts.title": "Queued",
+  "queuedPrompts.guide": "Guide",
+  "queuedPrompts.remove": "Remove queued message",
 
   // slash menu tags
   "slash.project": "project",

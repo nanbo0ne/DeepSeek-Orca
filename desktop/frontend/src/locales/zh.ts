@@ -960,6 +960,9 @@ export const zh: Record<DictKey, string> = {
   // 待办栏
   "todo.title": "待办",
   "todo.dismiss": "关闭待办列表",
+  "queuedPrompts.title": "待发送",
+  "queuedPrompts.guide": "引导",
+  "queuedPrompts.remove": "移除这条待发送消息",
 
   // 斜杠菜单标签
   "slash.project": "项目",

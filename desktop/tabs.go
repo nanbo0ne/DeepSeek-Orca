@@ -3041,22 +3041,27 @@ func topicSummaryKey(scope, workspaceRoot, topicID string) string {
 
 // ContextPanelInfo is the right-side panel's data for one tab.
 type ContextPanelInfo struct {
-	UsedTokens       int               `json:"usedTokens"`
-	WindowTokens     int               `json:"windowTokens"`
-	PromptTokens     int               `json:"promptTokens"`
-	CompletionTokens int               `json:"completionTokens"`
-	TotalTokens      int               `json:"totalTokens"`
-	ReasoningTokens  int               `json:"reasoningTokens"`
-	CacheHitTokens   int               `json:"cacheHitTokens"`
-	CacheMissTokens  int               `json:"cacheMissTokens"`
-	RequestCount     int               `json:"requestCount"`
-	ElapsedMs        int64             `json:"elapsedMs"`
-	SessionCost      float64           `json:"sessionCost"`
-	SessionCurrency  string            `json:"sessionCurrency,omitempty"`
-	SessionCostUsd   float64           `json:"sessionCostUsd,omitempty"`
-	Mock             bool              `json:"mock,omitempty"`
-	ReadFiles        []readFileRecord  `json:"readFiles"`
-	ChangedFiles     []ChangedFileInfo `json:"changedFiles"`
+	UsedTokens              int               `json:"usedTokens"`
+	WindowTokens            int               `json:"windowTokens"`
+	PromptTokens            int               `json:"promptTokens"`
+	CompletionTokens        int               `json:"completionTokens"`
+	TotalTokens             int               `json:"totalTokens"`
+	ReasoningTokens         int               `json:"reasoningTokens"`
+	CacheHitTokens          int               `json:"cacheHitTokens"`
+	CacheMissTokens         int               `json:"cacheMissTokens"`
+	SessionPromptTokens     int               `json:"sessionPromptTokens,omitempty"`
+	SessionCompletionTokens int               `json:"sessionCompletionTokens,omitempty"`
+	SessionReasoningTokens  int               `json:"sessionReasoningTokens,omitempty"`
+	SessionCacheHitTokens   int               `json:"sessionCacheHitTokens,omitempty"`
+	SessionCacheMissTokens  int               `json:"sessionCacheMissTokens,omitempty"`
+	RequestCount            int               `json:"requestCount"`
+	ElapsedMs               int64             `json:"elapsedMs"`
+	SessionCost             float64           `json:"sessionCost"`
+	SessionCurrency         string            `json:"sessionCurrency,omitempty"`
+	SessionCostUsd          float64           `json:"sessionCostUsd,omitempty"`
+	Mock                    bool              `json:"mock,omitempty"`
+	ReadFiles               []readFileRecord  `json:"readFiles"`
+	ChangedFiles            []ChangedFileInfo `json:"changedFiles"`
 }
 
 type ChangedFileInfo struct {
@@ -3106,6 +3111,11 @@ func (a *App) ContextPanel(tabID string) ContextPanelInfo {
 	}
 	usage := telemetry.Usage
 	info.TotalTokens = usage.TotalTokens
+	info.SessionPromptTokens = usage.PromptTokens
+	info.SessionCompletionTokens = usage.CompletionTokens
+	info.SessionReasoningTokens = usage.ReasoningTokens
+	info.SessionCacheHitTokens = usage.CacheHitTokens
+	info.SessionCacheMissTokens = usage.CacheMissTokens
 	info.RequestCount = usage.RequestCount
 	info.ElapsedMs = usage.ElapsedMs
 	info.SessionCost = usage.SessionCost

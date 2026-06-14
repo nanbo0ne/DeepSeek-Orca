@@ -4,7 +4,7 @@
 // new topic.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Archive, ChevronRight, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, History, Check, ListCollapse, ListRestart, Pin, PinOff } from "lucide-react";
+import { Archive, ChevronRight, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, History, Check, ListCollapse, ListRestart, Pin, PinOff, LoaderCircle } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import type { ProjectNode, ProjectTopicStatus } from "../lib/types";
@@ -661,6 +661,7 @@ export function ProjectTree({
           >
             <span className="project-tree__topic-copy">
               <span className="project-tree__topic-heading">
+                {node.running && <LoaderCircle size={12} className="project-tree__topic-spinner" aria-hidden="true" />}
                 <span className="project-tree__topic-label">{label}</span>
                 {statusLabel && <span className={`project-tree__topic-status project-tree__topic-status--${status}`}>{statusLabel}</span>}
               </span>

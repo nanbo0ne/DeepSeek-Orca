@@ -25,8 +25,8 @@ const completedTodos = [
 
 assert.equal(
   shouldShowTodoPanel("todo-final", null, completedTodos),
-  true,
-  "the final all-completed todo_write must remain visible",
+  false,
+  "the final all-completed todo_write should disappear",
 );
 assert.equal(
   shouldShowTodoPanel("todo-active", null, [{ content: "Run tests", status: "in_progress" }]),
@@ -44,8 +44,8 @@ assert.equal(shouldShowTodoPanel("todo-empty", null, []), false, "empty todo lis
 const iterations = 200_000;
 const started = performance.now();
 for (let i = 0; i < iterations; i += 1) {
-  if (!shouldShowTodoPanel("todo-perf", null, completedTodos)) {
-    throw new Error("unexpected hidden todo panel during performance loop");
+  if (shouldShowTodoPanel("todo-perf", null, completedTodos)) {
+    throw new Error("unexpected visible completed todo panel during performance loop");
   }
 }
 const elapsed = performance.now() - started;

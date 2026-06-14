@@ -140,7 +140,8 @@ export function ContextPanel({
     cacheHitTokens,
     cacheMissTokens,
   } = computeContextPanelUsage({ context, info, usage, sessionTokens });
-  const cost = info?.sessionCost && info.sessionCost > 0 ? info.sessionCost : sessionCost && sessionCost > 0 ? sessionCost : info?.sessionCostUsd ?? 0;
+  const sessionCostValue = info?.sessionCost && info.sessionCost > 0 ? info.sessionCost : sessionCost && sessionCost > 0 ? sessionCost : info?.sessionCostUsd ?? 0;
+  const cost = sessionCostValue;
   const currency = sessionCurrency || info?.sessionCurrency || usage?.currency || "CNY";
   const readFiles = asArray(info?.readFiles);
   const changedFiles = asArray(info?.changedFiles);
@@ -150,11 +151,12 @@ export function ContextPanel({
   const cachePct = cacheHitTokens + cacheMissTokens > 0
     ? Math.round((cacheHitTokens / (cacheHitTokens + cacheMissTokens)) * 100)
     : 0;
-  const otherTokens = Math.max(0, usedTokens - promptTokens - completionTokens - reasoningTokens);
-  const safeUsed = Math.max(usedTokens, 1);
-  const promptPct = Math.min(100, (promptTokens / safeUsed) * usagePct);
-  const completionPct = Math.min(100, (completionTokens / safeUsed) * usagePct);
-  const reasoningPct = Math.min(100, (reasoningTokens / safeUsed) * usagePct);
+  const otherTokens = Math.max(0, totalTokens - promptTokens - completionTokens - reasoningTokens);
+  const totalBreakdown = promptTokens + completionTokens + reasoningTokens + otherTokens;
+  const safeBreakdown = Math.max(totalBreakdown, 1);
+  const promptPct = Math.min(100, (promptTokens / safeBreakdown) * usagePct);
+  const completionPct = Math.min(100, (completionTokens / safeBreakdown) * usagePct);
+  const reasoningPct = Math.min(100, (reasoningTokens / safeBreakdown) * usagePct);
   const otherPct = Math.max(0, Math.min(100, usagePct - promptPct - completionPct - reasoningPct));
   const eventTimes = [
     ...readFiles.map((file) => file.time),

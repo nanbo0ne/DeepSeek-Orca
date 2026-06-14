@@ -328,6 +328,7 @@ export function Composer({
   tabId,
   effort,
   onSend,
+  onGuide,
   onCancel,
   onCycleMode,
   onSetMode,
@@ -356,6 +357,7 @@ export function Composer({
   tabId?: string;
   effort?: EffortInfo;
   onSend: (displayText: string, submitText?: string) => void;
+  onGuide?: (displayText: string, submitText?: string) => void;
   // Returns the un-sent text when cancelling before the server replied (so it can
   // be restored to the input); undefined for a normal cancel.
   onCancel: () => string | undefined;
@@ -816,7 +818,7 @@ export function Composer({
   const activeGoal = (goal ?? "").trim();
   const goalModeOn = collaborationMode === "goal";
 
-  const submit = async () => {
+  const submit = async (guide = false) => {
     if (disabled || submittingRef.current) return;
     const trimmedText = text.trim();
     if (pendingPaste > 0) return;
@@ -848,7 +850,12 @@ export function Composer({
     const sessionContext = sessionRefs.length === 0 ? "" : await buildSessionContext(sessionRefs);
     const baseSubmitText = [expandPastedBlocks(trimmedText), refs].filter(Boolean).join(trimmedText && refs ? " " : "");
     const submitText = sessionContext ? `${sessionContext}${baseSubmitText}` : baseSubmitText;
-    onSend(displayText, submitText);
+    if (running && guide) {
+      if (onGuide) onGuide(displayText, submitText);
+      else onSend(displayText, submitText);
+    } else {
+      onSend(displayText, submitText);
+    }
     setText("");
     clearAttachments();
     setWorkspaceRefs([]);
@@ -1407,10 +1414,11 @@ export function Composer({
       }
     }
 
-    // Enter sends; Shift+Enter newline. `composing` guards IME confirms.
+    // Enter queues while the agent is running; Ctrl/Cmd+Enter guides the
+    // current turn immediately. Shift+Enter remains newline.
     if (e.key === "Enter" && !e.shiftKey && !composing) {
       e.preventDefault();
-      submit();
+      void submit(Boolean(running && (e.ctrlKey || e.metaKey)));
     }
     // Esc interrupts the in-flight turn (matches the Stop button's hint), and
     // restores the text if the server hadn't replied yet.
@@ -2143,7 +2151,7 @@ export function Composer({
             <Tooltip label={t("composer.send")}>
               <button
                 className="composer__btn composer__btn--send"
-                onClick={submit}
+                onClick={() => void submit()}
                 disabled={submitting || pendingPaste > 0 || ((!text.trim() && attachments.length === 0 && workspaceRefs.length === 0) && !(goalModeOn && !activeGoal)) || disabled}
               >
                 <ArrowUp size={16} />

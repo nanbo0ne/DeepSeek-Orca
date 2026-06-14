@@ -34,6 +34,18 @@ export function computeContextPanelUsage({
   usage,
   sessionTokens,
 }: ContextPanelUsageInput): ContextPanelUsageSummary {
+  const sessionPromptTokens = positive(info?.sessionPromptTokens);
+  const sessionCompletionTokens = positive(info?.sessionCompletionTokens);
+  const sessionReasoningTokens = positive(info?.sessionReasoningTokens);
+  const sessionCacheHitTokens = positive(info?.sessionCacheHitTokens);
+  const sessionCacheMissTokens = positive(info?.sessionCacheMissTokens);
+  const hasSessionBreakdown = Boolean(
+    sessionPromptTokens > 0 ||
+    sessionCompletionTokens > 0 ||
+    sessionReasoningTokens > 0 ||
+    sessionCacheHitTokens > 0 ||
+    sessionCacheMissTokens > 0
+  );
   const hasPanelBreakdown = Boolean(
     positive(info?.promptTokens) > 0 ||
     positive(info?.completionTokens) > 0 ||
@@ -42,11 +54,11 @@ export function computeContextPanelUsage({
     positive(info?.cacheMissTokens) > 0
   );
 
-  const promptTokens = hasPanelBreakdown ? positive(info?.promptTokens) : inputTokensFromUsage(usage);
-  const completionTokens = hasPanelBreakdown ? positive(info?.completionTokens) : positive(usage?.completionTokens);
-  const reasoningTokens = hasPanelBreakdown ? positive(info?.reasoningTokens) : positive(usage?.reasoningTokens);
-  const cacheHitTokens = hasPanelBreakdown ? positive(info?.cacheHitTokens) : positive(usage?.cacheHitTokens);
-  const cacheMissTokens = hasPanelBreakdown ? positive(info?.cacheMissTokens) : positive(usage?.cacheMissTokens);
+  const promptTokens = hasSessionBreakdown ? sessionPromptTokens : hasPanelBreakdown ? positive(info?.promptTokens) : inputTokensFromUsage(usage);
+  const completionTokens = hasSessionBreakdown ? sessionCompletionTokens : hasPanelBreakdown ? positive(info?.completionTokens) : positive(usage?.completionTokens);
+  const reasoningTokens = hasSessionBreakdown ? sessionReasoningTokens : hasPanelBreakdown ? positive(info?.reasoningTokens) : positive(usage?.reasoningTokens);
+  const cacheHitTokens = hasSessionBreakdown ? sessionCacheHitTokens : hasPanelBreakdown ? positive(info?.cacheHitTokens) : positive(usage?.cacheHitTokens);
+  const cacheMissTokens = hasSessionBreakdown ? sessionCacheMissTokens : hasPanelBreakdown ? positive(info?.cacheMissTokens) : positive(usage?.cacheMissTokens);
 
   const totalTokens =
     positive(info?.totalTokens) ||
@@ -55,10 +67,10 @@ export function computeContextPanelUsage({
     promptTokens + completionTokens;
 
   const windowTokens = positive(context?.window) || positive(info?.windowTokens);
-  const knownContextUse = positive(context?.used) || positive(info?.usedTokens) || promptTokens;
+  const knownContextUse = positive(context?.used) || positive(info?.usedTokens);
   const approximateContextUse =
     knownContextUse ||
-    (windowTokens > 0 && totalTokens > 0 ? Math.min(totalTokens, windowTokens) : 0);
+    (windowTokens > 0 && promptTokens > 0 ? Math.min(promptTokens, windowTokens) : 0);
 
   return {
     usedTokens: approximateContextUse,

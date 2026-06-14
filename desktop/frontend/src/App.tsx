@@ -112,6 +112,7 @@ type WorkspaceRevealRequest = { id: number; path: string };
 type WorkspaceFileListRequest = { id: number; paths: string[] };
 type WorkspaceChangeListEntry = { key: string; path: string; meta: string; time: string; detail: string };
 type WorkspaceChangeListRequest = { id: number; changes: WorkspaceChangeListEntry[] };
+type QueuedPrompt = { id: string; displayText: string; submitText: string; guided?: boolean };
 const SHOW_CONTEXT_DOCK = true;
 const INDEPENDENT_WORKSPACE_TITLE = "独立工作区";
 type HistoryScopeFilter = { scope: "global" | "project"; workspaceRoot: string };
@@ -386,11 +387,8 @@ export default function App() {
     rewind,
     setModel,
     setEffort,
-    switchTab,
     openProjectTab,
     openGlobalTab,
-    closeTab,
-    reorderTabs,
     syncActiveTab,
     ensureBlankTab,
   } = useController();
@@ -403,8 +401,6 @@ export default function App() {
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
   const [tabMetas, setTabMetas] = useState<TabMeta[]>([]);
-  const [tabOrderIds, setTabOrderIds] = useState<string[]>([]);
-  const [tabRevealSignal, setTabRevealSignal] = useState(0);
   const [startupSplashVisible, setStartupSplashVisible] = useState<boolean>(() => shouldShowStartupSplash());
   // null until the mount probe resolves; true shows the overlay. Probed once —
   // clearing the key mid-session is the Settings panel's job, not the gate's.
@@ -442,8 +438,11 @@ export default function App() {
   const [sidebarTogglePressed, setSidebarTogglePressed] = useState(false);
   const [workspaceTogglePressed, setWorkspaceTogglePressed] = useState(false);
   const [clearContextPending, setClearContextPending] = useState(false);
+  const [queuedPromptsByTab, setQueuedPromptsByTab] = useState<Record<string, QueuedPrompt[]>>({});
   const topicRenameSkipCommitRef = useRef(false);
   const topicRenameCommitHandledRef = useRef(false);
+  const nextQueuedPromptIdRef = useRef(1);
+  const queuedPromptDispatchingRef = useRef(false);
   const appRef = useRef<HTMLDivElement>(null);
   const sidebarTogglePressTimerRef = useRef<number | null>(null);
   const workspaceTogglePressTimerRef = useRef<number | null>(null);
@@ -603,6 +602,7 @@ export default function App() {
     () => tabMetas.find((tab) => tab.id === activeTabId) ?? tabMetas.find((tab) => tab.active),
     [activeTabId, tabMetas],
   );
+  const activeQueuedPrompts = activeTabId ? queuedPromptsByTab[activeTabId] ?? [] : [];
   const startupSplashHold = state.meta?.ready !== true && !state.meta?.startupErr;
   const legacyMode = activeTabId ? modesByTab[activeTabId] ?? "normal" : "normal";
   const goal = activeTabId ? goalsByTab[activeTabId] ?? state.meta?.goal ?? activeTab?.goal ?? "" : "";
@@ -643,39 +643,6 @@ export default function App() {
     });
   }, []);
   const topicbarEditing = Boolean(activeTab?.topicId && activeTab.topicId === renamingTopicId);
-  const visibleTabId = activeTabId;
-  const visibleTabs = useMemo(() => {
-    const byId = new Map(tabMetas.map((tab) => [tab.id, tab]));
-    const ordered = tabOrderIds.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
-    const missing = tabMetas.filter((tab) => !tabOrderIds.includes(tab.id));
-    return [...ordered, ...missing].map((tab) => ({
-      ...tab,
-      running: tab.id === visibleTabId ? tab.running || state.running : tab.running,
-      mode: modesByTab[tab.id] ?? normalizeMode(tab.mode),
-      collaborationMode: tabListCollaborationMode({
-        goalDraftMode: Boolean(goalDraftModesByTab[tab.id]),
-        localMode: collaborationModesByTab[tab.id],
-        tabMode: tab.collaborationMode,
-        tabGoal: goalsByTab[tab.id] ?? tab.goal,
-        legacyMode: normalizeMode(tab.mode),
-      }),
-      toolApprovalMode: toolApprovalModesByTab[tab.id] ?? normalizeToolApprovalMode(tab.toolApprovalMode, normalizeMode(tab.mode), tab.toolApprovalMode === "yolo"),
-      goal: goalsByTab[tab.id] ?? tab.goal ?? "",
-      active: tab.id === visibleTabId,
-    }));
-  }, [collaborationModesByTab, goalDraftModesByTab, goalsByTab, modesByTab, state.running, tabMetas, tabOrderIds, toolApprovalModesByTab, visibleTabId]);
-
-  useEffect(() => {
-    const ids = tabMetas.map((tab) => tab.id);
-    setTabOrderIds((current) => {
-      const next = current.filter((id) => ids.includes(id));
-      for (const id of ids) {
-        if (!next.includes(id)) next.push(id);
-      }
-      return next.join("\u0000") === current.join("\u0000") ? current : next;
-    });
-  }, [tabMetas]);
-
   useEffect(() => {
     const ids = new Set(tabMetas.map((tab) => tab.id));
     for (const id of Object.keys(yoloRestoreToolApprovalModesRef.current)) {
@@ -888,6 +855,57 @@ export default function App() {
     [collaborationMode, goal, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, setModel, toolApprovalMode],
   );
 
+  const submitPromptToAgent = useCallback(
+    async (displayText: string, submitText = displayText) => {
+      const trimmed = displayText.trim();
+      if (!trimmed) return;
+      await setControllerCollaborationMode(collaborationMode);
+      await setControllerToolApprovalMode(toolApprovalMode);
+      if (goal.trim()) await setControllerGoal(goal);
+      send(trimmed, submitText.trim());
+    },
+    [collaborationMode, goal, send, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, toolApprovalMode],
+  );
+
+  const queuePrompt = useCallback((displayText: string, submitText = displayText) => {
+    if (!activeTabId) return;
+    const display = displayText.trim();
+    const submit = submitText.trim();
+    if (!display || !submit) return;
+    const queued: QueuedPrompt = {
+      id: `queued-${Date.now()}-${nextQueuedPromptIdRef.current++}`,
+      displayText: display,
+      submitText: submit,
+    };
+    setQueuedPromptsByTab((current) => ({
+      ...current,
+      [activeTabId]: [...(current[activeTabId] ?? []), queued],
+    }));
+  }, [activeTabId]);
+
+  const removeQueuedPrompt = useCallback((id: string) => {
+    if (!activeTabId) return;
+    setQueuedPromptsByTab((current) => {
+      const nextQueue = (current[activeTabId] ?? []).filter((item) => item.id !== id);
+      if (nextQueue.length === (current[activeTabId] ?? []).length) return current;
+      const next = { ...current };
+      if (nextQueue.length > 0) next[activeTabId] = nextQueue;
+      else delete next[activeTabId];
+      return next;
+    });
+  }, [activeTabId]);
+
+  const guideQueuedPrompt = useCallback((prompt: QueuedPrompt) => {
+    steer(prompt.submitText);
+    removeQueuedPrompt(prompt.id);
+  }, [removeQueuedPrompt, steer]);
+
+  const handleGuide = useCallback((displayText: string, submitText = displayText) => {
+    const text = (submitText || displayText).trim();
+    if (!text) return;
+    steer(text);
+  }, [steer]);
+
   // Startup and workspace/model rebuilds create a fresh controller in normal
   // mode. Re-apply the UI mode once the controller is ready, including the case
   // where the user picked YOLO while boot was still loading and the legacy
@@ -1076,14 +1094,38 @@ export default function App() {
         notice(t("settings.themeUnknown", { name: arg }), "warn");
         return;
       }
-      if (runningRef.current) { steer(submitText.trim()); return; }
-      await setControllerCollaborationMode(collaborationMode);
-      await setControllerToolApprovalMode(toolApprovalMode);
-      if (goal.trim()) await setControllerGoal(goal);
-      send(trimmed, submitText.trim());
+      if (runningRef.current) {
+        queuePrompt(trimmed, submitText.trim());
+        return;
+      }
+      await submitPromptToAgent(trimmed, submitText.trim());
     },
-    [applyGoal, closeTransientOverlays, collaborationMode, goal, send, runShell, notice, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, steer, switchModel, t, toolApprovalMode],
+    [applyGoal, closeTransientOverlays, collaborationMode, goal, queuePrompt, runShell, notice, submitPromptToAgent, switchModel, t],
   );
+
+  useEffect(() => {
+    if (state.running) queuedPromptDispatchingRef.current = false;
+  }, [state.running]);
+
+  useEffect(() => {
+    if (!activeTabId || state.running || state.approval || state.ask || state.messageAction) return;
+    if (queuedPromptDispatchingRef.current) return;
+    const nextPrompt = queuedPromptsByTab[activeTabId]?.[0];
+    if (!nextPrompt) return;
+    queuedPromptDispatchingRef.current = true;
+    setQueuedPromptsByTab((current) => {
+      const queue = current[activeTabId] ?? [];
+      if (queue[0]?.id !== nextPrompt.id) return current;
+      const rest = queue.slice(1);
+      const next = { ...current };
+      if (rest.length > 0) next[activeTabId] = rest;
+      else delete next[activeTabId];
+      return next;
+    });
+    void submitPromptToAgent(nextPrompt.displayText, nextPrompt.submitText).catch(() => {
+      queuedPromptDispatchingRef.current = false;
+    });
+  }, [activeTabId, queuedPromptsByTab, state.approval, state.ask, state.messageAction, state.running, submitPromptToAgent]);
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
     const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
@@ -1095,7 +1137,6 @@ export default function App() {
     await ensureBlankTab(scope, scope === "project" ? workspaceRoot : "");
     setProjectRevision((value) => value + 1);
     await refreshTabMetas();
-    setTabRevealSignal((signal) => signal + 1);
   }, [ensureBlankTab, refreshTabMetas]);
 
   useEffect(() => {
@@ -1444,64 +1485,6 @@ export default function App() {
     setComposerInsertRequest({ id: Date.now(), text });
   }, []);
 
-  const handleTabChange = useCallback(async (id: string) => {
-    closeTransientOverlays();
-    await switchTab(id);
-    await refreshTabMetas();
-    setTabRevealSignal((signal) => signal + 1);
-  }, [closeTransientOverlays, refreshTabMetas, switchTab]);
-
-  const handleTabClose = useCallback(async (id: string) => {
-    closeTransientOverlays();
-    setModesByTab((current) => {
-      if (!(id in current)) return current;
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
-    setTabMetas((current) => {
-      if (current.length <= 1) return current;
-      const closingIndex = current.findIndex((tab) => tab.id === id);
-      if (closingIndex < 0) return current;
-      const closingTab = current[closingIndex];
-      const remaining = current.filter((tab) => tab.id !== id);
-      if (!closingTab.active && closingTab.id !== activeTabId) return remaining;
-      const nextIndex = Math.min(closingIndex, remaining.length - 1);
-      const nextActiveId = remaining[nextIndex]?.id;
-      return remaining.map((tab) => ({ ...tab, active: tab.id === nextActiveId }));
-    });
-    await closeTab(id);
-    await refreshTabMetas();
-    setTabRevealSignal((signal) => signal + 1);
-  }, [activeTabId, closeTab, closeTransientOverlays, refreshTabMetas]);
-
-  const handleTabsClose = useCallback(async (ids: string[], nextActiveTabId?: string) => {
-    closeTransientOverlays();
-    const currentIds = tabMetas.map((tab) => tab.id);
-    const targets = ids.filter((id, index) => currentIds.includes(id) && ids.indexOf(id) === index);
-    if (targets.length === 0) return;
-    for (const id of targets) {
-      await closeTab(id);
-    }
-    if (nextActiveTabId && currentIds.includes(nextActiveTabId)) {
-      await switchTab(nextActiveTabId);
-    }
-    await refreshTabMetas();
-    setTabRevealSignal((signal) => signal + 1);
-  }, [closeTab, closeTransientOverlays, refreshTabMetas, switchTab, tabMetas]);
-
-  const handleTabsReorder = useCallback(async (ids: string[]) => {
-    setTabOrderIds(ids);
-    setTabMetas((current) => {
-      const byId = new Map(current.map((tab) => [tab.id, tab]));
-      const ordered = ids.map((id) => byId.get(id)).filter((tab): tab is TabMeta => Boolean(tab));
-      return ordered.length === current.length ? ordered : current;
-    });
-    await reorderTabs(ids);
-    await refreshTabMetas();
-    setTabRevealSignal((signal) => signal + 1);
-  }, [refreshTabMetas, reorderTabs]);
-
   const handleNewTab = useCallback(() => {
     closeTransientOverlays();
     setNewSessionChooserOpen(true);
@@ -1517,7 +1500,6 @@ export default function App() {
     if (scope === "fork") {
       await refreshTabMetas();
       setProjectRevision((value) => value + 1);
-      setTabRevealSignal((signal) => signal + 1);
       return;
     }
     if (scope === "code" || scope === "both") {
@@ -1534,7 +1516,6 @@ export default function App() {
       await openProjectTab(workspaceRoot, topicId);
     }
     await refreshTabMetas();
-    setTabRevealSignal((signal) => signal + 1);
   }, [closeTransientOverlays, openGlobalTab, openProjectTab, refreshTabMetas]);
 
   // History drawer: project menus can open a scoped saved-session list. Idle row
@@ -1575,7 +1556,6 @@ export default function App() {
         setHistView(null);
         await resumeSession(session.path, targetTab.id);
         await refreshTabMetas();
-        setTabRevealSignal((signal) => signal + 1);
       } catch (err: any) {
         setHistView(null);
         if (scope === "project" && session.workspaceRoot) {
@@ -1790,10 +1770,6 @@ export default function App() {
         <AppChrome
           platform={desktopPlatform}
           browserPreviewChrome={browserPreviewChrome}
-          tabs={visibleTabs}
-          activeTabId={visibleTabId}
-          revealActiveSignal={tabRevealSignal}
-          commandCompact={workspacePanelGridOpen}
           sidebarTogglePressed={sidebarTogglePressed}
           sidebarExpandBlocked={sidebarExpandBlocked}
           sidebarCollapsed={sidebarCollapsed}
@@ -1804,11 +1780,6 @@ export default function App() {
           workspacePanelLabel={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}
           onToggleSidebar={toggleSidebar}
           onToggleWorkspacePanel={toggleWorkspacePanel}
-          onTabChange={(id) => void handleTabChange(id)}
-          onTabClose={(id) => void handleTabClose(id)}
-          onTabsClose={(ids, nextActiveTabId) => void handleTabsClose(ids, nextActiveTabId)}
-          onTabsReorder={(ids) => void handleTabsReorder(ids)}
-          onNewTab={() => void handleNewTab()}
           onOpenPalette={() => void openPalette()}
         />
 
@@ -2034,6 +2005,29 @@ export default function App() {
           </main>
 
           <footer className="footer" ref={footerRef}>
+            {activeQueuedPrompts.length > 0 && (
+              <div className="queued-prompts" aria-label={t("queuedPrompts.title")}>
+                <div className="queued-prompts__head">
+                  <span>{t("queuedPrompts.title")}</span>
+                  <strong>{activeQueuedPrompts.length}</strong>
+                </div>
+                <div className="queued-prompts__list">
+                  {activeQueuedPrompts.map((prompt) => (
+                    <div className="queued-prompts__item" key={prompt.id}>
+                      <span className="queued-prompts__text" title={prompt.displayText}>{prompt.displayText}</span>
+                      <div className="queued-prompts__actions">
+                        <button type="button" className="queued-prompts__guide" onClick={() => guideQueuedPrompt(prompt)}>
+                          {t("queuedPrompts.guide")}
+                        </button>
+                        <button type="button" className="queued-prompts__remove" aria-label={t("queuedPrompts.remove")} onClick={() => removeQueuedPrompt(prompt.id)}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoItem!.id)} />}
             {state.approval && (
               <ApprovalModal
@@ -2079,6 +2073,7 @@ export default function App() {
               tabId={activeTabId}
               effort={state.effort}
               onSend={handleSend}
+              onGuide={handleGuide}
               onCancel={cancel}
               onCycleMode={cycleMode}
               onSetMode={applyMode}

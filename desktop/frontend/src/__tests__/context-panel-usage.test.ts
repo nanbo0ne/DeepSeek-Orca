@@ -67,8 +67,33 @@ eq(
     },
     sessionTokens: 19337,
   }).usedTokens,
-  19337,
-  "uses total tokens as a bounded display fallback instead of showing zero",
+  0,
+  "does not treat cumulative session totals as current context usage",
+);
+
+eq(
+  computeContextPanelUsage({
+    context: { used: 0, window: 1000000, sessionTokens: 19337 },
+    info: {
+      usedTokens: 0,
+      windowTokens: 1000000,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 19337,
+      reasoningTokens: 0,
+      cacheHitTokens: 0,
+      cacheMissTokens: 0,
+      sessionPromptTokens: 12000,
+      sessionCompletionTokens: 7000,
+      sessionReasoningTokens: 300,
+      requestCount: 2,
+      readFiles: [],
+      changedFiles: [],
+    },
+    sessionTokens: 19337,
+  }).reasoningTokens,
+  300,
+  "uses persisted session breakdown after restart",
 );
 
 eq(

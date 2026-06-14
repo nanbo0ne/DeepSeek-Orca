@@ -5,5 +5,5 @@ export function shouldShowTodoPanel(
   dismissedTodoId: string | null,
   todos: Todo[],
 ): boolean {
-  return !!todoId && todoId !== dismissedTodoId && todos.length > 0;
+  return !!todoId && todoId !== dismissedTodoId && todos.length > 0 && todos.some((todo) => todo.status !== "completed");
 }
