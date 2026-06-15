@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca CLI
+# DeepSeek-Orca CLI
 
 DeepSeek-Orca CLI 是面向终端工作流的 AI 编程 Agent。它适合熟悉命令行、Git、远程服务器和自动化脚本的开发者使用。
 
@@ -41,12 +41,6 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结�
 - `deepseek-orca setup`：创建或更新用户配置。
 - `deepseek-orca chat`：启动交互式 TUI。
 - `deepseek-orca run "task"`：执行一次性任务。
-- 机器人相关命令当前不作为推荐入口，等待后续版本重新开放。
-
-微信 iLink / OpenClaw 返回的数字型 `message_id`、`from_user_id`、`chat_id` 和 `context_token` 会自动按字符串兼容处理。
-
-会话中的常用 slash command：
-
 - `/init`：创建或更新项目指令。
 - `/plan`：切换 Plan 模式。
 - `/skill`：管理 Skill 工作流。
@@ -54,6 +48,7 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结�
 - `/model`：切换模型。
 - `/resume`：恢复历史会话。
 - `/rewind`：回滚会话上下文或相关改动。
+- `/compact`：手动执行 CONTEXT CHECKPOINT 交接式压缩。
 
 ## 功能说明
 
@@ -70,10 +65,11 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结�
 - MCP 外部工具集成。
 - 本地 Skill 工作流。
 - Memory 长期偏好和项目事实。
+- 兼容 UTF-8、UTF-16、GB18030 等常见文本编码；Windows 中文命令输出和文件名会尽量保持可读。
 - 机器人入口当前暂时关闭。
 
 ## 桌面安装包
 
 桌面端通过 Windows 安装器分发：
 
-[DeepSeek-Orca-Setup-1.0.20-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.20/DeepSeek-Orca-Setup-1.0.20-windows-amd64.exe)
+[DeepSeek-Orca-Setup-1.0.21-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.21/DeepSeek-Orca-Setup-1.0.21-windows-amd64.exe)

@@ -74,7 +74,7 @@ const persistedTotals = reducer(
     } as WireEvent,
   },
 );
-eq(persistedTotals.context.used, 50000, "usage updates the current context estimate");
+eq(persistedTotals.context.used, 8000, "usage does not overwrite the backend context-window snapshot");
 eq(persistedTotals.sessionTokens, 10000, "usage does not temporarily duplicate persisted session tokens");
 eq(persistedTotals.context.sessionTokens, 10000, "context session total stays on persisted telemetry");
 eq(persistedTotals.sessionCost, 0.02, "usage does not temporarily duplicate persisted session cost");

@@ -101,6 +101,31 @@ func TestBashPowerShellOutputIsUTF8(t *testing.T) {
 	}
 }
 
+func TestProgressWriterKeepsUTF8RuneBoundaries(t *testing.T) {
+	var chunks []string
+	w := newProgressWriter(func(chunk string) {
+		chunks = append(chunks, chunk)
+	})
+	want := "\u6587\u4ef6\u540d.txt\n"
+	raw := []byte(want)
+	if _, err := w.Write(raw[:1]); err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 0 {
+		t.Fatalf("emitted partial rune chunk: %q", chunks)
+	}
+	if _, err := w.Write(raw[1:5]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write(raw[5:]); err != nil {
+		t.Fatal(err)
+	}
+	w.Flush()
+	if got := strings.Join(chunks, ""); got != want {
+		t.Fatalf("progress chunks = %q, want %q", got, want)
+	}
+}
+
 func TestBashDescriptionReflectsShell(t *testing.T) {
 	ps := bash{shell: sandbox.Shell{Kind: sandbox.ShellPowerShell, Path: "powershell"}}
 	if !strings.Contains(ps.Description(), "PowerShell") {

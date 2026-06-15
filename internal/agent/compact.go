@@ -172,6 +172,14 @@ func estimateMessagesTokens(msgs []provider.Message) int {
 	return total
 }
 
+// EstimateContextTokens returns the same conservative message-size estimate used
+// by compaction. It is intentionally based on the live session messages rather
+// than provider-reported prompt usage: provider usage can include cache/accounting
+// details that are useful for billing but too noisy for a UI context-window gauge.
+func EstimateContextTokens(msgs []provider.Message) int {
+	return estimateMessagesTokens(msgs)
+}
+
 func estimateTextTokens(s string) int {
 	if s == "" {
 		return 0

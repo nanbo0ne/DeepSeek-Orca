@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	fileenc "deepseek-orca/internal/fileutil/encoding"
 	"deepseek-orca/internal/jobs"
@@ -172,12 +173,17 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 	cmd.WaitDelay = bashWaitDelay
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
+	var progress *progressWriter
 	if emit, ok := tool.ProgressFrom(ctx); ok {
-		w = io.MultiWriter(&buf, newProgressWriter(emit))
+		progress = newProgressWriter(emit)
+		w = io.MultiWriter(&buf, progress)
 	}
 	cmd.Stdout = w
 	cmd.Stderr = w
 	err := cmd.Run()
+	if progress != nil {
+		progress.Flush()
+	}
 	// A foreground command that spawned a lingering child (e.g. `bazel run`'s
 	// server) leaves it in the process group; Wait only reaped the shell leader.
 	// Kill the group so those don't accumulate into an OOM (#3702). On cancel/
@@ -202,15 +208,50 @@ func (b bash) foregroundTimeout() time.Duration {
 	return b.timeout
 }
 
-// progressWriter forwards each chunk the command writes to a tool.ProgressFunc,
-// so foreground bash output streams to the frontend as it is produced.
-type progressWriter struct{ emit tool.ProgressFunc }
+// progressWriter forwards command output to a tool.ProgressFunc while keeping
+// UTF-8 rune boundaries intact. Pipes may split a multibyte CJK filename across
+// writes; emitting string(p) directly would briefly show mojibake in the tool
+// card even though the final tool result decodes correctly.
+type progressWriter struct {
+	emit    tool.ProgressFunc
+	pending []byte
+}
 
 func newProgressWriter(emit tool.ProgressFunc) *progressWriter { return &progressWriter{emit: emit} }
 
 func (w *progressWriter) Write(p []byte) (int, error) {
-	w.emit(string(p))
+	data := append(w.pending, p...)
+	w.pending = w.pending[:0]
+	if len(data) == 0 {
+		return len(p), nil
+	}
+	if utf8.Valid(data) {
+		w.emit(string(data))
+		return len(p), nil
+	}
+	cut := len(data)
+	for cut > 0 && !utf8.Valid(data[:cut]) {
+		cut--
+	}
+	if cut > 0 {
+		w.emit(string(data[:cut]))
+		w.pending = append(w.pending, data[cut:]...)
+		return len(p), nil
+	}
+	if len(data) <= utf8.UTFMax {
+		w.pending = append(w.pending, data...)
+		return len(p), nil
+	}
+	w.emit(fileenc.DecodeText(data))
 	return len(p), nil
+}
+
+func (w *progressWriter) Flush() {
+	if len(w.pending) == 0 {
+		return
+	}
+	w.emit(fileenc.DecodeText(w.pending))
+	w.pending = w.pending[:0]
 }
 
 // hasUnquotedSeq reports whether seq appears in s outside any single- or

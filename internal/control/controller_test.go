@@ -238,6 +238,25 @@ func TestSubmitClearDiscardsCurrentContextWithoutSavingTranscript(t *testing.T) 
 	}
 }
 
+func TestContextSnapshotUsesLiveSessionEstimateNotLastUsage(t *testing.T) {
+	sess := agent.NewSession("sys")
+	sess.Add(provider.Message{Role: provider.RoleUser, Content: "small task"})
+	exec := agent.New(nil, nil, sess, agent.Options{ContextWindow: 128000}, event.Discard)
+	exec.SetLastUsageForTest(&provider.Usage{PromptTokens: 120000, TotalTokens: 125000})
+	c := New(Options{Executor: exec})
+
+	used, window := c.ContextSnapshot()
+	if window != 128000 {
+		t.Fatalf("window = %d, want 128000", window)
+	}
+	if used <= 0 {
+		t.Fatalf("used = %d, want positive session estimate", used)
+	}
+	if used >= 120000 {
+		t.Fatalf("used = %d, should not mirror provider prompt usage", used)
+	}
+}
+
 func TestDisconnectMCPServerRemovesLazyPlaceholder(t *testing.T) {
 	reg := tool.NewRegistry()
 	reg.Add(fakeControlTool{name: "mcp__mock__connect"})

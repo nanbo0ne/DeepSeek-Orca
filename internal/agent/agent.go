@@ -308,10 +308,13 @@ func (a *Agent) SetSession(s *Session) {
 }
 
 // LastUsage returns the most recent per-turn token telemetry the provider
-// reported (nil if no turn has run yet). The TUI uses it to show a context
-// gauge alongside the prompt; the actual cache decisions still live inside
-// maybeCompact.
+// reported (nil if no turn has run yet). It is billing/cache telemetry; context
+// gauges should use the live session estimate instead.
 func (a *Agent) LastUsage() *provider.Usage { return a.lastUsage.Load() }
+
+// SetLastUsageForTest seeds the latest provider usage for tests that need to
+// contrast billing telemetry with the live session state.
+func (a *Agent) SetLastUsageForTest(u *provider.Usage) { a.lastUsage.Store(u) }
 
 // SessionCache returns the cumulative cache hit/miss prompt tokens across every
 // API call this session — the basis for the status line's aggregate hit-rate.

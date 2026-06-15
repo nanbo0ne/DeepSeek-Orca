@@ -71,11 +71,8 @@ function repinIfWasPinned(
   el: HTMLDivElement,
   stick: { current: boolean },
   frame: { current: number | null },
-  containerHeightDelta: number,
 ) {
-  const bottomDistance = el.scrollHeight - el.scrollTop - el.clientHeight;
-  if (!stick.current && bottomDistance + containerHeightDelta >= 80) return;
-  stick.current = true;
+  if (!stick.current) return;
   if (frame.current !== null) cancelAnimationFrame(frame.current);
   frame.current = requestAnimationFrame(() => {
     if (stick.current) el.scrollTop = el.scrollHeight;
@@ -169,10 +166,8 @@ export function Transcript({
   defaultExpandThinking?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stick = useRef(true);
+  const stick = useRef(false);
   const resizeFrame = useRef<number | null>(null);
-  const lastClientHeight = useRef<number | null>(null);
-  const lastFooterHeight = useRef<number | null>(null);
   const [showFollowButton, setShowFollowButton] = useState(false);
   const t = useT();
 
@@ -252,11 +247,8 @@ export function Transcript({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    lastClientHeight.current = el.clientHeight;
     const observer = new ResizeObserver(() => {
-      const previous = lastClientHeight.current ?? el.clientHeight;
-      lastClientHeight.current = el.clientHeight;
-      repinIfWasPinned(el, stick, resizeFrame, el.clientHeight - previous);
+      repinIfWasPinned(el, stick, resizeFrame);
     });
     observer.observe(el);
     return () => {
@@ -271,9 +263,7 @@ export function Transcript({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const previous = lastFooterHeight.current ?? footerHeight;
-    lastFooterHeight.current = footerHeight;
-    repinIfWasPinned(el, stick, resizeFrame, previous - footerHeight);
+    repinIfWasPinned(el, stick, resizeFrame);
     return () => {
       if (resizeFrame.current !== null) {
         cancelAnimationFrame(resizeFrame.current);

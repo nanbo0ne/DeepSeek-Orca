@@ -1923,17 +1923,20 @@ func (c *Controller) History() []provider.Message {
 	return c.executor.Session().Snapshot() // copy — a turn may be appending concurrently
 }
 
-// ContextSnapshot returns (promptTokens, contextWindow) from the most recent
-// turn. Both zero means no data yet — a gauge hides itself.
+// ContextSnapshot returns the current live conversation's estimated context
+// occupancy and configured context window. Provider prompt usage remains
+// available via LastUsage for billing/cache telemetry, but it is too noisy for
+// the UI context gauge because it can include cache/accounting details.
 func (c *Controller) ContextSnapshot() (int, int) {
 	if c.executor == nil {
 		return 0, 0
 	}
-	u := c.executor.LastUsage()
-	if u == nil {
-		return 0, c.executor.ContextWindow()
+	window := c.executor.ContextWindow()
+	msgs := c.executor.Session().Snapshot()
+	if len(msgs) == 0 {
+		return 0, window
 	}
-	return u.PromptTokens, c.executor.ContextWindow()
+	return agent.EstimateContextTokens(msgs), window
 }
 
 // CompactRatio returns the auto-compaction threshold as a fraction of the window

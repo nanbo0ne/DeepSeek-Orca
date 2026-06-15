@@ -375,14 +375,10 @@ function applyEvent(s: State, e: WireEvent): State {
       return { ...s, items: next };
     }
     case "usage": {
-      const usagePromptTokens = e.usage
-        ? e.usage.promptTokens || e.usage.cacheHitTokens + e.usage.cacheMissTokens
-        : 0;
-      const used = usagePromptTokens > 0 ? usagePromptTokens : s.context.used;
       const turnTokens = s.turnTokens + (e.usage?.completionTokens ?? 0);
       const sessionTokens = Math.max(0, s.context.sessionTokens ?? s.sessionTokens, s.sessionTokens);
       const sessionCurrency = e.usage?.currency || s.sessionCurrency || "¥";
-      return { ...s, usage: e.usage, context: { ...s.context, used, sessionTokens }, turnTokens, sessionTokens, sessionCurrency };
+      return { ...s, usage: e.usage, context: { ...s.context, sessionTokens }, turnTokens, sessionTokens, sessionCurrency };
     }
     case "notice":
       return { ...s, running: s.turnActive ? s.running : false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "" }] };

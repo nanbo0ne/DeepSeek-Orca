@@ -36,6 +36,7 @@ function keepDistPlaceholder(): Plugin {
 // base: "./" so built asset URLs are relative. Wails serves the embedded dist from
 // the app root over the wails:// scheme, where absolute "/assets/..." URLs 404.
 export default defineConfig({
+  root: configDir,
   plugins: [react(), stripCrossorigin(), keepDistPlaceholder()],
   base: "./",
   build: {
