@@ -2347,8 +2347,8 @@ a[href] {
 }
 .transcript-follow {
   position: sticky;
-  left: 50%;
-  bottom: 18px;
+  left: calc(50% + min(420px, 38vw));
+  top: 50%;
   z-index: var(--z-floating-menu);
   display: grid;
   place-items: center;
@@ -2361,16 +2361,16 @@ a[href] {
   color: #ffffff;
   box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
   cursor: pointer;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   transition: transform 0.14s, box-shadow 0.14s, background 0.14s;
 }
 .transcript-follow:hover {
   background: color-mix(in srgb, var(--accent) 84%, #0b1220);
   box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 30%, transparent);
-  transform: translateX(-50%) translateY(-1px);
+  transform: translate(-50%, calc(-50% - 1px));
 }
 .transcript-follow:active {
-  transform: translateX(-50%) translateY(0);
+  transform: translate(-50%, -50%);
 }
 .transcript-follow:focus-visible {
   outline: 3px solid var(--accent-soft);

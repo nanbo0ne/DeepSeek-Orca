@@ -72,4 +72,4 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结�
 
 桌面端通过 Windows 安装器分发：
 
-[DeepSeek-Orca-Setup-1.0.21-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.21/DeepSeek-Orca-Setup-1.0.21-windows-amd64.exe)
+[DeepSeek-Orca-Setup-1.0.22-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.22/DeepSeek-Orca-Setup-1.0.22-windows-amd64.exe)

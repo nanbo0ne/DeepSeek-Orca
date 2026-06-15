@@ -1,6 +1,6 @@
 // Run: tsx src/__tests__/send-failed.test.ts
 
-import { initialState, reducer } from "../lib/useController";
+import { initialState, nextContextRefreshDelay, reducer } from "../lib/useController";
 import type { WireEvent } from "../lib/types";
 
 let passed = 0;
@@ -78,6 +78,10 @@ eq(persistedTotals.context.used, 8000, "usage does not overwrite the backend con
 eq(persistedTotals.sessionTokens, 10000, "usage does not temporarily duplicate persisted session tokens");
 eq(persistedTotals.context.sessionTokens, 10000, "context session total stays on persisted telemetry");
 eq(persistedTotals.sessionCost, 0.02, "usage does not temporarily duplicate persisted session cost");
+
+eq(nextContextRefreshDelay(10_000, undefined), 0, "context refresh runs immediately when never refreshed");
+eq(nextContextRefreshDelay(10_000, 9_500), 500, "context refresh throttles recent backend snapshots");
+eq(nextContextRefreshDelay(10_000, 8_000), 0, "context refresh runs after the refresh interval");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

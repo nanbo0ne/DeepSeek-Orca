@@ -502,6 +502,13 @@ export function reducer(s: State, a: Action): State {
 
 type TabStates = Map<string, State>;
 
+const CONTEXT_REFRESH_INTERVAL_MS = 1000;
+
+export function nextContextRefreshDelay(now: number, lastRefreshAt: number | undefined, intervalMs = CONTEXT_REFRESH_INTERVAL_MS): number {
+  if (!lastRefreshAt || lastRefreshAt <= 0) return 0;
+  return Math.max(0, intervalMs - Math.max(0, now - lastRefreshAt));
+}
+
 function getOrCreateState(states: TabStates, tabId: string): State {
   if (!states.has(tabId)) states.set(tabId, { ...initialState });
   return states.get(tabId)!;
@@ -533,7 +540,6 @@ function errorMessage(err: unknown): string {
 async function refreshMetaForTab(tabId: string, dispatchTo: (tabId: string, action: Action) => void): Promise<void> {
   try {
     dispatchTo(tabId, { type: "meta", meta: await app.MetaForTab(tabId) });
-    dispatchTo(tabId, { type: "context", context: await app.ContextUsageForTab(tabId) });
     dispatchTo(tabId, { type: "effort", effort: await app.EffortForTab(tabId) });
   } catch {
     /* ignore */
@@ -570,6 +576,9 @@ export function useController() {
 
   const checkpointRefreshSeq = useRef(new Map<string, number>());
   const sessionLoadSeq = useRef(new Map<string, number>());
+  const contextRefreshSeq = useRef(new Map<string, number>());
+  const contextRefreshTimers = useRef(new Map<string, number>());
+  const lastContextRefreshAt = useRef(new Map<string, number>());
   const bumpSessionLoadSeq = useCallback((tabId: string): number => {
     const seq = (sessionLoadSeq.current.get(tabId) ?? 0) + 1;
     sessionLoadSeq.current.set(tabId, seq);
@@ -589,6 +598,42 @@ export function useController() {
     if (checkpointRefreshSeq.current.get(tabId) !== seq || checkpoints === undefined) return;
     dispatchTo(tabId, { type: "checkpoints", checkpoints: asArray(checkpoints) });
   }, [bumpCheckpointRefreshSeq, dispatchTo]);
+
+  const refreshContextForTab = useCallback(async (tabId: string) => {
+    const seq = (contextRefreshSeq.current.get(tabId) ?? 0) + 1;
+    contextRefreshSeq.current.set(tabId, seq);
+    lastContextRefreshAt.current.set(tabId, Date.now());
+    const context = await app.ContextUsageForTab(tabId).catch(() => undefined);
+    if (contextRefreshSeq.current.get(tabId) !== seq || context === undefined) return;
+    dispatchTo(tabId, { type: "context", context });
+  }, [dispatchTo]);
+
+  const requestContextRefresh = useCallback((tabId: string, minDelay = 0) => {
+    const now = Date.now();
+    const wait = Math.max(minDelay, nextContextRefreshDelay(now, lastContextRefreshAt.current.get(tabId)));
+    const existing = contextRefreshTimers.current.get(tabId);
+    if (wait <= 0) {
+      if (existing !== undefined) {
+        window.clearTimeout(existing);
+        contextRefreshTimers.current.delete(tabId);
+      }
+      void refreshContextForTab(tabId);
+      return;
+    }
+    if (existing !== undefined) return;
+    const timer = window.setTimeout(() => {
+      contextRefreshTimers.current.delete(tabId);
+      void refreshContextForTab(tabId);
+    }, wait);
+    contextRefreshTimers.current.set(tabId, timer);
+  }, [refreshContextForTab]);
+
+  useEffect(() => () => {
+    for (const timer of contextRefreshTimers.current.values()) {
+      window.clearTimeout(timer);
+    }
+    contextRefreshTimers.current.clear();
+  }, []);
 
   const loadSessionDataForTab = useCallback(async (tabId: string, reset = false) => {
     const seq = bumpSessionLoadSeq(tabId);
@@ -612,7 +657,8 @@ export function useController() {
     if (checkpoints) dispatchTo(tabId, { type: "checkpoints", checkpoints: asArray(checkpoints) });
     const messages = asArray(history);
     if (messages.length) dispatchTo(tabId, { type: "history", messages });
-  }, [bumpSessionLoadSeq, dispatchTo, sessionLoadCurrent]);
+    await refreshContextForTab(tabId);
+  }, [bumpSessionLoadSeq, dispatchTo, refreshContextForTab, sessionLoadCurrent]);
 
   const activeTabFromBackend = useCallback(async (): Promise<TabMeta | undefined> => {
     const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
@@ -653,10 +699,11 @@ export function useController() {
       app.EffortForTab(tabId).catch(() => undefined),
       app.BalanceForTab(tabId).catch(() => undefined),
     ]);
+    void refreshContextForTab(tabId);
     if (jobs) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
     if (effort) dispatchTo(tabId, { type: "effort", effort });
     if (balance) dispatchTo(tabId, { type: "balance", balance });
-  }, [dispatchTo, loadSessionDataForTab]);
+  }, [dispatchTo, loadSessionDataForTab, refreshContextForTab]);
 
   useEffect(() => {
     const textBatch = createRafBatch<{ tabId: string; e: WireEvent }>((batch) => {
@@ -674,21 +721,20 @@ export function useController() {
         textBatch.drain();
         dispatchTo(targetTabId, { type: "event", e });
       }
+      if (e.kind === "turn_started" || e.kind === "usage" || e.kind === "message" || e.kind === "tool_result" || e.kind === "compaction_done") {
+        requestContextRefresh(targetTabId, e.kind === "turn_started" ? 150 : 0);
+      } else if (e.kind === "text" || e.kind === "reasoning" || e.kind === "tool_progress") {
+        requestContextRefresh(targetTabId);
+      }
       if (e.kind === "turn_done") {
         void refreshMetaForTab(targetTabId, dispatchTo);
-        app
-          .ContextUsageForTab(targetTabId)
-          .then((context) => dispatchTo(targetTabId, { type: "context", context }))
-          .catch(() => {});
+        requestContextRefresh(targetTabId);
         app.BalanceForTab(targetTabId).then((balance) => dispatchTo(targetTabId, { type: "balance", balance })).catch(() => {});
         app.EffortForTab(targetTabId).then((effort) => dispatchTo(targetTabId, { type: "effort", effort })).catch(() => {});
         void refreshCheckpoints(targetTabId);
       }
       if (e.kind === "compaction_done") {
-        app
-          .ContextUsageForTab(targetTabId)
-          .then((context) => dispatchTo(targetTabId, { type: "context", context }))
-          .catch(() => {});
+        requestContextRefresh(targetTabId);
       }
       if (e.kind === "turn_done" || e.kind === "notice") {
         app.JobsForTab(targetTabId).then((jobs) => dispatchTo(targetTabId, { type: "jobs", jobs: asArray(jobs) })).catch(() => {});
@@ -712,7 +758,21 @@ export function useController() {
     void app.ReplayPendingPrompts().catch(() => {});
 
     return () => { textBatch.drain(); off(); offReady(); };
-  }, [dispatchTo, loadSessionDataForTab, refreshCheckpoints, syncActiveTabFromBackend]);
+  }, [dispatchTo, loadSessionDataForTab, refreshCheckpoints, requestContextRefresh, syncActiveTabFromBackend]);
+
+  useEffect(() => {
+    if (!activeTabId) return;
+    requestContextRefresh(activeTabId);
+  }, [activeTabId, requestContextRefresh]);
+
+  useEffect(() => {
+    if (!activeTabId || !activeState.running) return;
+    requestContextRefresh(activeTabId, 150);
+    const timer = window.setInterval(() => {
+      requestContextRefresh(activeTabId);
+    }, CONTEXT_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [activeTabId, activeState.running, requestContextRefresh]);
 
   // Stale-stream watchdog: if the frontend thinks the agent is running but
   // no token events have arrived for 30 seconds, reconcile with the backend.
@@ -872,9 +932,9 @@ export function useController() {
     if (messages.length === 0) return;
     dispatchTo(targetTabId, { type: "reset" });
     dispatchTo(targetTabId, { type: "history", messages });
-    app.ContextUsageForTab(targetTabId).then((context) => dispatchTo(targetTabId, { type: "context", context })).catch(() => {});
+    void refreshContextForTab(targetTabId);
     void refreshCheckpoints(targetTabId);
-  }, [activeTabId, dispatchTo, refreshCheckpoints, waitForTabReady]);
+  }, [activeTabId, dispatchTo, refreshCheckpoints, refreshContextForTab, waitForTabReady]);
 
   const previewSession = useCallback(async (path: string): Promise<HistoryMessage[]> => asArray<HistoryMessage>(await app.PreviewSession(path).catch(() => [])), []);
   const deleteSession = useCallback((path: string) => app.DeleteSession(path).catch(() => {}), []);
@@ -886,10 +946,10 @@ export function useController() {
     if (!activeTabId) return;
     try {
       dispatchTo(activeTabId, { type: "meta", meta: await app.MetaForTab(activeTabId) });
-      dispatchTo(activeTabId, { type: "context", context: await app.ContextUsageForTab(activeTabId) });
       dispatchTo(activeTabId, { type: "effort", effort: await app.EffortForTab(activeTabId) });
+      await refreshContextForTab(activeTabId);
     } catch { /* ignore */ }
-  }, [activeTabId, dispatchTo]);
+  }, [activeTabId, dispatchTo, refreshContextForTab]);
 
   const refreshWorkspaceState = useCallback(async (path: string): Promise<string> => {
     if (path) await syncActiveTabFromBackend(true);
@@ -917,20 +977,20 @@ export function useController() {
     }
     try {
       dispatchTo(activeTabId, { type: "meta", meta: await app.MetaForTab(activeTabId) });
-      dispatchTo(activeTabId, { type: "context", context: await app.ContextUsageForTab(activeTabId) });
       dispatchTo(activeTabId, { type: "effort", effort: await app.EffortForTab(activeTabId) });
+      await refreshContextForTab(activeTabId);
     } catch { /* ignore */ }
-  }, [activeTabId, dispatchTo]);
+  }, [activeTabId, dispatchTo, refreshContextForTab]);
 
   const setEffort = useCallback(async (level: string) => {
     if (!activeTabId) return;
     await app.SetEffortForTab(activeTabId, level).catch(() => {});
     try {
       dispatchTo(activeTabId, { type: "meta", meta: await app.MetaForTab(activeTabId) });
-      dispatchTo(activeTabId, { type: "context", context: await app.ContextUsageForTab(activeTabId) });
       dispatchTo(activeTabId, { type: "effort", effort: await app.EffortForTab(activeTabId) });
+      await refreshContextForTab(activeTabId);
     } catch { /* ignore */ }
-  }, [activeTabId, dispatchTo]);
+  }, [activeTabId, dispatchTo, refreshContextForTab]);
 
   const fetchMemory = useCallback((): Promise<MemoryView> =>
     app.Memory().catch(() => ({ docs: [], facts: [], scopes: [], storeDir: "", available: false })), []);
@@ -968,14 +1028,14 @@ export function useController() {
       dispatchTo(sourceTabId, { type: "reset" });
       if (messages.length) dispatchTo(sourceTabId, { type: "history", messages });
       dispatchTo(sourceTabId, { type: "meta", meta: await app.MetaForTab(sourceTabId) });
-      dispatchTo(sourceTabId, { type: "context", context: await app.ContextUsageForTab(sourceTabId) });
+      await refreshContextForTab(sourceTabId);
       dispatchTo(sourceTabId, { type: "checkpoints", checkpoints: asArray(await app.CheckpointsForTab(sourceTabId)) });
     } catch {
       /* The controller emits a warning notice with the specific failure reason. */
     } finally {
       dispatchTo(sourceTabId, { type: "message_action_done" });
     }
-  }, [activeTabId, dispatchTo, loadSessionDataForTab, syncActiveTabFromBackend, waitForTabReady]);
+  }, [activeTabId, dispatchTo, loadSessionDataForTab, refreshContextForTab, syncActiveTabFromBackend, waitForTabReady]);
 
   // Tab management: switch preserves per-tab state; open creates it.
   const switchTab = useCallback(async (tabId: string) => {
