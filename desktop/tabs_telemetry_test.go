@@ -118,6 +118,38 @@ func TestContextUsageRestoresLastUsageEventAfterRestart(t *testing.T) {
 	}
 }
 
+func TestBlankConversationContextUsageDisplaysZero(t *testing.T) {
+	ag := agent.New(
+		usageProvider{usage: &provider.Usage{PromptTokens: 99, CompletionTokens: 1, TotalTokens: 100}},
+		tool.NewRegistry(),
+		agent.NewSession("system prompt and tools are loaded"),
+		agent.Options{ContextWindow: 200000},
+		event.Discard,
+	)
+	tab := &WorkspaceTab{
+		ID:    "tab",
+		Ctrl:  control.New(control.Options{Executor: ag, Sink: event.Discard}),
+		Scope: "global",
+		Ready: true,
+	}
+	app := &App{tabs: map[string]*WorkspaceTab{"tab": tab}}
+
+	context := app.ContextUsageForTab("tab")
+	if context.Used != 0 {
+		t.Fatalf("blank context used = %d, want 0", context.Used)
+	}
+	if context.Window == 0 {
+		t.Fatalf("blank context window = 0, want model window retained")
+	}
+	panel := app.ContextPanel("tab")
+	if panel.UsedTokens != 0 {
+		t.Fatalf("blank panel used = %d, want 0", panel.UsedTokens)
+	}
+	if panel.WindowTokens == 0 {
+		t.Fatalf("blank panel window = 0, want model window retained")
+	}
+}
+
 func TestWorkspaceTabRewindTelemetryPrunesUsage(t *testing.T) {
 	tab := &WorkspaceTab{}
 	tab.recordTurnStarted(0, 1000)

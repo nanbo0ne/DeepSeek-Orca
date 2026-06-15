@@ -1788,9 +1788,15 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 	if ctrl == nil {
 		return info
 	}
-	used, window := ctrl.ContextSnapshot()
-	info.Used = used
-	info.Window = window
+	if messagesHaveConversationContent(ctrl.History()) {
+		used, window := ctrl.ContextSnapshot()
+		info.Used = used
+		info.Window = window
+	} else {
+		_, window := ctrl.ContextSnapshot()
+		info.Used = 0
+		info.Window = window
+	}
 	info.CompactRatio = ctrl.CompactRatio()
 	if u := ctrl.LastUsage(); u != nil {
 		info.PromptTokens = u.PromptTokens

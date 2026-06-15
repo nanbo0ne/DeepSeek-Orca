@@ -3099,9 +3099,15 @@ func (a *App) ContextPanel(tabID string) ContextPanelInfo {
 
 	info := ContextPanelInfo{ReadFiles: []readFileRecord{}, ChangedFiles: []ChangedFileInfo{}}
 	if ctrl != nil {
-		used, window := ctrl.ContextSnapshot()
-		info.UsedTokens = used
-		info.WindowTokens = window
+		if messagesHaveConversationContent(ctrl.History()) {
+			used, window := ctrl.ContextSnapshot()
+			info.UsedTokens = used
+			info.WindowTokens = window
+		} else {
+			_, window := ctrl.ContextSnapshot()
+			info.UsedTokens = 0
+			info.WindowTokens = window
+		}
 		// Per-turn token breakdown from LastUsage (same snapshot as UsedTokens)
 		// so the donut segments are proportional to the current context fill,
 		// not inflated by cumulative session totals.

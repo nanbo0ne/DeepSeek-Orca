@@ -36,7 +36,7 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结�
 
 桌面安装包：
 
-[DeepSeek-Orca-Setup-1.0.23-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.23/DeepSeek-Orca-Setup-1.0.23-windows-amd64.exe)
+[DeepSeek-Orca-Setup-1.0.24-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.24/DeepSeek-Orca-Setup-1.0.24-windows-amd64.exe)
 
 ## 常用命令
 
