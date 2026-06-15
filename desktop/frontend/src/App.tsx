@@ -1764,6 +1764,7 @@ export default function App() {
           onOpenProject={() => void switchFolder()}
           onOpenView={openWorkbenchView}
           onOpenSkills={() => setSettingsTarget("skills")}
+          onOpenBots={() => setSettingsTarget("bots")}
           onToggleSidebar={toggleSidebar}
           onToggleWorkspacePanel={toggleWorkspacePanel}
           onOpenPalette={() => void openPalette()}

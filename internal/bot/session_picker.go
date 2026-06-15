@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,6 +28,8 @@ type sessionChoice struct {
 	Turns         int
 	LastAssistant string
 }
+
+type SessionChoice = sessionChoice
 
 type botSessionLister func(limit int) ([]sessionChoice, error)
 
@@ -73,6 +76,45 @@ func defaultBotSessionLister(limit int) ([]sessionChoice, error) {
 		choices[i].Number = i + 1
 	}
 	return choices, nil
+}
+
+func defaultBotSessionCreator(ctx context.Context, remoteKey string, msg InboundMessage) (sessionChoice, error) {
+	root := strings.TrimSpace(config.BotWorkspaceDir())
+	if root == "" {
+		root = globalBotWorkspaceRoot()
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return sessionChoice{}, err
+	}
+	dir := config.ProjectSessionDir(root)
+	if dir == "" {
+		dir = config.SessionDir()
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return sessionChoice{}, err
+	}
+	path := agent.NewSessionPath(dir, "bot")
+	sess := agent.NewSession("")
+	if err := sess.Save(path); err != nil {
+		return sessionChoice{}, err
+	}
+	now := time.Now()
+	title := "机器人新对话"
+	_ = agent.SaveBranchMetaPreserveUpdated(path, agent.BranchMeta{
+		ID:            agent.BranchID(path),
+		Scope:         "global",
+		WorkspaceRoot: root,
+		TopicTitle:    title,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	})
+	return sessionChoice{
+		Path:          path,
+		Title:         title,
+		Location:      "独立工作区",
+		WorkspaceRoot: root,
+		LastActivity:  now,
+	}, nil
 }
 
 func knownBotSessionDirs() []string {
@@ -208,7 +250,7 @@ func lastAssistantTail(path string, maxRunes int) (string, error) {
 
 func formatSessionChoices(choices []sessionChoice) string {
 	if len(choices) == 0 {
-		return "暂无可恢复的对话。请先在桌面端或 CLI 中完成至少一轮对话。"
+		return "暂无可恢复的对话。请先在桌面端、CLI 或手机端创建至少一轮对话。"
 	}
 
 	var b strings.Builder
@@ -221,7 +263,7 @@ func formatSessionChoices(choices []sessionChoice) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("\n发送 /start 可随时重新打开列表。")
+	b.WriteString("\n发送 /start 可随时重新打开列表，发送 /new 可创建新的独立工作区对话。")
 	return b.String()
 }
 
@@ -250,6 +292,16 @@ func formatSessionEntered(choice sessionChoice) string {
 	} else {
 		b.WriteString("\n\n这个对话里还没有可展示的 AI 回复。")
 	}
+	return b.String()
+}
+
+func formatSessionCreated(choice sessionChoice) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "已创建新对话：%s", choice.Title)
+	if choice.Location != "" {
+		fmt.Fprintf(&b, "\n位置：%s", choice.Location)
+	}
+	b.WriteString("\n你现在可以直接发送消息。")
 	return b.String()
 }
 

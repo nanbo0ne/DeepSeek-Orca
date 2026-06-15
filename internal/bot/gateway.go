@@ -26,7 +26,11 @@ type GatewayConfig struct {
 	Enabled       map[Platform]bool
 	Debounce      time.Duration
 	SessionLister botSessionLister
+	CreateSession SessionCreator
 	BuildSession  botControllerFactory
+	MirrorEvent   EventMirror
+	MirrorUser    UserMirror
+	AfterTurn     AfterTurnHook
 }
 
 // AllowlistConfig controls which remote users/groups can invoke the bot.
@@ -66,6 +70,10 @@ type sessionState struct {
 }
 
 type botControllerFactory func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error)
+type SessionCreator func(ctx context.Context, remoteKey string, msg InboundMessage) (SessionChoice, error)
+type EventMirror func(sessionPath string, e event.Event)
+type UserMirror func(sessionPath, text string)
+type AfterTurnHook func(sessionPath string)
 
 type remoteMode string
 
@@ -112,6 +120,9 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 	}
 	if cfg.SessionLister == nil {
 		cfg.SessionLister = defaultBotSessionLister
+	}
+	if cfg.CreateSession == nil {
+		cfg.CreateSession = defaultBotSessionCreator
 	}
 	if cfg.BuildSession == nil {
 		cfg.BuildSession = func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
@@ -414,7 +425,18 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, r
 		_ = gw.sendText(ctx, adapter, msg, "已停止当前任务。")
 
 	case strings.HasPrefix(msg.Text, "/new") || strings.HasPrefix(msg.Text, "/reset"):
-		_ = gw.sendText(ctx, adapter, msg, "机器人端不再创建独立新会话。请发送 /start 选择已有对话。")
+		choice, err := gw.cfg.CreateSession(ctx, remoteKey, msg)
+		if err != nil {
+			gw.logger.Warn("create bot session failed", "err", err)
+			_ = gw.sendText(ctx, adapter, msg, "创建新对话失败："+err.Error())
+			return
+		}
+		if err := gw.selectSession(ctx, remoteKey, choice); err != nil {
+			gw.logger.Warn("select new bot session failed", "err", err, "path", choice.Path)
+			_ = gw.sendText(ctx, adapter, msg, "新对话已创建，但无法进入："+err.Error())
+			return
+		}
+		_ = gw.sendText(ctx, adapter, msg, formatSessionCreated(choice))
 
 	case strings.HasPrefix(msg.Text, "/approve"):
 		parts := strings.Fields(msg.Text)
@@ -495,6 +517,7 @@ func (gw *BotGateway) controllerState(key string, hasSession bool) (*sessionStat
 func botHelpText() string {
 	return "可用命令：\n" +
 		"/start - 回到会话列表，选择最近 15 条对话\n" +
+		"/new - 创建新的独立工作区对话\n" +
 		"/stop - 停止当前任务\n" +
 		"/approve <id> - 批准操作\n" +
 		"/deny <id> - 拒绝操作\n" +
@@ -522,9 +545,12 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, remoteKey, s
 		_ = gw.sendText(ctx, adapter, msg, "内部错误：无法找到已选择的会话。请发送 /start 重新选择。")
 		return
 	}
+	if gw.cfg.MirrorUser != nil {
+		gw.cfg.MirrorUser(state.sessionPath, input)
+	}
 	_ = adapter.SendTyping(ctx, msg.ChatID)
 
-	sink := newRenderSink(ctx, adapter, msg.ChatID, msg.ChatType, msg.MessageID, gw.logger, func(ask event.Ask) {
+	renderSink := newRenderSink(ctx, adapter, msg.ChatID, msg.ChatType, msg.MessageID, gw.logger, func(ask event.Ask) {
 		gw.mu.Lock()
 		if state.pendingAsks == nil {
 			state.pendingAsks = make(map[string][]event.AskQuestion)
@@ -532,7 +558,14 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, remoteKey, s
 		state.pendingAsks[ask.ID] = ask.Questions
 		gw.mu.Unlock()
 	})
-	state.sink.setTarget(sink)
+	var target event.Sink = renderSink
+	if gw.cfg.MirrorEvent != nil {
+		target = multiEventSink{
+			renderSink,
+			botMirrorSink{sessionPath: state.sessionPath, mirror: gw.cfg.MirrorEvent},
+		}
+	}
+	state.sink.setTarget(target)
 	defer state.sink.setTarget(nil)
 
 	turnCtx, cancel := context.WithCancel(ctx)
@@ -543,11 +576,35 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, remoteKey, s
 	state.lastActive = time.Now()
 	gw.mu.Unlock()
 
-	sink.ctrl = state.ctrl
+	renderSink.ctrl = state.ctrl
 	err := state.ctrl.RunTurn(turnCtx, input)
-	sink.Emit(event.Event{Kind: event.TurnDone, Err: err})
+	target.Emit(event.Event{Kind: event.TurnDone, Err: err})
+	if gw.cfg.AfterTurn != nil {
+		gw.cfg.AfterTurn(state.sessionPath)
+	}
 	if err != nil {
 		gw.logger.Warn("turn error", "remote", remoteKey, "session", sessionKey, "err", err)
+	}
+}
+
+type multiEventSink []event.Sink
+
+func (s multiEventSink) Emit(e event.Event) {
+	for _, sink := range s {
+		if sink != nil {
+			sink.Emit(e)
+		}
+	}
+}
+
+type botMirrorSink struct {
+	sessionPath string
+	mirror      EventMirror
+}
+
+func (s botMirrorSink) Emit(e event.Event) {
+	if s.mirror != nil && strings.TrimSpace(s.sessionPath) != "" {
+		s.mirror(s.sessionPath, e)
 	}
 }
 

@@ -1,4 +1,4 @@
-import { FolderOpen, Minus, PanelLeft, PanelRight, Search, Square, Sparkles, X } from "lucide-react";
+import { Bot, FolderOpen, Minus, PanelLeft, PanelRight, Search, Square, Sparkles, X } from "lucide-react";
 import { useT } from "../lib/i18n";
 import { Tooltip } from "./Tooltip";
 
@@ -19,6 +19,7 @@ interface AppChromeProps {
   onOpenProject: () => void;
   onOpenView: () => void;
   onOpenSkills: () => void;
+  onOpenBots: () => void;
   onToggleSidebar: () => void;
   onToggleWorkspacePanel: () => void;
   onOpenPalette: () => void;
@@ -39,6 +40,7 @@ export function AppChrome({
   onOpenProject,
   onOpenView,
   onOpenSkills,
+  onOpenBots,
   onToggleSidebar,
   onToggleWorkspacePanel,
   onOpenPalette,
@@ -99,6 +101,12 @@ export function AppChrome({
           <button type="button" className="app-chrome__action" onClick={onOpenSkills} aria-label={t("topbar.skills")}>
             <Sparkles size={14} />
             <span>{t("topbar.skills")}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={t("topbar.botStatus")}>
+          <button type="button" className="app-chrome__action" onClick={onOpenBots} aria-label={t("topbar.botStatus")}>
+            <Bot size={14} />
+            <span>{t("topbar.bot")}</span>
           </button>
         </Tooltip>
       </nav>

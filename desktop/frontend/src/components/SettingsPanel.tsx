@@ -15,7 +15,7 @@ import { MCPServersSettingsPage, SkillsSettingsPage } from "./CapabilitiesPanel"
 import { MemorySettingsPage } from "./MemoryPanel";
 import { ModalCloseButton } from "./ModalCloseButton";
 
-const BOT_SETTINGS_ENABLED = false;
+const BOT_SETTINGS_ENABLED = true;
 const SETTINGS_TABS: SettingsTab[] = [
   "general",
   "models",
@@ -261,7 +261,6 @@ type ModelsSectionProps = SectionProps & {
 
 function normalizeInitialSettingsTab(tab?: SettingsTab): SettingsTab {
   if (tab === "providers") return "models";
-  if (tab === "bots") return "general";
   return tab ?? "general";
 }
 
@@ -963,7 +962,12 @@ function BotsSection({ s, busy, apply }: SectionProps) {
           qq: { ...prev.qq, enabled: true, appId, appSecretEnv: "QQ_BOT_APP_SECRET", secretSet: true, environment },
           connections: [...prev.connections.filter((c) => c.id !== connection.id), connection],
         }));
-        setInstall({ target: "qq", result: null, status: "connected", message: t("settings.botQQConnected") });
+        setInstall({
+          target: "qq",
+          result: null,
+          status: connection.status === "warning" ? "manual" : "connected",
+          message: connection.lastError || t("settings.botQQConnected"),
+        });
       } else {
         await saveBot();
         if (appSecret) await app.SetBotSecret(draft.qq.appSecretEnv.trim() || "QQ_BOT_APP_SECRET", appSecret);

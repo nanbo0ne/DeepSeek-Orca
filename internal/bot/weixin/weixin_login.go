@@ -1,12 +1,16 @@
 package weixin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -21,18 +25,20 @@ type savedAccount struct {
 }
 
 type LoginResult struct {
-	AccountID string
-	Token     string
-	BaseURL   string
-	UserID    string
+	AccountID        string
+	Token            string
+	BaseURL          string
+	UserID           string
+	AlreadyConnected bool
 }
 
 type LoginSession struct {
-	SessionKey string
-	QRCode     string
-	QRCodeURL  string
-	BaseURL    string
-	StartedAt  time.Time
+	SessionKey        string
+	QRCode            string
+	QRCodeURL         string
+	BaseURL           string
+	StartedAt         time.Time
+	PendingVerifyCode string
 }
 
 func weixinAccountDir(root string) string {
@@ -64,13 +70,18 @@ func loadSavedAccount(accountID string) (savedAccount, error) {
 }
 
 func loadAnySavedAccount() (savedAccount, error) {
+	_, account, err := loadAnySavedAccountWithID()
+	return account, err
+}
+
+func loadAnySavedAccountWithID() (string, savedAccount, error) {
 	root := config.MemoryUserDir()
 	if root == "" {
-		return savedAccount{}, fmt.Errorf("deepseek-orca user config dir is unavailable")
+		return "", savedAccount{}, fmt.Errorf("deepseek-orca user config dir is unavailable")
 	}
 	entries, err := os.ReadDir(weixinAccountDir(root))
 	if err != nil {
-		return savedAccount{}, err
+		return "", savedAccount{}, err
 	}
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") || strings.Contains(entry.Name(), "context-tokens") {
@@ -78,24 +89,24 @@ func loadAnySavedAccount() (savedAccount, error) {
 		}
 		accountID := strings.TrimSuffix(entry.Name(), ".json")
 		account, err := loadSavedAccount(accountID)
-		if err == nil && account.Token != "" {
-			return account, nil
+		if err == nil && strings.TrimSpace(account.Token) != "" {
+			return accountID, account, nil
 		}
 	}
-	return savedAccount{}, fmt.Errorf("no saved weixin account")
+	return "", savedAccount{}, fmt.Errorf("no saved weixin account")
 }
 
 func HasSavedAccount(accountID string) bool {
 	if accountID != "" {
 		account, err := loadSavedAccount(accountID)
-		return err == nil && account.Token != ""
+		return err == nil && strings.TrimSpace(account.Token) != ""
 	}
 	account, err := loadSavedAccount("default")
-	if err == nil && account.Token != "" {
+	if err == nil && strings.TrimSpace(account.Token) != "" {
 		return true
 	}
-	account, err = loadAnySavedAccount()
-	return err == nil && account.Token != ""
+	_, account, err = loadAnySavedAccountWithID()
+	return err == nil && strings.TrimSpace(account.Token) != ""
 }
 
 func saveAccount(accountID string, account savedAccount) error {
@@ -111,6 +122,44 @@ func saveAccount(accountID string, account savedAccount) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
+}
+
+func localBotTokenList(limit int) []string {
+	root := config.MemoryUserDir()
+	if root == "" || limit <= 0 {
+		return []string{}
+	}
+	entries, err := os.ReadDir(weixinAccountDir(root))
+	if err != nil {
+		return []string{}
+	}
+	type item struct {
+		name string
+		mod  time.Time
+	}
+	items := make([]item, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") || strings.Contains(entry.Name(), "context-tokens") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		items = append(items, item{name: strings.TrimSuffix(entry.Name(), ".json"), mod: info.ModTime()})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].mod.After(items[j].mod) })
+	out := make([]string, 0, limit)
+	for _, item := range items {
+		account, err := loadSavedAccount(item.name)
+		if err == nil && strings.TrimSpace(account.Token) != "" {
+			out = append(out, strings.TrimSpace(account.Token))
+			if len(out) >= limit {
+				break
+			}
+		}
+	}
+	return out
 }
 
 func Login(ctx context.Context, out io.Writer, timeout time.Duration) (*LoginResult, error) {
@@ -153,6 +202,8 @@ func Login(ctx context.Context, out io.Writer, timeout time.Duration) (*LoginRes
 				fmt.Fprint(out, ".")
 			case "scaned":
 				fmt.Fprintln(out, "\n已扫码，请在微信里确认。")
+			case "need_verifycode":
+				fmt.Fprintln(out, "\n微信要求输入配对码，请在桌面连接界面继续。")
 			default:
 				fmt.Fprintf(out, "\n二维码状态：%s\n", status)
 			}
@@ -162,7 +213,9 @@ func Login(ctx context.Context, out io.Writer, timeout time.Duration) (*LoginRes
 }
 
 func StartLogin(ctx context.Context) (*LoginSession, error) {
-	qrResp, err := ilinkGET(ctx, defaultWeixinAPI, getBotQRPath+"?bot_type=3")
+	qrResp, err := ilinkPostMap(ctx, defaultWeixinAPI, getBotQRPath+"?bot_type=3", map[string]any{
+		"local_token_list": localBotTokenList(10),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch qr code: %w", err)
 	}
@@ -191,16 +244,29 @@ func PollLogin(ctx context.Context, session *LoginSession) (*LoginResult, string
 	if baseURL == "" {
 		baseURL = defaultWeixinAPI
 	}
-	statusResp, err := ilinkGET(ctx, baseURL, getQRStatusPath+"?qrcode="+session.QRCode)
+	endpoint := getQRStatusPath + "?qrcode=" + url.QueryEscape(session.QRCode)
+	if session.PendingVerifyCode != "" {
+		endpoint += "&verify_code=" + url.QueryEscape(session.PendingVerifyCode)
+	}
+	statusResp, err := ilinkGET(ctx, baseURL, endpoint)
 	if err != nil {
+		if ctx.Err() != nil || isTemporaryLoginPollError(err) {
+			return nil, "wait", nil
+		}
 		return nil, "", err
 	}
 	status := fmt.Sprint(statusResp["status"])
 	switch status {
-	case "wait", "", "<nil>":
+	case "wait", "", "<nil>", "scaned":
 		return nil, status, nil
-	case "scaned":
+	case "need_verifycode", "verify_code_blocked":
 		return nil, status, nil
+	case "binded_redirect":
+		accountID, account, err := loadAnySavedAccountWithID()
+		if err == nil {
+			return &LoginResult{AccountID: accountID, Token: account.Token, BaseURL: firstNonEmptyString(account.BaseURL, baseURL), UserID: account.UserID, AlreadyConnected: true}, status, nil
+		}
+		return &LoginResult{AccountID: "default", BaseURL: baseURL, AlreadyConnected: true}, status, nil
 	case "scaned_but_redirect":
 		if host := fmt.Sprint(statusResp["redirect_host"]); host != "" && host != "<nil>" {
 			session.BaseURL = "https://" + host
@@ -212,7 +278,7 @@ func PollLogin(ctx context.Context, session *LoginSession) (*LoginResult, string
 		userID := fmt.Sprint(statusResp["ilink_user_id"])
 		respBaseURL := fmt.Sprint(statusResp["baseurl"])
 		if respBaseURL == "" || respBaseURL == "<nil>" {
-			respBaseURL = defaultWeixinAPI
+			respBaseURL = baseURL
 		}
 		if accountID == "" || accountID == "<nil>" || token == "" || token == "<nil>" {
 			return nil, status, fmt.Errorf("weixin qr confirmed but credential payload is incomplete")
@@ -235,4 +301,47 @@ func PollLogin(ctx context.Context, session *LoginSession) (*LoginResult, string
 	default:
 		return nil, status, nil
 	}
+}
+
+func ilinkPostMap(ctx context.Context, baseURL, endpoint string, payload map[string]any) (map[string]any, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(baseURL, "/")+"/"+strings.TrimLeft(endpoint, "/"), bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("iLink-App-Id", ilinkAppID)
+	req.Header.Set("iLink-App-ClientVersion", fmt.Sprintf("%d", ilinkClientVersion))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		if len(body) > 300 {
+			body = body[:300]
+		}
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	var out map[string]any
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func isTemporaryLoginPollError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "deadline exceeded") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "eof") ||
+		strings.Contains(msg, "524")
 }

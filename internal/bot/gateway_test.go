@@ -309,3 +309,49 @@ func TestGatewaySelectsListedSessionAndShowsAssistantTail(t *testing.T) {
 		t.Fatalf("selected controller %q not registered", key)
 	}
 }
+
+func TestGatewayNewCreatesAndSelectsSession(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "new-session.jsonl")
+	if err := agent.NewSession("sys").Save(path); err != nil {
+		t.Fatalf("save new session: %v", err)
+	}
+
+	fa := newFakeAdapter(PlatformWeixin, "fake-weixin")
+	var created bool
+	var buildPath string
+	cfg := GatewayConfig{
+		Enabled:   map[Platform]bool{PlatformWeixin: true},
+		Allowlist: AllowlistConfig{AllowAll: true},
+		CreateSession: func(ctx context.Context, remoteKey string, msg InboundMessage) (SessionChoice, error) {
+			created = true
+			return SessionChoice{Path: path, Title: "机器人新对话", Location: "独立工作区", WorkspaceRoot: dir}, nil
+		},
+		BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+			buildPath = choice.Path
+			return control.New(control.Options{SessionDir: dir, SessionPath: choice.Path, Sink: sink, Label: "test"}), nil
+		},
+	}
+	gw := NewGateway(cfg, map[Platform]Adapter{PlatformWeixin: fa}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gw.handleMessage(context.Background(), PlatformWeixin, fa, InboundMessage{
+		ChatType:  ChatDM,
+		ChatID:    "chat-1",
+		UserID:    "user-1",
+		Text:      "/new",
+		MessageID: "msg-1",
+	})
+
+	if !created {
+		t.Fatal("/new did not call CreateSession")
+	}
+	if buildPath != path {
+		t.Fatalf("build path = %q, want %q", buildPath, path)
+	}
+	if _, ok := gw.controllers[controllerKeyForSession(path)]; !ok {
+		t.Fatalf("new session controller not registered")
+	}
+	sent := fa.sentMessages()
+	if len(sent) != 1 || !strings.Contains(sent[0].Text, "已创建新对话") {
+		t.Fatalf("/new response = %#v", sent)
+	}
+}

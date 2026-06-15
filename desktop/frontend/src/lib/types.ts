@@ -18,6 +18,8 @@ export type EventKind =
   | "compaction_started"
   | "compaction_done"
   | "retrying"
+  | "external_user"
+  | "session_updated"
   | "steer";
 
 export interface WireCompaction {

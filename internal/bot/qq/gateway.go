@@ -8,9 +8,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"deepseek-orca/internal/bot"
 	"deepseek-orca/internal/config"
@@ -19,28 +24,34 @@ import (
 )
 
 const (
-	qqTokenURL               = "https://bots.qq.com/app/getAppAccessToken"
-	qqProductionRESTBase     = "https://api.sgroup.qq.com"
-	qqProductionGatewayURL   = "wss://api.sgroup.qq.com/websocket"
-	qqSandboxRESTBase        = "https://sandbox.api.sgroup.qq.com"
-	qqSandboxGatewayURL      = "wss://sandbox.api.sgroup.qq.com/websocket"
-	qqSendMsgPathTemplate    = "/v2/users/%s/messages"
-	qqSendGroupPathTemplate  = "/v2/groups/%s/messages"
-	qqSendGuildPathTemplate  = "/v2/channels/%s/messages"
-	qqSendDirectPathTemplate = "/v2/dms/%s/messages"
+	qqTokenURL                     = "https://bots.qq.com/app/getAppAccessToken"
+	qqBaseURL                      = "https://api.sgroup.qq.com"
+	qqSandboxURL                   = "https://sandbox.api.sgroup.qq.com"
+	qqMaxChunkBytes                = 1500
+	qqMaxPassiveReplyChunks        = 5
+	qqMinHeartbeat                 = 5 * time.Second
+	qqMaxHeartbeat                 = time.Minute
+	qqStartupValidationTimeout     = 10 * time.Second
+	qqPassiveReplyTruncationNotice = "\n\n[Truncated: QQ allows at most 5 passive replies for one incoming message.]"
 
 	opDispatch     = 0
 	opHeartbeat    = 1
 	opIdentify     = 2
 	opResume       = 6
 	opReconnect    = 7
+	opInvalid      = 9
 	opHello        = 10
 	opHeartbeatAck = 11
 )
 
-var qqTokenEndpoint = qqTokenURL
+var qqMarkdownWrapperRe = regexp.MustCompile("(?is)^```(?:markdown|md)\\s*\\r?\\n([\\s\\S]*?)\\r?\\n```$")
 
-// gatewayPayload QQ WebSocket 消息载荷。
+var allowedGatewayHosts = []string{
+	"api.sgroup.qq.com",
+	"sandbox.api.sgroup.qq.com",
+	"qq.com",
+}
+
 type gatewayPayload struct {
 	Op int             `json:"op"`
 	D  json.RawMessage `json:"d,omitempty"`
@@ -71,15 +82,17 @@ type dispatchEvent struct {
 	Content   string `json:"content"`
 	Timestamp string `json:"timestamp"`
 	Author    struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
+		ID           string `json:"id"`
+		UserOpenID   string `json:"user_openid"`
+		MemberOpenID string `json:"member_openid"`
+		UnionOpenID  string `json:"union_openid"`
+		Username     string `json:"username"`
 	} `json:"author"`
 	ChannelID   string `json:"channel_id"`
 	GuildID     string `json:"guild_id"`
 	GroupOpenID string `json:"group_openid"`
 }
 
-// wsClient 管理 QQ WebSocket 连接。
 type wsClient struct {
 	mu          sync.Mutex
 	conn        *websocket.Conn
@@ -122,10 +135,23 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 	}
 	a.tokenMu.Unlock()
 
-	body := fmt.Sprintf(`{"appId":"%s","clientSecret":"%s"}`,
-		a.cfg.AppID, os.Getenv(a.cfg.AppSecretEnv))
+	appID := a.appID()
+	appSecret := a.appSecret()
+	if appID == "" {
+		return "", fmt.Errorf("qq app_id is empty")
+	}
+	if appSecret == "" {
+		return "", fmt.Errorf("qq app secret is empty: set %s or QQ_SECRET", a.appSecretEnvName())
+	}
+	body, err := json.Marshal(map[string]string{
+		"appId":        appID,
+		"clientSecret": appSecret,
+	})
+	if err != nil {
+		return "", err
+	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", qqTokenEndpoint, bytes.NewBufferString(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", qqTokenURL, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -136,107 +162,93 @@ func (a *adapter) getAccessToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-
-	data, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("QQ token HTTP %d: %s", resp.StatusCode, trimQQBody(data))
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
 	}
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("qq token api error %d: %s", resp.StatusCode, string(respBody))
+	}
+
 	var result struct {
 		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
+		ExpiresIn   int    `json:"-"`
+		ExpiresRaw  any    `json:"expires_in"`
 		Code        int    `json:"code"`
 		ErrCode     int    `json:"errcode"`
 		Message     string `json:"message"`
 		ErrMsg      string `json:"errmsg"`
 	}
-	if err := json.Unmarshal(data, &result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", err
+	}
+	result.ExpiresIn, err = qqExpiresInSeconds(result.ExpiresRaw)
+	if err != nil {
 		return "", err
 	}
 	if result.AccessToken == "" {
-		if result.Message != "" || result.ErrMsg != "" || result.Code != 0 || result.ErrCode != 0 {
-			return "", fmt.Errorf("QQ token error code=%d errcode=%d: %s", result.Code, result.ErrCode, firstNonEmptyQQ(result.Message, result.ErrMsg))
+		detail := firstNonEmptyQQ(result.Message, result.ErrMsg)
+		if detail != "" || result.Code != 0 || result.ErrCode != 0 {
+			return "", fmt.Errorf("qq token error code=%d errcode=%d: %s", result.Code, result.ErrCode, detail)
 		}
-		return "", fmt.Errorf("QQ token response did not include access_token")
+		return "", fmt.Errorf("empty access token")
 	}
 	a.tokenMu.Lock()
 	a.token = result.AccessToken
-	if result.ExpiresIn > 60 {
-		a.tokenExpiry = time.Now().Add(time.Duration(result.ExpiresIn-60) * time.Second)
+	expiresIn := int(result.ExpiresIn)
+	if expiresIn > 60 {
+		a.tokenExpiry = time.Now().Add(time.Duration(expiresIn-60) * time.Second)
 	} else {
 		a.tokenExpiry = time.Now().Add(5 * time.Minute)
 	}
 	a.tokenMu.Unlock()
+	a.logger.Info("qq access token acquired", "expires_in_seconds", result.ExpiresIn)
 	return result.AccessToken, nil
 }
 
-// Validate verifies QQ App ID / Secret by requesting an access token.
-func Validate(ctx context.Context, cfg config.QQBotConfig) error {
-	if cfg.AppID == "" {
-		return fmt.Errorf("QQ App ID is empty")
-	}
-	if cfg.AppSecretEnv == "" || os.Getenv(cfg.AppSecretEnv) == "" {
-		return fmt.Errorf("%s is not set", firstNonEmptyQQ(cfg.AppSecretEnv, "QQ_BOT_APP_SECRET"))
-	}
-	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "qq")}
-	_, err := a.getAccessToken(ctx)
-	return err
-}
-
-// ProbeGateway performs a short QQ gateway handshake and then closes the socket.
-func ProbeGateway(ctx context.Context, cfg config.QQBotConfig) error {
-	if err := Validate(ctx, cfg); err != nil {
-		return err
-	}
-	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "qq")}
-	token, err := a.getAccessToken(ctx)
-	if err != nil {
-		return err
-	}
-	probeCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- a.connectGateway(probeCtx, token) }()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(8 * time.Second):
-		cancel()
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func trimQQBody(data []byte) string {
-	if len(data) > 300 {
-		data = data[:300]
-	}
-	return string(data)
-}
-
-func firstNonEmptyQQ(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
+func qqExpiresInSeconds(value any) (int, error) {
+	switch v := value.(type) {
+	case nil:
+		return 0, nil
+	case float64:
+		return int(v), nil
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return 0, nil
 		}
+		n, err := strconv.Atoi(trimmed)
+		if err != nil {
+			return 0, fmt.Errorf("invalid qq token expires_in %q: %w", v, err)
+		}
+		return n, nil
+	default:
+		return 0, fmt.Errorf("invalid qq token expires_in type %T", value)
 	}
-	return ""
 }
 
 func (a *adapter) connectGateway(ctx context.Context, token string) error {
-	gatewayURL := qqGatewayURL(a.cfg.Environment)
+	gatewayURL, err := a.getGatewayURL(ctx, token)
+	if err != nil {
+		return err
+	}
+	if parsed, parseErr := url.Parse(gatewayURL); parseErr == nil {
+		a.logger.Info("qq gateway endpoint resolved", "host", parsed.Hostname(), "environment", qqEnvironment(a.cfg.Environment))
+	}
 	cfg, err := websocket.NewConfig(gatewayURL, gatewayURL)
 	if err != nil {
 		return err
 	}
 	cfg.Header = http.Header{}
 	cfg.Header.Set("Authorization", "QQBot "+token)
+	cfg.Header.Set("X-Union-Appid", a.appID())
 
 	conn, err := websocket.DialConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("dial gateway: %w", err)
 	}
 	defer conn.Close()
+	a.logger.Info("qq gateway connected", "environment", qqEnvironment(a.cfg.Environment))
 
 	ws := &wsClient{conn: conn, token: token, logger: a.logger}
 	a.ws = ws
@@ -244,7 +256,6 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 	var msg gatewayPayload
 	decoder := json.NewDecoder(conn)
 
-	// 第一次读取必须是 Hello
 	if err := decoder.Decode(&msg); err != nil {
 		return fmt.Errorf("read hello: %w", err)
 	}
@@ -255,15 +266,14 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 	if err := json.Unmarshal(msg.D, &hello); err != nil {
 		return err
 	}
-	ws.heartbeatMs = hello.HeartbeatInterval
+	ws.heartbeatMs = int(sanitizeHeartbeatInterval(time.Duration(hello.HeartbeatInterval) * time.Millisecond).Milliseconds())
 
-	// Identify
 	identify := identifyData{
 		Token:   fmt.Sprintf("QQBot %s", token),
 		Intents: 1<<0 | 1<<1 | 1<<9 | 1<<10 | 1<<12 | 1<<25 | 1<<26,
 		Shard:   [2]int{0, 1},
 		Properties: properties{
-			OS:      "linux",
+			OS:      "windows",
 			Browser: "deepseek-orca",
 			Device:  "deepseek-orca-bot",
 		},
@@ -273,7 +283,6 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 		return fmt.Errorf("send identify: %w", err)
 	}
 
-	// 读取 Ready
 	if err := decoder.Decode(&msg); err != nil {
 		return fmt.Errorf("read ready: %w", err)
 	}
@@ -287,9 +296,13 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 		ws.sessionID = ready.SessionID
 		a.sessionID = ready.SessionID
 		a.seq = msg.S
+		a.logger.Info("qq gateway ready", "environment", qqEnvironment(a.cfg.Environment), "heartbeat_ms", ws.heartbeatMs)
+	} else {
+		a.logger.Warn("qq gateway expected ready event", "op", msg.Op, "event", msg.T)
 	}
 
-	// 启动 heartbeat
+	heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
+	defer heartbeatCancel()
 	heartbeatDone := make(chan struct{})
 	go func() {
 		defer close(heartbeatDone)
@@ -297,11 +310,15 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-heartbeatCtx.Done():
 				return
 			case <-ticker.C:
 				ws.mu.Lock()
-				if err := ws.send(opHeartbeat, json.RawMessage(fmt.Sprintf(`%d`, ws.lastSeq))); err != nil {
+				payload := json.RawMessage("null")
+				if ws.lastSeq != 0 {
+					payload = json.RawMessage(fmt.Sprintf(`%d`, ws.lastSeq))
+				}
+				if err := ws.send(opHeartbeat, payload); err != nil {
 					ws.logger.Error("heartbeat failed", "err", err)
 					ws.mu.Unlock()
 					return
@@ -311,10 +328,10 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 		}
 	}()
 
-	// 主循环：读取 dispatch 事件
 	for {
 		if err := decoder.Decode(&msg); err != nil {
 			a.logger.Error("decode gateway message", "err", err)
+			heartbeatCancel()
 			<-heartbeatDone
 			return err
 		}
@@ -327,10 +344,112 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 		case opHeartbeatAck:
 		case opReconnect:
 			a.logger.Info("gateway requested reconnect")
+			heartbeatCancel()
+			<-heartbeatDone
+			return nil
+		case opInvalid:
+			a.sessionID = ""
+			a.seq = 0
+			a.logger.Info("gateway session invalidated")
+			heartbeatCancel()
 			<-heartbeatDone
 			return nil
 		}
 	}
+}
+
+func (a *adapter) appID() string {
+	if value := strings.TrimSpace(a.cfg.AppID); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv("QQ_APPID"))
+}
+
+func (a *adapter) appSecretEnvName() string {
+	if value := strings.TrimSpace(a.cfg.AppSecretEnv); value != "" {
+		return value
+	}
+	return "QQ_BOT_APP_SECRET"
+}
+
+func (a *adapter) appSecret() string {
+	if value := strings.TrimSpace(os.Getenv(a.appSecretEnvName())); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv("QQ_SECRET"))
+}
+
+func (a *adapter) apiBaseURL() string {
+	if qqEnvironment(a.cfg.Environment) == "sandbox" {
+		return qqSandboxURL
+	}
+	return qqBaseURL
+}
+
+func (a *adapter) getGatewayURL(ctx context.Context, token string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", a.apiBaseURL()+"/gateway", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "QQBot "+token)
+	req.Header.Set("X-Union-Appid", a.appID())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("qq gateway api error %d: %s", resp.StatusCode, string(respBody))
+	}
+	var result struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", err
+	}
+	return validateGatewayURL(result.URL)
+}
+
+func validateGatewayURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("empty qq gateway url")
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != "wss" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !allowedGatewayHost(u.Hostname()) {
+		return "", fmt.Errorf("unexpected qq gateway url: %s", raw)
+	}
+	return u.String(), nil
+}
+
+func allowedGatewayHost(hostname string) bool {
+	hostname = strings.ToLower(strings.TrimSpace(hostname))
+	for _, allowed := range allowedGatewayHosts {
+		if hostname == allowed || strings.HasSuffix(hostname, "."+allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func sanitizeHeartbeatInterval(interval time.Duration) time.Duration {
+	if interval <= 0 {
+		return qqMinHeartbeat
+	}
+	if interval < qqMinHeartbeat {
+		return qqMinHeartbeat
+	}
+	if interval > qqMaxHeartbeat {
+		return qqMaxHeartbeat
+	}
+	return interval
 }
 
 func (ws *wsClient) send(op int, d json.RawMessage) error {
@@ -349,7 +468,7 @@ func (a *adapter) handleDispatch(msg gatewayPayload) {
 
 	ib := bot.InboundMessage{
 		Platform:  bot.PlatformQQ,
-		UserID:    evt.Author.ID,
+		UserID:    qqAuthorID(evt),
 		UserName:  evt.Author.Username,
 		Text:      evt.Content,
 		MessageID: evt.ID,
@@ -358,7 +477,7 @@ func (a *adapter) handleDispatch(msg gatewayPayload) {
 	switch msg.T {
 	case "C2C_MESSAGE_CREATE":
 		ib.ChatType = bot.ChatDM
-		ib.ChatID = evt.Author.ID
+		ib.ChatID = ib.UserID
 	case "GROUP_AT_MESSAGE_CREATE":
 		ib.ChatType = bot.ChatGroup
 		ib.ChatID = evt.GroupOpenID
@@ -372,8 +491,12 @@ func (a *adapter) handleDispatch(msg gatewayPayload) {
 		ib.ChatType = bot.ChatDM
 		ib.ChatID = evt.ChannelID
 	default:
-		return // 忽略其他事件
+		if strings.TrimSpace(msg.T) != "" {
+			a.logger.Info("qq dispatch ignored", "event", msg.T)
+		}
+		return
 	}
+	a.logger.Info("qq dispatch received", "event", msg.T, "chat_type", ib.ChatType)
 
 	select {
 	case a.msgCh <- ib:
@@ -382,49 +505,108 @@ func (a *adapter) handleDispatch(msg gatewayPayload) {
 	}
 }
 
-// sendMessage 使用 QQ REST API 发送消息。
+func qqAuthorID(evt dispatchEvent) string {
+	for _, value := range []string{evt.Author.UserOpenID, evt.Author.MemberOpenID, evt.Author.UnionOpenID, evt.Author.ID} {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot.SendResult, error) {
-	token, err := a.getAccessToken(ctx)
-	if err != nil {
-		return bot.SendResult{}, err
+	text := normalizeQQMarkdownReply(msg.Text)
+	chunks := splitQQMessage(text, qqMaxChunkBytes)
+	if len(chunks) == 0 {
+		chunks = []string{""}
 	}
+	originalChunkCount := len(chunks)
+	var truncated bool
+	chunks, truncated = capQQPassiveReplyChunks(msg, chunks)
+	if truncated {
+		a.logger.Warn("qq passive reply truncated", "chat_type", msg.ChatType, "chunks", originalChunkCount, "limit", len(chunks))
+	}
+	var last bot.SendResult
+	for _, chunk := range chunks {
+		seq := a.nextMessageSeq(msg.ReplyToMsgID)
+		var result bot.SendResult
+		var err error
+		if msg.Keyboard == nil && a.markdownDeliveryDisabled() {
+			result, err = a.sendPlainMessageChunk(ctx, msg, chunk, seq)
+		} else {
+			result, err = a.sendMessageChunk(ctx, msg, chunk, seq)
+		}
+		if err != nil && msg.Keyboard == nil {
+			a.disableMarkdownDelivery()
+			a.logger.Warn("qq markdown delivery failed, retrying plain text", "chat_type", msg.ChatType, "err", err)
+			result, err = a.sendPlainMessageChunk(ctx, msg, chunk, a.nextMessageSeq(msg.ReplyToMsgID))
+		}
+		if err != nil {
+			a.logger.Error("qq message send failed", "chat_type", msg.ChatType, "err", err)
+			return last, err
+		}
+		a.logger.Info("qq message sent", "chat_type", msg.ChatType, "message_id_set", strings.TrimSpace(result.MessageID) != "")
+		last = result
+	}
+	return last, nil
+}
 
-	payload := map[string]interface{}{
-		"content":  msg.Text,
+func (a *adapter) sendPlainMessageChunk(ctx context.Context, msg bot.OutboundMessage, text string, seq int) (bot.SendResult, error) {
+	return a.sendMessagePayload(ctx, msg, map[string]any{
+		"content":  text,
 		"msg_type": 0,
-	}
+	}, seq)
+}
 
-	// inline keyboard（审批用）
+func (a *adapter) sendMessageChunk(ctx context.Context, msg bot.OutboundMessage, text string, seq int) (bot.SendResult, error) {
 	if msg.Keyboard != nil {
-		rows := make([]map[string]interface{}, 0)
+		payload := map[string]any{
+			"content":  text,
+			"msg_type": 2,
+		}
+		rows := make([]map[string]any, 0, len(msg.Keyboard.Rows))
 		for _, row := range msg.Keyboard.Rows {
-			buttons := make([]map[string]interface{}, 0)
+			buttons := make([]map[string]any, 0, len(row.Buttons))
 			for _, btn := range row.Buttons {
-				buttons = append(buttons, map[string]interface{}{
-					"id": btn.ID,
-					"render_data": map[string]interface{}{
+				buttons = append(buttons, map[string]any{
+					"id": strings.TrimSpace(btn.ID),
+					"render_data": map[string]any{
 						"label": btn.Label,
 						"style": btn.Style,
 					},
-					"action": map[string]interface{}{
+					"action": map[string]any{
 						"type": 2,
 						"data": btn.CallbackID,
 					},
 				})
 			}
-			rows = append(rows, map[string]interface{}{"buttons": buttons})
+			rows = append(rows, map[string]any{"buttons": buttons})
 		}
 		payload["keyboard"] = map[string]interface{}{
 			"content": rows,
 		}
-		payload["msg_type"] = 2
+		return a.sendMessagePayload(ctx, msg, payload, seq)
+	}
+	return a.sendMessagePayload(ctx, msg, map[string]any{
+		"markdown": map[string]string{"content": text},
+		"msg_type": 2,
+	}, seq)
+}
+
+func (a *adapter) sendMessagePayload(ctx context.Context, msg bot.OutboundMessage, payload map[string]any, seq int) (bot.SendResult, error) {
+	token, err := a.getAccessToken(ctx)
+	if err != nil {
+		return bot.SendResult{}, err
 	}
 
 	if msg.ReplyToMsgID != "" {
 		payload["msg_id"] = msg.ReplyToMsgID
 	}
+	if seq > 0 {
+		payload["msg_seq"] = seq
+	}
 
-	url := qqSendURL(a.cfg.Environment, msg)
+	url := a.qqSendURL(msg)
 
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
@@ -433,6 +615,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	}
 	req.Header.Set("Authorization", "QQBot "+token)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Union-Appid", a.appID())
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -455,37 +638,182 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 	return bot.SendResult{MessageID: result.ID}, nil
 }
 
-func qqGatewayURL(environment string) string {
-	if qqEnvironment(environment) == "sandbox" {
-		return qqSandboxGatewayURL
+func (a *adapter) qqSendURL(msg bot.OutboundMessage) string {
+	base := a.apiBaseURL()
+	switch msg.ChatType {
+	case bot.ChatGroup:
+		return fmt.Sprintf("%s/v2/groups/%s/messages", base, url.PathEscape(msg.ChatID))
+	case bot.ChatGuild, bot.ChatThread:
+		return fmt.Sprintf("%s/v2/channels/%s/messages", base, url.PathEscape(msg.ChatID))
+	case bot.ChatDirect:
+		return fmt.Sprintf("%s/v2/dms/%s/messages", base, url.PathEscape(msg.ChatID))
+	default:
+		return fmt.Sprintf("%s/v2/users/%s/messages", base, url.PathEscape(msg.ChatID))
 	}
-	return qqProductionGatewayURL
 }
 
-func qqRESTBase(environment string) string {
-	if qqEnvironment(environment) == "sandbox" {
-		return qqSandboxRESTBase
+func qqSendURL(msg bot.OutboundMessage) string {
+	return (&adapter{}).qqSendURL(msg)
+}
+
+func (a *adapter) nextMessageSeq(replyTo string) int {
+	if strings.TrimSpace(replyTo) == "" {
+		return 0
 	}
-	return qqProductionRESTBase
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+	if a.nextOutboundMsgSeq <= 0 {
+		a.nextOutboundMsgSeq = 1
+	}
+	seq := a.nextOutboundMsgSeq
+	a.nextOutboundMsgSeq++
+	return seq
+}
+
+func (a *adapter) markdownDeliveryDisabled() bool {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+	return a.markdownDisabled
+}
+
+func (a *adapter) disableMarkdownDelivery() {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+	a.markdownDisabled = true
+}
+
+func normalizeQQMarkdownReply(text string) string {
+	match := qqMarkdownWrapperRe.FindStringSubmatch(strings.TrimSpace(text))
+	if len(match) != 2 {
+		return text
+	}
+	return match[1]
+}
+
+func splitQQMessage(text string, maxBytes int) []string {
+	if maxBytes <= 0 {
+		maxBytes = qqMaxChunkBytes
+	}
+	var chunks []string
+	remaining := text
+	for remaining != "" {
+		if len([]byte(remaining)) <= maxBytes {
+			chunks = append(chunks, remaining)
+			break
+		}
+		candidate := fitUTF8Slice(remaining, maxBytes)
+		splitAt := pickNaturalSplit(candidate)
+		chunks = append(chunks, candidate[:splitAt])
+		remaining = strings.TrimLeft(remaining[splitAt:], " \t\r\n")
+	}
+	return chunks
+}
+
+func capQQPassiveReplyChunks(msg bot.OutboundMessage, chunks []string) ([]string, bool) {
+	if !qqUsesPassiveReplyLimit(msg) || len(chunks) <= qqMaxPassiveReplyChunks {
+		return chunks, false
+	}
+	capped := make([]string, 0, qqMaxPassiveReplyChunks)
+	capped = append(capped, chunks[:qqMaxPassiveReplyChunks-1]...)
+	capped = append(capped, fitQQChunkWithSuffix(chunks[qqMaxPassiveReplyChunks-1], qqPassiveReplyTruncationNotice, qqMaxChunkBytes))
+	return capped, true
+}
+
+func qqUsesPassiveReplyLimit(msg bot.OutboundMessage) bool {
+	if strings.TrimSpace(msg.ReplyToMsgID) == "" {
+		return false
+	}
+	return msg.ChatType == bot.ChatDM || msg.ChatType == bot.ChatGroup
+}
+
+func fitQQChunkWithSuffix(text, suffix string, maxBytes int) string {
+	if maxBytes <= 0 {
+		maxBytes = qqMaxChunkBytes
+	}
+	suffixBytes := len([]byte(suffix))
+	if suffixBytes >= maxBytes {
+		return fitUTF8Slice(suffix, maxBytes)
+	}
+	prefix := strings.TrimRight(fitUTF8Slice(text, maxBytes-suffixBytes), " \t\r\n")
+	if prefix == "" {
+		return strings.TrimLeft(fitUTF8Slice(suffix, maxBytes), " \t\r\n")
+	}
+	return prefix + suffix
+}
+
+func fitUTF8Slice(text string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	end := 0
+	used := 0
+	for len(text[end:]) > 0 {
+		_, size := utf8.DecodeRuneInString(text[end:])
+		if size == 0 {
+			break
+		}
+		if used > 0 && used+size > maxBytes {
+			break
+		}
+		end += size
+		used += size
+		if used >= maxBytes {
+			break
+		}
+	}
+	if end > 0 {
+		return text[:end]
+	}
+	_, size := utf8.DecodeRuneInString(text)
+	if size == 0 {
+		return ""
+	}
+	return text[:size]
+}
+
+func pickNaturalSplit(candidate string) int {
+	if candidate == "" {
+		return 0
+	}
+	minSplit := len(candidate) * 6 / 10
+	for _, sep := range []string{"\n\n", "\n", " "} {
+		if at := strings.LastIndex(candidate, sep); at >= minSplit {
+			return at + len(sep)
+		}
+	}
+	return len(candidate)
+}
+
+// Validate verifies QQ App ID / Secret by requesting an access token.
+func Validate(ctx context.Context, cfg config.QQBotConfig) error {
+	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "qq")}
+	_, err := a.getAccessToken(ctx)
+	return err
+}
+
+// ProbeGateway verifies credentials and performs a short QQ gateway endpoint lookup.
+func ProbeGateway(ctx context.Context, cfg config.QQBotConfig) error {
+	a := &adapter{cfg: cfg, logger: slog.Default().With("platform", "qq")}
+	token, err := a.getAccessToken(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = a.getGatewayURL(ctx, token)
+	return err
+}
+
+func firstNonEmptyQQ(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func qqEnvironment(environment string) string {
-	if environment == "sandbox" {
+	if strings.EqualFold(strings.TrimSpace(environment), "sandbox") {
 		return "sandbox"
 	}
 	return "production"
-}
-
-func qqSendURL(environment string, msg bot.OutboundMessage) string {
-	base := qqRESTBase(environment)
-	switch msg.ChatType {
-	case bot.ChatGroup:
-		return base + fmt.Sprintf(qqSendGroupPathTemplate, msg.ChatID)
-	case bot.ChatGuild, bot.ChatThread:
-		return base + fmt.Sprintf(qqSendGuildPathTemplate, msg.ChatID)
-	case bot.ChatDirect:
-		return base + fmt.Sprintf(qqSendDirectPathTemplate, msg.ChatID)
-	default:
-		return base + fmt.Sprintf(qqSendMsgPathTemplate, msg.ChatID)
-	}
 }

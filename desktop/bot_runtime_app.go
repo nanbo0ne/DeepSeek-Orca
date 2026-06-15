@@ -29,6 +29,15 @@ func (a *App) restartDesktopBotGateway() {
 	a.startDesktopBotGateway(cfg)
 }
 
+func (a *App) startDesktopBotGatewayOnStartup() {
+	cfg, err := config.Load()
+	if err != nil {
+		a.setBotRuntimeStatus("error", "读取机器人配置失败："+err.Error())
+		return
+	}
+	a.startDesktopBotGateway(cfg)
+}
+
 func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	a.stopDesktopBotGateway()
 	if cfg == nil {
@@ -56,7 +65,7 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 		channels = append(channels, "微信")
 	}
 	if len(adapters) == 0 {
-		a.setBotRuntimeStatus("idle", "QQ/微信尚未连接。")
+		a.setBotRuntimeStatus("idle", "QQ/微信尚未配置。")
 		return
 	}
 
@@ -81,7 +90,11 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 			Users:    map[bot.Platform][]string{},
 			Groups:   map[bot.Platform][]string{},
 		},
-		Debounce: time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
+		Debounce:      time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
+		CreateSession: a.createDesktopBotSession,
+		MirrorEvent:   a.mirrorBotEventToOpenTab,
+		MirrorUser:    a.mirrorBotUserToOpenTab,
+		AfterTurn:     a.refreshOpenTabForBotSession,
 	}, adapters, logger)
 	if err := gw.Start(ctx); err != nil {
 		cancel()
@@ -137,7 +150,7 @@ func (a *App) GetBotRuntimeStatus() (BotRuntimeStatusView, error) {
 	a.mu.RUnlock()
 	if status == "" {
 		status = "idle"
-		message = "QQ/微信尚未连接。"
+		message = "QQ/微信尚未配置。"
 	}
 	return BotRuntimeStatusView{Status: status, Message: message, Channels: channels}, nil
 }

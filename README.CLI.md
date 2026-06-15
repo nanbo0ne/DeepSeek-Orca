@@ -17,7 +17,7 @@ go build -o bin/deepseek-orca.exe ./cmd/deepseek-orca
 配置 API Key：
 
 ```powershell
-$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+$env:DEEPSEEK_API_KEY="your DeepSeek API Key"
 .\bin\deepseek-orca.exe setup
 ```
 
@@ -34,13 +34,17 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
 D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结主要模块"
 ```
 
-机器人功能当前暂时关闭；后续版本会重新开放 QQ / 微信连接。
+桌面安装包：
+
+[DeepSeek-Orca-Setup-1.0.23-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.23/DeepSeek-Orca-Setup-1.0.23-windows-amd64.exe)
 
 ## 常用命令
 
 - `deepseek-orca setup`：创建或更新用户配置。
 - `deepseek-orca chat`：启动交互式 TUI。
 - `deepseek-orca run "task"`：执行一次性任务。
+- `deepseek-orca bot start`：启动机器人网关。
+- `deepseek-orca bot doctor`：检查机器人配置。
 - `/init`：创建或更新项目指令。
 - `/plan`：切换 Plan 模式。
 - `/skill`：管理 Skill 工作流。
@@ -66,10 +70,4 @@ D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结�
 - 本地 Skill 工作流。
 - Memory 长期偏好和项目事实。
 - 兼容 UTF-8、UTF-16、GB18030 等常见文本编码；Windows 中文命令输出和文件名会尽量保持可读。
-- 机器人入口当前暂时关闭。
-
-## 桌面安装包
-
-桌面端通过 Windows 安装器分发：
-
-[DeepSeek-Orca-Setup-1.0.22-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.22/DeepSeek-Orca-Setup-1.0.22-windows-amd64.exe)
+- QQ/微信机器人网关可复用桌面/CLI 会话。机器人端发送 `/start` 选择最近会话，发送 `/new` 创建独立工作区会话。

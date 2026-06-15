@@ -307,6 +307,24 @@ function applyEvent(s: State, e: WireEvent): State {
   }
   if (s.retry) s = { ...s, retry: undefined };
   switch (e.kind) {
+    case "external_user": {
+      const text = (e.text ?? "").trim();
+      if (!text) return s;
+      const lastItem = s.items[s.items.length - 1];
+      if (lastItem?.kind === "user" && lastItem.text === text) {
+        return { ...s, running: true, turnStartAt: Date.now(), turnTokens: 0 };
+      }
+      return {
+        ...s,
+        seq: s.seq + 1,
+        items: [...s.items, { kind: "user", id: `u${s.seq}`, text }],
+        running: true,
+        turnStartAt: Date.now(),
+        turnTokens: 0,
+      };
+    }
+    case "session_updated":
+      return s;
     case "turn_started": {
       // Flush the user message and pre-create an empty assistant bubble
       // immediately so the user sees their message + a blinking cursor the
@@ -712,6 +730,14 @@ export function useController() {
     const off = onEvent((e) => {
       const targetTabId = e.tabId || activeTabIdRef.current;
       if (!targetTabId) return;
+      if (e.kind === "session_updated") {
+        textBatch.drain();
+        void loadSessionDataForTab(targetTabId, true);
+        void refreshMetaForTab(targetTabId, dispatchTo);
+        void refreshCheckpoints(targetTabId);
+        requestContextRefresh(targetTabId);
+        return;
+      }
       if (e.kind === "turn_started" || e.kind === "text" || e.kind === "reasoning") {
         lastTokenAt.current = Date.now();
       }

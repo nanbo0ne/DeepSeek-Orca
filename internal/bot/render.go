@@ -11,7 +11,9 @@ import (
 	"deepseek-orca/internal/event"
 )
 
-// renderSink renders DeepSeek-Orca event streams into platform messages.
+// renderSink renders DeepSeek-Orca event streams into compact IM messages.
+// It buffers assistant text until TurnDone so mobile clients receive a coherent
+// reply instead of many tiny streaming bubbles.
 type renderSink struct {
 	ctx      context.Context
 	adapter  Adapter
@@ -22,24 +24,25 @@ type renderSink struct {
 	ctrl     *control.Controller
 	onAsk    func(event.Ask)
 
-	buf        strings.Builder
-	thinking   strings.Builder
-	inThinking bool
-	toolNames  map[string]string
-	lastFlush  time.Time
+	buf             strings.Builder
+	finalText       string
+	toolNames       map[string]string
+	sentProgress    map[string]bool
+	lastProgressAt  time.Time
+	progressCounter int
 }
 
 func newRenderSink(ctx context.Context, adapter Adapter, chatID string, chatType ChatType, replyTo string, logger *slog.Logger, onAsk func(event.Ask)) *renderSink {
 	return &renderSink{
-		ctx:       ctx,
-		adapter:   adapter,
-		chatID:    chatID,
-		chatType:  chatType,
-		replyTo:   replyTo,
-		logger:    logger,
-		onAsk:     onAsk,
-		toolNames: make(map[string]string),
-		lastFlush: time.Now(),
+		ctx:          ctx,
+		adapter:      adapter,
+		chatID:       chatID,
+		chatType:     chatType,
+		replyTo:      replyTo,
+		logger:       logger,
+		onAsk:        onAsk,
+		toolNames:    make(map[string]string),
+		sentProgress: make(map[string]bool),
 	}
 }
 
@@ -47,52 +50,31 @@ func (s *renderSink) Emit(e event.Event) {
 	switch e.Kind {
 	case event.TurnStarted:
 		s.buf.Reset()
-		s.thinking.Reset()
-		s.inThinking = false
+		s.finalText = ""
 		s.toolNames = make(map[string]string)
-
-	case event.Reasoning:
-		s.inThinking = true
-		s.thinking.WriteString(e.Text)
+		s.sentProgress = make(map[string]bool)
+		s.lastProgressAt = time.Time{}
+		s.progressCounter = 0
 
 	case event.Text:
-		s.inThinking = false
 		s.buf.WriteString(e.Text)
-		s.maybeFlush()
 
 	case event.Message:
-		// Full message received; streaming text has already been emitted.
+		if strings.TrimSpace(e.Text) != "" {
+			s.finalText = e.Text
+		}
 
 	case event.ToolDispatch:
 		s.toolNames[e.Tool.ID] = e.Tool.Name
-		txt := fmt.Sprintf("\n[工具] 执行：%s", e.Tool.Name)
-		if e.Tool.ReadOnly {
-			txt += "（只读）"
-		}
-		s.buf.WriteString(txt)
-		s.maybeFlush()
+		s.sendProgress(toolProgressText(e.Tool.Name, e.Tool.ReadOnly))
 
 	case event.ToolResult:
-		name := s.toolNames[e.Tool.ID]
-		if name == "" {
-			name = e.Tool.ID
-		}
-		if e.Tool.Err != "" {
-			fmt.Fprintf(&s.buf, "\n[失败] %s 出错：%s", name, e.Tool.Err)
+		name := firstNonEmptyBotString(s.toolNames[e.Tool.ID], e.Tool.Name, e.Tool.ID)
+		if strings.TrimSpace(e.Tool.Err) != "" {
+			s.sendImmediate(fmt.Sprintf("工具 %s 执行失败：%s", name, e.Tool.Err))
 		} else {
-			output := e.Tool.Output
-			if len(output) > 500 {
-				output = output[:500] + "\n...（已截断）"
-			}
-			fmt.Fprintf(&s.buf, "\n[完成] %s", name)
-			if output != "" {
-				fmt.Fprintf(&s.buf, "\n```\n%s\n```", output)
-			}
+			s.sendProgress(toolDoneText(name))
 		}
-		s.maybeFlush()
-
-	case event.ToolProgress:
-		s.maybeFlush()
 
 	case event.ApprovalRequest:
 		approvalText := fmt.Sprintf("需要批准操作\n工具：%s\n操作：%s\n\nID：`%s`\n使用 `/approve %s` 批准，或 `/deny %s` 拒绝。",
@@ -115,73 +97,66 @@ func (s *renderSink) Emit(e event.Event) {
 		if s.onAsk != nil {
 			s.onAsk(e.Ask)
 		}
-		var qb strings.Builder
-		qb.WriteString("请回答以下问题：\n")
-		for i, q := range e.Ask.Questions {
-			fmt.Fprintf(&qb, "\n**%d. %s**\n", i+1, q.Prompt)
-			for j, opt := range q.Options {
-				fmt.Fprintf(&qb, "  %d. %s", j+1, opt.Label)
-				if opt.Description != "" {
-					fmt.Fprintf(&qb, " - %s", opt.Description)
-				}
-				qb.WriteString("\n")
-			}
-			if q.Multi {
-				qb.WriteString("  （可多选，用逗号分隔）\n")
-			}
-		}
-		fmt.Fprintf(&qb, "\nID：`%s`", e.Ask.ID)
-		fmt.Fprintf(&qb, "\n使用 `/answer %s <选项编号或文本>` 回答。", e.Ask.ID)
+		text := askRequestText(e.Ask)
 		msg := OutboundMessage{
 			ChatID:       s.chatID,
 			ChatType:     s.chatType,
-			Text:         qb.String(),
+			Text:         text,
 			ReplyToMsgID: s.replyTo,
 		}
 		if s.adapter.Platform() == PlatformFeishu {
-			msg.Card = askCard(e.Ask, qb.String())
+			msg.Card = askCard(e.Ask, text)
 		}
 		_ = s.send(msg)
 
 	case event.TurnDone:
-		s.flush()
+		s.flushFinal()
 		if e.Err != nil && !strings.Contains(e.Err.Error(), "context canceled") {
-			_ = s.send(OutboundMessage{
-				ChatID:       s.chatID,
-				ChatType:     s.chatType,
-				Text:         fmt.Sprintf("执行出错：%v", e.Err),
-				ReplyToMsgID: s.replyTo,
-			})
+			s.sendImmediate(fmt.Sprintf("执行出错：%v", e.Err))
 		}
 
 	case event.Notice:
 		if e.Level == event.LevelWarn {
-			_ = s.send(OutboundMessage{
-				ChatID:       s.chatID,
-				ChatType:     s.chatType,
-				Text:         fmt.Sprintf("提示：%s", e.Text),
-				ReplyToMsgID: s.replyTo,
-			})
+			s.sendImmediate("提示：" + e.Text)
 		}
 
 	case event.CompactionStarted:
-		_ = s.send(OutboundMessage{
-			ChatID:       s.chatID,
-			ChatType:     s.chatType,
-			Text:         "正在压缩上下文...",
-			ReplyToMsgID: s.replyTo,
-		})
+		s.sendProgress("正在整理上下文…")
 	}
 }
 
-func (s *renderSink) maybeFlush() {
-	if time.Since(s.lastFlush) > 500*time.Millisecond {
-		s.flush()
+func (s *renderSink) sendProgress(text string) {
+	text = strings.TrimSpace(text)
+	if text == "" || s.sentProgress[text] {
+		return
 	}
+	if s.progressCounter >= 4 && time.Since(s.lastProgressAt) < 8*time.Second {
+		return
+	}
+	if !s.lastProgressAt.IsZero() && time.Since(s.lastProgressAt) < 1200*time.Millisecond {
+		return
+	}
+	s.sentProgress[text] = true
+	s.progressCounter++
+	s.lastProgressAt = time.Now()
+	s.sendImmediate(text)
 }
 
-func (s *renderSink) flush() {
-	text := strings.TrimSpace(s.buf.String())
+func (s *renderSink) flushFinal() {
+	text := strings.TrimSpace(s.finalText)
+	if text == "" {
+		text = strings.TrimSpace(s.buf.String())
+	}
+	if text == "" {
+		return
+	}
+	s.sendImmediate(text)
+	s.buf.Reset()
+	s.finalText = ""
+}
+
+func (s *renderSink) sendImmediate(text string) {
+	text = strings.TrimSpace(text)
 	if text == "" {
 		return
 	}
@@ -191,13 +166,63 @@ func (s *renderSink) flush() {
 		Text:         text,
 		ReplyToMsgID: s.replyTo,
 	})
-	s.buf.Reset()
-	s.lastFlush = time.Now()
 }
 
 func (s *renderSink) send(msg OutboundMessage) error {
 	_, err := s.adapter.Send(s.ctx, msg)
 	return err
+}
+
+func toolProgressText(name string, readOnly bool) string {
+	name = strings.TrimSpace(name)
+	switch name {
+	case "read_file", "list_files", "glob", "grep", "search", "rg":
+		return "正在读取文件…"
+	case "apply_patch", "write_file", "edit_file":
+		return "正在修改文件…"
+	case "bash", "shell", "run_command":
+		return "正在运行命令…"
+	case "task":
+		return "正在调用 subagent…"
+	}
+	if readOnly {
+		return "正在查看信息…"
+	}
+	if name == "" {
+		return "正在处理…"
+	}
+	return "正在执行：" + name
+}
+
+func toolDoneText(name string) string {
+	switch strings.TrimSpace(name) {
+	case "apply_patch", "write_file", "edit_file":
+		return "文件修改已完成。"
+	case "bash", "shell", "run_command":
+		return "命令执行已完成。"
+	}
+	return ""
+}
+
+func askRequestText(ask event.Ask) string {
+	var qb strings.Builder
+	qb.WriteString("请回答以下问题：\n")
+	for i, q := range ask.Questions {
+		fmt.Fprintf(&qb, "\n%d. %s\n", i+1, q.Prompt)
+		for j, opt := range q.Options {
+			fmt.Fprintf(&qb, "  %d. %s", j+1, opt.Label)
+			if opt.Description != "" {
+				fmt.Fprintf(&qb, " - %s", opt.Description)
+			}
+			qb.WriteString("\n")
+		}
+		if q.Multi {
+			qb.WriteString("  （可多选，用逗号分隔）\n")
+		}
+	}
+	fmt.Fprintf(&qb, "\nID：`%s`", ask.ID)
+	fmt.Fprintf(&qb, "\n使用 `/answer %s <选项编号或文本>` 回答。", ask.ID)
+	return qb.String()
 }
 
 func approvalKeyboard(id string) *InlineKeyboard {
@@ -238,4 +263,13 @@ func askCard(ask event.Ask, fallback string) *InteractiveCard {
 			{Tag: "markdown", Content: fallback},
 		},
 	}
+}
+
+func firstNonEmptyBotString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
