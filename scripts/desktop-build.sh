@@ -35,7 +35,7 @@ prepare_windows_installer_resources() {
 	local payload="$ROOT/desktop/build/windows/installer-go/payload"
 	mkdir -p "$res" "$payload"
 
-	local node_dest="$res/node.exe"
+	local node_dest="$payload/node.exe"
 	if [ ! -f "$node_dest" ]; then
 		local node_src
 		node_src="$(command -v node.exe 2>/dev/null || command -v node 2>/dev/null || true)"
