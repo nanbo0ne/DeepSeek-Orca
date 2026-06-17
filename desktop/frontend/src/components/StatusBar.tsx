@@ -109,6 +109,8 @@ export function StatusBar({
   jobs,
   running,
   collaborationMode,
+  askWorkflowEnabled,
+  stepThinkingEnabled,
   toolApprovalMode,
   sessionTokens,
   cost,
@@ -121,6 +123,8 @@ export function StatusBar({
   jobs?: JobView[];
   running: boolean;
   collaborationMode: CollaborationMode;
+  askWorkflowEnabled?: boolean;
+  stepThinkingEnabled?: boolean;
   toolApprovalMode: ToolApprovalMode;
   sessionTokens?: number;
   cost?: number;
@@ -207,6 +211,8 @@ export function StatusBar({
         </Tooltip>
         {planMode && <span className="statusbar__plan">{t("status.plan")}</span>}
         {goalMode && <span className="statusbar__plan">{t("composer.goalMode")}</span>}
+        {askWorkflowEnabled && <span className="statusbar__plan">{t("composer.askWorkflow")}</span>}
+        {stepThinkingEnabled && <span className="statusbar__plan">{t("composer.stepThinking")}</span>}
         {toolApprovalMode === "auto" && (
           <Tooltip label={t("composer.accessAutoTitle")}>
             <span className="statusbar__yolo">{t("composer.accessAuto")}</span>

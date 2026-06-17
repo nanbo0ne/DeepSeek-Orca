@@ -235,8 +235,7 @@
   --radius: 8px;
 }
 
-.composer-file-input,
-.composer-mode-chip--menu-only {
+.composer-file-input {
   display: none !important;
 }
 
@@ -4097,16 +4096,31 @@ a[href] {
   max-width: clamp(152px, 18vw, 176px);
 }
 
-.composer-meta--has-intent-chip .composer-meta__control--model {
-  flex-basis: clamp(140px, 16vw, 164px);
-  width: clamp(140px, 16vw, 164px);
-  max-width: clamp(140px, 16vw, 164px);
-}
-
 .composer-meta__control--effort {
   flex: 0 0 92px;
   width: 92px;
   max-width: 92px;
+}
+
+.composer-meta__control--intent-chips {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(340px, 34vw);
+}
+
+.composer-meta__control--intent-chips .tooltip-trigger {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.composer-meta__control--intent-chips .composer-mode-chip {
+  flex: 0 0 auto;
+  max-width: 96px;
 }
 
 .composer-meta__control--more {
@@ -4500,6 +4514,25 @@ a[href] {
     display: none;
   }
 
+  .composer-meta__control--intent-chips {
+    max-width: 150px;
+    gap: 4px;
+  }
+
+  .composer-meta__control--intent-chips .composer-mode-chip {
+    width: 32px;
+    max-width: 32px;
+    padding: 0;
+  }
+
+  .composer-meta__control--intent-chips .composer-mode-chip__label {
+    display: none;
+  }
+
+  .composer-meta__control--intent-chips .composer-mode-chip__icon--dismiss {
+    left: 5px;
+  }
+
   .composer-meta__control--more {
     display: inline-flex;
     flex: 0 0 78px;
@@ -4532,6 +4565,10 @@ a[href] {
 
   .composer-meta__control--effort {
     display: none;
+  }
+
+  .composer-meta__control--intent-chips {
+    max-width: 74px;
   }
 
   .composer-meta__control--more {
@@ -4667,10 +4704,6 @@ a[href] {
 
 .composer-intent-menu {
   width: min(258px, calc(100vw - 16px));
-}
-
-.composer-intent-menu .composer-access-menu__desc {
-  display: none;
 }
 
 .composer-intent-menu__item {
@@ -4856,8 +4889,9 @@ a[href] {
   }
 }
 .stat--model {
-  flex: 0 1 132px;
-  max-width: 132px;
+  flex: 0 0 124px;
+  width: 124px;
+  max-width: 124px;
   min-width: 0;
 }
 .statusbar__model {
@@ -4958,10 +4992,24 @@ a[href] {
 .statusbar__plan {
   color: var(--accent);
   letter-spacing: 0.6px;
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .statusbar__yolo {
   color: var(--mode-yolo-fg);
   letter-spacing: 0.6px;
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* model switcher (bottom-of-window popover) */
 .modelsw {
@@ -4998,6 +5046,7 @@ a[href] {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  max-width: 100%;
 }
 .modelsw__trigger:hover {
   color: var(--fg);

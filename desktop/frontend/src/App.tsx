@@ -396,6 +396,8 @@ export default function App() {
   const [stepThinkingsByTab, setStepThinkingsByTab] = useState<Record<string, boolean>>({});
   const [enhancedModesByTab, setEnhancedModesByTab] = useState<Record<string, boolean>>({});
   const [enhancedModeSwitchingByTab, setEnhancedModeSwitchingByTab] = useState<Record<string, boolean>>({});
+  const [pendingModelLabelsByTab, setPendingModelLabelsByTab] = useState<Record<string, string>>({});
+  const [pendingEffortsByTab, setPendingEffortsByTab] = useState<Record<string, string>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
@@ -444,6 +446,10 @@ export default function App() {
   const queuedPromptDispatchingRef = useRef(false);
   const enhancedModeSwitchingRef = useRef<Record<string, boolean>>({});
   const enhancedModeSwitchTimersRef = useRef<Record<string, number>>({});
+  const pendingModelSwitchRef = useRef<Record<string, Promise<void>>>({});
+  const pendingEffortSwitchRef = useRef<Record<string, Promise<void>>>({});
+  const latestModelSwitchRef = useRef<Record<string, string>>({});
+  const latestEffortSwitchRef = useRef<Record<string, string>>({});
   const appRef = useRef<HTMLDivElement>(null);
   const sidebarTogglePressTimerRef = useRef<number | null>(null);
   const workspaceTogglePressTimerRef = useRef<number | null>(null);
@@ -637,6 +643,15 @@ export default function App() {
     ? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
     : false;
   const enhancedModeSwitching = activeTabId ? Boolean(enhancedModeSwitchingByTab[activeTabId]) : false;
+  const displayedModelLabel = activeTabId
+    ? pendingModelLabelsByTab[activeTabId] ?? state.meta?.label ?? t("status.connecting")
+    : state.meta?.label ?? t("status.connecting");
+  const displayedStatusModelLabel = activeTabId
+    ? pendingModelLabelsByTab[activeTabId] ?? state.meta?.label
+    : state.meta?.label;
+  const displayedEffort = activeTabId && pendingEffortsByTab[activeTabId]
+    ? { ...(state.effort ?? { supported: true, levels: [pendingEffortsByTab[activeTabId]], current: pendingEffortsByTab[activeTabId], default: pendingEffortsByTab[activeTabId] }), current: pendingEffortsByTab[activeTabId] }
+    : state.effort;
   const controllerReady = state.meta?.ready === true;
   const setMode = useCallback(
     (next: Mode | ((prev: Mode) => Mode)) => {
@@ -919,13 +934,17 @@ export default function App() {
     [activeTabId, clearControllerGoal, setControllerGoal, setGoalDraftModeForTab, setMode, toolApprovalMode],
   );
   const startGoal = useCallback(
-    (nextGoal: string) => {
+    async (nextGoal: string) => {
       const trimmed = nextGoal.trim();
       if (!trimmed) return;
+      if (activeTabId) {
+        await pendingModelSwitchRef.current[activeTabId];
+        await pendingEffortSwitchRef.current[activeTabId];
+      }
       applyGoal(trimmed);
       send(trimmed, `/goal ${trimmed}`);
     },
-    [applyGoal, send],
+    [activeTabId, applyGoal, send],
   );
   // Shift+Tab toggles only the collaboration axis; Ctrl/Cmd+Y toggles YOLO on the
   // tool-permission axis while preserving the Ask/Auto base mode.
@@ -938,20 +957,71 @@ export default function App() {
   // controller silently uses normal gating.
   const switchModel = useCallback(
     async (name: string) => {
-      await setModel(name);
-      await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode, goal }));
-      await setControllerToolApprovalMode(toolApprovalMode);
-      await setControllerAskWorkflow(askWorkflowEnabled);
-      await setControllerStepThinking(stepThinkingEnabled);
-      if (goal.trim()) await setControllerGoal(goal);
+      if (!activeTabId) return;
+      latestModelSwitchRef.current[activeTabId] = name;
+      setPendingModelLabelsByTab((current) => (current[activeTabId] === name ? current : { ...current, [activeTabId]: name }));
+      const task = (async () => {
+        try {
+          await setModel(name);
+          await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode, goal }));
+          await setControllerToolApprovalMode(toolApprovalMode);
+          await setControllerAskWorkflow(askWorkflowEnabled);
+          await setControllerStepThinking(stepThinkingEnabled);
+          if (goal.trim()) await setControllerGoal(goal);
+        } finally {
+          if (latestModelSwitchRef.current[activeTabId] === name) {
+            delete latestModelSwitchRef.current[activeTabId];
+            delete pendingModelSwitchRef.current[activeTabId];
+            setPendingModelLabelsByTab((current) => {
+              if (current[activeTabId] !== name) return current;
+              const next = { ...current };
+              delete next[activeTabId];
+              return next;
+            });
+          }
+        }
+      })();
+      pendingModelSwitchRef.current[activeTabId] = task;
+      await task;
     },
-    [askWorkflowEnabled, collaborationMode, goal, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, setModel, stepThinkingEnabled, toolApprovalMode],
+    [activeTabId, askWorkflowEnabled, collaborationMode, goal, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, setModel, stepThinkingEnabled, toolApprovalMode],
+  );
+
+  const switchEffort = useCallback(
+    async (level: string) => {
+      if (!activeTabId) return;
+      latestEffortSwitchRef.current[activeTabId] = level;
+      setPendingEffortsByTab((current) => (current[activeTabId] === level ? current : { ...current, [activeTabId]: level }));
+      const task = (async () => {
+        try {
+          await setEffort(level);
+        } finally {
+          if (latestEffortSwitchRef.current[activeTabId] === level) {
+            delete latestEffortSwitchRef.current[activeTabId];
+            delete pendingEffortSwitchRef.current[activeTabId];
+            setPendingEffortsByTab((current) => {
+              if (current[activeTabId] !== level) return current;
+              const next = { ...current };
+              delete next[activeTabId];
+              return next;
+            });
+          }
+        }
+      })();
+      pendingEffortSwitchRef.current[activeTabId] = task;
+      await task;
+    },
+    [activeTabId, setEffort],
   );
 
   const submitPromptToAgent = useCallback(
     async (displayText: string, submitText = displayText) => {
       const trimmed = displayText.trim();
       if (!trimmed) return;
+      if (activeTabId) {
+        await pendingModelSwitchRef.current[activeTabId];
+        await pendingEffortSwitchRef.current[activeTabId];
+      }
       await setControllerCollaborationMode(collaborationMode);
       await setControllerToolApprovalMode(toolApprovalMode);
       await setControllerAskWorkflow(askWorkflowEnabled);
@@ -959,7 +1029,7 @@ export default function App() {
       if (goal.trim()) await setControllerGoal(goal);
       send(trimmed, submitText.trim());
     },
-    [askWorkflowEnabled, collaborationMode, goal, send, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode],
+    [activeTabId, askWorkflowEnabled, collaborationMode, goal, send, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode],
   );
 
   const queuePrompt = useCallback((displayText: string, submitText = displayText) => {
@@ -1157,10 +1227,18 @@ export default function App() {
         } else if (["clear", "off", "stop", "done"].includes(arg.toLowerCase())) {
           applyGoal("");
         }
+        if (activeTabId) {
+          await pendingModelSwitchRef.current[activeTabId];
+          await pendingEffortSwitchRef.current[activeTabId];
+        }
         send(trimmed, submitText.trim());
         return;
       }
       if (collaborationMode === "goal" && !goal.trim()) {
+        if (activeTabId) {
+          await pendingModelSwitchRef.current[activeTabId];
+          await pendingEffortSwitchRef.current[activeTabId];
+        }
         applyGoal(trimmed);
         send(trimmed, `/goal ${submitText.trim()}`);
         return;
@@ -1171,7 +1249,7 @@ export default function App() {
       }
       await submitPromptToAgent(trimmed, submitText.trim());
     },
-    [applyGoal, closeTransientOverlays, collaborationMode, goal, queuePrompt, runShell, notice, submitPromptToAgent, switchModel, t],
+    [activeTabId, applyGoal, closeTransientOverlays, collaborationMode, goal, queuePrompt, runShell, notice, submitPromptToAgent, switchModel, t],
   );
 
   useEffect(() => {
@@ -2157,16 +2235,16 @@ export default function App() {
             <Composer
               running={state.running}
               collaborationMode={collaborationMode}
-              toolApprovalMode={toolApprovalMode}
               askWorkflowEnabled={askWorkflowEnabled}
               stepThinkingEnabled={stepThinkingEnabled}
+              toolApprovalMode={toolApprovalMode}
               enhancedModeEnabled={enhancedModeEnabled}
               enhancedModeSwitching={enhancedModeSwitching}
               goal={goal}
               cwd={state.meta?.cwd}
-              modelLabel={state.meta?.label ?? t("status.connecting")}
+              modelLabel={displayedModelLabel}
               tabId={activeTabId}
-              effort={state.effort}
+              effort={displayedEffort}
               onSend={handleSend}
               onGuide={handleGuide}
               onCancel={cancel}
@@ -2181,7 +2259,7 @@ export default function App() {
               onSetGoal={startGoal}
               onClearGoal={() => applyGoal("")}
               onSwitchModel={switchModel}
-              onSetEffort={setEffort}
+              onSetEffort={(level) => void switchEffort(level)}
               insertRequest={composerInsertRequest}
               disabled={state.meta?.ready === false || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               decisionPending={state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
@@ -2198,11 +2276,13 @@ export default function App() {
               jobs={state.jobs}
               running={state.running}
               collaborationMode={collaborationMode}
+              askWorkflowEnabled={askWorkflowEnabled}
+              stepThinkingEnabled={stepThinkingEnabled}
               toolApprovalMode={toolApprovalMode}
               sessionTokens={state.sessionTokens}
               cost={state.sessionCost}
               currency={state.sessionCurrency}
-              modelLabel={state.meta?.label}
+              modelLabel={displayedStatusModelLabel}
             />
           </footer>
           </>

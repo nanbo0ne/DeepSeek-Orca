@@ -1476,11 +1476,27 @@ export function Composer({
     onSetToolApprovalMode(nextMode);
     requestAnimationFrame(() => taRef.current?.focus());
   };
-  const choosePlanMode = () => {
-    closeIntentMenu(() => {
+  const toggleIntentMode = (mode: "plan" | "goal" | "ask" | "step") => {
+    if (mode === "plan") {
       onSetCollaborationMode(planModeOn ? "normal" : "plan");
-      requestAnimationFrame(() => taRef.current?.focus());
-    });
+    } else if (mode === "goal") {
+      if (goalModeOn) {
+        onClearGoal();
+      } else if (draftGoal) {
+        onSetGoal(draftGoal);
+        setText("");
+      } else {
+        onSetCollaborationMode("goal");
+      }
+    } else if (mode === "ask") {
+      onSetAskWorkflow(!askWorkflowEnabled);
+    } else {
+      onSetStepThinking(!stepThinkingEnabled);
+    }
+    requestAnimationFrame(() => taRef.current?.focus());
+  };
+  const choosePlanMode = () => {
+    toggleIntentMode("plan");
   };
   const chooseFileAttachment = () => {
     closeIntentMenu(() => fileInputRef.current?.click());
@@ -1499,39 +1515,13 @@ export function Composer({
     });
   };
   const chooseGoalMode = () => {
-    if (goalModeOn) {
-      closeIntentMenu(() => {
-        onClearGoal();
-        requestAnimationFrame(() => taRef.current?.focus());
-      });
-      return;
-    }
-    if (draftGoal) {
-      closeIntentMenu(() => {
-        onSetGoal(draftGoal);
-        setText("");
-        requestAnimationFrame(() => taRef.current?.focus());
-      });
-      return;
-    }
-    closeIntentMenu(() => {
-      onSetCollaborationMode("goal");
-      requestAnimationFrame(() => taRef.current?.focus());
-    });
+    toggleIntentMode("goal");
   };
   const chooseAskWorkflow = () => {
-    const next = !askWorkflowEnabled;
-    closeIntentMenu(() => {
-      onSetAskWorkflow(next);
-      requestAnimationFrame(() => taRef.current?.focus());
-    });
+    toggleIntentMode("ask");
   };
   const chooseStepThinking = () => {
-    const next = !stepThinkingEnabled;
-    closeIntentMenu(() => {
-      onSetStepThinking(next);
-      requestAnimationFrame(() => taRef.current?.focus());
-    });
+    toggleIntentMode("step");
   };
   const effortLevels = asArray(effort?.levels);
   const currentEffort = effort?.current || "auto";
@@ -1556,8 +1546,14 @@ export function Composer({
   const composerMetaClass = [
     "composer-meta",
     hasEffort ? "composer-meta--has-effort" : "composer-meta--no-effort",
-    planModeOn || goalModeOn ? "composer-meta--has-intent-chip" : "composer-meta--no-intent-chip",
+    planModeOn || goalModeOn || askWorkflowEnabled || stepThinkingEnabled ? "composer-meta--has-intent-chip" : "composer-meta--no-intent-chip",
   ].join(" ");
+  const intentChips = [
+    { key: "plan", active: planModeOn, label: t("composer.modePlan"), title: planModeOn ? t("composer.exitPlanTitle") : t("composer.enterPlanTitle"), onClick: () => choosePlanMode(), icon: <List size={14} /> },
+    { key: "goal", active: goalModeOn, label: t("composer.modeGoal"), title: goalModeOn ? activeGoal || t("composer.exitGoalTitle") : t("composer.goalModeDesc"), onClick: () => chooseGoalMode(), icon: <Target size={14} /> },
+    { key: "ask", active: askWorkflowEnabled, label: t("composer.askWorkflow"), title: t("composer.askWorkflowDesc"), onClick: () => chooseAskWorkflow(), icon: <MessageSquare size={14} /> },
+    { key: "step", active: stepThinkingEnabled, label: t("composer.stepThinking"), title: askWorkflowEnabled ? t("composer.stepThinkingNoBrainstormDesc") : t("composer.stepThinkingDesc"), onClick: () => chooseStepThinking(), icon: <Brain size={14} /> },
+  ].filter((item) => item.active);
   const composerCardClass = [
     "composer-card",
     composerHeight !== null ? "composer-card--resized" : "",
@@ -1591,7 +1587,6 @@ export function Composer({
             <Paperclip size={16} />
             <span className="composer-access-menu__copy">
               <span className="composer-access-menu__title">{t("msg.fileAttachment")}</span>
-              <span className="composer-access-menu__desc">{t("composer.contextItems")}</span>
             </span>
           </button>
           <button
@@ -1603,7 +1598,6 @@ export function Composer({
             <FileImage size={16} />
             <span className="composer-access-menu__copy">
               <span className="composer-access-menu__title">{t("msg.imageAttachment")}</span>
-              <span className="composer-access-menu__desc">{t("composer.attachImageFailed")}</span>
             </span>
           </button>
           <button
@@ -1615,7 +1609,6 @@ export function Composer({
             <Search size={16} />
             <span className="composer-access-menu__copy">
               <span className="composer-access-menu__title">@ {t("msg.workspaceReference")}</span>
-              <span className="composer-access-menu__desc">{t("composer.removeReference")}</span>
             </span>
           </button>
           <button
@@ -1627,7 +1620,6 @@ export function Composer({
             <Slash size={16} />
             <span className="composer-access-menu__copy">
               <span className="composer-access-menu__title">/ {t("topicBar.command")}</span>
-              <span className="composer-access-menu__desc">{t("composer.moreControls")}</span>
             </span>
           </button>
         </div>
@@ -2086,46 +2078,6 @@ export function Composer({
                 <Plus size={18} />
                 </button>
               </Tooltip>
-              {planModeOn && (
-                <Tooltip label={t("composer.exitPlanTitle")}>
-                  <button
-                    type="button"
-                    className="composer-mode-chip composer-mode-chip--plan composer-mode-chip--menu-only"
-                    onClick={choosePlanMode}
-                    disabled={disabled}
-                    title={t("composer.exitPlanTitle")}
-                    aria-label={t("composer.exitPlanTitle")}
-                  >
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--mode" aria-hidden="true">
-                      <List size={14} />
-                    </span>
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--dismiss" aria-hidden="true">
-                      <X size={11} />
-                    </span>
-                    <span className="composer-mode-chip__label">{t("composer.modePlan")}</span>
-                  </button>
-                </Tooltip>
-              )}
-              {goalModeOn && (
-                <Tooltip label={t("composer.exitGoalTitle")}>
-                  <button
-                    type="button"
-                    className="composer-mode-chip composer-mode-chip--goal"
-                    onClick={chooseGoalMode}
-                    disabled={disabled}
-                    title={activeGoal || t("composer.exitGoalTitle")}
-                    aria-label={t("composer.exitGoalTitle")}
-                  >
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--mode" aria-hidden="true">
-                      <Target size={14} />
-                    </span>
-                    <span className="composer-mode-chip__icon composer-mode-chip__icon--dismiss" aria-hidden="true">
-                      <X size={11} />
-                    </span>
-                    <span className="composer-mode-chip__label">{t("composer.modeGoal")}</span>
-                  </button>
-                </Tooltip>
-              )}
             </div>
             <div className="composer-meta__control composer-meta__control--approval">
               <div className="composer-modebar composer-modebar--approval" data-mode={toolApprovalMode} title={t("composer.accessMenuTitle")}>
@@ -2171,6 +2123,30 @@ export function Composer({
             {hasEffort && (
               <div className="composer-meta__control composer-meta__control--effort">
                 <EffortSwitcher effort={effort} disabled={running} onPick={onSetEffort} />
+              </div>
+            )}
+            {intentChips.length > 0 && (
+              <div className="composer-meta__control composer-meta__control--intent-chips">
+                {intentChips.map((chip) => (
+                  <Tooltip key={chip.key} label={chip.title}>
+                    <button
+                      type="button"
+                      className={`composer-mode-chip composer-mode-chip--${chip.key}`}
+                      onClick={chip.onClick}
+                      disabled={disabled}
+                      title={chip.title}
+                      aria-label={chip.title}
+                    >
+                      <span className="composer-mode-chip__icon composer-mode-chip__icon--mode" aria-hidden="true">
+                        {chip.icon}
+                      </span>
+                      <span className="composer-mode-chip__icon composer-mode-chip__icon--dismiss" aria-hidden="true">
+                        <X size={11} />
+                      </span>
+                      <span className="composer-mode-chip__label">{chip.label}</span>
+                    </button>
+                  </Tooltip>
+                ))}
               </div>
             )}
             {hasEffort && (

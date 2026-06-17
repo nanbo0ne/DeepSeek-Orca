@@ -275,7 +275,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   const hasText = item.streaming || item.text.trim() !== "";
   const processOnly = Boolean(item.reasoning) && !hasText;
   const processWithText = Boolean(item.reasoning) && hasText;
-  const [reasoningOpen, setReasoningOpen] = useState(item.streaming || defaultExpanded);
+  const [reasoningOpen, setReasoningOpen] = useState(defaultExpanded);
   return (
     <div className={`msg msg--assistant${processOnly ? " msg--process-only" : ""}${processWithText ? " msg--process-with-text" : ""}`}>
       {item.reasoning && (

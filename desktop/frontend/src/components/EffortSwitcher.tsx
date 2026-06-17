@@ -47,9 +47,8 @@ export function EffortSwitcher({
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   const pick = (level: string) => {
-    closeMenu(() => {
-      if (level !== current) onPick(level);
-    });
+    if (level !== current) onPick(level);
+    closeMenu();
   };
 
   if (!effort?.supported || levels.length === 0) return null;

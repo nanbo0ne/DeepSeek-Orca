@@ -900,7 +900,6 @@ function NoticeCard({ level, text }: { level: NoticeItem["level"]; text: string 
       kind="notice"
       name={t(warning ? "notice.warning" : "notice.info")}
       meta={warning ? <ProcessStatusIcon state="waiting" label={t("notice.warning")} /> : undefined}
-      defaultOpen
       className={`notice notice--${level}`}
     >
       <div className="notice__body">{text}</div>

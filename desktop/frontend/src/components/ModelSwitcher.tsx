@@ -50,7 +50,8 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   const pick = (name: string) => {
-    closeMenu(() => onPick(name));
+    onPick(name);
+    closeMenu();
   };
 
   return (
