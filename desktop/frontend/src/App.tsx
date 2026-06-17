@@ -97,6 +97,7 @@ const RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH = 660;
 const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
 const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
+const ENHANCED_MODE_SWITCH_HOLD_MS = 520;
 
 type RightDockMode = "context" | "files" | "changed";
 type WorkspaceRevealRequest = { id: number; path: string };
@@ -394,6 +395,7 @@ export default function App() {
   const [askWorkflowsByTab, setAskWorkflowsByTab] = useState<Record<string, boolean>>({});
   const [stepThinkingsByTab, setStepThinkingsByTab] = useState<Record<string, boolean>>({});
   const [enhancedModesByTab, setEnhancedModesByTab] = useState<Record<string, boolean>>({});
+  const [enhancedModeSwitchingByTab, setEnhancedModeSwitchingByTab] = useState<Record<string, boolean>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
@@ -440,6 +442,8 @@ export default function App() {
   const topicRenameCommitHandledRef = useRef(false);
   const nextQueuedPromptIdRef = useRef(1);
   const queuedPromptDispatchingRef = useRef(false);
+  const enhancedModeSwitchingRef = useRef<Record<string, boolean>>({});
+  const enhancedModeSwitchTimersRef = useRef<Record<string, number>>({});
   const appRef = useRef<HTMLDivElement>(null);
   const sidebarTogglePressTimerRef = useRef<number | null>(null);
   const workspaceTogglePressTimerRef = useRef<number | null>(null);
@@ -495,6 +499,10 @@ export default function App() {
       if (workspaceTogglePressTimerRef.current !== null) {
         window.clearTimeout(workspaceTogglePressTimerRef.current);
       }
+      for (const timer of Object.values(enhancedModeSwitchTimersRef.current)) {
+        window.clearTimeout(timer);
+      }
+      enhancedModeSwitchTimersRef.current = {};
     };
   }, []);
 
@@ -628,6 +636,7 @@ export default function App() {
   const enhancedModeEnabled = activeTabId
     ? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
     : false;
+  const enhancedModeSwitching = activeTabId ? Boolean(enhancedModeSwitchingByTab[activeTabId]) : false;
   const controllerReady = state.meta?.ready === true;
   const setMode = useCallback(
     (next: Mode | ((prev: Mode) => Mode)) => {
@@ -831,23 +840,57 @@ export default function App() {
   const applyEnhancedMode = useCallback(
     async (enabled: boolean) => {
       if (!activeTabId || enabled === enhancedModeEnabled) return;
+      if (enhancedModeSwitchingRef.current[activeTabId]) return;
+      enhancedModeSwitchingRef.current[activeTabId] = true;
+      setEnhancedModeSwitchingByTab((current) => (current[activeTabId] ? current : { ...current, [activeTabId]: true }));
+      const releaseSwitchLock = () => {
+        if (typeof window === "undefined") {
+          delete enhancedModeSwitchingRef.current[activeTabId];
+          setEnhancedModeSwitchingByTab((current) => {
+            if (!current[activeTabId]) return current;
+            const next = { ...current };
+            delete next[activeTabId];
+            return next;
+          });
+          return;
+        }
+        const previousTimer = enhancedModeSwitchTimersRef.current[activeTabId];
+        if (previousTimer) window.clearTimeout(previousTimer);
+        enhancedModeSwitchTimersRef.current[activeTabId] = window.setTimeout(() => {
+          delete enhancedModeSwitchingRef.current[activeTabId];
+          delete enhancedModeSwitchTimersRef.current[activeTabId];
+          setEnhancedModeSwitchingByTab((current) => {
+            if (!current[activeTabId]) return current;
+            const next = { ...current };
+            delete next[activeTabId];
+            return next;
+          });
+        }, ENHANCED_MODE_SWITCH_HOLD_MS);
+      };
       const contextTokens = Math.max(0, state.context?.used ?? 0, state.sessionTokens ?? 0);
       const hasConversation = state.items.some((item) => item.kind === "user" || item.kind === "assistant");
-      if (contextTokens > 50_000 && hasConversation) {
-        const ok = await app.ConfirmAction({
-          title: t("composer.enhancedSwitchConfirmTitle"),
-          message: t("composer.enhancedSwitchConfirmMessage"),
-          detail: t("composer.enhancedSwitchConfirmDetail"),
-          confirmLabel: t("common.confirm"),
-          cancelLabel: t("common.cancel"),
-          destructive: false,
-        }).catch(() => false);
-        if (!ok) return;
+      try {
+        if (contextTokens > 50_000 && hasConversation) {
+          const ok = await app.ConfirmAction({
+            title: t("composer.enhancedSwitchConfirmTitle"),
+            message: t("composer.enhancedSwitchConfirmMessage"),
+            detail: t("composer.enhancedSwitchConfirmDetail"),
+            confirmLabel: t("common.confirm"),
+            cancelLabel: t("common.cancel"),
+            destructive: false,
+          }).catch(() => false);
+          if (!ok) return;
+        }
+        setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
+        await setControllerEnhancedMode(enabled);
+      } catch (err) {
+        setEnhancedModesByTab((current) => (current[activeTabId] === enhancedModeEnabled ? current : { ...current, [activeTabId]: enhancedModeEnabled }));
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      } finally {
+        releaseSwitchLock();
       }
-      setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
-      await setControllerEnhancedMode(enabled);
     },
-    [activeTabId, enhancedModeEnabled, setControllerEnhancedMode, state.context?.used, state.items, state.sessionTokens, t],
+    [activeTabId, enhancedModeEnabled, setControllerEnhancedMode, showToast, state.context?.used, state.items, state.sessionTokens, t],
   );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;
@@ -2118,6 +2161,7 @@ export default function App() {
               askWorkflowEnabled={askWorkflowEnabled}
               stepThinkingEnabled={stepThinkingEnabled}
               enhancedModeEnabled={enhancedModeEnabled}
+              enhancedModeSwitching={enhancedModeSwitching}
               goal={goal}
               cwd={state.meta?.cwd}
               modelLabel={state.meta?.label ?? t("status.connecting")}

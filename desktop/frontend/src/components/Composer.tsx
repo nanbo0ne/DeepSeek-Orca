@@ -325,6 +325,7 @@ export function Composer({
   askWorkflowEnabled,
   stepThinkingEnabled,
   enhancedModeEnabled,
+  enhancedModeSwitching = false,
   goal,
   cwd,
   modelLabel,
@@ -360,6 +361,7 @@ export function Composer({
   askWorkflowEnabled: boolean;
   stepThinkingEnabled: boolean;
   enhancedModeEnabled: boolean;
+  enhancedModeSwitching?: boolean;
   goal?: string;
   cwd?: string;
   modelLabel: string;
@@ -2210,10 +2212,11 @@ export function Composer({
               <div className="composer-enhanced">
                 <button
                   type="button"
-                  className={`composer-enhanced__button${enhancedModeEnabled ? " composer-enhanced__button--on" : ""}`}
+                  className={`composer-enhanced__button${enhancedModeEnabled ? " composer-enhanced__button--on" : ""}${enhancedModeSwitching ? " composer-enhanced__button--switching" : ""}`}
                   onClick={() => onSetEnhancedMode(!enhancedModeEnabled)}
-                  disabled={disabled || running}
+                  disabled={disabled || running || enhancedModeSwitching}
                   aria-pressed={enhancedModeEnabled}
+                  aria-busy={enhancedModeSwitching}
                   aria-label={t("composer.enhancedMode")}
                 >
                   <Sparkles size={14} />

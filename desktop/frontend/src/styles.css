@@ -4006,7 +4006,7 @@ a[href] {
   font-weight: 650;
   line-height: 1;
   white-space: nowrap;
-  transition: color 0.12s, background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  transition: color 0.24s ease, background 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease, opacity 0.24s ease;
 }
 .composer-enhanced__button:hover:not(:disabled),
 .composer-enhanced__button:focus-visible {
@@ -4028,6 +4028,10 @@ a[href] {
 .composer-enhanced__button:disabled {
   cursor: default;
   opacity: 0.58;
+}
+.composer-enhanced__button--switching:disabled {
+  cursor: progress;
+  opacity: 0.74;
 }
 .composer-enhanced__help {
   display: inline-flex;
@@ -4665,9 +4669,13 @@ a[href] {
   width: min(258px, calc(100vw - 16px));
 }
 
+.composer-intent-menu .composer-access-menu__desc {
+  display: none;
+}
+
 .composer-intent-menu__item {
-  height: 54px;
-  min-height: 54px;
+  height: 42px;
+  min-height: 42px;
   padding-right: 10px;
 }
 

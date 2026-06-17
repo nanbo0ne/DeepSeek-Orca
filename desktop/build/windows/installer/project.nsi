@@ -143,6 +143,10 @@ FunctionEnd
 Section
     !insertmacro wails.setShellContext
 
+    DetailPrint "Closing running ${INFO_PRODUCTNAME}..."
+    nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM "${PRODUCT_EXECUTABLE}" /T /F'
+    Sleep 1000
+
     !insertmacro wails.webview2runtime
 
     SetOutPath $INSTDIR
