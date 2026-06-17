@@ -311,7 +311,7 @@ export const zh: Record<DictKey, string> = {
   "composer.stepThinkingDesc": "按探索、构思、计划、执行、复查的阶段推进复杂任务。",
   "composer.stepThinkingNoBrainstormDesc": "询问已开启：跳过构思环节，直接进入设计、计划、执行和复查。",
   "composer.enhancedMode": "增强模式",
-  "composer.enhancedModeHelp": "提升模型回答质量，但可能产生更多 tokens 并降低缓存命中率",
+  "composer.enhancedModeHelp": "提升模型回答质量，但可能产生更多 token 消耗并降低缓存命中率",
   "composer.enhancedSwitchConfirmTitle": "切换增强模式？",
   "composer.enhancedSwitchConfirmMessage": "当前对话上下文已经超过 50,000 tokens。",
   "composer.enhancedSwitchConfirmDetail": "中途切换可能导致缓存无法命中，且模型表现可能无法发挥完全水平。",

@@ -48,6 +48,12 @@ eq(
 );
 
 eq(
+  controllerCollaborationMode({ collaborationMode: "plan", goal: "stale goal" }),
+  "plan",
+  "plan mode wins over stale goal text when syncing the controller",
+);
+
+eq(
   controllerCollaborationMode({ collaborationMode: "goal", goal: "ship the fix" }),
   "goal",
   "started goal syncs to the controller as goal mode",

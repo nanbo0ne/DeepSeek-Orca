@@ -417,6 +417,7 @@ export default function App() {
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true);
+  const [responsiveLayoutCompact, setResponsiveLayoutCompact] = useState(false);
   const [rightDockTreeWidth, setRightDockTreeWidth] = useState(loadRightDockTreeWidth);
   const [rightDockPreviewWidth, setRightDockPreviewWidth] = useState(loadRightDockPreviewWidth);
   const [workspacePreviewActive, setWorkspacePreviewActive] = useState(false);
@@ -582,25 +583,36 @@ export default function App() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  useEffect(() => {
+    const compact = viewportWidth < 1120;
+    setResponsiveLayoutCompact((current) => (current === compact ? current : compact));
+  }, [viewportWidth]);
   const [pendingPlanRevision, setPendingPlanRevision] = useState<string | null>(null);
   const [footerHeight, setFooterHeight] = useState(0);
   const footerHeightRef = useRef(0);
   const footerRef = useRef<HTMLElement>(null);
   const runningRef = useRef(state.running);
+  const collaborationModeRef = useRef<CollaborationMode>("normal");
+  const toolApprovalModeRef = useRef<ToolApprovalMode>("ask");
+  const askWorkflowEnabledRef = useRef(false);
+  const stepThinkingEnabledRef = useRef(false);
+  const goalRef = useRef("");
   const rightDockDetailActive = rightDockMode !== "context" && workspacePreviewActive;
   const preferredWorkspacePanelWidth = rightDockDetailActive ? rightDockPreviewWidth : rightDockTreeWidth;
   const workspacePanelMinWidth = rightDockDetailActive ? RIGHT_DOCK_PREVIEW_MIN_WIDTH : RIGHT_DOCK_TREE_MIN_WIDTH;
-  const chatReservedWidth = workspacePanelOpen && !workspacePanelMaximized ? CHAT_COMFORT_MIN_WIDTH : CHAT_MIN_WIDTH;
+  const responsiveSidebarCollapsed = responsiveLayoutCompact || sidebarCollapsed;
+  const responsiveWorkspacePanelOpen = workspacePanelOpen && !responsiveLayoutCompact;
+  const chatReservedWidth = responsiveWorkspacePanelOpen && !workspacePanelMaximized ? CHAT_COMFORT_MIN_WIDTH : CHAT_MIN_WIDTH;
   const workspacePanelAvailableWidth = availableWorkspacePanelWidth({
     viewportWidth,
-    sidebarCollapsed,
+    sidebarCollapsed: responsiveSidebarCollapsed,
     sidebarWidth,
     chatMinWidth: chatReservedWidth,
     resizerWidth: WORKSPACE_RESIZER_WIDTH,
   });
 
   const resolvedWorkspacePanelWidth = resolveWorkspacePanelWidth({
-    open: workspacePanelOpen,
+    open: responsiveWorkspacePanelOpen,
     maximized: workspacePanelMaximized,
     preferredWidth: preferredWorkspacePanelWidth,
     minWidth: workspacePanelMinWidth,
@@ -608,7 +620,7 @@ export default function App() {
   });
 
   const workspacePanelRenderable =
-    workspacePanelOpen && (workspacePanelMaximized || resolvedWorkspacePanelWidth >= RIGHT_DOCK_MIN_RENDER_WIDTH);
+    responsiveWorkspacePanelOpen && (workspacePanelMaximized || resolvedWorkspacePanelWidth >= RIGHT_DOCK_MIN_RENDER_WIDTH);
   const workspacePanelGridOpen = workspacePanelRenderable && !workspacePanelMaximized;
   const workspacePanelRenderWidth = workspacePanelMaximized ? preferredWorkspacePanelWidth : resolvedWorkspacePanelWidth;
   const activeTab = useMemo(
@@ -643,6 +655,11 @@ export default function App() {
     ? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
     : false;
   const enhancedModeSwitching = activeTabId ? Boolean(enhancedModeSwitchingByTab[activeTabId]) : false;
+  collaborationModeRef.current = collaborationMode;
+  toolApprovalModeRef.current = toolApprovalMode;
+  askWorkflowEnabledRef.current = askWorkflowEnabled;
+  stepThinkingEnabledRef.current = stepThinkingEnabled;
+  goalRef.current = goal;
   const displayedModelLabel = activeTabId
     ? pendingModelLabelsByTab[activeTabId] ?? state.meta?.label ?? t("status.connecting")
     : state.meta?.label ?? t("status.connecting");
@@ -791,6 +808,9 @@ export default function App() {
       if (!activeTabId) return;
       const nextCollaborationMode: CollaborationMode = modeHasPlan(m) ? "plan" : "normal";
       const nextToolApprovalMode: ToolApprovalMode = modeHasAutoApproveTools(m) ? "yolo" : "ask";
+      collaborationModeRef.current = nextCollaborationMode;
+      toolApprovalModeRef.current = nextToolApprovalMode;
+      goalRef.current = "";
       setGoalDraftModeForTab(activeTabId, false);
       setMode(m);
       setCollaborationModesByTab((current) => (current[activeTabId] === nextCollaborationMode ? current : { ...current, [activeTabId]: nextCollaborationMode }));
@@ -804,25 +824,37 @@ export default function App() {
     (m: CollaborationMode) => {
       if (!activeTabId) return;
       if (m === "goal") {
+        collaborationModeRef.current = "goal";
+        goalRef.current = "";
         setGoalDraftModeForTab(activeTabId, true);
+        setGoalsByTab((current) => (current[activeTabId] ? { ...current, [activeTabId]: "" } : current));
         setCollaborationModesByTab((current) => (current[activeTabId] === "goal" ? current : { ...current, [activeTabId]: "goal" }));
         setMode(modeFromAxes(false, toolApprovalMode === "yolo"));
-        void setControllerCollaborationMode("normal");
+        void (async () => {
+          await clearControllerGoal();
+          await setControllerCollaborationMode("normal");
+        })();
         return;
       }
+      collaborationModeRef.current = m;
+      if (m === "normal" || m === "plan") goalRef.current = "";
       setGoalDraftModeForTab(activeTabId, false);
       setCollaborationModesByTab((current) => (current[activeTabId] === m ? current : { ...current, [activeTabId]: m }));
       if (m === "normal" || m === "plan") {
         setGoalsByTab((current) => (current[activeTabId] ? { ...current, [activeTabId]: "" } : current));
       }
       setMode(modeFromAxes(m === "plan", toolApprovalMode === "yolo"));
-      void setControllerCollaborationMode(m);
+      void (async () => {
+        if (m === "normal" || m === "plan") await clearControllerGoal();
+        await setControllerCollaborationMode(m);
+      })();
     },
-    [activeTabId, setControllerCollaborationMode, setGoalDraftModeForTab, setMode, toolApprovalMode],
+    [activeTabId, clearControllerGoal, setControllerCollaborationMode, setGoalDraftModeForTab, setMode, toolApprovalMode],
   );
   const applyToolApprovalMode = useCallback(
     (m: ToolApprovalMode) => {
       if (!activeTabId) return;
+      toolApprovalModeRef.current = m;
       if (m === "yolo") {
         if (toolApprovalMode !== "yolo") {
           yoloRestoreToolApprovalModesRef.current[activeTabId] = restorableToolApprovalMode(toolApprovalMode);
@@ -839,6 +871,7 @@ export default function App() {
   const applyAskWorkflow = useCallback(
     (enabled: boolean) => {
       if (!activeTabId) return;
+      askWorkflowEnabledRef.current = enabled;
       setAskWorkflowsByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
       void setControllerAskWorkflow(enabled);
     },
@@ -847,6 +880,7 @@ export default function App() {
   const applyStepThinking = useCallback(
     (enabled: boolean) => {
       if (!activeTabId) return;
+      stepThinkingEnabledRef.current = enabled;
       setStepThinkingsByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
       void setControllerStepThinking(enabled);
     },
@@ -919,9 +953,11 @@ export default function App() {
     applyToolApprovalMode(next.mode);
   }, [activeTabId, applyToolApprovalMode, toolApprovalMode]);
   const applyGoal = useCallback(
-    (nextGoal: string) => {
+    async (nextGoal: string) => {
       if (!activeTabId) return;
       const trimmed = nextGoal.trim();
+      goalRef.current = trimmed;
+      collaborationModeRef.current = trimmed ? "goal" : "normal";
       setGoalDraftModeForTab(activeTabId, false);
       setGoalsByTab((current) => (current[activeTabId] === trimmed ? current : { ...current, [activeTabId]: trimmed }));
       setCollaborationModesByTab((current) => {
@@ -929,7 +965,8 @@ export default function App() {
         return current[activeTabId] === nextMode ? current : { ...current, [activeTabId]: nextMode };
       });
       setMode(modeFromAxes(false, toolApprovalMode === "yolo"));
-      void (trimmed ? setControllerGoal(trimmed) : clearControllerGoal());
+      if (trimmed) await setControllerGoal(trimmed);
+      else await clearControllerGoal();
     },
     [activeTabId, clearControllerGoal, setControllerGoal, setGoalDraftModeForTab, setMode, toolApprovalMode],
   );
@@ -941,7 +978,7 @@ export default function App() {
         await pendingModelSwitchRef.current[activeTabId];
         await pendingEffortSwitchRef.current[activeTabId];
       }
-      applyGoal(trimmed);
+      await applyGoal(trimmed);
       send(trimmed, `/goal ${trimmed}`);
     },
     [activeTabId, applyGoal, send],
@@ -963,11 +1000,13 @@ export default function App() {
       const task = (async () => {
         try {
           await setModel(name);
-          await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode, goal }));
-          await setControllerToolApprovalMode(toolApprovalMode);
-          await setControllerAskWorkflow(askWorkflowEnabled);
-          await setControllerStepThinking(stepThinkingEnabled);
-          if (goal.trim()) await setControllerGoal(goal);
+          const nextCollaborationMode = collaborationModeRef.current;
+          const nextGoal = goalRef.current;
+          await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode: nextCollaborationMode, goal: nextGoal }));
+          await setControllerToolApprovalMode(toolApprovalModeRef.current);
+          await setControllerAskWorkflow(askWorkflowEnabledRef.current);
+          await setControllerStepThinking(stepThinkingEnabledRef.current);
+          if (nextGoal.trim()) await setControllerGoal(nextGoal);
         } finally {
           if (latestModelSwitchRef.current[activeTabId] === name) {
             delete latestModelSwitchRef.current[activeTabId];
@@ -1022,11 +1061,13 @@ export default function App() {
         await pendingModelSwitchRef.current[activeTabId];
         await pendingEffortSwitchRef.current[activeTabId];
       }
-      await setControllerCollaborationMode(collaborationMode);
-      await setControllerToolApprovalMode(toolApprovalMode);
-      await setControllerAskWorkflow(askWorkflowEnabled);
-      await setControllerStepThinking(stepThinkingEnabled);
-      if (goal.trim()) await setControllerGoal(goal);
+      const nextCollaborationMode = collaborationModeRef.current;
+      const nextGoal = goalRef.current;
+      await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode: nextCollaborationMode, goal: nextGoal }));
+      await setControllerToolApprovalMode(toolApprovalModeRef.current);
+      await setControllerAskWorkflow(askWorkflowEnabledRef.current);
+      await setControllerStepThinking(stepThinkingEnabledRef.current);
+      if (nextGoal.trim()) await setControllerGoal(nextGoal);
       send(trimmed, submitText.trim());
     },
     [activeTabId, askWorkflowEnabled, collaborationMode, goal, send, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode],
@@ -1223,9 +1264,9 @@ export default function App() {
       if (goalCommand) {
         const arg = (goalCommand[1] ?? "").trim();
         if (arg && !["status", "clear", "off", "stop", "done"].includes(arg.toLowerCase())) {
-          applyGoal(arg);
+          await applyGoal(arg);
         } else if (["clear", "off", "stop", "done"].includes(arg.toLowerCase())) {
-          applyGoal("");
+          await applyGoal("");
         }
         if (activeTabId) {
           await pendingModelSwitchRef.current[activeTabId];
@@ -1234,12 +1275,12 @@ export default function App() {
         send(trimmed, submitText.trim());
         return;
       }
-      if (collaborationMode === "goal" && !goal.trim()) {
+      if (collaborationModeRef.current === "goal" && !goalRef.current.trim()) {
         if (activeTabId) {
           await pendingModelSwitchRef.current[activeTabId];
           await pendingEffortSwitchRef.current[activeTabId];
         }
-        applyGoal(trimmed);
+        await applyGoal(trimmed);
         send(trimmed, `/goal ${submitText.trim()}`);
         return;
       }
@@ -1882,10 +1923,10 @@ export default function App() {
   }, [renameTopic, renamingTopicId, topicTitleDraft]);
 
   const sidebarExpandBlocked = false;
-  const sidebarToggleTitle = sidebarCollapsed
+  const sidebarToggleTitle = responsiveSidebarCollapsed
       ? t("sidebar.expand")
       : t("sidebar.collapse");
-  const sidebarNavTooltipDisabled = !sidebarCollapsed;
+  const sidebarNavTooltipDisabled = !responsiveSidebarCollapsed;
   const browserPreviewChrome = typeof window !== "undefined" && !window.runtime;
   const workspacePanelResetWidth = rightDockDetailActive
     ? RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH
@@ -1917,10 +1958,10 @@ export default function App() {
       <div
         className={[
           "layout",
-          sidebarCollapsed ? "layout--sidebar-collapsed" : "",
+          responsiveSidebarCollapsed ? "layout--sidebar-collapsed" : "",
           sidebarResizing ? "layout--resizing layout--sidebar-resizing" : "",
           workspacePanelGridOpen ? "layout--workspace-open" : "",
-          workspacePanelOpen && workspacePanelMaximized ? "layout--workspace-maximized" : "",
+          responsiveWorkspacePanelOpen && workspacePanelMaximized ? "layout--workspace-maximized" : "",
           workspacePanelResizing ? "layout--resizing layout--workspace-resizing" : "",
         ]
           .filter(Boolean)
@@ -1932,7 +1973,7 @@ export default function App() {
           browserPreviewChrome={browserPreviewChrome}
           sidebarTogglePressed={sidebarTogglePressed}
           sidebarExpandBlocked={sidebarExpandBlocked}
-          sidebarCollapsed={sidebarCollapsed}
+          sidebarCollapsed={responsiveSidebarCollapsed}
           sidebarToggleTitle={sidebarToggleTitle}
           workspacePanelMaximized={workspacePanelMaximized}
           workspacePanelRenderable={workspacePanelRenderable}
@@ -1952,8 +1993,8 @@ export default function App() {
           onOpenPalette={() => void openPalette()}
         />
 
-        <aside className={`sidebar${sidebarCollapsed ? " sidebar--collapsed" : ""}`} aria-label={t("sidebar.navigation")}>
-          <div className="sidebar__brand" aria-hidden={sidebarCollapsed}>
+        <aside className={`sidebar${responsiveSidebarCollapsed ? " sidebar--collapsed" : ""}`} aria-label={t("sidebar.navigation")}>
+          <div className="sidebar__brand" aria-hidden={responsiveSidebarCollapsed}>
             <img src={logoWordmark} alt="DeepSeek-Orca" className="sidebar__brand-logo" draggable={false} />
             <span className="sidebar__brand-text">DeepSeek-Orca</span>
           </div>
