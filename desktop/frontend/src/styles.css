@@ -1817,10 +1817,9 @@ a[href] {
   background: var(--grad);
   color: var(--accent-text);
   filter: saturate(1.08) brightness(1.03);
-  transform: translateY(-1px);
 }
 .sidebar__new:active {
-  transform: translateY(0) scale(0.99);
+  filter: saturate(1.02) brightness(0.99);
 }
 .sidebar__new:disabled,
 .sidebar__navitem:disabled {
@@ -3965,7 +3964,7 @@ a[href] {
   border: none;
   border-radius: 8px;
   flex-shrink: 0;
-  transition: color 0.12s, background 0.12s, box-shadow 0.12s, transform 0.12s;
+  transition: color 0.12s, background 0.12s, box-shadow 0.12s;
 }
 .composer__btn--send {
   background: var(--control-primary-bg);
@@ -3973,7 +3972,6 @@ a[href] {
 }
 .composer__btn--send:not(:disabled):hover {
   background: color-mix(in srgb, var(--control-primary-bg) 88%, #000);
-  transform: translateY(-1px);
 }
 .composer__btn--send:not(:disabled):focus-visible {
   outline: none;
@@ -4144,7 +4142,7 @@ a[href] {
   font-size: 12px;
   font-weight: 620;
   line-height: 14px;
-  transition: color 0.12s, transform 0.12s;
+  transition: color 0.12s;
 }
 
 .composer-modebar__item span {
@@ -4162,7 +4160,6 @@ a[href] {
 
 .composer-modebar__item:hover:not(:disabled) {
   color: var(--fg);
-  transform: translateY(-1px);
 }
 
 .composer-modebar__item:focus-visible {
@@ -4196,7 +4193,7 @@ a[href] {
   color: var(--fg-dim);
   box-shadow: none;
   font: inherit;
-  transition: border-color 0.14s, background 0.14s, color 0.14s, transform 0.14s var(--ease-out);
+  transition: border-color 0.14s, background 0.14s, color 0.14s;
 }
 
 .composer-action-trigger:hover:not(:disabled),
@@ -4235,7 +4232,7 @@ a[href] {
   font: inherit;
   font-size: 12px;
   font-weight: 620;
-  transition: border-color 0.14s, background 0.14s, color 0.14s, transform 0.14s var(--ease-out);
+  transition: border-color 0.14s, background 0.14s, color 0.14s;
 }
 
 .composer-more-trigger span {
@@ -4284,7 +4281,7 @@ a[href] {
   font: inherit;
   font-size: 12px;
   font-weight: 650;
-  transition: border-color 0.14s, background 0.14s, color 0.14s, transform 0.14s var(--ease-out);
+  transition: border-color 0.14s, background 0.14s, color 0.14s;
 }
 
 .composer-mode-chip__label {
@@ -4327,7 +4324,6 @@ a[href] {
   color: var(--fg);
   border-color: var(--border-soft);
   background: var(--bg-soft);
-  transform: translateY(-1px);
 }
 
 .composer-mode-chip:hover:not(:disabled) .composer-mode-chip__icon--mode,
@@ -4336,7 +4332,6 @@ a[href] {
 .tooltip-trigger:hover > .composer-mode-chip:not(:disabled) .composer-mode-chip__icon--mode,
 .tooltip-trigger:focus-within > .composer-mode-chip:not(:disabled) .composer-mode-chip__icon--mode {
   opacity: 0;
-  transform: scale(0.86);
 }
 
 .composer-mode-chip:hover:not(:disabled) .composer-mode-chip__icon--dismiss,
@@ -6936,7 +6931,6 @@ a[href] {
 
 .new-session__primary:hover:not(:disabled),
 .new-session__primary:focus-visible:not(:disabled) {
-  transform: translateY(-1px);
   background: linear-gradient(135deg, #1764ec, #229cf2);
 }
 
@@ -7038,7 +7032,6 @@ a[href] {
 .new-session__project:focus-visible:not(:disabled),
 .new-session__folder:hover:not(:disabled),
 .new-session__folder:focus-visible:not(:disabled) {
-  transform: translateY(-1px);
   background: #f4f9ff;
   border-color: rgba(33, 103, 255, 0.28);
 }
@@ -7552,11 +7545,10 @@ a[href] {
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-elev) 78%, var(--bg) 22%);
   overflow: hidden;
-  transition: border-color 0.12s, background 0.12s, transform 0.12s cubic-bezier(0.34, 1.4, 0.5, 1), box-shadow 0.12s;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
 .mem-fact:hover {
   border-color: var(--border);
-  transform: translateY(-1px);
   box-shadow: 0 4px 14px -8px rgba(0, 0, 0, 0.5);
 }
 /* M2: per-type accent stripe down the card's left edge. */
@@ -8620,7 +8612,7 @@ a[href] {
   border-radius: 6px;
 }
 .cap-skill-card__toggle:active {
-  transform: translateY(1px);
+  filter: brightness(0.98);
 }
 .cap-skill-card__head {
   display: flex;
@@ -9118,11 +9110,10 @@ a[href] {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  transition: border-color 0.12s, transform 0.12s cubic-bezier(0.34, 1.4, 0.5, 1), box-shadow 0.12s;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 .hist-item:hover {
   border-color: var(--fg-faint);
-  transform: translateX(2px);
 }
 .hist-item--current {
   border-color: var(--accent-soft);
@@ -11164,11 +11155,10 @@ a[href] {
   text-align: left;
   padding: 12px 13px;
   cursor: pointer;
-  transition: border-color 0.13s ease, transform 0.13s cubic-bezier(0.34, 1.4, 0.5, 1), box-shadow 0.13s ease;
+  transition: border-color 0.13s ease, box-shadow 0.13s ease;
 }
 .theme-card:hover {
   border-color: var(--button-border-hover);
-  transform: translateY(-2px);
 }
 .theme-card--on {
   border-color: var(--accent);
@@ -12214,13 +12204,13 @@ a[href] {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background 120ms ease, transform 80ms ease;
+  transition: background 120ms ease;
 }
 .onboarding__submit:hover:not(:disabled) {
   background: #e08868;
 }
 .onboarding__submit:active:not(:disabled) {
-  transform: translateY(1px);
+  filter: brightness(0.98);
 }
 .onboarding__submit:disabled {
   opacity: 0.7;
@@ -12810,37 +12800,36 @@ a[href] {
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active,
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:active {
-  transform: scale(0.94);
+  filter: brightness(0.98);
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active::before,
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:active::before {
   background: color-mix(in srgb, var(--fg-faint) 22%, transparent);
   opacity: 1;
-  transform: scale(0.92);
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left:active svg,
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right:active svg {
-  transform: scale(0.92);
+  filter: brightness(0.98);
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--pressed::before,
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed::before {
-  animation: mac-sidebar-button-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--left.app-chrome__panel-toggle--pressed svg,
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed svg {
-  animation: mac-sidebar-icon-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed:not(.app-chrome__panel-toggle--active) svg {
-  animation: mac-workspace-icon-open-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--darwin .app-chrome--tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed.app-chrome__panel-toggle--active svg {
-  animation: mac-workspace-icon-close-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 @keyframes mac-sidebar-button-press {
@@ -13104,39 +13093,38 @@ a[href] {
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle:active,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle:active {
-  transform: scale(0.94);
+  filter: brightness(0.98);
 }
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle:active::before,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle:active::before {
   opacity: 1;
-  transform: scale(0.92);
   background: color-mix(in srgb, var(--fg-faint) 22%, transparent);
 }
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle:active svg,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle:active svg {
-  transform: scale(0.92);
+  filter: brightness(0.98);
 }
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--pressed::before,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--pressed::before {
-  animation: mac-sidebar-button-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--pressed svg,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--pressed svg {
-  animation: mac-sidebar-icon-press 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed:not(.app-chrome__panel-toggle--active) svg,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed:not(.app-chrome__panel-toggle--active) svg {
-  animation: mac-workspace-icon-open-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--windows .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed.app-chrome__panel-toggle--active svg,
 .app--linux .app-chrome--native-tabs .app-chrome__panel-toggle--right.app-chrome__panel-toggle--pressed.app-chrome__panel-toggle--active svg {
-  animation: mac-workspace-icon-close-press 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: none;
 }
 
 .app--windows .app-chrome--native-tabs .tabbar,
@@ -13204,7 +13192,7 @@ a[href] {
 
 .app--windows .app-chrome--native-tabs .tabbar__tab:active,
 .app--linux .app-chrome--native-tabs .tabbar__tab:active {
-  transform: translateY(1px) scale(0.985);
+  filter: brightness(0.98);
 }
 
 .app--windows .app-chrome--native-tabs .tabbar__new,
@@ -13214,15 +13202,14 @@ a[href] {
   transition:
     background 0.14s ease,
     border-color 0.14s ease,
-    color 0.14s ease,
-    transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+    color 0.14s ease;
 }
 
 .app--windows .app-chrome--native-tabs .tabbar__new:active,
 .app--linux .app-chrome--native-tabs .tabbar__new:active,
 .app--windows .app-chrome--native-tabs .tabbar__command:active,
 .app--linux .app-chrome--native-tabs .tabbar__command:active {
-  transform: scale(0.94);
+  filter: brightness(0.98);
 }
 
 .app--windows .app-chrome--native-tabs .tabbar__spacer,
@@ -15549,7 +15536,6 @@ a[href] {
   color: var(--accent-text);
   background: var(--grad);
   filter: saturate(1.08) brightness(1.03);
-  transform: translateY(-1px);
 }
 
 .sidebar__section--projects {
@@ -16664,7 +16650,6 @@ a[href] {
 :root[data-theme-style] .sidebar__new:hover {
   color: var(--accent-text);
   background: var(--grad);
-  transform: translateY(-1px);
   filter: saturate(1.08) brightness(1.03);
 }
 
@@ -17070,14 +17055,13 @@ a[href] {
   line-height: 1.45;
   text-align: left;
   box-shadow: var(--app-graphite-shadow);
-  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+  transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
 }
 
 :root[data-theme-style] .welcome__ex:hover {
   color: var(--fg);
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
   background: color-mix(in srgb, var(--accent) 4%, var(--bg-elev));
-  transform: translateY(-2px);
 }
 
 :root[data-theme-style] .msg {
@@ -17121,12 +17105,11 @@ a[href] {
   border-radius: 8px;
   background: var(--bg-elev);
   box-shadow: var(--app-graphite-shadow);
-  transition: border-color var(--dur-fast), transform var(--dur-fast) var(--ease-out), background var(--dur-fast);
+  transition: border-color var(--dur-fast), background var(--dur-fast);
 }
 
 :root[data-theme-style] .process-card:hover {
   border-color: color-mix(in srgb, var(--fg-faint) 30%, var(--border));
-  transform: translateY(-1px);
 }
 
 :root[data-theme-style] .process-card__head {
@@ -17311,13 +17294,12 @@ a[href] {
   border-radius: 11px;
   background: var(--bg-elev);
   box-shadow: var(--app-graphite-shadow);
-  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 
 :root[data-theme-style] .composer-card:focus-within {
   border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
-  transform: translateY(-1px);
 }
 
 :root[data-theme-style] .composer {
@@ -17349,7 +17331,6 @@ a[href] {
 
 :root[data-theme-style] .composer__btn--send:not(:disabled):hover {
   background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 94%, #ffffff), var(--accent-strong));
-  transform: translateY(-1px) scale(1.03);
 }
 
 :root[data-theme-style] .composer-meta {
@@ -17371,7 +17352,7 @@ a[href] {
   border-radius: 7px;
   border-color: var(--border);
   background: color-mix(in srgb, var(--bg-elev-2) 70%, transparent);
-  transition: border-color var(--dur-fast), background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: border-color var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
 
 :root[data-theme-style] .meta-chip:hover,
@@ -17387,7 +17368,6 @@ a[href] {
   color: var(--fg);
   border-color: var(--app-graphite-hairline-strong);
   background: var(--bg-elev);
-  transform: translateY(-1px);
 }
 
 :root[data-theme-style] .composer-action-trigger {
@@ -17436,13 +17416,12 @@ a[href] {
   height: 26px;
   border-radius: 999px;
   color: var(--text-3);
-  transition: color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 
 :root[data-theme-style] .composer-modebar__item:hover:not(:disabled) {
   color: var(--text-2);
   background: transparent;
-  transform: translateY(-1px);
 }
 
 :root[data-theme-style] .composer-modebar__item--active,
@@ -17668,12 +17647,11 @@ a[href] {
 
 :root[data-theme-style] .settings-center__navitem {
   border-radius: 8px;
-  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
 
 :root[data-theme-style] .settings-center__navitem:hover {
   background: var(--bg-soft);
-  transform: translateX(2px);
 }
 
 :root[data-theme-style] .settings-center__navitem--active {
@@ -17895,7 +17873,7 @@ a[href] {
   min-height: 30px;
   height: 30px;
   color: var(--fg-dim);
-  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
 
 :root[data-theme-style] .workspace-tree__row:hover,
@@ -17903,7 +17881,6 @@ a[href] {
 :root[data-theme-style] .workspace-recent-menu__item:hover {
   background: var(--workspace-files-hover);
   color: var(--fg);
-  transform: translateX(2px);
 }
 
 :root[data-theme-style] .workspace-tree__row--active,
@@ -17934,7 +17911,7 @@ a[href] {
   min-height: 56px;
   padding: 8px 9px;
   border: 1px solid transparent;
-  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
 }
 
 :root[data-theme-style] .workspace-change-scope__head {
@@ -18125,12 +18102,11 @@ a[href] {
 
 :root[data-theme-style] .context-panel__file-row {
   border-radius: 7px;
-  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
 
 :root[data-theme-style] .context-panel__file-row:hover {
   background: var(--workspace-files-hover);
-  transform: translateX(2px);
 }
 
 :root[data-theme-style] .workspace-tree-resizer::after {
@@ -18198,7 +18174,7 @@ a[href] {
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 7px;
-  transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast), border-color var(--dur-fast);
 }
 
 :root[data-theme-style] .palette__item-icon {
@@ -18210,7 +18186,6 @@ a[href] {
   color: var(--fg);
   border-color: color-mix(in srgb, var(--accent) 20%, transparent);
   background: var(--accent-soft);
-  transform: translateY(-1px);
 }
 
 :root[data-theme-style] .palette__item--on .palette__item-icon {
@@ -18229,7 +18204,7 @@ a[href] {
 
 :root[data-theme-style] .floating-menu button,
 :root[data-theme-style] .context-menu__item {
-  transition: background var(--dur-fast), color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
 
 :root[data-theme-style] .floating-menu button:not(:disabled):hover,
@@ -18239,7 +18214,6 @@ a[href] {
   color: var(--fg);
   background: var(--accent-soft);
   outline: none;
-  transform: translateX(2px);
 }
 
 @keyframes graphite-message-in {

@@ -324,9 +324,10 @@ export const en = {
   "composer.removeImage": "Remove image",
   "composer.attachImageFailed": "Image paste failed",
   "composer.pasteImageFailed": "Could not read clipboard image",
-  "composer.contextItems": "Context items",
-  "composer.workspaceReferences": "Workspace references",
-  "composer.removeReference": "Remove reference",
+  "composer.contextItems": "Add to input",
+  "composer.workspaceReferences": "File or folder references",
+  "composer.removeReference": "Remove reference item",
+  "composer.removeSessionReference": "Remove session reference",
 
   // status bar
   "status.connecting": "connecting…",

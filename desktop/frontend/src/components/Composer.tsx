@@ -1910,7 +1910,7 @@ export function Composer({
                   </span>
                 </span>
               </Tooltip>
-              <Tooltip label="移除引用会话">
+              <Tooltip label={t("composer.removeSessionReference")}>
                 <button
                   type="button"
                   onClick={() => removeSessionRef(ref.path)}

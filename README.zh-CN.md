@@ -4,7 +4,7 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 AI 编程 Agent，提供 Windows
 
 ## 下载
 
-[DeepSeek-Orca-Setup-1.0.24-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.24/DeepSeek-Orca-Setup-1.0.24-windows-amd64.exe)
+[DeepSeek-Orca-Setup-1.0.25-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.25/DeepSeek-Orca-Setup-1.0.25-windows-amd64.exe)
 
 ## 快速开始
 
