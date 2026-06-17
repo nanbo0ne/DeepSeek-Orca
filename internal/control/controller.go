@@ -125,6 +125,8 @@ type Controller struct {
 	mu          sync.Mutex
 	cancel      context.CancelFunc
 	running     bool
+	paused      bool
+	pauseWait   chan struct{}
 	autosaveWG  sync.WaitGroup
 	planMode    bool
 	goal        string
@@ -182,6 +184,60 @@ type pendingApproval struct {
 	subject   string
 	autoDrain bool
 	reply     chan approvalReply
+}
+
+func (c *Controller) pauseState() (bool, chan struct{}) {
+	c.mu.Lock()
+	paused := c.paused
+	wait := c.pauseWait
+	c.mu.Unlock()
+	return paused, wait
+}
+
+func (c *Controller) waitIfPaused(ctx context.Context) error {
+	for {
+		paused, wait := c.pauseState()
+		if !paused {
+			return nil
+		}
+		if wait == nil {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-wait:
+		}
+	}
+}
+
+func (c *Controller) SetPaused(paused bool) {
+	c.mu.Lock()
+	if c.paused == paused {
+		if !paused && c.pauseWait != nil {
+			close(c.pauseWait)
+			c.pauseWait = nil
+		}
+		c.mu.Unlock()
+		return
+	}
+	c.paused = paused
+	if paused {
+		if c.pauseWait == nil {
+			c.pauseWait = make(chan struct{})
+		}
+	} else if c.pauseWait != nil {
+		close(c.pauseWait)
+		c.pauseWait = nil
+	}
+	c.mu.Unlock()
+}
+
+func (c *Controller) Paused() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.paused
 }
 
 // pendingAsk is an in-flight ask question batch. questions is retained so the
@@ -311,6 +367,7 @@ func New(opts Options) *Controller {
 	// Checkpoints: bind a store to the session and route writer pre-edits into it.
 	c.rebindCheckpoints(opts.SessionPath)
 	if c.executor != nil {
+		c.executor.SetPauseWait(c.waitIfPaused)
 		c.executor.SetPreEditHook(func(ch diff.Change) {
 			if c.cp != nil {
 				c.cp.Snapshot(ch)

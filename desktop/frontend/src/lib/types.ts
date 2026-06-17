@@ -139,6 +139,7 @@ export interface TabMeta {
   askWorkflowEnabled?: boolean;
   stepThinkingEnabled?: boolean;
   enhancedModeEnabled?: boolean;
+  paused?: boolean;
   goal?: string;
   goalStatus?: GoalStatus;
   startupErr?: string;
@@ -318,6 +319,7 @@ export interface Meta {
   askWorkflowEnabled?: boolean;
   stepThinkingEnabled?: boolean;
   enhancedModeEnabled?: boolean;
+  paused?: boolean;
   goal?: string;
   goalStatus?: GoalStatus;
 }
@@ -436,6 +438,7 @@ export interface GitCommitDetailView {
 export interface ComposerInsertRequest {
   id: number;
   text: string;
+  mode?: "insert" | "replace";
 }
 
 // MCP & Skills drawer (desktop/app.go Capabilities) - the GUI counterpart to

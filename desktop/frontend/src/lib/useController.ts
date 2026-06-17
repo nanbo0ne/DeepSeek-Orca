@@ -151,6 +151,7 @@ function sameMeta(a?: Meta, b?: Meta): boolean {
     a.askWorkflowEnabled === b.askWorkflowEnabled &&
     a.stepThinkingEnabled === b.stepThinkingEnabled &&
     a.enhancedModeEnabled === b.enhancedModeEnabled &&
+    a.paused === b.paused &&
     a.goal === b.goal &&
     a.goalStatus === b.goalStatus
   );
@@ -953,6 +954,18 @@ export function useController() {
     } catch { /* ignore */ }
   }, [activeTabId, dispatchTo]);
 
+  const togglePause = useCallback(async (): Promise<void> => {
+    if (!activeTabId) return;
+    const paused = Boolean(getOrCreateState(statesRef.current, activeTabId).meta?.paused);
+    try {
+      if (paused) await app.ResumeTab(activeTabId);
+      else await app.PauseTab(activeTabId);
+      await refreshMetaForTab(activeTabId, dispatchTo);
+    } catch (err) {
+      dispatchTo(activeTabId, { type: "local_notice", level: "warn", text: errorMessage(err) });
+    }
+  }, [activeTabId, dispatchTo]);
+
   const newSession = useCallback(async () => {
     const tabId = activeTabId;
     if (tabId) bumpCheckpointRefreshSeq(tabId);
@@ -1143,7 +1156,7 @@ export function useController() {
   return {
     state: activeState,
     activeTabId,
-    send, runShell, steer, notice, cancel, approve, answerQuestion, setControllerMode, setCollaborationMode, setToolApprovalMode, setAskWorkflow, setStepThinking, setEnhancedMode, setGoal, clearGoal,
+    send, runShell, steer, notice, cancel, approve, answerQuestion, setControllerMode, setCollaborationMode, setToolApprovalMode, setAskWorkflow, setStepThinking, setEnhancedMode, togglePause, setGoal, clearGoal,
     newSession, clearSession, listSessions, listTrashedSessions, resumeSession, previewSession, deleteSession, restoreSession, purgeTrashedSession, renameSession,
     refreshMeta, pickWorkspace, switchWorkspace, compact, rewind, setModel, setEffort,
     fetchMemory, remember, forget, saveDoc,

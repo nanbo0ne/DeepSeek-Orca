@@ -1,11 +1,12 @@
 import { memo, useEffect, useState } from "react";
-import { ChevronDown, FileText, Folder, GitBranch, Image, RotateCcw, ScrollText } from "lucide-react";
+import { ChevronDown, Edit3, FileText, Folder, GitBranch, Image, RotateCcw, ScrollText } from "lucide-react";
 import { Markdown } from "./Markdown";
 import { CopyButton } from "./CopyButton";
 import { ProcessBrainIcon, ProcessCard, ProcessStatusIcon } from "./ProcessCard";
 import { parseAttachmentRefsForDisplay, sortDisplayAttachments } from "../lib/attachmentDisplay";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
+import { Tooltip } from "./Tooltip";
 import type { Item, MessageActionScope } from "../lib/useController";
 import type { CheckpointMeta } from "../lib/types";
 
@@ -23,11 +24,13 @@ export function UserMessage({
   failed,
   turn,
   anchorId,
+  onEdit,
 }: {
   text: string;
   failed?: boolean;
   turn?: number;
   anchorId?: string;
+  onEdit?: (text: string) => void;
 }) {
   const t = useT();
   const { text: displayText, attachments } = parseAttachmentRefsForDisplay(text);
@@ -57,8 +60,8 @@ export function UserMessage({
   }, [imagePreviewKey]);
   return (
     <div className={`msg msg--user${failed ? " msg--user-failed" : ""}`} id={anchorId} data-question-anchor={anchorId} data-turn={turn}>
-      <div className="msg__body">
-        <CopyButton text={displayText || text} label={t("msg.copy")} showLabel={false} className="msg__copy msg__copy--user" />
+      <div className="msg__user-stack">
+        <div className="msg__body">
         {displayText && <div className="msg__text">{displayText}</div>}
         {failed && <div className="msg__send-failed">{t("msg.sendFailed")}</div>}
         {orderedAttachments.length > 0 && (
@@ -80,6 +83,15 @@ export function UserMessage({
             ))}
           </div>
         )}
+        </div>
+        <div className="msg__actions msg__actions--user">
+          <CopyButton text={displayText || text} label={t("msg.copy")} showLabel={false} className="msg__copy msg__copy--user" />
+          <Tooltip label={t("common.edit")}>
+            <button type="button" className="msg__action msg__action--edit" onClick={() => onEdit?.(displayText || text)} aria-label={t("common.edit")}>
+              <Edit3 size={13} />
+            </button>
+          </Tooltip>
+        </div>
       </div>
     </div>
   );

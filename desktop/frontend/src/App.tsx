@@ -365,6 +365,7 @@ export default function App() {
     setAskWorkflow: setControllerAskWorkflow,
     setStepThinking: setControllerStepThinking,
     setEnhancedMode: _setControllerEnhancedMode,
+    togglePause,
     setGoal: setControllerGoal,
     clearGoal: clearControllerGoal,
     clearSession,
@@ -1766,6 +1767,10 @@ export default function App() {
     setComposerInsertRequest({ id: Date.now(), text });
   }, []);
 
+  const replaceComposerText = useCallback((text: string) => {
+    setComposerInsertRequest({ id: Date.now(), text, mode: "replace" });
+  }, []);
+
   const handleNewTab = useCallback(() => {
     closeTransientOverlays();
     setNewSessionChooserOpen(true);
@@ -2296,6 +2301,7 @@ export default function App() {
                 live={state.live}
                 footerHeight={footerHeight}
                 onPrompt={send}
+                onEditUserMessage={replaceComposerText}
                 onRewind={handleMessageAction}
                 checkpoints={state.checkpoints}
                 actionPending={state.messageAction != null}
@@ -2372,6 +2378,7 @@ export default function App() {
               toolApprovalMode={toolApprovalMode}
               enhancedModeEnabled={enhancedModeEnabled}
               enhancedModeSwitching={enhancedModeSwitching}
+              paused={Boolean(state.meta?.paused)}
               goal={goal}
               cwd={state.meta?.cwd}
               modelLabel={displayedModelLabel}
@@ -2387,6 +2394,7 @@ export default function App() {
               onSetAskWorkflow={applyAskWorkflow}
               onSetStepThinking={applyStepThinking}
               onSetEnhancedMode={(enabled) => void applyEnhancedMode(enabled)}
+              onTogglePause={() => void togglePause()}
               onToggleYoloApprovalMode={toggleYoloApprovalMode}
               onSetGoal={startGoal}
               onClearGoal={() => applyGoal("")}

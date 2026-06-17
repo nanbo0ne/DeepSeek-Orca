@@ -82,6 +82,8 @@ type Options struct {
 	SessionDir string
 	// EnhancedMode switches prompt/context assembly to the V2 Claude-like profile.
 	EnhancedMode bool
+	// PauseWait is an optional cooperative pause gate for interactive frontends.
+	PauseWait func(context.Context) error
 }
 
 // Build loads config, resolves the model(s), and returns a Controller wrapping a
@@ -553,6 +555,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			Gate:          headlessGate,
 			ContextWindow: ctxWin,
 			ArchiveDir:    config.ArchiveDir(),
+			PauseWait:     opts.PauseWait,
 		}, agent.NestedSink(sctx, event.Discard))
 		if err != nil {
 			return "", errors.Join(err, subagentStore.SaveFailed(run))
@@ -635,6 +638,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		CompactRatio:      cfg.Agent.CompactRatio,
 		CompactForceRatio: cfg.Agent.CompactForceRatio,
 		ArchiveDir:        config.ArchiveDir(),
+		PauseWait:         opts.PauseWait,
 	}, sink)
 
 	// Custom slash commands (.deepseek-orca/commands + user dir). Best-effort: a malformed
@@ -694,6 +698,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				CompactRatio:      cfg.Agent.CompactRatio,
 				CompactForceRatio: cfg.Agent.CompactForceRatio,
 				ArchiveDir:        config.ArchiveDir(),
+				PauseWait:         opts.PauseWait,
 			}, executor, cfg.Agent.Temperature, sink, control.TaskWarrantsPlanner)
 			label = entry.Model + " + planner " + pe.Model
 		}

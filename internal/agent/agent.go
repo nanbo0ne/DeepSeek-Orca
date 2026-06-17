@@ -215,6 +215,7 @@ type Agent struct {
 	// projectChecks are structured project instructions that complete_step can
 	// verify against same-turn bash receipts after a write-backed completion.
 	projectChecks []instruction.VerifyCheck
+	pauseWait     func(context.Context) error
 
 	// memQueue, when non-nil, lets the remember/forget tools fold a turn-tail note
 	// about a just-made memory change into the next turn, so it applies this
@@ -285,6 +286,11 @@ func (a *Agent) SetMemoryQueue(q memory.Queue) { a.memQueue = q }
 // SetPreEditHook installs the pre-edit snapshot hook (see onPreEdit). The
 // controller wires it to its per-session checkpoint store; nil disables capture.
 func (a *Agent) SetPreEditHook(fn func(diff.Change)) { a.onPreEdit = fn }
+
+// SetPauseWait installs the cooperative pause gate used by interactive frontends.
+// It is checked only between model/tool steps, so pause never interrupts a tool
+// call or streamed response halfway through.
+func (a *Agent) SetPauseWait(fn func(context.Context) error) { a.pauseWait = fn }
 
 // Session returns the agent's current conversation, useful for persistence
 // hooks that need to read the message log between turns. sessMu serialises this
@@ -415,6 +421,7 @@ type Options struct {
 
 	// ProjectChecks are host-observable structured checks extracted during boot.
 	ProjectChecks []instruction.VerifyCheck
+	PauseWait     func(context.Context) error
 }
 
 // New constructs an Agent. MaxSteps <= 0 means no cap — the run loop continues
@@ -469,6 +476,7 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		compactForceRatio: opts.CompactForceRatio,
 		recentKeep:        opts.RecentKeep,
 		archiveDir:        opts.ArchiveDir,
+		pauseWait:         opts.PauseWait,
 	}
 }
 
@@ -497,6 +505,11 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	streamRecoveries := 0
 	executorHandoff := a.executorHandoffGuard && strings.Contains(input, executorHandoffMarker)
 	for step := 0; a.maxSteps <= 0 || step < a.maxSteps; step++ {
+		if a.pauseWait != nil {
+			if err := a.pauseWait(ctx); err != nil {
+				return err
+			}
+		}
 		// Consume a queued steer and persist it to the session so it
 		// survives tab switches and history replay. The model sees it as
 		// guidance (with a prefix), not a new task. One cache miss per
@@ -604,6 +617,11 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 		usedAnyTool = true
 
 		results := a.executeBatch(ctx, calls)
+		if a.pauseWait != nil {
+			if err := a.pauseWait(ctx); err != nil {
+				return err
+			}
+		}
 		for i, call := range calls {
 			a.session.Add(provider.Message{
 				Role:       provider.RoleTool,

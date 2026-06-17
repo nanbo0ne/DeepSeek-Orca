@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Brain, Check, CircleHelp, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowUp, Brain, Check, CircleHelp, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -326,6 +326,7 @@ export function Composer({
   stepThinkingEnabled,
   enhancedModeEnabled,
   enhancedModeSwitching = false,
+  paused = false,
   goal,
   cwd,
   modelLabel,
@@ -341,6 +342,7 @@ export function Composer({
   onSetAskWorkflow,
   onSetStepThinking,
   onSetEnhancedMode,
+  onTogglePause,
   onToggleYoloApprovalMode,
   onSetGoal,
   onClearGoal,
@@ -362,6 +364,7 @@ export function Composer({
   stepThinkingEnabled: boolean;
   enhancedModeEnabled: boolean;
   enhancedModeSwitching?: boolean;
+  paused?: boolean;
   goal?: string;
   cwd?: string;
   modelLabel: string;
@@ -379,6 +382,7 @@ export function Composer({
   onSetAskWorkflow: (enabled: boolean) => void;
   onSetStepThinking: (enabled: boolean) => void;
   onSetEnhancedMode: (enabled: boolean) => void;
+  onTogglePause?: () => void;
   onToggleYoloApprovalMode: () => void;
   onSetGoal: (goal: string) => void;
   onClearGoal: () => void;
@@ -728,6 +732,13 @@ export function Composer({
   useEffect(() => {
     if (!insertRequest || insertRequest.id === consumedInsertIdRef.current) return;
     consumedInsertIdRef.current = insertRequest.id;
+    if (insertRequest.mode === "replace") {
+      setTextCaretEnd(insertRequest.text);
+      clearAttachments();
+      setWorkspaceRefs([]);
+      setSessionRefs([]);
+      return;
+    }
     const ref = parseWorkspaceReference(insertRequest.text);
     if (ref) {
       addWorkspaceReference(ref);
@@ -2197,6 +2208,12 @@ export function Composer({
           </div>
           {runActivity ? (
             <div className="composer-runstatus" role="status" aria-live="polite">
+              <Tooltip label={paused ? t("composer.resume") : t("composer.pause")}>
+                <button className="composer-runstatus__pause" type="button" onClick={onTogglePause} disabled={decisionPending || !onTogglePause}>
+                  {paused ? <PlayCircle size={13} /> : <PauseCircle size={13} />}
+                  <span>{paused ? t("composer.resumeShort") : t("composer.pauseShort")}</span>
+                </button>
+              </Tooltip>
               <span className="composer-runstatus__dot" />
               <span className="composer-runstatus__text">{runActivity}</span>
               <Tooltip label={t("composer.stop")}>

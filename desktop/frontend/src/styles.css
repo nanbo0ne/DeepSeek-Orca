@@ -2768,39 +2768,67 @@ a[href] {
   justify-content: flex-end;
   color: var(--fg);
 }
-.msg--user .msg__body {
+.msg__user-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
   max-width: 82%;
+}
+.msg--user .msg__body {
+  max-width: 100%;
   background: var(--bg-elev-2);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   padding: 10px 16px;
   position: relative;
 }
-.msg--user .msg__body > .tooltip-trigger:has(.msg__copy--user) {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  z-index: var(--z-local-raised);
-  line-height: 0;
-}
-.msg__copy--user {
+.msg__actions--user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  margin-top: 7px;
+  margin-right: 2px;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.12s;
+}
+.msg--user:hover .msg__actions--user,
+.msg--user:focus-within .msg__actions--user,
+.msg__actions--user:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+.msg__copy--user {
   padding: 3px 5px;
   background: color-mix(in srgb, #fff 16%, var(--accent));
   border-color: color-mix(in srgb, #fff 34%, var(--accent));
   color: #fff;
-  transition: opacity 0.12s, background 0.12s, border-color 0.12s;
-}
-.msg--user .msg__body:hover .msg__copy--user,
-.msg--user .msg__body:focus-within .msg__copy--user {
-  opacity: 1;
-  pointer-events: auto;
+  transition: background 0.12s, border-color 0.12s;
 }
 .msg__copy--user:hover {
   background: color-mix(in srgb, #fff 22%, var(--accent));
   border-color: color-mix(in srgb, #fff 52%, var(--accent));
   color: #fff;
+}
+.msg__action--edit {
+  --wails-draggable: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--fg-faint);
+}
+.msg__action--edit:hover,
+.msg__action--edit:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg));
 }
 
 :root[data-theme="dark"] .msg--user .msg__body {
@@ -3758,6 +3786,7 @@ a[href] {
 
 /* ── footer: composer + status line ──────────────────────────────────────── */
 .footer {
+  position: relative;
   flex: 0 0 auto;
   border-top: 1px solid var(--border-soft);
   background: var(--chat-bg);
@@ -11839,20 +11868,31 @@ a[href] {
 }
 
 .todobar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: var(--z-floating-menu);
   width: fit-content;
   min-width: min(320px, 100%);
-  max-width: min(var(--maxw), calc(100% - 32px));
-  margin: 0 auto 8px;
+  max-width: min(520px, calc(100% - 32px));
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--bg-soft);
   overflow: hidden;
-  animation: todobar-in var(--dur-base) var(--ease-out) both;
+  transform: translateX(-50%);
+  animation: todobar-float-in var(--dur-base) var(--ease-out) both;
 }
 @keyframes todobar-in {
   from {
     opacity: 0;
     transform: translateY(var(--motion-rise));
+  }
+}
+@keyframes todobar-float-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(var(--motion-rise));
   }
 }
 .todobar__head {
@@ -11921,7 +11961,7 @@ a[href] {
   list-style: none;
   margin: 0;
   padding: 2px 11px 9px;
-  min-width: min(520px, 100%);
+  width: min(520px, calc(100vw - 96px));
   max-width: 100%;
   display: flex;
   flex-direction: column;
@@ -12026,6 +12066,38 @@ a[href] {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.composer-runstatus__pause {
+  --wails-draggable: no-drag;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev-2));
+  color: var(--accent);
+  font: inherit;
+  font-weight: 620;
+}
+
+.composer-runstatus__pause:hover,
+.composer-runstatus__pause:focus-visible {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-elev-2));
+  border-color: color-mix(in srgb, var(--accent) 64%, var(--border));
+}
+
+.composer-runstatus__pause:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  color: var(--fg-faint);
+  background: var(--button-bg);
+  border-color: var(--border-soft);
 }
 
 .composer-runstatus__stop {

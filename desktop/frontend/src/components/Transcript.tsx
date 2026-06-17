@@ -159,6 +159,7 @@ export function Transcript({
   live,
   footerHeight = 0,
   onPrompt,
+  onEditUserMessage,
   onRewind,
   checkpoints = [],
   actionPending = false,
@@ -171,6 +172,7 @@ export function Transcript({
   live?: LiveStream;
   footerHeight?: number;
   onPrompt: (text: string) => void;
+  onEditUserMessage?: (text: string) => void;
   onRewind?: (turn: number, scope: string) => void;
   checkpoints?: CheckpointMeta[];
   actionPending?: boolean;
@@ -441,7 +443,7 @@ export function Transcript({
           const tn = userTurn.get(it.id);
           activeTurn = tn;
           out.push(
-            <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} />,
+            <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} onEdit={onEditUserMessage} />,
           );
           break;
         }
@@ -501,6 +503,7 @@ export function Transcript({
               warmActionPending={actionPending}
               warmRewindDisabled={rewindDisabled}
               warmOnRewind={onRewind}
+              warmOnEditUserMessage={onEditUserMessage}
               warmSetOpenAction={setOpenAction}
               defaultExpandThinking={defaultExpandThinking}
               liveToolID={liveToolID}
@@ -551,6 +554,7 @@ const WarmZone = memo(function WarmZone({
   warmActionPending,
   warmRewindDisabled,
   warmOnRewind,
+  warmOnEditUserMessage,
   warmSetOpenAction,
   defaultExpandThinking = false,
   liveToolID = "",
@@ -570,6 +574,7 @@ const WarmZone = memo(function WarmZone({
   warmActionPending: boolean;
   warmRewindDisabled: boolean;
   warmOnRewind: ((turn: number, scope: string) => void) | undefined;
+  warmOnEditUserMessage?: (text: string) => void;
   warmSetOpenAction: (action: OpenTurnAction | null) => void;
   defaultExpandThinking?: boolean;
   liveToolID?: string;
@@ -626,6 +631,7 @@ const WarmZone = memo(function WarmZone({
               actionPending={warmActionPending}
               rewindDisabled={warmRewindDisabled}
               onRewind={warmOnRewind}
+              onEditUserMessage={warmOnEditUserMessage}
               setOpenAction={warmSetOpenAction}
               defaultExpandThinking={defaultExpandThinking}
               liveToolID={liveToolID}
@@ -671,6 +677,7 @@ function WarmTurnItems({
   actionPending,
   rewindDisabled,
   onRewind,
+  onEditUserMessage,
   setOpenAction,
   defaultExpandThinking = false,
   liveToolID = "",
@@ -685,6 +692,7 @@ function WarmTurnItems({
   actionPending: boolean;
   rewindDisabled: boolean;
   onRewind: ((turn: number, scope: string) => void) | undefined;
+  onEditUserMessage?: (text: string) => void;
   setOpenAction: (action: OpenTurnAction | null) => void;
   defaultExpandThinking?: boolean;
   liveToolID?: string;
@@ -725,7 +733,7 @@ function WarmTurnItems({
         const tn = userTurnMap.get(it.id);
         activeTurn = tn;
         nodes.push(
-          <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} />,
+          <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} onEdit={onEditUserMessage} />,
         );
         break;
       }

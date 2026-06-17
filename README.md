@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.7
+# DeepSeek-Orca V2.0.8
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留了原有的核心 Agent 循环、工具调用、MCP、技能、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek 与 OpenAI-compatible provider 做了桌面端体验和 V2 工作流增强。
 
@@ -6,7 +6,7 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.7-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.7/DeepSeek-Orca-Setup-2.0.7-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.8-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.8/DeepSeek-Orca-Setup-2.0.8-windows-amd64.exe)
 
 安装后打开 DeepSeek-Orca Desktop，在设置中填写 DeepSeek API Key，或添加兼容 OpenAI 接口的 provider。
 
@@ -54,9 +54,9 @@ V2 在发送按钮旁新增“增强模式”。开启后，当前会话会切�
 
 如果“询问”和“分步思考”同时开启，分步思考会跳过 brainstorm/方案构思环节，避免重复规划。
 
-## V2.0.7 补丁
+## V2.0.8 补丁
 
-V2.0.7 在 V2.0.6 的基础上继续修补两个主界面交互问题：
+V2.0.8 在 V2.0.6 的基础上继续修补两个主界面交互问题：
 
 - 下箭头按钮改为对话区域底部居中的白色圆形按钮，箭头使用蓝色；只要当前视图没有贴住最下方就稳定显示，不再只在滚动时闪烁一下。
 - 用户消息气泡的复制按钮改为真正的悬浮层，不再在消息正文前方挤出一行空白。
@@ -71,7 +71,7 @@ V2.0.7 在 V2.0.6 的基础上继续修补两个主界面交互问题：
 - 用户消息也增加了复制按钮，鼠标移到气泡上才出现，和 AI 消息的复制体验一致。
 - 新对话继承最近一次实际使用的模型、思考强度、审批和增强模式；询问、分步思考、计划、目标这些临时工作流默认关闭。
 
-V2.0.7 继续保留上下文统计修复和 reasoning 回传收窄：右上角上下文统计使用 provider 的真实 `PromptTokens`，DeepSeek 的 `reasoning_content` 只在需要的 tool-call 轮次回传，避免不必要的 token、缓存失效和压缩异常。
+V2.0.8 继续保留上下文统计修复和 reasoning 回传收窄：右上角上下文统计使用 provider 的真实 `PromptTokens`，DeepSeek 的 `reasoning_content` 只在需要的 tool-call 轮次回传，避免不必要的 token、缓存失效和压缩异常。
 
 同时，DeepSeek 的 `reasoning_content` 回传范围被收窄：普通 assistant reasoning 只保留在本地显示和历史中，不再进入后续请求；只有带 `tool_calls` 的 DeepSeek assistant 轮次会按需回传。这可以降低不必要的 prompt token、缓存失效和压缩异常风险。
 

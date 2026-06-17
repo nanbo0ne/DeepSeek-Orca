@@ -1966,6 +1966,7 @@ type Meta struct {
 	AskWorkflow      bool   `json:"askWorkflowEnabled"`
 	StepThinking     bool   `json:"stepThinkingEnabled"`
 	EnhancedMode     bool   `json:"enhancedModeEnabled"`
+	Paused           bool   `json:"paused"`
 	Goal             string `json:"goal,omitempty"`
 	GoalStatus       string `json:"goalStatus,omitempty"`
 }
@@ -2002,8 +2003,21 @@ func (a *App) MetaForTab(tabID string) Meta {
 		AskWorkflow:      tab.askWorkflow,
 		StepThinking:     tab.stepThinking,
 		EnhancedMode:     tab.enhancedMode,
+		Paused:           tab.Ctrl != nil && tab.Ctrl.Paused(),
 		Goal:             goal,
 		GoalStatus:       goalStatus,
+	}
+}
+
+func (a *App) PauseTab(tabID string) {
+	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
+		ctrl.SetPaused(true)
+	}
+}
+
+func (a *App) ResumeTab(tabID string) {
+	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
+		ctrl.SetPaused(false)
 	}
 }
 

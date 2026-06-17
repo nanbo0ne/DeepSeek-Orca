@@ -96,6 +96,8 @@ export interface AppBindings {
   SteerForTab(tabID: string, text: string): Promise<void>;
   Cancel(): Promise<void>;
   CancelTab(tabID: string): Promise<void>;
+  PauseTab(tabID: string): Promise<void>;
+  ResumeTab(tabID: string): Promise<void>;
   Approve(id: string, allow: boolean, session: boolean, persist: boolean): Promise<void>;
   ApproveTab(tabID: string, id: string, allow: boolean, session: boolean, persist: boolean): Promise<void>;
   AnswerQuestion(id: string, answers: QuestionAnswer[]): Promise<void>;
@@ -1315,6 +1317,12 @@ function makeMockApp(): AppBindings {
         async SetEnhancedModeForTab(tabID, enabled) {
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, enhancedModeEnabled: enabled } : tab));
         },
+        async PauseTab(tabID) {
+          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, paused: true } : tab));
+        },
+        async ResumeTab(tabID) {
+          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, paused: false } : tab));
+        },
         async SetGoal(goal) {
           const active = mockTabs.find((tab) => tab.active);
           if (active) await this.SetGoalForTab(active.id, goal);
@@ -1500,6 +1508,7 @@ function makeMockApp(): AppBindings {
             askWorkflowEnabled: active?.askWorkflowEnabled ?? false,
             stepThinkingEnabled: active?.stepThinkingEnabled ?? false,
             enhancedModeEnabled: active?.enhancedModeEnabled ?? false,
+            paused: active?.paused ?? false,
             goal: active?.goal ?? "",
             goalStatus: active?.goalStatus ?? (active?.goal ? "running" : "stopped"),
           };
@@ -1519,6 +1528,7 @@ function makeMockApp(): AppBindings {
             askWorkflowEnabled: tab?.askWorkflowEnabled ?? false,
             stepThinkingEnabled: tab?.stepThinkingEnabled ?? false,
             enhancedModeEnabled: tab?.enhancedModeEnabled ?? false,
+            paused: tab?.paused ?? false,
             goal: tab?.goal ?? "",
             goalStatus: tab?.goalStatus ?? (tab?.goal ? "running" : "stopped"),
           };
