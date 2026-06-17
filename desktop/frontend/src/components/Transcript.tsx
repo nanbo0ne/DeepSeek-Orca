@@ -80,12 +80,8 @@ function repinIfWasPinned(
   });
 }
 
-function nearBottom(el: HTMLDivElement): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-}
-
 function isAtBottom(el: HTMLDivElement): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight <= 2;
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= 4;
 }
 
 function scrollElementToBottom(el: HTMLDivElement) {
@@ -169,6 +165,7 @@ export function Transcript({
   rewindDisabled = false,
   questionNavigator = true,
   defaultExpandThinking = false,
+  followButton = true,
 }: {
   items: Item[];
   live?: LiveStream;
@@ -180,6 +177,7 @@ export function Transcript({
   rewindDisabled?: boolean;
   questionNavigator?: boolean;
   defaultExpandThinking?: boolean;
+  followButton?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(false);
@@ -220,8 +218,8 @@ export function Transcript({
 
   const updateFollowButton = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
-    setShowFollowButton(!nearBottom(el));
-  }, []);
+    setShowFollowButton(followButton && !isAtBottom(el));
+  }, [followButton]);
 
   const scrollToBottom = useCallback((follow: boolean) => {
     const el = scrollRef.current;
@@ -290,6 +288,7 @@ export function Transcript({
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       repinIfWasPinned(el, stick, resizeFrame);
+      updateFollowButton(el);
       updateActiveJumpTurn(el);
     });
     observer.observe(el);
@@ -300,12 +299,13 @@ export function Transcript({
         resizeFrame.current = null;
       }
     };
-  }, [updateActiveJumpTurn]);
+  }, [updateActiveJumpTurn, updateFollowButton]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     repinIfWasPinned(el, stick, resizeFrame);
+    updateFollowButton(el);
     updateActiveJumpTurn(el);
     return () => {
       if (resizeFrame.current !== null) {
@@ -313,7 +313,7 @@ export function Transcript({
         resizeFrame.current = null;
       }
     };
-  }, [footerHeight, updateActiveJumpTurn]);
+  }, [footerHeight, updateActiveJumpTurn, updateFollowButton]);
 
   // Sub-agent calls carry a parentId; collect them under their parent `task`
   // call so the parent card can render them nested, and skip them at top level.
@@ -473,50 +473,52 @@ export function Transcript({
   // don't rebuild it. The hot zone uses LiveAssistantMessage (reads live from
   // LiveStreamContext) so streaming updates are captured immediately.
   return (
-    <div
-      className={`transcript${empty ? " transcript--empty" : ""}`}
-      ref={scrollRef}
-      onScroll={onScroll}
-    >
-      {empty && <Welcome onPrompt={onPrompt} />}
+    <div className="transcript-shell">
+      <div
+        className={`transcript${empty ? " transcript--empty" : ""}`}
+        ref={scrollRef}
+        onScroll={onScroll}
+      >
+        {empty && <Welcome onPrompt={onPrompt} />}
 
-      {!empty && showQuestionNav && (
-        <QuestionJumpBar questions={questions} activeTurn={activeJumpTurn} onJump={handleJumpToQuestion} />
-      )}
-
-      <LiveStreamContext.Provider value={live}>
-        {turnGroups.length > HOT_TURNS && (
-          <WarmZone
-            turnGroups={turnGroups}
-            expandedWarmTurns={expandedWarmTurns}
-            shownWarmStart={shownWarmStart}
-            coldTurnCount={coldTurnCount}
-            scrollRef={scrollRef}
-            warmItems={items}
-            warmSubcalls={subcallsByParent}
-            warmUserTurn={userTurn}
-            warmCheckpoints={checkpointsByTurn}
-            warmOpenAction={openAction}
-            warmActionPending={actionPending}
-            warmRewindDisabled={rewindDisabled}
-            warmOnRewind={onRewind}
-            warmSetOpenAction={setOpenAction}
-            defaultExpandThinking={defaultExpandThinking}
-            liveToolID={liveToolID}
-            onToggleColdPage={() => setColdPage((p) => p + 1)}
-            onToggleWarmTurn={(g, expand) => {
-              setExpandedWarmTurns((prev) => {
-                const next = new Set(prev);
-                if (expand) next.add(g); else next.delete(g);
-                return next;
-              });
-            }}
-          />
+        {!empty && showQuestionNav && (
+          <QuestionJumpBar questions={questions} activeTurn={activeJumpTurn} onJump={handleJumpToQuestion} />
         )}
-        {hotZoneNodes}
-      </LiveStreamContext.Provider>
 
-      {!empty && showFollowButton && (
+        <LiveStreamContext.Provider value={live}>
+          {turnGroups.length > HOT_TURNS && (
+            <WarmZone
+              turnGroups={turnGroups}
+              expandedWarmTurns={expandedWarmTurns}
+              shownWarmStart={shownWarmStart}
+              coldTurnCount={coldTurnCount}
+              scrollRef={scrollRef}
+              warmItems={items}
+              warmSubcalls={subcallsByParent}
+              warmUserTurn={userTurn}
+              warmCheckpoints={checkpointsByTurn}
+              warmOpenAction={openAction}
+              warmActionPending={actionPending}
+              warmRewindDisabled={rewindDisabled}
+              warmOnRewind={onRewind}
+              warmSetOpenAction={setOpenAction}
+              defaultExpandThinking={defaultExpandThinking}
+              liveToolID={liveToolID}
+              onToggleColdPage={() => setColdPage((p) => p + 1)}
+              onToggleWarmTurn={(g, expand) => {
+                setExpandedWarmTurns((prev) => {
+                  const next = new Set(prev);
+                  if (expand) next.add(g); else next.delete(g);
+                  return next;
+                });
+              }}
+            />
+          )}
+          {hotZoneNodes}
+        </LiveStreamContext.Provider>
+      </div>
+
+      {!empty && followButton && showFollowButton && (
         <button
           type="button"
           className="transcript-follow"
