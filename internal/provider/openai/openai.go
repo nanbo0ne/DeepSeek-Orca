@@ -233,18 +233,16 @@ func (c *client) buildRequest(req provider.Request) chatRequest {
 	src := provider.SanitizeToolPairing(req.Messages)
 	msgs := make([]chatMessage, len(src))
 	for i, m := range src {
-		// reasoning_content is deliberately NOT sent back: it's a response-only
-		// field. DeepSeek counts re-sent reasoning as billable prompt input
-		// (measured ~500 extra tokens per turn on a reasoner chain); MiMo accepts
-		// it but does not require it (verified empirically: multi-turn tool-call
-		// sessions work fine without it, saving ~18 tokens/turn). The session
-		// still keeps it (for display/archive); we just don't pay to re-upload it.
+		// Plain assistant reasoning_content is display/archive data and should
+		// not be echoed into later requests. DeepSeek tool-call assistant turns
+		// are the narrow exception because the provider may require that assistant
+		// message to be reconstructed exactly with its tool_calls.
 		cm := chatMessage{
 			Role:       string(m.Role),
 			ToolCallID: m.ToolCallID,
 			Name:       m.Name,
 		}
-		if c.deepseek && m.Role == provider.RoleAssistant && strings.TrimSpace(m.ReasoningContent) != "" {
+		if c.deepseek && m.Role == provider.RoleAssistant && len(m.ToolCalls) > 0 && strings.TrimSpace(m.ReasoningContent) != "" {
 			cm.ReasoningContent = m.ReasoningContent
 		}
 		for _, tc := range m.ToolCalls {

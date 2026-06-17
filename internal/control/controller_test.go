@@ -238,22 +238,60 @@ func TestSubmitClearDiscardsCurrentContextWithoutSavingTranscript(t *testing.T) 
 	}
 }
 
-func TestContextSnapshotUsesLiveSessionEstimateNotLastUsage(t *testing.T) {
+func TestContextSnapshotUsesProviderPromptTokensDespiteReasoningHistory(t *testing.T) {
 	sess := agent.NewSession("sys")
 	sess.Add(provider.Message{Role: provider.RoleUser, Content: "small task"})
+	sess.Add(provider.Message{
+		Role:             provider.RoleAssistant,
+		Content:          "done",
+		ReasoningContent: strings.Repeat("reasoning that should stay out of the gauge ", 20000),
+	})
 	exec := agent.New(nil, nil, sess, agent.Options{ContextWindow: 128000}, event.Discard)
-	exec.SetLastUsageForTest(&provider.Usage{PromptTokens: 120000, TotalTokens: 125000})
+	exec.SetLastUsageForTest(&provider.Usage{PromptTokens: 70000, TotalTokens: 73000})
 	c := New(Options{Executor: exec})
 
 	used, window := c.ContextSnapshot()
 	if window != 128000 {
 		t.Fatalf("window = %d, want 128000", window)
 	}
-	if used <= 0 {
-		t.Fatalf("used = %d, want positive session estimate", used)
+	if used != 70000 {
+		t.Fatalf("used = %d, want provider PromptTokens 70000", used)
 	}
-	if used >= 120000 {
-		t.Fatalf("used = %d, should not mirror provider prompt usage", used)
+}
+
+func TestContextSnapshotEnhancedModeUsesProviderPromptTokens(t *testing.T) {
+	sess := agent.NewSession("sys")
+	sess.Add(provider.Message{Role: provider.RoleUser, Content: "large project"})
+	sess.Add(provider.Message{
+		Role:             provider.RoleAssistant,
+		Content:          "analysis",
+		ReasoningContent: strings.Repeat("enhanced reasoning display only ", 20000),
+	})
+	exec := agent.New(nil, nil, sess, agent.Options{ContextWindow: 200000}, event.Discard)
+	exec.SetLastUsageForTest(&provider.Usage{PromptTokens: 83000, TotalTokens: 90000})
+	c := New(Options{Executor: exec, EnhancedMode: true})
+
+	used, window := c.ContextSnapshot()
+	if window != 200000 {
+		t.Fatalf("window = %d, want 200000", window)
+	}
+	if used != 83000 {
+		t.Fatalf("used = %d, want provider PromptTokens 83000", used)
+	}
+}
+
+func TestContextSnapshotBeforeUsageReturnsZero(t *testing.T) {
+	sess := agent.NewSession("sys")
+	sess.Add(provider.Message{Role: provider.RoleUser, Content: "not submitted yet"})
+	exec := agent.New(nil, nil, sess, agent.Options{ContextWindow: 64000}, event.Discard)
+	c := New(Options{Executor: exec})
+
+	used, window := c.ContextSnapshot()
+	if window != 64000 {
+		t.Fatalf("window = %d, want 64000", window)
+	}
+	if used != 0 {
+		t.Fatalf("used = %d, want 0 before provider usage exists", used)
 	}
 }
 

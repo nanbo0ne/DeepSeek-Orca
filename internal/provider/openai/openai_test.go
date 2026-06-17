@@ -314,6 +314,29 @@ func TestBuildRequestDropsReasoningContent(t *testing.T) {
 	}
 }
 
+func TestBuildRequestDeepSeekDropsPlainAssistantReasoningContent(t *testing.T) {
+	req := (&client{model: "deepseek-v4", deepseek: true}).buildRequest(provider.Request{
+		Messages: []provider.Message{
+			{Role: provider.RoleUser, Content: "explain"},
+			{Role: provider.RoleAssistant, Content: "the answer", ReasoningContent: "SECRET-CHAIN-OF-THOUGHT"},
+			{Role: provider.RoleUser, Content: "thanks"},
+		},
+	})
+	b, err := json.Marshal(req.Messages)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(b), "reasoning_content") {
+		t.Errorf("plain DeepSeek assistant turn must not carry reasoning_content: %s", b)
+	}
+	if strings.Contains(string(b), "SECRET-CHAIN-OF-THOUGHT") {
+		t.Errorf("plain DeepSeek assistant reasoning leaked into request: %s", b)
+	}
+	if !strings.Contains(string(b), "the answer") {
+		t.Errorf("assistant content was dropped along with reasoning: %s", b)
+	}
+}
+
 func TestBuildRequestForwardsReasoningEffort(t *testing.T) {
 	c := &client{model: "mimo-v2", effort: "high"}
 	if got := c.buildRequest(provider.Request{}).ReasoningEffort; got != "high" {
@@ -370,6 +393,31 @@ func TestBuildRequestDeepSeekRoundTripsReasoningContent(t *testing.T) {
 	})
 	if len(req.Messages) == 0 || req.Messages[0].ReasoningContent != "reasoned before tool call" {
 		t.Fatalf("reasoning_content was not round-tripped for DeepSeek: %+v", req.Messages)
+	}
+}
+
+func TestBuildRequestNonDeepSeekDropsToolCallReasoningContent(t *testing.T) {
+	req := (&client{model: "mimo-v2"}).buildRequest(provider.Request{
+		Messages: []provider.Message{
+			{
+				Role:             provider.RoleAssistant,
+				Content:          "I will call a tool.",
+				ReasoningContent: "non-deepseek reasoning",
+				ToolCalls: []provider.ToolCall{{
+					ID:        "call_1",
+					Name:      "read_file",
+					Arguments: `{"path":"a.txt"}`,
+				}},
+			},
+			{Role: provider.RoleTool, ToolCallID: "call_1", Name: "read_file", Content: "ok"},
+		},
+	})
+	b, err := json.Marshal(req.Messages)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(b), "reasoning_content") || strings.Contains(string(b), "non-deepseek reasoning") {
+		t.Fatalf("non-DeepSeek request must not carry reasoning_content: %s", b)
 	}
 }
 

@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.4
+# DeepSeek-Orca V2.0.5
 
 DeepSeek-Orca is a Windows desktop and CLI coding agent based on the Reasonix fork, rebuilt around DeepSeek and OpenAI-compatible providers. It keeps the core agent loop, tools, MCP, skills, memory, permission control, session resume, checkpoints, context compression, and rollback features, while adding a V2 desktop workflow focused on higher-quality long-context coding work.
 
@@ -6,7 +6,7 @@ DeepSeek-Orca is a Windows desktop and CLI coding agent based on the Reasonix fo
 
 Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.4-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.4/DeepSeek-Orca-Setup-2.0.4-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.5-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.5/DeepSeek-Orca-Setup-2.0.5-windows-amd64.exe)
 
 After installation, open DeepSeek-Orca Desktop and add a DeepSeek API key or an OpenAI-compatible provider in Settings.
 
