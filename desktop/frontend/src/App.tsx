@@ -916,20 +916,7 @@ export default function App() {
           });
         }, ENHANCED_MODE_SWITCH_HOLD_MS);
       };
-      const contextTokens = Math.max(0, state.context?.used ?? 0, state.sessionTokens ?? 0);
-      const hasConversation = state.items.some((item) => item.kind === "user" || item.kind === "assistant");
       try {
-        if (contextTokens > 50_000 && hasConversation) {
-          const ok = await app.ConfirmAction({
-            title: t("composer.enhancedSwitchConfirmTitle"),
-            message: t("composer.enhancedSwitchConfirmMessage"),
-            detail: t("composer.enhancedSwitchConfirmDetail"),
-            confirmLabel: t("common.confirm"),
-            cancelLabel: t("common.cancel"),
-            destructive: false,
-          }).catch(() => false);
-          if (!ok) return;
-        }
         setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
         await setControllerEnhancedMode(enabled);
       } catch (err) {
@@ -939,7 +926,7 @@ export default function App() {
         releaseSwitchLock();
       }
     },
-    [activeTabId, enhancedModeEnabled, setControllerEnhancedMode, showToast, state.context?.used, state.items, state.sessionTokens, t],
+    [activeTabId, enhancedModeEnabled, setControllerEnhancedMode, showToast],
   );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;

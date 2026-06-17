@@ -169,6 +169,7 @@ export function Transcript({
   const stick = useRef(false);
   const resizeFrame = useRef<number | null>(null);
   const [showFollowButton, setShowFollowButton] = useState(false);
+  const [activeJumpTurn, setActiveJumpTurn] = useState<number | null>(null);
   const t = useT();
 
   const questions = useMemo<QuestionAnchor[]>(() => {
@@ -182,6 +183,24 @@ export function Transcript({
     return anchors;
   }, [items]);
   const showQuestionNav = questionNavigator && questions.length >= QUESTION_NAV_MIN_COUNT;
+
+  const updateActiveJumpTurn = useCallback((el: HTMLDivElement | null) => {
+    if (!el || questions.length === 0) {
+      setActiveJumpTurn(null);
+      return;
+    }
+    const scrollerRect = el.getBoundingClientRect();
+    const targetY = scrollerRect.top + Math.min(scrollerRect.height * 0.38, 220);
+    let active = questions[0]?.turn ?? null;
+    for (const question of questions) {
+      const node = document.getElementById(questionAnchorId(question.id));
+      if (!node) continue;
+      const rect = node.getBoundingClientRect();
+      if (rect.top <= targetY) active = question.turn;
+      else break;
+    }
+    setActiveJumpTurn((current) => (current === active ? current : active));
+  }, [questions]);
 
   const updateFollowButton = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
@@ -207,6 +226,7 @@ export function Transcript({
     if (!el) return;
     if (!nearBottom(el)) stick.current = false;
     updateFollowButton(el);
+    updateActiveJumpTurn(el);
   };
 
   // Track question count so we can detect when the user sends a new message.
@@ -223,32 +243,38 @@ export function Transcript({
           el.scrollTop = el.scrollHeight;
           stick.current = false;
           updateFollowButton(el);
+          updateActiveJumpTurn(el);
         });
       }
     }
     prevQuestionsLen.current = questions.length;
-  }, [questions, updateFollowButton]);
+  }, [questions, updateActiveJumpTurn, updateFollowButton]);
 
   const contentVersion = useMemo(() => scrollVersion(items), [items]);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (!stick.current) {
-      const id = requestAnimationFrame(() => updateFollowButton(el));
+      const id = requestAnimationFrame(() => {
+        updateFollowButton(el);
+        updateActiveJumpTurn(el);
+      });
       return () => cancelAnimationFrame(id);
     }
     const id = requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
       setShowFollowButton(false);
+      updateActiveJumpTurn(el);
     });
     return () => cancelAnimationFrame(id);
-  }, [contentVersion, live?.text?.length ?? 0, live?.reasoning?.length ?? 0, updateFollowButton]);
+  }, [contentVersion, live?.text?.length ?? 0, live?.reasoning?.length ?? 0, updateActiveJumpTurn, updateFollowButton]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       repinIfWasPinned(el, stick, resizeFrame);
+      updateActiveJumpTurn(el);
     });
     observer.observe(el);
     return () => {
@@ -258,19 +284,20 @@ export function Transcript({
         resizeFrame.current = null;
       }
     };
-  }, []);
+  }, [updateActiveJumpTurn]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     repinIfWasPinned(el, stick, resizeFrame);
+    updateActiveJumpTurn(el);
     return () => {
       if (resizeFrame.current !== null) {
         cancelAnimationFrame(resizeFrame.current);
         resizeFrame.current = null;
       }
     };
-  }, [footerHeight]);
+  }, [footerHeight, updateActiveJumpTurn]);
 
   // Sub-agent calls carry a parentId; collect them under their parent `task`
   // call so the parent card can render them nested, and skip them at top level.
@@ -437,7 +464,7 @@ export function Transcript({
       {empty && <Welcome onPrompt={onPrompt} />}
 
       {!empty && showQuestionNav && (
-        <QuestionJumpBar questions={questions} onJump={handleJumpToQuestion} />
+        <QuestionJumpBar questions={questions} activeTurn={activeJumpTurn} onJump={handleJumpToQuestion} />
       )}
 
       <LiveStreamContext.Provider value={live}>
@@ -747,24 +774,26 @@ function WarmTurnCard({
 
 // ── JumpBar, PhaseCard, NoticeCard, CompactionCard ────────────────────────────
 
-function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; onJump: (question: QuestionAnchor) => void }) {
+function QuestionJumpBar({
+  questions,
+  activeTurn,
+  onJump,
+}: {
+  questions: QuestionAnchor[];
+  activeTurn: number | null;
+  onJump: (question: QuestionAnchor) => void;
+}) {
   const t = useT();
   const [hovered, setHovered] = useState<number | null>(null);
-  const [active, setActive] = useState<number | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const previewTop = useRef(0);
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
-    if (questions.length === 0) return;
-    setActive(questions[questions.length - 1]?.turn ?? null);
-  }, [questions]);
-
-  useEffect(() => {
-    if (active === null) return;
-    const el = barRef.current?.querySelector(`[data-turn="${active}"]`);
+    if (activeTurn === null) return;
+    const el = barRef.current?.querySelector(`[data-turn="${activeTurn}"]`);
     el?.scrollIntoView({ block: "nearest" });
-  }, [active]);
+  }, [activeTurn]);
 
   const hoverIdx = hovered !== null ? questions.findIndex((question) => question.turn === hovered) : -1;
   const hoveredQuestion = hovered !== null ? questions.find((question) => question.turn === hovered) : undefined;
@@ -801,7 +830,6 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
   };
 
   const scrollTo = (question: QuestionAnchor) => {
-    setActive(question.turn);
     onJump(question);
   };
 
@@ -824,7 +852,7 @@ function QuestionJumpBar({ questions, onJump }: { questions: QuestionAnchor[]; o
     idx: number,
     turn: number,
   ): { style: CSSProperties; "data-d"?: string } => {
-    const isActive = active === turn;
+    const isActive = activeTurn === turn;
     if (hoverIdx < 0) {
       return { style: { width: isActive ? 18 : 12, background: isActive ? "var(--accent)" : undefined } };
     }

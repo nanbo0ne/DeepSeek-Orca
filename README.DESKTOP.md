@@ -1,4 +1,4 @@
-# DeepSeek-Orca Desktop V2.0.3
+# DeepSeek-Orca Desktop V2.0.4
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,7 +6,7 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.3-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.3/DeepSeek-Orca-Setup-2.0.3-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.4-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.4/DeepSeek-Orca-Setup-2.0.4-windows-amd64.exe)
 
 Then:
 
