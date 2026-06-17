@@ -1,12 +1,12 @@
-# DeepSeek-Orca CLI
+# DeepSeek-Orca CLI V2.0.0
 
-DeepSeek-Orca CLI 是面向终端工作流的 AI 编程 Agent。它适合熟悉命令行、Git、远程服务器和自动化脚本的开发者使用。
+DeepSeek-Orca CLI is the terminal entry point for the DeepSeek-Orca coding agent. It keeps the core Reasonix-derived agent loop, tools, MCP, skills, memory, permission control, session resume, rollback, and compaction features.
 
-本项目基于 Reasonix fork 改造而来。CLI 保留核心 Agent、工具、MCP、Skill、Memory、权限控制、回滚和会话恢复能力，并统一命名为 DeepSeek-Orca。
+The Windows desktop installer is the recommended package for most users:
 
-## How to use
+[DeepSeek-Orca-Setup-2.0.0-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.0/DeepSeek-Orca-Setup-2.0.0-windows-amd64.exe)
 
-从源码构建：
+## Build From Source
 
 ```powershell
 git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
@@ -14,60 +14,48 @@ cd DeepSeek-Orca
 go build -o bin/deepseek-orca.exe ./cmd/deepseek-orca
 ```
 
-配置 API Key：
+## Configure
 
 ```powershell
 $env:DEEPSEEK_API_KEY="your DeepSeek API Key"
 .\bin\deepseek-orca.exe setup
 ```
 
-在项目目录启动交互式会话：
+You can also configure OpenAI-compatible providers in `deepseek-orca.toml`.
+
+## Use
+
+Start an interactive project chat:
 
 ```powershell
 cd D:\your-project
 D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe chat
 ```
 
-执行一次性任务：
+Run a one-shot task:
 
 ```powershell
-D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "阅读这个项目并总结主要模块"
+D:\path\to\DeepSeek-Orca\bin\deepseek-orca.exe run "Read this project and summarize the main modules"
 ```
 
-桌面安装包：
+## Common Commands
 
-[DeepSeek-Orca-Setup-1.0.25-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v1.0.25/DeepSeek-Orca-Setup-1.0.25-windows-amd64.exe)
+- `deepseek-orca setup`: create or update user config.
+- `deepseek-orca chat`: start the interactive TUI.
+- `deepseek-orca run "task"`: run a one-shot task.
+- `deepseek-orca bot start`: start the bot gateway.
+- `deepseek-orca bot doctor`: inspect bot configuration.
+- `/init`: create or update project instructions.
+- `/plan`: toggle Plan Mode.
+- `/skill`: manage skills.
+- `/mcp`: manage MCP servers.
+- `/model`: switch model.
+- `/resume`: resume a saved session.
+- `/rewind`: rewind conversation context or associated code changes.
+- `/compact`: run CONTEXT CHECKPOINT compaction.
 
-## 常用命令
+## Notes
 
-- `deepseek-orca setup`：创建或更新用户配置。
-- `deepseek-orca chat`：启动交互式 TUI。
-- `deepseek-orca run "task"`：执行一次性任务。
-- `deepseek-orca bot start`：启动机器人网关。
-- `deepseek-orca bot doctor`：检查机器人配置。
-- `/init`：创建或更新项目指令。
-- `/plan`：切换 Plan 模式。
-- `/skill`：管理 Skill 工作流。
-- `/mcp`：管理 MCP 服务。
-- `/model`：切换模型。
-- `/resume`：恢复历史会话。
-- `/rewind`：回滚会话上下文或相关改动。
-- `/compact`：手动执行 CONTEXT CHECKPOINT 交接式压缩。
+V2's Enhanced Mode, Ask workflow, Step Thinking controls, and new-conversation preference inheritance are desktop-first features. The CLI continues to use the established terminal workflow and the same memory file conventions: `DEEPSEEK_ORCA.md`, `AGENTS.md`, and `CLAUDE.md`.
 
-## 功能说明
-
-- 交互式 TUI 和一次性 `run` 模式。
-- 从配置、Memory、项目指令、MCP、Skill 和 CodeGraph 加载项目上下文。
-- 文件读取、搜索、编辑和创建。
-- 运行 shell 命令，用于构建、测试和诊断。
-- 对写文件和命令执行提供权限规则。
-- Plan 模式支持先规划再执行。
-- 会话保存、恢复、分支、总结和回滚。
-- CONTEXT CHECKPOINT 上下文交接：自动达到阈值或手动 `/compact` 时，生成面向接续模型的交接摘要；阈值可通过 `[agent] compact_ratio` 调整。
-- 支持 DeepSeek 和 OpenAI-compatible provider。
-- 按模型能力处理 DeepSeek thinking mode。
-- MCP 外部工具集成。
-- 本地 Skill 工作流。
-- Memory 长期偏好和项目事实。
-- 兼容 UTF-8、UTF-16、GB18030 等常见文本编码；Windows 中文命令输出和文件名会尽量保持可读。
-- QQ/微信机器人网关可复用桌面/CLI 会话。机器人端发送 `/start` 选择最近会话，发送 `/new` 创建独立工作区会话。
+License: MIT.

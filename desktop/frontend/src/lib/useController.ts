@@ -148,6 +148,9 @@ function sameMeta(a?: Meta, b?: Meta): boolean {
     a.autoApproveTools === b.autoApproveTools &&
     a.bypass === b.bypass &&
     a.toolApprovalMode === b.toolApprovalMode &&
+    a.askWorkflowEnabled === b.askWorkflowEnabled &&
+    a.stepThinkingEnabled === b.stepThinkingEnabled &&
+    a.enhancedModeEnabled === b.enhancedModeEnabled &&
     a.goal === b.goal &&
     a.goalStatus === b.goalStatus
   );
@@ -924,6 +927,33 @@ export function useController() {
     await refreshMetaForTab(activeTabId, dispatchTo);
   }, [activeTabId, dispatchTo]);
 
+  const setAskWorkflow = useCallback(async (enabled: boolean): Promise<void> => {
+    if (!activeTabId) return;
+    await app.SetAskWorkflowForTab(activeTabId, enabled).catch(() => {});
+    await refreshMetaForTab(activeTabId, dispatchTo);
+  }, [activeTabId, dispatchTo]);
+
+  const setStepThinking = useCallback(async (enabled: boolean): Promise<void> => {
+    if (!activeTabId) return;
+    await app.SetStepThinkingForTab(activeTabId, enabled).catch(() => {});
+    await refreshMetaForTab(activeTabId, dispatchTo);
+  }, [activeTabId, dispatchTo]);
+
+  const setEnhancedMode = useCallback(async (enabled: boolean): Promise<void> => {
+    if (!activeTabId) return;
+    try {
+      await app.SetEnhancedModeForTab(activeTabId, enabled);
+    } catch (err) {
+      dispatchTo(activeTabId, { type: "local_notice", level: "warn", text: errorMessage(err) });
+      return;
+    }
+    try {
+      dispatchTo(activeTabId, { type: "meta", meta: await app.MetaForTab(activeTabId) });
+      dispatchTo(activeTabId, { type: "effort", effort: await app.EffortForTab(activeTabId) });
+      await refreshContextForTab(activeTabId);
+    } catch { /* ignore */ }
+  }, [activeTabId, dispatchTo, refreshContextForTab]);
+
   const newSession = useCallback(async () => {
     const tabId = activeTabId;
     if (tabId) bumpCheckpointRefreshSeq(tabId);
@@ -933,6 +963,7 @@ export function useController() {
       return; // backend refused (workspace starting / failed) — keep the transcript
     }
     if (tabId) dispatchTo(tabId, { type: "reset" });
+    if (tabId) await refreshMetaForTab(tabId, dispatchTo);
   }, [activeTabId, bumpCheckpointRefreshSeq, dispatchTo]);
 
   const clearSession = useCallback(async () => {
@@ -1113,7 +1144,7 @@ export function useController() {
   return {
     state: activeState,
     activeTabId,
-    send, runShell, steer, notice, cancel, approve, answerQuestion, setControllerMode, setCollaborationMode, setToolApprovalMode, setGoal, clearGoal,
+    send, runShell, steer, notice, cancel, approve, answerQuestion, setControllerMode, setCollaborationMode, setToolApprovalMode, setAskWorkflow, setStepThinking, setEnhancedMode, setGoal, clearGoal,
     newSession, clearSession, listSessions, listTrashedSessions, resumeSession, previewSession, deleteSession, restoreSession, purgeTrashedSession, renameSession,
     refreshMeta, pickWorkspace, switchWorkspace, compact, rewind, setModel, setEffort,
     fetchMemory, remember, forget, saveDoc,

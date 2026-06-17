@@ -136,6 +136,9 @@ export interface TabMeta {
   mode: Mode;
   collaborationMode?: CollaborationMode;
   toolApprovalMode?: ToolApprovalMode;
+  askWorkflowEnabled?: boolean;
+  stepThinkingEnabled?: boolean;
+  enhancedModeEnabled?: boolean;
   goal?: string;
   goalStatus?: GoalStatus;
   startupErr?: string;
@@ -312,6 +315,9 @@ export interface Meta {
   autoApproveTools?: boolean;
   bypass?: boolean; // legacy JSON key for YOLO/full-access tool auto-approval
   toolApprovalMode?: ToolApprovalMode;
+  askWorkflowEnabled?: boolean;
+  stepThinkingEnabled?: boolean;
+  enhancedModeEnabled?: boolean;
   goal?: string;
   goalStatus?: GoalStatus;
 }

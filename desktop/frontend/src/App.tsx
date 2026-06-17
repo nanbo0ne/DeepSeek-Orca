@@ -361,6 +361,9 @@ export default function App() {
     setControllerMode,
     setCollaborationMode: setControllerCollaborationMode,
     setToolApprovalMode: setControllerToolApprovalMode,
+    setAskWorkflow: setControllerAskWorkflow,
+    setStepThinking: setControllerStepThinking,
+    setEnhancedMode: setControllerEnhancedMode,
     setGoal: setControllerGoal,
     clearGoal: clearControllerGoal,
     clearSession,
@@ -388,6 +391,9 @@ export default function App() {
   const [modesByTab, setModesByTab] = useState<Record<string, Mode>>({});
   const [collaborationModesByTab, setCollaborationModesByTab] = useState<Record<string, CollaborationMode>>({});
   const [toolApprovalModesByTab, setToolApprovalModesByTab] = useState<Record<string, ToolApprovalMode>>({});
+  const [askWorkflowsByTab, setAskWorkflowsByTab] = useState<Record<string, boolean>>({});
+  const [stepThinkingsByTab, setStepThinkingsByTab] = useState<Record<string, boolean>>({});
+  const [enhancedModesByTab, setEnhancedModesByTab] = useState<Record<string, boolean>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
@@ -613,6 +619,15 @@ export default function App() {
   const toolApprovalMode = activeTabId
     ? toolApprovalModesByTab[activeTabId] ?? normalizeToolApprovalMode(state.meta?.toolApprovalMode ?? activeTab?.toolApprovalMode, legacyMode, state.meta?.autoApproveTools ?? state.meta?.bypass)
     : "ask";
+  const askWorkflowEnabled = activeTabId
+    ? askWorkflowsByTab[activeTabId] ?? Boolean(state.meta?.askWorkflowEnabled ?? activeTab?.askWorkflowEnabled)
+    : false;
+  const stepThinkingEnabled = activeTabId
+    ? stepThinkingsByTab[activeTabId] ?? Boolean(state.meta?.stepThinkingEnabled ?? activeTab?.stepThinkingEnabled)
+    : false;
+  const enhancedModeEnabled = activeTabId
+    ? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
+    : false;
   const controllerReady = state.meta?.ready === true;
   const setMode = useCallback(
     (next: Mode | ((prev: Mode) => Mode)) => {
@@ -732,6 +747,9 @@ export default function App() {
       const nextMode = metaSyncedCollaborationMode({ nextGoal, goalDraftMode, legacyMode });
       return current[activeTabId] === nextMode ? current : { ...current, [activeTabId]: nextMode };
     });
+    setAskWorkflowsByTab((current) => (current[activeTabId] === Boolean(state.meta?.askWorkflowEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.askWorkflowEnabled) }));
+    setStepThinkingsByTab((current) => (current[activeTabId] === Boolean(state.meta?.stepThinkingEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.stepThinkingEnabled) }));
+    setEnhancedModesByTab((current) => (current[activeTabId] === Boolean(state.meta?.enhancedModeEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.enhancedModeEnabled) }));
   }, [activeTabId, goalDraftMode, legacyMode, setGoalDraftModeForTab, state.meta]);
 
   const syncModeToController = useCallback((m: Mode) => setControllerMode(m), [setControllerMode]);
@@ -794,6 +812,43 @@ export default function App() {
     },
     [activeTabId, collaborationMode, setControllerToolApprovalMode, setMode, toolApprovalMode],
   );
+  const applyAskWorkflow = useCallback(
+    (enabled: boolean) => {
+      if (!activeTabId) return;
+      setAskWorkflowsByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
+      void setControllerAskWorkflow(enabled);
+    },
+    [activeTabId, setControllerAskWorkflow],
+  );
+  const applyStepThinking = useCallback(
+    (enabled: boolean) => {
+      if (!activeTabId) return;
+      setStepThinkingsByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
+      void setControllerStepThinking(enabled);
+    },
+    [activeTabId, setControllerStepThinking],
+  );
+  const applyEnhancedMode = useCallback(
+    async (enabled: boolean) => {
+      if (!activeTabId || enabled === enhancedModeEnabled) return;
+      const contextTokens = Math.max(0, state.context?.used ?? 0, state.sessionTokens ?? 0);
+      const hasConversation = state.items.some((item) => item.kind === "user" || item.kind === "assistant");
+      if (contextTokens > 50_000 && hasConversation) {
+        const ok = await app.ConfirmAction({
+          title: t("composer.enhancedSwitchConfirmTitle"),
+          message: t("composer.enhancedSwitchConfirmMessage"),
+          detail: t("composer.enhancedSwitchConfirmDetail"),
+          confirmLabel: t("common.confirm"),
+          cancelLabel: t("common.cancel"),
+          destructive: false,
+        }).catch(() => false);
+        if (!ok) return;
+      }
+      setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
+      await setControllerEnhancedMode(enabled);
+    },
+    [activeTabId, enhancedModeEnabled, setControllerEnhancedMode, state.context?.used, state.items, state.sessionTokens, t],
+  );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;
     const next = toggleYoloToolApprovalMode(
@@ -843,9 +898,11 @@ export default function App() {
       await setModel(name);
       await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode, goal }));
       await setControllerToolApprovalMode(toolApprovalMode);
+      await setControllerAskWorkflow(askWorkflowEnabled);
+      await setControllerStepThinking(stepThinkingEnabled);
       if (goal.trim()) await setControllerGoal(goal);
     },
-    [collaborationMode, goal, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, setModel, toolApprovalMode],
+    [askWorkflowEnabled, collaborationMode, goal, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, setModel, stepThinkingEnabled, toolApprovalMode],
   );
 
   const submitPromptToAgent = useCallback(
@@ -854,10 +911,12 @@ export default function App() {
       if (!trimmed) return;
       await setControllerCollaborationMode(collaborationMode);
       await setControllerToolApprovalMode(toolApprovalMode);
+      await setControllerAskWorkflow(askWorkflowEnabled);
+      await setControllerStepThinking(stepThinkingEnabled);
       if (goal.trim()) await setControllerGoal(goal);
       send(trimmed, submitText.trim());
     },
-    [collaborationMode, goal, send, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, toolApprovalMode],
+    [askWorkflowEnabled, collaborationMode, goal, send, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode],
   );
 
   const queuePrompt = useCallback((displayText: string, submitText = displayText) => {
@@ -907,8 +966,10 @@ export default function App() {
     if (!controllerReady) return;
     void setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode, goal }));
     void setControllerToolApprovalMode(toolApprovalMode);
+    void setControllerAskWorkflow(askWorkflowEnabled);
+    void setControllerStepThinking(stepThinkingEnabled);
     if (goal.trim()) void setControllerGoal(goal);
-  }, [collaborationMode, controllerReady, goal, setControllerCollaborationMode, setControllerGoal, setControllerToolApprovalMode, toolApprovalMode]);
+  }, [askWorkflowEnabled, collaborationMode, controllerReady, goal, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode]);
 
   // The live task list pinned above the composer comes from the most recent
   // successful top-level todo_write result; failed or still-running attempts do
@@ -2054,6 +2115,9 @@ export default function App() {
               running={state.running}
               collaborationMode={collaborationMode}
               toolApprovalMode={toolApprovalMode}
+              askWorkflowEnabled={askWorkflowEnabled}
+              stepThinkingEnabled={stepThinkingEnabled}
+              enhancedModeEnabled={enhancedModeEnabled}
               goal={goal}
               cwd={state.meta?.cwd}
               modelLabel={state.meta?.label ?? t("status.connecting")}
@@ -2066,6 +2130,9 @@ export default function App() {
               onSetMode={applyMode}
               onSetCollaborationMode={applyCollaborationMode}
               onSetToolApprovalMode={applyToolApprovalMode}
+              onSetAskWorkflow={applyAskWorkflow}
+              onSetStepThinking={applyStepThinking}
+              onSetEnhancedMode={(enabled) => void applyEnhancedMode(enabled)}
               onToggleYoloApprovalMode={toggleYoloApprovalMode}
               onSetGoal={startGoal}
               onClearGoal={() => applyGoal("")}

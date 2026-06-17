@@ -72,6 +72,9 @@ type Controller struct {
 	allSkillStore *skill.Store
 	hooks         *hook.Runner // session hook runner; nil-safe (no hooks configured)
 	mem           *memory.Set
+	enhancedMode  bool
+	askWorkflow   bool
+	stepThinking  bool
 	cleanup       func()
 	autoPlan      string
 	classifier    autoPlanClassifier
@@ -229,6 +232,9 @@ type Options struct {
 	AllSkillStore *skill.Store
 	Hooks         *hook.Runner
 	Memory        *memory.Set
+	EnhancedMode  bool
+	AskWorkflow   bool
+	StepThinking  bool
 	Cleanup       func()
 	// BalanceURL/BalanceKey wire the active provider's optional wallet-balance
 	// endpoint and bearer key; empty when the provider declares no balance_url.
@@ -283,6 +289,9 @@ func New(opts Options) *Controller {
 		allSkillStore:    opts.AllSkillStore,
 		hooks:            opts.Hooks,
 		mem:              opts.Memory,
+		enhancedMode:     opts.EnhancedMode,
+		askWorkflow:      opts.AskWorkflow,
+		stepThinking:     opts.StepThinking,
 		cleanup:          opts.Cleanup,
 		autoPlan:         normalizeAutoPlan(opts.AutoPlan),
 		classifier:       classifier,
@@ -1267,6 +1276,36 @@ func (c *Controller) PlanMode() bool {
 	return c.planMode
 }
 
+func (c *Controller) SetAskWorkflow(v bool) {
+	c.mu.Lock()
+	c.askWorkflow = v
+	c.mu.Unlock()
+}
+
+func (c *Controller) AskWorkflow() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.askWorkflow
+}
+
+func (c *Controller) SetStepThinking(v bool) {
+	c.mu.Lock()
+	c.stepThinking = v
+	c.mu.Unlock()
+}
+
+func (c *Controller) StepThinking() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.stepThinking
+}
+
+func (c *Controller) EnhancedMode() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.enhancedMode
+}
+
 // SetGoal stores a session-scoped active goal. Compose injects it into outgoing
 // user turns, not the system prompt or tool schema, so it does not disturb the
 // cache-stable prefix.
@@ -1356,6 +1395,14 @@ func (c *Controller) NewSession() error {
 	c.executor.SetSession(agent.NewSession(c.systemPrompt))
 	c.rebindCheckpoints(c.SessionPath())
 	c.mu.Lock()
+	c.planMode = false
+	c.goal = ""
+	c.goalStatus = GoalStatusStopped
+	c.goalTurns = 0
+	c.goalBlocks = 0
+	c.goalBlock = ""
+	c.askWorkflow = false
+	c.stepThinking = false
 	c.startedOnce = true // NewSession fires SessionStart itself; don't re-fire on the next turn
 	c.mu.Unlock()
 	c.hooks.SessionStart(context.Background())

@@ -63,8 +63,18 @@ type WorkspaceTab struct {
 	mode             string // "normal" | "plan" | "yolo" | "plan-yolo"; yolo/full access is runtime-only
 	goal             string
 	toolApprovalMode string
+	askWorkflow      bool
+	stepThinking     bool
+	enhancedMode     bool
 	disabledMCP      map[string]ServerView
 	mcpOrder         []string
+}
+
+type recentConversationPrefs struct {
+	Model            string  `json:"model,omitempty"`
+	Effort           *string `json:"effort,omitempty"`
+	ToolApprovalMode string  `json:"toolApprovalMode,omitempty"`
+	EnhancedMode     bool    `json:"enhancedModeEnabled,omitempty"`
 }
 
 const (
@@ -540,6 +550,9 @@ type TabMeta struct {
 	Mode              string `json:"mode"`
 	CollaborationMode string `json:"collaborationMode"`
 	ToolApprovalMode  string `json:"toolApprovalMode"`
+	AskWorkflow       bool   `json:"askWorkflowEnabled"`
+	StepThinking      bool   `json:"stepThinkingEnabled"`
+	EnhancedMode      bool   `json:"enhancedModeEnabled"`
 	Goal              string `json:"goal,omitempty"`
 	GoalStatus        string `json:"goalStatus,omitempty"`
 	StartupErr        string `json:"startupErr,omitempty"`
@@ -560,6 +573,9 @@ func (a *App) tabMeta(tab *WorkspaceTab, active bool) TabMeta {
 		Mode:              currentTabMode(tab),
 		CollaborationMode: currentTabCollaborationMode(tab),
 		ToolApprovalMode:  currentTabToolApprovalMode(tab),
+		AskWorkflow:       tab.askWorkflow,
+		StepThinking:      tab.stepThinking,
+		EnhancedMode:      tab.enhancedMode,
 		Goal:              currentTabGoal(tab),
 		GoalStatus:        currentTabGoalStatus(tab),
 		StartupErr:        tab.StartupErr,
@@ -628,6 +644,7 @@ func (a *App) OpenProjectTab(workspaceRoot, topicID string) (TabMeta, error) {
 		toolApprovalMode: control.ToolApprovalAsk,
 		disabledMCP:      map[string]ServerView{},
 	}
+	a.applyRecentPrefsToNewTabLocked(tab)
 	tab.sink = &tabEventSink{tabID: tabID, app: a}
 
 	a.tabs[tabID] = tab
@@ -672,6 +689,7 @@ func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 		toolApprovalMode: control.ToolApprovalAsk,
 		disabledMCP:      map[string]ServerView{},
 	}
+	a.applyRecentPrefsToNewTabLocked(tab)
 	tab.sink = &tabEventSink{tabID: tabID, app: a}
 
 	a.tabs[tabID] = tab
@@ -768,6 +786,7 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		toolApprovalMode: control.ToolApprovalAsk,
 		disabledMCP:      map[string]ServerView{},
 	}
+	a.applyRecentPrefsToNewTabLocked(created)
 	created.sink = &tabEventSink{tabID: tabID, app: a}
 	a.tabs[tabID] = created
 	a.tabOrder = append(a.tabOrder, tabID)
@@ -1036,6 +1055,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		WorkspaceRoot:  root,
 		SessionDir:     sessionDir,
 		EffortOverride: cloneStringPtr(tab.effort),
+		EnhancedMode:   tab.enhancedMode,
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -1050,6 +1070,8 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	ctrl.EnableInteractiveApproval()
 	applyTabModeToController(ctrl, tab.mode)
 	applyTabToolApprovalModeToController(ctrl, tab.toolApprovalMode)
+	ctrl.SetAskWorkflow(tab.askWorkflow)
+	ctrl.SetStepThinking(tab.stepThinking)
 	ctrl.SetGoal(tab.goal)
 
 	if dir := ctrl.SessionDir(); dir != "" {
@@ -1384,11 +1406,15 @@ type desktopTabEntry struct {
 	Mode             string  `json:"mode,omitempty"`
 	Goal             string  `json:"goal,omitempty"`
 	ToolApprovalMode string  `json:"toolApprovalMode,omitempty"`
+	AskWorkflow      bool    `json:"askWorkflowEnabled,omitempty"`
+	StepThinking     bool    `json:"stepThinkingEnabled,omitempty"`
+	EnhancedMode     bool    `json:"enhancedModeEnabled,omitempty"`
 }
 
 type desktopTabsFile struct {
-	Tabs      []desktopTabEntry `json:"tabs"`
-	ActiveTab string            `json:"activeTab"`
+	Tabs                    []desktopTabEntry       `json:"tabs"`
+	ActiveTab               string                  `json:"activeTab"`
+	RecentConversationPrefs recentConversationPrefs `json:"recentConversationPrefs,omitempty"`
 }
 
 func desktopConfigDir() string {
@@ -1417,10 +1443,13 @@ func (a *App) saveTabsLocked() {
 				Mode:             persistedTabMode(currentTabMode(tab)),
 				Goal:             strings.TrimSpace(currentTabGoal(tab)),
 				ToolApprovalMode: persistedToolApprovalMode(currentTabToolApprovalMode(tab)),
+				AskWorkflow:      tab.askWorkflow,
+				StepThinking:     tab.stepThinking,
+				EnhancedMode:     tab.enhancedMode,
 			})
 		}
 	}
-	f := desktopTabsFile{Tabs: entries, ActiveTab: a.activeTabID}
+	f := desktopTabsFile{Tabs: entries, ActiveTab: a.activeTabID, RecentConversationPrefs: a.recentPrefs}
 	b, _ := json.MarshalIndent(f, "", "  ")
 	path := filepath.Join(dir, tabsFileName)
 	tmp := path + ".tmp"

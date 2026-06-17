@@ -35,6 +35,7 @@ import (
 	"deepseek-orca/internal/outputstyle"
 	"deepseek-orca/internal/permission"
 	"deepseek-orca/internal/plugin"
+	"deepseek-orca/internal/promptprofile"
 	"deepseek-orca/internal/provider"
 	"deepseek-orca/internal/sandbox"
 	"deepseek-orca/internal/skill"
@@ -79,6 +80,8 @@ type Options struct {
 	// SessionDir overrides where persisted chat transcripts are written. When
 	// empty, the shared CLI/global session directory is used.
 	SessionDir string
+	// EnhancedMode switches prompt/context assembly to the V2 Claude-like profile.
+	EnhancedMode bool
 }
 
 // Build loads config, resolves the model(s), and returns a Controller wrapping a
@@ -158,13 +161,22 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if err != nil {
 		return nil, err
 	}
+	outputStylePrompt := ""
 	// Output style: fold the selected persona/tone block into the base prompt
 	// before language/memory/skills append, so a "replace" style (keep-coding
 	// false) still keeps those. Applied once, into the cache-stable prefix.
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
-		sysPrompt = outputstyle.Apply(sysPrompt, st)
+		if opts.EnhancedMode {
+			outputStylePrompt = outputstyle.Apply("", st)
+		} else {
+			sysPrompt = outputstyle.Apply(sysPrompt, st)
+		}
 	}
-	sysPrompt += "\n\n" + config.LanguagePolicy
+	if opts.EnhancedMode {
+		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.LanguagePolicy)
+	} else {
+		sysPrompt += "\n\n" + config.LanguagePolicy
+	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
 	// folds into the system prompt exactly here, once: it becomes part of the
@@ -173,7 +185,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// controller's transient turn-injection and fold in on the next session.
 	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir()})
 	projectChecks := instruction.ExtractHostChecks(mem.Docs)
-	sysPrompt = memory.Compose(sysPrompt, mem)
+	if !opts.EnhancedMode {
+		sysPrompt = memory.Compose(sysPrompt, mem)
+	}
 
 	// Skills: discover playbooks (built-in + project/custom/global) and fold their
 	// one-liner index into the same cache-stable prefix — names + descriptions
@@ -718,6 +732,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		AllSkillStore: allSkillStore,
 		Hooks:         hookRunner,
 		Memory:        mem,
+		EnhancedMode:  opts.EnhancedMode,
 		Cleanup:       cleanup,
 		BalanceURL:    entry.BalanceURL,
 		BalanceKey:    entry.APIKey(),

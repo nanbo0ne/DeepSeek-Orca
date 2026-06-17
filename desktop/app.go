@@ -69,6 +69,7 @@ type App struct {
 	tabs        map[string]*WorkspaceTab
 	tabOrder    []string
 	activeTabID string
+	recentPrefs recentConversationPrefs
 	readyHook   func()
 
 	forceQuit           atomic.Bool
@@ -375,6 +376,9 @@ func (a *App) restoreOrBuildTabs() {
 	}
 
 	f := loadTabsFile()
+	a.mu.Lock()
+	a.recentPrefs = f.RecentConversationPrefs
+	a.mu.Unlock()
 	if len(f.Tabs) > 0 {
 		toBuild := make([]*WorkspaceTab, 0, len(f.Tabs))
 		for _, entry := range f.Tabs {
@@ -396,6 +400,9 @@ func (a *App) restoreOrBuildTabs() {
 			if tab.toolApprovalMode == control.ToolApprovalAsk && tabModeHasAutoApproveTools(entry.Mode) {
 				tab.toolApprovalMode = control.ToolApprovalYolo
 			}
+			tab.askWorkflow = entry.AskWorkflow
+			tab.stepThinking = entry.StepThinking
+			tab.enhancedMode = entry.EnhancedMode
 			tab.SessionPath = strings.TrimSpace(entry.SessionPath)
 			tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
 			a.mu.Lock()
@@ -437,7 +444,7 @@ func (a *App) createTabEntry(scope, workspaceRoot, topicID string) *WorkspaceTab
 }
 
 func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *WorkspaceTab {
-	return &WorkspaceTab{
+	tab := &WorkspaceTab{
 		ID:               id,
 		Scope:            scope,
 		WorkspaceRoot:    workspaceRoot,
@@ -446,6 +453,39 @@ func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *Wo
 		mode:             "normal",
 		toolApprovalMode: control.ToolApprovalAsk,
 		disabledMCP:      map[string]ServerView{},
+	}
+	a.applyRecentPrefsToNewTabLocked(tab)
+	return tab
+}
+
+func (a *App) applyRecentPrefsToNewTabLocked(tab *WorkspaceTab) {
+	if tab == nil {
+		return
+	}
+	prefs := a.recentPrefs
+	if model := strings.TrimSpace(prefs.Model); model != "" {
+		tab.model = model
+	}
+	tab.effort = cloneStringPtr(prefs.Effort)
+	if approval := persistedToolApprovalMode(prefs.ToolApprovalMode); approval != "" {
+		tab.toolApprovalMode = approval
+	}
+	tab.enhancedMode = prefs.EnhancedMode
+	tab.mode = "normal"
+	tab.goal = ""
+	tab.askWorkflow = false
+	tab.stepThinking = false
+}
+
+func (a *App) rememberConversationPrefsLocked(tab *WorkspaceTab) {
+	if tab == nil {
+		return
+	}
+	a.recentPrefs = recentConversationPrefs{
+		Model:            strings.TrimSpace(tab.model),
+		Effort:           cloneStringPtr(tab.effort),
+		ToolApprovalMode: persistedToolApprovalMode(currentTabToolApprovalMode(tab)),
+		EnhancedMode:     tab.enhancedMode,
 	}
 }
 
@@ -692,6 +732,7 @@ func (a *App) SetModeForTab(tabID, mode string) {
 	applyTabToolApprovalModeToController(ctrl, approvalMode)
 	a.mu.Lock()
 	if a.tabs[tabIDForSave] == tab {
+		a.rememberConversationPrefsLocked(tab)
 		a.saveTabsLocked()
 	}
 	a.mu.Unlock()
@@ -843,8 +884,29 @@ func (a *App) NewSession() error {
 		return nil
 	}
 
+	a.mu.Lock()
+	if tab != nil {
+		a.rememberConversationPrefsLocked(tab)
+	}
+	a.mu.Unlock()
+
 	if err := ctrl.NewSession(); err != nil {
 		return err
+	}
+	a.mu.Lock()
+	if tab != nil {
+		tab.mode = "normal"
+		tab.goal = ""
+		tab.askWorkflow = false
+		tab.stepThinking = false
+	}
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	if tab != nil && tab.Ctrl != nil {
+		tab.Ctrl.SetPlanMode(false)
+		tab.Ctrl.SetGoal("")
+		tab.Ctrl.SetAskWorkflow(false)
+		tab.Ctrl.SetStepThinking(false)
 	}
 	a.persistTabSessionPath(tab, ctrl.SessionPath())
 	return nil
@@ -1886,6 +1948,9 @@ type Meta struct {
 	AutoApproveTools bool   `json:"autoApproveTools"`
 	Bypass           bool   `json:"bypass"` // legacy JSON key for YOLO/full-access tool auto-approval
 	ToolApprovalMode string `json:"toolApprovalMode"`
+	AskWorkflow      bool   `json:"askWorkflowEnabled"`
+	StepThinking     bool   `json:"stepThinkingEnabled"`
+	EnhancedMode     bool   `json:"enhancedModeEnabled"`
 	Goal             string `json:"goal,omitempty"`
 	GoalStatus       string `json:"goalStatus,omitempty"`
 }
@@ -1919,6 +1984,9 @@ func (a *App) MetaForTab(tabID string) Meta {
 		AutoApproveTools: autoApproveTools,
 		Bypass:           autoApproveTools,
 		ToolApprovalMode: toolApprovalMode,
+		AskWorkflow:      tab.askWorkflow,
+		StepThinking:     tab.stepThinking,
+		EnhancedMode:     tab.enhancedMode,
 		Goal:             goal,
 		GoalStatus:       goalStatus,
 	}
@@ -2010,6 +2078,107 @@ func (a *App) SetToolApprovalModeForTab(tabID, mode string) {
 		a.saveTabsLocked()
 	}
 	a.mu.Unlock()
+}
+
+func (a *App) SetAskWorkflowForTab(tabID string, enabled bool) error {
+	a.mu.Lock()
+	tab := a.tabByIDLocked(tabID)
+	if tab == nil {
+		a.mu.Unlock()
+		return nil
+	}
+	tab.askWorkflow = enabled
+	ctrl := tab.Ctrl
+	tabIDForSave := tab.ID
+	a.mu.Unlock()
+	if ctrl != nil {
+		ctrl.SetAskWorkflow(enabled)
+	}
+	a.mu.Lock()
+	if a.tabs[tabIDForSave] == tab {
+		a.saveTabsLocked()
+	}
+	a.mu.Unlock()
+	return nil
+}
+
+func (a *App) SetStepThinkingForTab(tabID string, enabled bool) error {
+	a.mu.Lock()
+	tab := a.tabByIDLocked(tabID)
+	if tab == nil {
+		a.mu.Unlock()
+		return nil
+	}
+	tab.stepThinking = enabled
+	ctrl := tab.Ctrl
+	tabIDForSave := tab.ID
+	a.mu.Unlock()
+	if ctrl != nil {
+		ctrl.SetStepThinking(enabled)
+	}
+	a.mu.Lock()
+	if a.tabs[tabIDForSave] == tab {
+		a.saveTabsLocked()
+	}
+	a.mu.Unlock()
+	return nil
+}
+
+func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
+	tab := a.tabByID(tabID)
+	if tab == nil {
+		return nil
+	}
+	if tab.enhancedMode == enabled {
+		return nil
+	}
+	if tab.Ctrl != nil && tab.Ctrl.Running() {
+		return fmt.Errorf("finish or cancel the current turn before changing enhanced mode")
+	}
+	var carried []provider.Message
+	prevPath := ""
+	if tab.Ctrl != nil {
+		prevPath = tab.Ctrl.SessionPath()
+		_ = tab.Ctrl.Snapshot()
+		carried = tab.Ctrl.History()
+		tab.Ctrl.Close()
+	}
+	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
+		Model:          tab.model,
+		RequireKey:     false,
+		Sink:           tab.sink,
+		WorkspaceRoot:  tab.WorkspaceRoot,
+		SessionDir:     tabSessionDir(tab),
+		EffortOverride: cloneStringPtr(tab.effort),
+		EnhancedMode:   enabled,
+	})
+	if err != nil {
+		return err
+	}
+	a.bindControllerDisplayRecorder(newCtrl)
+	a.mu.Lock()
+	tab.Ctrl = newCtrl
+	tab.enhancedMode = enabled
+	tab.Label = newCtrl.Label()
+	tab.StartupErr = ""
+	tab.Ready = true
+	a.rememberConversationPrefsLocked(tab)
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	newCtrl.EnableInteractiveApproval()
+	applyTabModeToController(newCtrl, tab.mode)
+	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
+	newCtrl.SetAskWorkflow(tab.askWorkflow)
+	newCtrl.SetStepThinking(tab.stepThinking)
+	newCtrl.SetGoal(tab.goal)
+	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
+	if len(carried) > 0 {
+		newCtrl.Resume(&agent.Session{Messages: carried}, path)
+	} else if path != "" {
+		newCtrl.SetSessionPath(path)
+	}
+	a.persistTabSessionPath(tab, path)
+	return nil
 }
 
 // CommandInfo describes one available slash command for the composer's "/" menu.
@@ -3286,6 +3455,7 @@ func (a *App) SetModelForTab(tabID, name string) error {
 		WorkspaceRoot:  tab.WorkspaceRoot,
 		SessionDir:     tabSessionDir(tab),
 		EffortOverride: cloneStringPtr(effortOverride),
+		EnhancedMode:   tab.enhancedMode,
 	})
 	if err != nil {
 		return err
@@ -3296,11 +3466,14 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	tab.model = name
 	tab.effort = cloneStringPtr(effortOverride)
 	tab.Label = newCtrl.Label()
+	a.rememberConversationPrefsLocked(tab)
 	a.saveTabsLocked()
 	a.mu.Unlock()
 	newCtrl.EnableInteractiveApproval()
 	applyTabModeToController(newCtrl, tab.mode)
 	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
+	newCtrl.SetAskWorkflow(tab.askWorkflow)
+	newCtrl.SetStepThinking(tab.stepThinking)
 	newCtrl.SetGoal(tab.goal)
 
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
@@ -3380,6 +3553,7 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 		WorkspaceRoot:  tab.WorkspaceRoot,
 		SessionDir:     tabSessionDir(tab),
 		EffortOverride: &effort,
+		EnhancedMode:   tab.enhancedMode,
 	})
 	if err != nil {
 		return err
@@ -3391,11 +3565,14 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 	tab.Label = newCtrl.Label()
 	tab.StartupErr = ""
 	tab.Ready = true
+	a.rememberConversationPrefsLocked(tab)
 	a.saveTabsLocked()
 	a.mu.Unlock()
 	newCtrl.EnableInteractiveApproval()
 	applyTabModeToController(newCtrl, tab.mode)
 	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
+	newCtrl.SetAskWorkflow(tab.askWorkflow)
+	newCtrl.SetStepThinking(tab.stepThinking)
 	newCtrl.SetGoal(tab.goal)
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
 	if len(carried) > 0 {

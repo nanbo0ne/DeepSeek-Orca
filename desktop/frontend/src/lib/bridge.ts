@@ -109,6 +109,9 @@ export interface AppBindings {
   SetCollaborationModeForTab(tabID: string, mode: string): Promise<void>;
   SetToolApprovalMode(mode: string): Promise<void>;
   SetToolApprovalModeForTab(tabID: string, mode: string): Promise<void>;
+  SetAskWorkflowForTab(tabID: string, enabled: boolean): Promise<void>;
+  SetStepThinkingForTab(tabID: string, enabled: boolean): Promise<void>;
+  SetEnhancedModeForTab(tabID: string, enabled: boolean): Promise<void>;
   SetGoal(goal: string): Promise<void>;
   SetGoalForTab(tabID: string, goal: string): Promise<void>;
   ClearGoal(): Promise<void>;
@@ -1303,6 +1306,15 @@ function makeMockApp(): AppBindings {
               : tab,
           );
         },
+        async SetAskWorkflowForTab(tabID, enabled) {
+          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, askWorkflowEnabled: enabled } : tab));
+        },
+        async SetStepThinkingForTab(tabID, enabled) {
+          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, stepThinkingEnabled: enabled } : tab));
+        },
+        async SetEnhancedModeForTab(tabID, enabled) {
+          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, enhancedModeEnabled: enabled } : tab));
+        },
         async SetGoal(goal) {
           const active = mockTabs.find((tab) => tab.active);
           if (active) await this.SetGoalForTab(active.id, goal);
@@ -1485,6 +1497,9 @@ function makeMockApp(): AppBindings {
             autoApproveTools,
             bypass: autoApproveTools,
             toolApprovalMode,
+            askWorkflowEnabled: active?.askWorkflowEnabled ?? false,
+            stepThinkingEnabled: active?.stepThinkingEnabled ?? false,
+            enhancedModeEnabled: active?.enhancedModeEnabled ?? false,
             goal: active?.goal ?? "",
             goalStatus: active?.goalStatus ?? (active?.goal ? "running" : "stopped"),
           };
@@ -1501,6 +1516,9 @@ function makeMockApp(): AppBindings {
             autoApproveTools,
             bypass: autoApproveTools,
             toolApprovalMode,
+            askWorkflowEnabled: tab?.askWorkflowEnabled ?? false,
+            stepThinkingEnabled: tab?.stepThinkingEnabled ?? false,
+            enhancedModeEnabled: tab?.enhancedModeEnabled ?? false,
             goal: tab?.goal ?? "",
             goalStatus: tab?.goalStatus ?? (tab?.goal ? "running" : "stopped"),
           };

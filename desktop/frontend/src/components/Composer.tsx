@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Check, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowUp, Brain, Check, CircleHelp, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -322,6 +322,9 @@ export function Composer({
   running,
   collaborationMode,
   toolApprovalMode,
+  askWorkflowEnabled,
+  stepThinkingEnabled,
+  enhancedModeEnabled,
   goal,
   cwd,
   modelLabel,
@@ -334,6 +337,9 @@ export function Composer({
   onSetMode,
   onSetCollaborationMode,
   onSetToolApprovalMode,
+  onSetAskWorkflow,
+  onSetStepThinking,
+  onSetEnhancedMode,
   onToggleYoloApprovalMode,
   onSetGoal,
   onClearGoal,
@@ -351,6 +357,9 @@ export function Composer({
   running: boolean;
   collaborationMode: CollaborationMode;
   toolApprovalMode: ToolApprovalMode;
+  askWorkflowEnabled: boolean;
+  stepThinkingEnabled: boolean;
+  enhancedModeEnabled: boolean;
   goal?: string;
   cwd?: string;
   modelLabel: string;
@@ -365,6 +374,9 @@ export function Composer({
   onSetMode: (mode: Mode) => void;
   onSetCollaborationMode: (mode: CollaborationMode) => void;
   onSetToolApprovalMode: (mode: ToolApprovalMode) => void;
+  onSetAskWorkflow: (enabled: boolean) => void;
+  onSetStepThinking: (enabled: boolean) => void;
+  onSetEnhancedMode: (enabled: boolean) => void;
   onToggleYoloApprovalMode: () => void;
   onSetGoal: (goal: string) => void;
   onClearGoal: () => void;
@@ -1505,6 +1517,20 @@ export function Composer({
       requestAnimationFrame(() => taRef.current?.focus());
     });
   };
+  const chooseAskWorkflow = () => {
+    const next = !askWorkflowEnabled;
+    closeIntentMenu(() => {
+      onSetAskWorkflow(next);
+      requestAnimationFrame(() => taRef.current?.focus());
+    });
+  };
+  const chooseStepThinking = () => {
+    const next = !stepThinkingEnabled;
+    closeIntentMenu(() => {
+      onSetStepThinking(next);
+      requestAnimationFrame(() => taRef.current?.focus());
+    });
+  };
   const effortLevels = asArray(effort?.levels);
   const currentEffort = effort?.current || "auto";
   const hasEffort = Boolean(effort?.supported && effortLevels.length > 0);
@@ -1634,6 +1660,38 @@ export function Composer({
               <span className="composer-access-menu__desc">{goalModeOn ? activeGoal || t("composer.goalModeActiveDesc") : t("composer.goalModeDesc")}</span>
             </span>
             <span className={`composer-intent-switch${goalModeOn ? " composer-intent-switch--on" : ""}`} aria-hidden="true">
+              <span />
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`composer-access-menu__item composer-intent-menu__item${askWorkflowEnabled ? " composer-access-menu__item--active" : ""}`}
+            onClick={chooseAskWorkflow}
+            disabled={disabled || running}
+            title={t("composer.askWorkflowDesc")}
+          >
+            <MessageSquare size={16} />
+            <span className="composer-access-menu__copy">
+              <span className="composer-access-menu__title">{t("composer.askWorkflow")}</span>
+              <span className="composer-access-menu__desc">{t("composer.askWorkflowDesc")}</span>
+            </span>
+            <span className={`composer-intent-switch${askWorkflowEnabled ? " composer-intent-switch--on" : ""}`} aria-hidden="true">
+              <span />
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`composer-access-menu__item composer-intent-menu__item${stepThinkingEnabled ? " composer-access-menu__item--active" : ""}`}
+            onClick={chooseStepThinking}
+            disabled={disabled || running}
+            title={askWorkflowEnabled ? t("composer.stepThinkingNoBrainstormDesc") : t("composer.stepThinkingDesc")}
+          >
+            <Brain size={16} />
+            <span className="composer-access-menu__copy">
+              <span className="composer-access-menu__title">{t("composer.stepThinking")}</span>
+              <span className="composer-access-menu__desc">{askWorkflowEnabled ? t("composer.stepThinkingNoBrainstormDesc") : t("composer.stepThinkingDesc")}</span>
+            </span>
+            <span className={`composer-intent-switch${stepThinkingEnabled ? " composer-intent-switch--on" : ""}`} aria-hidden="true">
               <span />
             </span>
           </button>
@@ -2148,15 +2206,39 @@ export function Composer({
               </Tooltip>
             </div>
           ) : (
-            <Tooltip label={t("composer.send")}>
-              <button
-                className="composer__btn composer__btn--send"
-                onClick={() => void submit()}
-                disabled={submitting || pendingPaste > 0 || ((!text.trim() && attachments.length === 0 && workspaceRefs.length === 0) && !(goalModeOn && !activeGoal)) || disabled}
-              >
-                <ArrowUp size={16} />
-              </button>
-            </Tooltip>
+            <>
+              <div className="composer-enhanced">
+                <button
+                  type="button"
+                  className={`composer-enhanced__button${enhancedModeEnabled ? " composer-enhanced__button--on" : ""}`}
+                  onClick={() => onSetEnhancedMode(!enhancedModeEnabled)}
+                  disabled={disabled || running}
+                  aria-pressed={enhancedModeEnabled}
+                  aria-label={t("composer.enhancedMode")}
+                >
+                  <Sparkles size={14} />
+                  <span>{t("composer.enhancedMode")}</span>
+                </button>
+                <Tooltip label={t("composer.enhancedModeHelp")}>
+                  <button
+                    type="button"
+                    className="composer-enhanced__help"
+                    aria-label={t("composer.enhancedModeHelp")}
+                  >
+                    <CircleHelp size={14} />
+                  </button>
+                </Tooltip>
+              </div>
+              <Tooltip label={t("composer.send")}>
+                <button
+                  className="composer__btn composer__btn--send"
+                  onClick={() => void submit()}
+                  disabled={submitting || pendingPaste > 0 || ((!text.trim() && attachments.length === 0 && workspaceRefs.length === 0) && !(goalModeOn && !activeGoal)) || disabled}
+                >
+                  <ArrowUp size={16} />
+                </button>
+              </Tooltip>
+            </>
           )}
         </div>
       </div>

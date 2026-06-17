@@ -165,6 +165,34 @@ func TestComposeDrainsQueuedMemory(t *testing.T) {
 	}
 }
 
+func TestComposeEnhancedModeInjectsMemoryReminder(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("Use stable UI controls."), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := New(Options{
+		Memory:       memory.Load(memory.Options{CWD: dir}),
+		EnhancedMode: true,
+	})
+	got := c.Compose("hello")
+	if !strings.Contains(got, "<system-reminder>") || !strings.Contains(got, "Use stable UI controls.") {
+		t.Fatalf("enhanced compose missing memory reminder:\n%s", got)
+	}
+	if strings.Contains(got, "deepseek.md") {
+		t.Fatalf("enhanced compose should not reference deepseek.md:\n%s", got)
+	}
+}
+
+func TestComposeWorkflowSkipsBrainstormWhenAskWorkflowEnabled(t *testing.T) {
+	c := New(Options{})
+	c.SetAskWorkflow(true)
+	c.SetStepThinking(true)
+	got := c.Compose("build it")
+	if !strings.Contains(got, "<workflow-reminder>") || !strings.Contains(got, "skip the brainstorm phase") {
+		t.Fatalf("workflow reminder missing skip-brainstorm guidance:\n%s", got)
+	}
+}
+
 func TestMemoryQuickAddNoteRequiresWhitespace(t *testing.T) {
 	tests := []struct {
 		in   string

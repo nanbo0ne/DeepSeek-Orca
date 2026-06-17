@@ -3729,7 +3729,7 @@ a[href] {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  max-width: min(280px, calc(100% - 20px));
+  max-width: min(430px, calc(100% - 20px));
   pointer-events: auto;
 }
 .composer-card--resized {
@@ -3982,6 +3982,71 @@ a[href] {
   color: var(--control-disabled-fg);
   cursor: default;
   transform: none;
+}
+.composer-enhanced {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+.composer-enhanced__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  min-width: 86px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 0.12s, background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.composer-enhanced__button:hover:not(:disabled),
+.composer-enhanced__button:focus-visible {
+  color: var(--fg);
+  border-color: var(--fg-faint);
+  background: var(--bg);
+  outline: none;
+}
+.composer-enhanced__button--on {
+  color: var(--control-primary-fg);
+  border-color: color-mix(in srgb, var(--control-primary-bg) 72%, var(--border));
+  background: var(--control-primary-bg);
+}
+.composer-enhanced__button--on:hover:not(:disabled),
+.composer-enhanced__button--on:focus-visible {
+  color: var(--control-primary-fg);
+  background: color-mix(in srgb, var(--control-primary-bg) 88%, #000);
+}
+.composer-enhanced__button:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+.composer-enhanced__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  transition: color 0.12s, background 0.12s;
+}
+.composer-enhanced__help:hover,
+.composer-enhanced__help:focus-visible {
+  color: var(--fg);
+  background: var(--bg);
+  outline: none;
 }
 .composer-meta {
   display: flex;
@@ -4385,6 +4450,16 @@ a[href] {
 }
 
 @container (max-width: 620px) {
+  .composer-enhanced__button {
+    min-width: 34px;
+    width: 34px;
+    padding: 0;
+  }
+
+  .composer-enhanced__button span {
+    display: none;
+  }
+
   .composer-meta {
     gap: 8px;
     padding-inline: 10px;

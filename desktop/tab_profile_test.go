@@ -7,7 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/provider"
 )
 
 func testTab(id, root string) *WorkspaceTab {
@@ -243,6 +246,91 @@ func TestSaveTabsPersistsGoalAndToolApprovalMode(t *testing.T) {
 	if got.Tabs[0].ToolApprovalMode != control.ToolApprovalAuto {
 		t.Fatalf("saved tool approval mode = %q, want auto", got.Tabs[0].ToolApprovalMode)
 	}
+}
+
+func TestSaveTabsPersistsV2WorkflowAndEnhancedMode(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	tab := testTab("a", t.TempDir())
+	tab.askWorkflow = true
+	tab.stepThinking = true
+	tab.enhancedMode = true
+	app.tabs = map[string]*WorkspaceTab{tab.ID: tab}
+	app.tabOrder = []string{tab.ID}
+	app.activeTabID = tab.ID
+
+	app.mu.Lock()
+	app.saveTabsLocked()
+	app.mu.Unlock()
+
+	got := loadTabsFile()
+	if len(got.Tabs) != 1 {
+		t.Fatalf("tabs len = %d, want 1", len(got.Tabs))
+	}
+	if !got.Tabs[0].AskWorkflow || !got.Tabs[0].StepThinking || !got.Tabs[0].EnhancedMode {
+		t.Fatalf("saved V2 flags = ask:%v step:%v enhanced:%v, want all true", got.Tabs[0].AskWorkflow, got.Tabs[0].StepThinking, got.Tabs[0].EnhancedMode)
+	}
+}
+
+func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	tab := testTab("a", t.TempDir())
+	exec := agent.New(nil, nil, agent.NewSession(""), agent.Options{}, event.Discard)
+	tab.Ctrl.Close()
+	tab.Ctrl = control.New(control.Options{Label: tab.ID, Executor: exec})
+	effort := "max"
+	tab.effort = &effort
+	tab.toolApprovalMode = control.ToolApprovalAuto
+	tab.enhancedMode = true
+	tab.askWorkflow = true
+	tab.stepThinking = true
+	tab.mode = "plan"
+	tab.goal = "finish it"
+	tab.Ctrl.SetToolApprovalMode(control.ToolApprovalAuto)
+	tab.Ctrl.SetAskWorkflow(true)
+	tab.Ctrl.SetStepThinking(true)
+	tab.Ctrl.SetPlanMode(true)
+	tab.Ctrl.SetGoal(tab.goal)
+	sess := agent.NewSession("")
+	sess.Add(provider.Message{Role: provider.RoleUser, Content: "hello"})
+	tab.Ctrl.Resume(sess, filepath.Join(t.TempDir(), "session.jsonl"))
+	app.tabs = map[string]*WorkspaceTab{tab.ID: tab}
+	app.tabOrder = []string{tab.ID}
+	app.activeTabID = tab.ID
+
+	if err := app.NewSession(); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || !app.recentPrefs.EnhancedMode {
+		t.Fatalf("recent prefs = %+v, want model/effort/auto/enhanced", app.recentPrefs)
+	}
+	if tab.askWorkflow || tab.stepThinking || tab.mode != "normal" || tab.goal != "" {
+		t.Fatalf("temporary modes after NewSession = ask:%v step:%v mode:%q goal:%q, want reset", tab.askWorkflow, tab.stepThinking, tab.mode, tab.goal)
+	}
+	if tab.Ctrl.AskWorkflow() || tab.Ctrl.StepThinking() || tab.Ctrl.PlanMode() || tab.Ctrl.Goal() != "" {
+		t.Fatalf("controller temporary modes not reset")
+	}
+
+	next := aBlankTestTab(app, "b", t.TempDir())
+	app.mu.Lock()
+	app.applyRecentPrefsToNewTabLocked(next)
+	app.mu.Unlock()
+	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || !next.enhancedMode {
+		t.Fatalf("new tab prefs = model:%q effort:%v approval:%q enhanced:%v", next.model, next.effort, next.toolApprovalMode, next.enhancedMode)
+	}
+	if next.askWorkflow || next.stepThinking || next.mode != "normal" || next.goal != "" {
+		t.Fatalf("new tab temporary modes = ask:%v step:%v mode:%q goal:%q, want reset", next.askWorkflow, next.stepThinking, next.mode, next.goal)
+	}
+}
+
+func aBlankTestTab(app *App, id, root string) *WorkspaceTab {
+	tab := testTab(id, root)
+	tab.Ctrl.Close()
+	tab.Ctrl = nil
+	return tab
 }
 
 func TestCollaborationModesPreserveToolApprovalMode(t *testing.T) {
