@@ -489,6 +489,16 @@ func (a *App) rememberConversationPrefsLocked(tab *WorkspaceTab) {
 	}
 }
 
+func (a *App) persistConversationPrefs(tabID string, tab *WorkspaceTab) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if tab == nil || a.tabs[tabID] != tab {
+		return
+	}
+	a.rememberConversationPrefsLocked(tab)
+	a.saveTabsLocked()
+}
+
 func (a *App) snapshotAllTabs() {
 	a.mu.RLock()
 	tabs := make([]*WorkspaceTab, 0, len(a.tabs))
@@ -615,6 +625,12 @@ func (a *App) SubmitDisplayToTab(tabID, display, input string) {
 	if ctrl == nil {
 		return
 	}
+	a.mu.Lock()
+	if tab := a.tabByIDLocked(tabID); tab != nil {
+		a.rememberConversationPrefsLocked(tab)
+		a.saveTabsLocked()
+	}
+	a.mu.Unlock()
 	ctrl.SubmitDisplay(display, input)
 }
 
@@ -732,7 +748,6 @@ func (a *App) SetModeForTab(tabID, mode string) {
 	applyTabToolApprovalModeToController(ctrl, approvalMode)
 	a.mu.Lock()
 	if a.tabs[tabIDForSave] == tab {
-		a.rememberConversationPrefsLocked(tab)
 		a.saveTabsLocked()
 	}
 	a.mu.Unlock()
@@ -2070,14 +2085,9 @@ func (a *App) SetToolApprovalModeForTab(tabID, mode string) {
 	tab.toolApprovalMode = mode
 	tab.mode = tabModeFromAxes(tabModeHasPlan(currentTabMode(tab)), mode == control.ToolApprovalYolo)
 	ctrl := tab.Ctrl
-	tabIDForSave := tab.ID
 	a.mu.Unlock()
 	applyTabToolApprovalModeToController(ctrl, mode)
-	a.mu.Lock()
-	if a.tabs[tabIDForSave] == tab {
-		a.saveTabsLocked()
-	}
-	a.mu.Unlock()
+	a.persistConversationPrefs(tab.ID, tab)
 }
 
 func (a *App) SetAskWorkflowForTab(tabID string, enabled bool) error {
@@ -2089,13 +2099,12 @@ func (a *App) SetAskWorkflowForTab(tabID string, enabled bool) error {
 	}
 	tab.askWorkflow = enabled
 	ctrl := tab.Ctrl
-	tabIDForSave := tab.ID
 	a.mu.Unlock()
 	if ctrl != nil {
 		ctrl.SetAskWorkflow(enabled)
 	}
 	a.mu.Lock()
-	if a.tabs[tabIDForSave] == tab {
+	if a.tabs[tab.ID] == tab {
 		a.saveTabsLocked()
 	}
 	a.mu.Unlock()
@@ -2111,13 +2120,12 @@ func (a *App) SetStepThinkingForTab(tabID string, enabled bool) error {
 	}
 	tab.stepThinking = enabled
 	ctrl := tab.Ctrl
-	tabIDForSave := tab.ID
 	a.mu.Unlock()
 	if ctrl != nil {
 		ctrl.SetStepThinking(enabled)
 	}
 	a.mu.Lock()
-	if a.tabs[tabIDForSave] == tab {
+	if a.tabs[tab.ID] == tab {
 		a.saveTabsLocked()
 	}
 	a.mu.Unlock()
@@ -2133,7 +2141,12 @@ func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
 		return nil
 	}
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
-		return fmt.Errorf("finish or cancel the current turn before changing enhanced mode")
+		a.mu.Lock()
+		tab.enhancedMode = enabled
+		a.rememberConversationPrefsLocked(tab)
+		a.saveTabsLocked()
+		a.mu.Unlock()
+		return nil
 	}
 	var carried []provider.Message
 	prevPath := ""

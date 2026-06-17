@@ -52,7 +52,7 @@ function splitPreview(text: string, n: number): { preview: string; total: number
 // ToolCard renders one tool call. `subcalls` are sub-agent calls nested under a
 // `task` card (their ParentID points at this call); they render inline, live, so
 // the sub-agent's work is visible as it happens.
-export const ToolCard = memo(function ToolCard({ item, subcalls }: { item: ToolItem; subcalls?: ToolItem[] }) {
+export const ToolCard = memo(function ToolCard({ item, subcalls, livePulse = false }: { item: ToolItem; subcalls?: ToolItem[]; livePulse?: boolean }) {
   const t = useT();
   const diffs = diffsFor(item.name, item.args);
   const subject = subjectOf(item.name, item.args);
@@ -125,7 +125,7 @@ export const ToolCard = memo(function ToolCard({ item, subcalls }: { item: ToolI
       open={hasProcessBody ? open : undefined}
       onOpenChange={hasProcessBody ? setOpen : undefined}
       defaultOpen={false}
-      className={`tool tool--${item.status}${quiet ? " tool--quiet" : ""}`}
+      className={`tool tool--${item.status}${quiet ? " tool--quiet" : ""}${livePulse && item.status === "running" ? " tool--live-pulse" : ""}`}
     >
 
       {summary && <div className="tool__summary">{summary}</div>}

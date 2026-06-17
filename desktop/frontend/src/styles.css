@@ -2360,12 +2360,12 @@ a[href] {
   box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
   cursor: pointer;
   transform: translate(-50%, -50%);
-  transition: transform 0.14s, box-shadow 0.14s, background 0.14s;
+  transition: box-shadow 0.14s, background 0.14s;
 }
 .transcript-follow:hover {
   background: color-mix(in srgb, var(--accent) 84%, #0b1220);
   box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 30%, transparent);
-  transform: translate(-50%, calc(-50% - 1px));
+  transform: translate(-50%, -50%);
 }
 .transcript-follow:active {
   transform: translate(-50%, -50%);
@@ -2772,6 +2772,29 @@ a[href] {
   border-radius: 14px;
   padding: 10px 16px;
   position: relative;
+}
+.msg__copy--user {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: var(--z-local-raised);
+  opacity: 0;
+  pointer-events: none;
+  padding: 3px 5px;
+  background: color-mix(in srgb, #fff 16%, var(--accent));
+  border-color: color-mix(in srgb, #fff 34%, var(--accent));
+  color: #fff;
+  transition: opacity 0.12s, background 0.12s, border-color 0.12s;
+}
+.msg--user .msg__body:hover .msg__copy--user,
+.msg--user .msg__body:focus-within .msg__copy--user {
+  opacity: 1;
+  pointer-events: auto;
+}
+.msg__copy--user:hover {
+  background: color-mix(in srgb, #fff 22%, var(--accent));
+  border-color: color-mix(in srgb, #fff 52%, var(--accent));
+  color: #fff;
 }
 
 :root[data-theme="dark"] .msg--user .msg__body {
@@ -3473,6 +3496,7 @@ a[href] {
 
 /* ── process cards: reasoning and tool calls share the same shell ─────────── */
 .tool {
+  position: relative;
   margin: 6px auto;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
@@ -3481,6 +3505,36 @@ a[href] {
 }
 .tool--running {
   border-color: var(--accent-soft);
+}
+.tool--live-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 28%,
+      color-mix(in srgb, var(--accent) 18%, transparent) 43%,
+      color-mix(in srgb, var(--accent) 30%, transparent) 50%,
+      color-mix(in srgb, var(--accent) 18%, transparent) 57%,
+      transparent 72%,
+      transparent 100%
+    );
+  background-size: 230% 100%;
+  mix-blend-mode: multiply;
+  animation: tool-live-pulse 1.65s linear infinite;
+}
+@keyframes tool-live-pulse {
+  from { background-position: 180% 0; }
+  to { background-position: -80% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool--live-pulse::after {
+    animation: none;
+    opacity: 0.45;
+  }
 }
 /* Read-only research calls keep the same process-card shell, but their content
    is visually quieter than write/shell/sub-agent calls. */

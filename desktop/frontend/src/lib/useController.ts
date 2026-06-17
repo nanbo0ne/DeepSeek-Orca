@@ -950,9 +950,8 @@ export function useController() {
     try {
       dispatchTo(activeTabId, { type: "meta", meta: await app.MetaForTab(activeTabId) });
       dispatchTo(activeTabId, { type: "effort", effort: await app.EffortForTab(activeTabId) });
-      await refreshContextForTab(activeTabId);
     } catch { /* ignore */ }
-  }, [activeTabId, dispatchTo, refreshContextForTab]);
+  }, [activeTabId, dispatchTo]);
 
   const newSession = useCallback(async () => {
     const tabId = activeTabId;

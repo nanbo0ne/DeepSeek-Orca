@@ -502,8 +502,8 @@ func TestReorderProjectsPersistsGlobalSidebarOrder(t *testing.T) {
 	if len(nodes) != 3 {
 		t.Fatalf("project tree len = %d, want 3: %+v", len(nodes), nodes)
 	}
-	if got := []string{nodes[0].Root, nodes[1].Kind, nodes[2].Root}; got[0] != second || got[1] != "global_folder" || got[2] != first {
-		t.Fatalf("project tree order = %v, want [%s global_folder %s]", got, second, first)
+	if got := []string{nodes[0].Root, nodes[1].Root, nodes[2].Kind}; got[0] != second || got[1] != first || got[2] != "global_folder" {
+		t.Fatalf("project tree order = %v, want [%s %s global_folder]", got, second, first)
 	}
 	workspaces := app.ListWorkspaces()
 	if len(workspaces) != 2 {

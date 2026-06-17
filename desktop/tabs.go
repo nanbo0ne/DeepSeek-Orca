@@ -1586,7 +1586,6 @@ func normalizeSidebarOrder(order []string, projects []desktopProject) []string {
 		if value == desktopGlobalOrderToken {
 			if !seen[value] {
 				seen[value] = true
-				out = append(out, value)
 			}
 			continue
 		}
@@ -1596,6 +1595,9 @@ func normalizeSidebarOrder(order []string, projects []desktopProject) []string {
 		}
 		seen[root] = true
 		out = append(out, root)
+	}
+	if seen[desktopGlobalOrderToken] {
+		out = append(out, desktopGlobalOrderToken)
 	}
 	return out
 }
@@ -1670,7 +1672,7 @@ func projectTreeOrderKey(node ProjectNode) string {
 
 func applyProjectTreeOrder(nodes []ProjectNode, order []string) []ProjectNode {
 	if len(order) == 0 {
-		return nodes
+		return projectTreeWithGlobalLast(nodes)
 	}
 	byKey := make(map[string]ProjectNode, len(nodes))
 	for _, node := range nodes {
@@ -1706,6 +1708,25 @@ func applyProjectTreeOrder(nodes []ProjectNode, order []string) []ProjectNode {
 		}
 		out = append(out, node)
 	}
+	return projectTreeWithGlobalLast(out)
+}
+
+func projectTreeWithGlobalLast(nodes []ProjectNode) []ProjectNode {
+	globalIdx := -1
+	for i, node := range nodes {
+		if node.Kind == "global_folder" {
+			globalIdx = i
+			break
+		}
+	}
+	if globalIdx < 0 || globalIdx == len(nodes)-1 {
+		return nodes
+	}
+	global := nodes[globalIdx]
+	out := make([]ProjectNode, 0, len(nodes))
+	out = append(out, nodes[:globalIdx]...)
+	out = append(out, nodes[globalIdx+1:]...)
+	out = append(out, global)
 	return out
 }
 
@@ -2501,7 +2522,6 @@ func (a *App) ReorderProjects(workspaceRoots []string) error {
 			}
 			seen[root] = true
 			hasGlobalOrder = true
-			sidebarOrder = append(sidebarOrder, root)
 			continue
 		}
 		root = normalizeProjectRoot(root)
@@ -2521,10 +2541,9 @@ func (a *App) ReorderProjects(workspaceRoots []string) error {
 	}
 	f.Projects = next
 	if hasGlobalOrder {
-		f.SidebarOrder = sidebarOrder
-	} else {
-		f.SidebarOrder = nil
+		sidebarOrder = append(sidebarOrder, desktopGlobalOrderToken)
 	}
+	f.SidebarOrder = sidebarOrder
 	if err := saveProjectsFile(f); err != nil {
 		return err
 	}
@@ -2933,6 +2952,20 @@ func (a *App) ListProjectTree() []ProjectNode {
 			children = append(children, node)
 			addPinnedTopic(node)
 		}
+		sort.SliceStable(children, func(i, j int) bool {
+			ai := children[i].LastActivityAt
+			if ai == 0 {
+				ai = children[i].CreatedAt
+			}
+			aj := children[j].LastActivityAt
+			if aj == 0 {
+				aj = children[j].CreatedAt
+			}
+			if ai == aj {
+				return children[i].Label < children[j].Label
+			}
+			return ai > aj
+		})
 		out = append(out, ProjectNode{
 			Key:          "global_folder",
 			Kind:         "global_folder",
@@ -2944,7 +2977,27 @@ func (a *App) ListProjectTree() []ProjectNode {
 	}
 
 	// Project sections.
-	for _, p := range f.Projects {
+	projects := append([]desktopProject(nil), f.Projects...)
+	if len(f.SidebarOrder) == 0 {
+		sort.SliceStable(projects, func(i, j int) bool {
+			latestForProject := func(project desktopProject) int64 {
+				latest := int64(0)
+				for _, topicID := range project.Topics {
+					if summary := topicSummaries[topicSummaryKey("project", project.Root, topicID)]; summary.lastActivityAt > latest {
+						latest = summary.lastActivityAt
+					}
+				}
+				return latest
+			}
+			ai := latestForProject(projects[i])
+			aj := latestForProject(projects[j])
+			if ai == aj {
+				return projectDisplayName(projects[i]) < projectDisplayName(projects[j])
+			}
+			return ai > aj
+		})
+	}
+	for _, p := range projects {
 		title := p.Title
 		if title == "" {
 			title = workspaceName(p.Root)
@@ -2988,6 +3041,20 @@ func (a *App) ListProjectTree() []ProjectNode {
 			children = append(children, node)
 			addPinnedTopic(node)
 		}
+		sort.SliceStable(children, func(i, j int) bool {
+			ai := children[i].LastActivityAt
+			if ai == 0 {
+				ai = children[i].CreatedAt
+			}
+			aj := children[j].LastActivityAt
+			if aj == 0 {
+				aj = children[j].CreatedAt
+			}
+			if ai == aj {
+				return children[i].Label < children[j].Label
+			}
+			return ai > aj
+		})
 		node.Label = title
 		node.ProjectColor = p.Color
 		node.Children = children
@@ -3009,7 +3076,22 @@ func (a *App) ListProjectTree() []ProjectNode {
 		}}, out...)
 	}
 
-	return applyProjectTreeOrder(out, f.SidebarOrder)
+	ordered := applyProjectTreeOrder(out, f.SidebarOrder)
+	globalIdx := -1
+	for i, node := range ordered {
+		if node.Kind == "global_folder" {
+			globalIdx = i
+			break
+		}
+	}
+	if globalIdx >= 0 && globalIdx != len(ordered)-1 {
+		global := ordered[globalIdx]
+		next := append([]ProjectNode{}, ordered[:globalIdx]...)
+		next = append(next, ordered[globalIdx+1:]...)
+		next = append(next, global)
+		ordered = next
+	}
+	return ordered
 }
 
 // SetTopicPinned toggles the sidebar pin for a conversation topic without

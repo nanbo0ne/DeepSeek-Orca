@@ -84,6 +84,22 @@ function nearBottom(el: HTMLDivElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 }
 
+function isAtBottom(el: HTMLDivElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= 2;
+}
+
+function scrollElementToBottom(el: HTMLDivElement) {
+  el.scrollTop = el.scrollHeight;
+}
+
+function lastRunningToolID(items: Item[]): string {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (item.kind === "tool" && item.status === "running") return item.id;
+  }
+  return "";
+}
+
 // Summarise a warm turn for its compact card.
 function warmUserPreview(text: string): string {
   const cleaned = replaceAttachmentRefsForDisplay(text).replace(/\s+/g, " ").trim();
@@ -216,7 +232,7 @@ export function Transcript({
       resizeFrame.current = null;
     }
     requestAnimationFrame(() => {
-      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      scrollElementToBottom(el);
       setShowFollowButton(false);
     });
   }, []);
@@ -224,7 +240,7 @@ export function Transcript({
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    if (!nearBottom(el)) stick.current = false;
+    if (stick.current && !isAtBottom(el)) stick.current = false;
     updateFollowButton(el);
     updateActiveJumpTurn(el);
   };
@@ -240,7 +256,7 @@ export function Transcript({
       const el = scrollRef.current;
       if (el) {
         requestAnimationFrame(() => {
-          el.scrollTop = el.scrollHeight;
+          scrollElementToBottom(el);
           stick.current = false;
           updateFollowButton(el);
           updateActiveJumpTurn(el);
@@ -262,7 +278,7 @@ export function Transcript({
       return () => cancelAnimationFrame(id);
     }
     const id = requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
+      scrollElementToBottom(el);
       setShowFollowButton(false);
       updateActiveJumpTurn(el);
     });
@@ -312,6 +328,7 @@ export function Transcript({
     }
     return m;
   }, [items]);
+  const liveToolID = useMemo(() => lastRunningToolID(items), [items]);
 
   // ── Layer state ────────────────────────────────────────────────────────────
   const [expandedWarmTurns, setExpandedWarmTurns] = useState<Set<number>>(new Set());
@@ -440,7 +457,7 @@ export function Transcript({
           if (it.parentId) break;
           if (it.name === "todo_write") break;
           if (it.name === "exit_plan_mode") break;
-          out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} />);
+          out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} livePulse={it.id === liveToolID} />);
           break;
         case "phase": out.push(<PhaseCard key={it.id} text={it.text} />); break;
         case "notice": out.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
@@ -449,7 +466,7 @@ export function Transcript({
     }
     pushTurnActions();
     return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn]);
+  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID]);
 
   // ── Assemble rendered output ──────────────────────────────────────────────
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
@@ -485,6 +502,7 @@ export function Transcript({
             warmOnRewind={onRewind}
             warmSetOpenAction={setOpenAction}
             defaultExpandThinking={defaultExpandThinking}
+            liveToolID={liveToolID}
             onToggleColdPage={() => setColdPage((p) => p + 1)}
             onToggleWarmTurn={(g, expand) => {
               setExpandedWarmTurns((prev) => {
@@ -533,6 +551,7 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind,
   warmSetOpenAction,
   defaultExpandThinking = false,
+  liveToolID = "",
   onToggleColdPage,
   onToggleWarmTurn,
 }: {
@@ -551,6 +570,7 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind: ((turn: number, scope: string) => void) | undefined;
   warmSetOpenAction: (action: OpenTurnAction | null) => void;
   defaultExpandThinking?: boolean;
+  liveToolID?: string;
   onToggleColdPage: () => void;
   onToggleWarmTurn: (g: number, expand: boolean) => void;
 }) {
@@ -606,6 +626,7 @@ const WarmZone = memo(function WarmZone({
               onRewind={warmOnRewind}
               setOpenAction={warmSetOpenAction}
               defaultExpandThinking={defaultExpandThinking}
+              liveToolID={liveToolID}
             />
           </WarmTurnCard>,
         );
@@ -650,6 +671,7 @@ function WarmTurnItems({
   onRewind,
   setOpenAction,
   defaultExpandThinking = false,
+  liveToolID = "",
 }: {
   startIdx: number;
   endIdx: number;
@@ -663,6 +685,7 @@ function WarmTurnItems({
   onRewind: ((turn: number, scope: string) => void) | undefined;
   setOpenAction: (action: OpenTurnAction | null) => void;
   defaultExpandThinking?: boolean;
+  liveToolID?: string;
 }) {
   const nodes: React.ReactNode[] = [];
   let actionText = "";
@@ -716,7 +739,7 @@ function WarmTurnItems({
         if (it.parentId) break;
         if (it.name === "todo_write") break;
         if (it.name === "exit_plan_mode") break;
-        nodes.push(<ToolCard key={it.id} item={it} subcalls={subcalls.get(it.id)} />);
+        nodes.push(<ToolCard key={it.id} item={it} subcalls={subcalls.get(it.id)} livePulse={it.id === liveToolID} />);
         break;
       }
       case "phase": nodes.push(<PhaseCard key={it.id} text={it.text} />); break;

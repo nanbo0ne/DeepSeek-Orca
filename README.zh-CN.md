@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.5
+# DeepSeek-Orca V2.0.6
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留了原有的核心 Agent 循环、工具调用、MCP、技能、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek 与 OpenAI-compatible provider 做了桌面端体验和 V2 工作流增强。
 
@@ -6,7 +6,7 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.5-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.5/DeepSeek-Orca-Setup-2.0.5-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.6-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.6/DeepSeek-Orca-Setup-2.0.6-windows-amd64.exe)
 
 安装后打开 DeepSeek-Orca Desktop，在设置中填写 DeepSeek API Key，或添加兼容 OpenAI 接口的 provider。
 
@@ -54,9 +54,19 @@ V2 在发送按钮旁新增“增强模式”。开启后，当前会话会切�
 
 如果“询问”和“分步思考”同时开启，分步思考会跳过 brainstorm/方案构思环节，避免重复规划。
 
-## V2.0.5 修复
+## V2.0.6 补丁
 
-V2.0.5 修复了大项目分析时上下文窗口统计异常陡增的问题。现在右上角上下文统计恢复为 provider 返回的真实 `PromptTokens` 口径，普通模式和增强模式一致，避免把本地 reasoning 显示内容、工具输出或历史估算误算进当前上下文窗口。
+V2.0.6 继续修复了几个更偏“用起来别卡、别跳、别误判”的问题：
+
+- 下箭头改成真正的贴底跟随按钮。它会在不贴底时出现，点击后持续跟随最后一行，只有用户主动上滚才停止。
+- 左侧项目树和会话排序更稳定。用户选中的工作区会排在独立工作区前面，独立工作区固定在最底部；每个工作区里的会话按最近活动时间倒序排列。
+- 运行中可切换模型、思考强度、审批、协作开关和增强模式。当前轮保持原状，但下一次发送会使用新设置。
+- 增强模式切换不再把右上角上下文统计刷成异常高值。统计只在 provider 返回真实 usage 后更新。
+- 运行中的 task / 工具卡会显示流动光效，能一眼看出任务还在继续，不会显得像卡住。
+- 用户消息也增加了复制按钮，鼠标移到气泡上才出现，和 AI 消息的复制体验一致。
+- 新对话继承最近一次实际使用的模型、思考强度、审批和增强模式；询问、分步思考、计划、目标这些临时工作流默认关闭。
+
+V2.0.6 继续保留上下文统计修复和 reasoning 回传收窄：右上角上下文统计使用 provider 的真实 `PromptTokens`，DeepSeek 的 `reasoning_content` 只在需要的 tool-call 轮次回传，避免不必要的 token、缓存失效和压缩异常。
 
 同时，DeepSeek 的 `reasoning_content` 回传范围被收窄：普通 assistant reasoning 只保留在本地显示和历史中，不再进入后续请求；只有带 `tool_calls` 的 DeepSeek assistant 轮次会按需回传。这可以降低不必要的 prompt token、缓存失效和压缩异常风险。
 
@@ -67,7 +77,7 @@ V2.0.5 修复了大项目分析时上下文窗口统计异常陡增的问题。�
 - 支持文件、图片、工作区引用、命令引用和历史会话引用。
 - 支持 ask、auto、yolo/完全访问等工具审批力度。
 - 支持 checkpoint、会话回滚、文件改动回滚，并通过 hash 检查避免覆盖用户后续修改。
-- 右侧上下文面板显示上下文窗口、token 消耗、缓存命中、请求数、耗时和费用。
+- 右侧上下文面板显示上下文窗口、token消耗、缓存命中、请求数、耗时和费用。
 - token、花费、缓存等统计会随会话持久化，应用重启后可恢复。
 - 支持自动和手动 `/compact`，使用 CONTEXT CHECKPOINT 交接式压缩。
 - 支持 MCP、本地技能、记忆文件、CodeGraph 和 slash commands。

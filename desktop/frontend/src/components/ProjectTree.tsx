@@ -106,9 +106,15 @@ function projectOrderKey(node: ProjectNode): string {
 }
 
 function projectRoots(nodes: ProjectNode[]): string[] {
-  return nodes
+  const roots = nodes
     .map(projectOrderKey)
     .filter((key) => key !== "");
+  const globalIndex = roots.indexOf(GLOBAL_PROJECT_ORDER_KEY);
+  if (globalIndex >= 0 && globalIndex !== roots.length - 1) {
+    roots.splice(globalIndex, 1);
+    roots.push(GLOBAL_PROJECT_ORDER_KEY);
+  }
+  return roots;
 }
 
 function collapsibleFolderKeys(nodes: ProjectNode[], depth = 0): string[] {
@@ -139,7 +145,9 @@ function applyProjectOrder(nodes: ProjectNode[], roots: string[]): ProjectNode[]
     .map((node): [string, ProjectNode] => [projectOrderKey(node), node])
     .filter(([key]) => key !== "");
   const byRoot = new Map<string, ProjectNode>(projectEntries);
-  const orderedProjects = roots.map((root) => byRoot.get(root)).filter((node): node is ProjectNode => Boolean(node));
+  const normalizedRoots = roots.filter((root) => root !== GLOBAL_PROJECT_ORDER_KEY);
+  if (roots.includes(GLOBAL_PROJECT_ORDER_KEY)) normalizedRoots.push(GLOBAL_PROJECT_ORDER_KEY);
+  const orderedProjects = normalizedRoots.map((root) => byRoot.get(root)).filter((node): node is ProjectNode => Boolean(node));
   const orderedKeys = new Set(roots);
   const nonProjects = nodes.filter((node) => !orderedKeys.has(projectOrderKey(node)));
   return [...nonProjects, ...orderedProjects];

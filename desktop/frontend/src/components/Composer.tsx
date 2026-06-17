@@ -1629,7 +1629,7 @@ export function Composer({
             type="button"
             className={`composer-access-menu__item composer-intent-menu__item${planModeOn ? " composer-access-menu__item--active" : ""}`}
             onClick={choosePlanMode}
-            disabled={disabled || running}
+            disabled={disabled}
             title={planModeOn ? t("composer.exitPlanTitle") : t("composer.enterPlanTitle")}
           >
             <List size={16} />
@@ -1645,7 +1645,7 @@ export function Composer({
             type="button"
             className={`composer-access-menu__item composer-intent-menu__item${goalModeOn ? " composer-access-menu__item--active" : ""}`}
             onClick={chooseGoalMode}
-            disabled={disabled || running}
+            disabled={disabled}
             title={goalModeOn ? activeGoal || t("composer.goalModeActiveDesc") : t("composer.goalModeDesc")}
           >
             <Target size={16} />
@@ -1661,7 +1661,7 @@ export function Composer({
             type="button"
             className={`composer-access-menu__item composer-intent-menu__item${askWorkflowEnabled ? " composer-access-menu__item--active" : ""}`}
             onClick={chooseAskWorkflow}
-            disabled={disabled || running}
+            disabled={disabled}
             title={t("composer.askWorkflowDesc")}
           >
             <MessageSquare size={16} />
@@ -1677,7 +1677,7 @@ export function Composer({
             type="button"
             className={`composer-access-menu__item composer-intent-menu__item${stepThinkingEnabled ? " composer-access-menu__item--active" : ""}`}
             onClick={chooseStepThinking}
-            disabled={disabled || running}
+            disabled={disabled}
             title={askWorkflowEnabled ? t("composer.stepThinkingNoBrainstormDesc") : t("composer.stepThinkingDesc")}
           >
             <Brain size={16} />
@@ -1692,7 +1692,7 @@ export function Composer({
         </div>
       </AnchoredPopover>
       <AnchoredPopover
-        open={moreMenuOpen && !disabled && !running}
+        open={moreMenuOpen && !disabled}
         closing={moreMenuClosing}
         anchorRef={moreMenuAnchorRef}
         onClose={() => closeMoreMenu()}
@@ -1711,7 +1711,7 @@ export function Composer({
                   aria-selected={level === currentEffort}
                   className={`composer-more-menu__item${level === currentEffort ? " composer-more-menu__item--active" : ""}`}
                   onClick={() => chooseEffortLevel(level)}
-                  disabled={running}
+                  disabled={disabled}
                 >
                   <Gauge size={14} />
                   <span>{level}</span>
@@ -2069,7 +2069,7 @@ export function Composer({
                   type="button"
                   className={`composer-action-trigger${intentMenuOpen || intentMenuClosing ? " composer-action-trigger--open" : ""}`}
                   onClick={() => (intentMenuOpen || intentMenuClosing ? closeIntentMenu() : openIntentMenu())}
-                  disabled={disabled || running}
+                  disabled={disabled}
                   aria-haspopup="menu"
                   aria-expanded={intentMenuOpen && !intentMenuClosing}
                   aria-label={t("composer.intentMenuTitle")}
@@ -2122,7 +2122,7 @@ export function Composer({
             </div>
             {hasEffort && (
               <div className="composer-meta__control composer-meta__control--effort">
-                <EffortSwitcher effort={effort} disabled={running} onPick={onSetEffort} />
+                <EffortSwitcher effort={effort} disabled={Boolean(disabled)} onPick={onSetEffort} />
               </div>
             )}
             {intentChips.length > 0 && (
@@ -2157,7 +2157,7 @@ export function Composer({
                     type="button"
                     className={`composer-more-trigger${moreMenuOpen || moreMenuClosing ? " composer-more-trigger--open" : ""}`}
                     onClick={() => (moreMenuOpen || moreMenuClosing ? closeMoreMenu() : openMoreMenu())}
-                    disabled={disabled || running}
+                    disabled={disabled}
                     aria-haspopup="menu"
                     aria-expanded={moreMenuOpen && !moreMenuClosing}
                     aria-label={t("composer.moreControls")}
@@ -2172,6 +2172,29 @@ export function Composer({
           </div>
         </div>
         <div className="composer-card__actions">
+          <div className="composer-enhanced">
+            <button
+              type="button"
+              className={`composer-enhanced__button${enhancedModeEnabled ? " composer-enhanced__button--on" : ""}${enhancedModeSwitching ? " composer-enhanced__button--switching" : ""}`}
+              onClick={() => onSetEnhancedMode(!enhancedModeEnabled)}
+              disabled={disabled || enhancedModeSwitching}
+              aria-pressed={enhancedModeEnabled}
+              aria-busy={enhancedModeSwitching}
+              aria-label={t("composer.enhancedMode")}
+            >
+              <Sparkles size={14} />
+              <span>{t("composer.enhancedMode")}</span>
+            </button>
+            <Tooltip label={t("composer.enhancedModeHelp")}>
+              <button
+                type="button"
+                className="composer-enhanced__help"
+                aria-label={t("composer.enhancedModeHelp")}
+              >
+                <CircleHelp size={14} />
+              </button>
+            </Tooltip>
+          </div>
           {runActivity ? (
             <div className="composer-runstatus" role="status" aria-live="polite">
               <span className="composer-runstatus__dot" />
@@ -2185,29 +2208,6 @@ export function Composer({
             </div>
           ) : (
             <>
-              <div className="composer-enhanced">
-                <button
-                  type="button"
-                  className={`composer-enhanced__button${enhancedModeEnabled ? " composer-enhanced__button--on" : ""}${enhancedModeSwitching ? " composer-enhanced__button--switching" : ""}`}
-                  onClick={() => onSetEnhancedMode(!enhancedModeEnabled)}
-                  disabled={disabled || running || enhancedModeSwitching}
-                  aria-pressed={enhancedModeEnabled}
-                  aria-busy={enhancedModeSwitching}
-                  aria-label={t("composer.enhancedMode")}
-                >
-                  <Sparkles size={14} />
-                  <span>{t("composer.enhancedMode")}</span>
-                </button>
-                <Tooltip label={t("composer.enhancedModeHelp")}>
-                  <button
-                    type="button"
-                    className="composer-enhanced__help"
-                    aria-label={t("composer.enhancedModeHelp")}
-                  >
-                    <CircleHelp size={14} />
-                  </button>
-                </Tooltip>
-              </div>
               <Tooltip label={t("composer.send")}>
                 <button
                   className="composer__btn composer__btn--send"

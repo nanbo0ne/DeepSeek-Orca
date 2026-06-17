@@ -364,7 +364,7 @@ export default function App() {
     setToolApprovalMode: setControllerToolApprovalMode,
     setAskWorkflow: setControllerAskWorkflow,
     setStepThinking: setControllerStepThinking,
-    setEnhancedMode: setControllerEnhancedMode,
+    setEnhancedMode: _setControllerEnhancedMode,
     setGoal: setControllerGoal,
     clearGoal: clearControllerGoal,
     clearSession,
@@ -398,6 +398,7 @@ export default function App() {
   const [enhancedModeSwitchingByTab, setEnhancedModeSwitchingByTab] = useState<Record<string, boolean>>({});
   const [pendingModelLabelsByTab, setPendingModelLabelsByTab] = useState<Record<string, string>>({});
   const [pendingEffortsByTab, setPendingEffortsByTab] = useState<Record<string, string>>({});
+  const [pendingEnhancedModesByTab, setPendingEnhancedModesByTab] = useState<Record<string, boolean>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
@@ -449,6 +450,7 @@ export default function App() {
   const enhancedModeSwitchTimersRef = useRef<Record<string, number>>({});
   const pendingModelSwitchRef = useRef<Record<string, Promise<void>>>({});
   const pendingEffortSwitchRef = useRef<Record<string, Promise<void>>>({});
+  const pendingEnhancedSwitchRef = useRef<Record<string, Promise<void>>>({});
   const latestModelSwitchRef = useRef<Record<string, string>>({});
   const latestEffortSwitchRef = useRef<Record<string, string>>({});
   const appRef = useRef<HTMLDivElement>(null);
@@ -652,7 +654,7 @@ export default function App() {
     ? stepThinkingsByTab[activeTabId] ?? Boolean(state.meta?.stepThinkingEnabled ?? activeTab?.stepThinkingEnabled)
     : false;
   const enhancedModeEnabled = activeTabId
-    ? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
+    ? pendingEnhancedModesByTab[activeTabId] ?? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
     : false;
   const enhancedModeSwitching = activeTabId ? Boolean(enhancedModeSwitchingByTab[activeTabId]) : false;
   collaborationModeRef.current = collaborationMode;
@@ -889,12 +891,24 @@ export default function App() {
   const applyEnhancedMode = useCallback(
     async (enabled: boolean) => {
       if (!activeTabId || enabled === enhancedModeEnabled) return;
+      if (runningRef.current) {
+        setPendingEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
+        setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
+        return;
+      }
       if (enhancedModeSwitchingRef.current[activeTabId]) return;
       enhancedModeSwitchingRef.current[activeTabId] = true;
       setEnhancedModeSwitchingByTab((current) => (current[activeTabId] ? current : { ...current, [activeTabId]: true }));
+      setPendingEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
       const releaseSwitchLock = () => {
         if (typeof window === "undefined") {
           delete enhancedModeSwitchingRef.current[activeTabId];
+          setPendingEnhancedModesByTab((current) => {
+            if (current[activeTabId] !== enabled) return current;
+            const next = { ...current };
+            delete next[activeTabId];
+            return next;
+          });
           setEnhancedModeSwitchingByTab((current) => {
             if (!current[activeTabId]) return current;
             const next = { ...current };
@@ -908,6 +922,12 @@ export default function App() {
         enhancedModeSwitchTimersRef.current[activeTabId] = window.setTimeout(() => {
           delete enhancedModeSwitchingRef.current[activeTabId];
           delete enhancedModeSwitchTimersRef.current[activeTabId];
+          setPendingEnhancedModesByTab((current) => {
+            if (current[activeTabId] !== enabled) return current;
+            const next = { ...current };
+            delete next[activeTabId];
+            return next;
+          });
           setEnhancedModeSwitchingByTab((current) => {
             if (!current[activeTabId]) return current;
             const next = { ...current };
@@ -918,15 +938,21 @@ export default function App() {
       };
       try {
         setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
-        await setControllerEnhancedMode(enabled);
+        await app.SetEnhancedModeForTab(activeTabId, enabled);
       } catch (err) {
         setEnhancedModesByTab((current) => (current[activeTabId] === enhancedModeEnabled ? current : { ...current, [activeTabId]: enhancedModeEnabled }));
+        setPendingEnhancedModesByTab((current) => {
+          if (current[activeTabId] !== enabled) return current;
+          const next = { ...current };
+          delete next[activeTabId];
+          return next;
+        });
         showToast(err instanceof Error ? err.message : String(err), "error");
       } finally {
         releaseSwitchLock();
       }
     },
-    [activeTabId, enhancedModeEnabled, setControllerEnhancedMode, showToast],
+    [activeTabId, enhancedModeEnabled, showToast],
   );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;
@@ -957,19 +983,6 @@ export default function App() {
     },
     [activeTabId, clearControllerGoal, setControllerGoal, setGoalDraftModeForTab, setMode, toolApprovalMode],
   );
-  const startGoal = useCallback(
-    async (nextGoal: string) => {
-      const trimmed = nextGoal.trim();
-      if (!trimmed) return;
-      if (activeTabId) {
-        await pendingModelSwitchRef.current[activeTabId];
-        await pendingEffortSwitchRef.current[activeTabId];
-      }
-      await applyGoal(trimmed);
-      send(trimmed, `/goal ${trimmed}`);
-    },
-    [activeTabId, applyGoal, send],
-  );
   // Shift+Tab toggles only the collaboration axis; Ctrl/Cmd+Y toggles YOLO on the
   // tool-permission axis while preserving the Ask/Auto base mode.
   const cycleMode = useCallback(() => {
@@ -984,16 +997,21 @@ export default function App() {
       if (!activeTabId) return;
       latestModelSwitchRef.current[activeTabId] = name;
       setPendingModelLabelsByTab((current) => (current[activeTabId] === name ? current : { ...current, [activeTabId]: name }));
+      if (runningRef.current) return;
+      const applyRuntimePrefs = async () => {
+        const nextCollaborationMode = collaborationModeRef.current;
+        const nextGoal = goalRef.current;
+        await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode: nextCollaborationMode, goal: nextGoal }));
+        await setControllerToolApprovalMode(toolApprovalModeRef.current);
+        await setControllerAskWorkflow(askWorkflowEnabledRef.current);
+        await setControllerStepThinking(stepThinkingEnabledRef.current);
+        if (nextGoal.trim()) await setControllerGoal(nextGoal);
+      };
       const task = (async () => {
         try {
           await setModel(name);
-          const nextCollaborationMode = collaborationModeRef.current;
-          const nextGoal = goalRef.current;
-          await setControllerCollaborationMode(controllerCollaborationMode({ collaborationMode: nextCollaborationMode, goal: nextGoal }));
-          await setControllerToolApprovalMode(toolApprovalModeRef.current);
-          await setControllerAskWorkflow(askWorkflowEnabledRef.current);
-          await setControllerStepThinking(stepThinkingEnabledRef.current);
-          if (nextGoal.trim()) await setControllerGoal(nextGoal);
+          await applyRuntimePrefs();
+          await refreshMeta();
         } finally {
           if (latestModelSwitchRef.current[activeTabId] === name) {
             delete latestModelSwitchRef.current[activeTabId];
@@ -1010,7 +1028,7 @@ export default function App() {
       pendingModelSwitchRef.current[activeTabId] = task;
       await task;
     },
-    [activeTabId, askWorkflowEnabled, collaborationMode, goal, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, setModel, stepThinkingEnabled, toolApprovalMode],
+    [activeTabId, askWorkflowEnabled, collaborationMode, goal, refreshMeta, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, setModel, stepThinkingEnabled, toolApprovalMode],
   );
 
   const switchEffort = useCallback(
@@ -1018,9 +1036,11 @@ export default function App() {
       if (!activeTabId) return;
       latestEffortSwitchRef.current[activeTabId] = level;
       setPendingEffortsByTab((current) => (current[activeTabId] === level ? current : { ...current, [activeTabId]: level }));
+      if (runningRef.current) return;
       const task = (async () => {
         try {
           await setEffort(level);
+          await refreshMeta();
         } finally {
           if (latestEffortSwitchRef.current[activeTabId] === level) {
             delete latestEffortSwitchRef.current[activeTabId];
@@ -1037,7 +1057,94 @@ export default function App() {
       pendingEffortSwitchRef.current[activeTabId] = task;
       await task;
     },
-    [activeTabId, setEffort],
+    [activeTabId, refreshMeta, setEffort],
+  );
+
+  const applyPendingRuntimePrefs = useCallback(async (tabId: string) => {
+    const pendingModel = latestModelSwitchRef.current[tabId];
+    if (pendingModel && !pendingModelSwitchRef.current[tabId]) {
+      latestModelSwitchRef.current[tabId] = pendingModel;
+      const task = (async () => {
+        try {
+          await app.SetModelForTab(tabId, pendingModel);
+          await app.SetCollaborationModeForTab(tabId, controllerCollaborationMode({ collaborationMode: collaborationModeRef.current, goal: goalRef.current }));
+          await app.SetToolApprovalModeForTab(tabId, toolApprovalModeRef.current);
+          await app.SetAskWorkflowForTab(tabId, askWorkflowEnabledRef.current);
+          await app.SetStepThinkingForTab(tabId, stepThinkingEnabledRef.current);
+          if (goalRef.current.trim()) await app.SetGoalForTab(tabId, goalRef.current);
+          await refreshMeta();
+        } finally {
+          if (latestModelSwitchRef.current[tabId] === pendingModel) {
+            delete latestModelSwitchRef.current[tabId];
+            delete pendingModelSwitchRef.current[tabId];
+            setPendingModelLabelsByTab((current) => {
+              if (current[tabId] !== pendingModel) return current;
+              const next = { ...current };
+              delete next[tabId];
+              return next;
+            });
+          }
+        }
+      })();
+      pendingModelSwitchRef.current[tabId] = task;
+    }
+    await pendingModelSwitchRef.current[tabId];
+    const pendingEffort = latestEffortSwitchRef.current[tabId] ?? pendingEffortsByTab[tabId];
+    if (pendingEffort && !pendingEffortSwitchRef.current[tabId]) {
+      latestEffortSwitchRef.current[tabId] = pendingEffort;
+      const task = (async () => {
+        try {
+          await app.SetEffortForTab(tabId, pendingEffort);
+          await refreshMeta();
+        } finally {
+          if (latestEffortSwitchRef.current[tabId] === pendingEffort) {
+            delete latestEffortSwitchRef.current[tabId];
+            delete pendingEffortSwitchRef.current[tabId];
+            setPendingEffortsByTab((current) => {
+              if (current[tabId] !== pendingEffort) return current;
+              const next = { ...current };
+              delete next[tabId];
+              return next;
+            });
+          }
+        }
+      })();
+      pendingEffortSwitchRef.current[tabId] = task;
+    }
+    await pendingEffortSwitchRef.current[tabId];
+    const hasPendingEnhanced = Object.prototype.hasOwnProperty.call(pendingEnhancedModesByTab, tabId);
+    if (hasPendingEnhanced && !pendingEnhancedSwitchRef.current[tabId]) {
+      const nextEnhanced = pendingEnhancedModesByTab[tabId];
+      const task = (async () => {
+        try {
+          await app.SetEnhancedModeForTab(tabId, nextEnhanced);
+          await refreshMeta();
+        } finally {
+          delete pendingEnhancedSwitchRef.current[tabId];
+          setPendingEnhancedModesByTab((current) => {
+            if (current[tabId] !== nextEnhanced) return current;
+            const next = { ...current };
+            delete next[tabId];
+            return next;
+          });
+        }
+      })();
+      pendingEnhancedSwitchRef.current[tabId] = task;
+    }
+    await pendingEnhancedSwitchRef.current[tabId];
+  }, [pendingEffortsByTab, pendingEnhancedModesByTab, refreshMeta]);
+
+  const startGoal = useCallback(
+    async (nextGoal: string) => {
+      const trimmed = nextGoal.trim();
+      if (!trimmed) return;
+      if (activeTabId) {
+        await applyPendingRuntimePrefs(activeTabId);
+      }
+      await applyGoal(trimmed);
+      send(trimmed, `/goal ${trimmed}`);
+    },
+    [activeTabId, applyGoal, applyPendingRuntimePrefs, send],
   );
 
   const submitPromptToAgent = useCallback(
@@ -1045,8 +1152,7 @@ export default function App() {
       const trimmed = displayText.trim();
       if (!trimmed) return;
       if (activeTabId) {
-        await pendingModelSwitchRef.current[activeTabId];
-        await pendingEffortSwitchRef.current[activeTabId];
+        await applyPendingRuntimePrefs(activeTabId);
       }
       const nextCollaborationMode = collaborationModeRef.current;
       const nextGoal = goalRef.current;
@@ -1057,7 +1163,7 @@ export default function App() {
       if (nextGoal.trim()) await setControllerGoal(nextGoal);
       send(trimmed, submitText.trim());
     },
-    [activeTabId, askWorkflowEnabled, collaborationMode, goal, send, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode],
+    [activeTabId, applyPendingRuntimePrefs, askWorkflowEnabled, collaborationMode, goal, send, setControllerAskWorkflow, setControllerCollaborationMode, setControllerGoal, setControllerStepThinking, setControllerToolApprovalMode, stepThinkingEnabled, toolApprovalMode],
   );
 
   const queuePrompt = useCallback((displayText: string, submitText = displayText) => {
@@ -1256,16 +1362,14 @@ export default function App() {
           await applyGoal("");
         }
         if (activeTabId) {
-          await pendingModelSwitchRef.current[activeTabId];
-          await pendingEffortSwitchRef.current[activeTabId];
+          await applyPendingRuntimePrefs(activeTabId);
         }
         send(trimmed, submitText.trim());
         return;
       }
       if (collaborationModeRef.current === "goal" && !goalRef.current.trim()) {
         if (activeTabId) {
-          await pendingModelSwitchRef.current[activeTabId];
-          await pendingEffortSwitchRef.current[activeTabId];
+          await applyPendingRuntimePrefs(activeTabId);
         }
         await applyGoal(trimmed);
         send(trimmed, `/goal ${submitText.trim()}`);
@@ -1277,7 +1381,7 @@ export default function App() {
       }
       await submitPromptToAgent(trimmed, submitText.trim());
     },
-    [activeTabId, applyGoal, closeTransientOverlays, collaborationMode, goal, queuePrompt, runShell, notice, submitPromptToAgent, switchModel, t],
+    [activeTabId, applyGoal, applyPendingRuntimePrefs, closeTransientOverlays, collaborationMode, goal, queuePrompt, runShell, notice, submitPromptToAgent, switchModel, t],
   );
 
   useEffect(() => {

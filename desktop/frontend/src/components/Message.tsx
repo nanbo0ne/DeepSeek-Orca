@@ -58,6 +58,7 @@ export function UserMessage({
   return (
     <div className={`msg msg--user${failed ? " msg--user-failed" : ""}`} id={anchorId} data-question-anchor={anchorId} data-turn={turn}>
       <div className="msg__body">
+        <CopyButton text={displayText || text} label={t("msg.copy")} showLabel={false} className="msg__copy msg__copy--user" />
         {displayText && <div className="msg__text">{displayText}</div>}
         {failed && <div className="msg__send-failed">{t("msg.sendFailed")}</div>}
         {orderedAttachments.length > 0 && (
