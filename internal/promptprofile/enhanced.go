@@ -42,10 +42,13 @@ Response style:
 - When work is complete, summarize what changed and what verification ran.`
 
 // EnhancedSystemPrompt returns the stable system prefix for V2 enhanced mode.
-func EnhancedSystemPrompt(outputStyle, languagePolicy string) string {
+func EnhancedSystemPrompt(outputStyle, toolRoutingPolicy, languagePolicy string) string {
 	parts := []string{enhancedCorePrompt}
 	if strings.TrimSpace(outputStyle) != "" {
 		parts = append(parts, strings.TrimSpace(outputStyle))
+	}
+	if strings.TrimSpace(toolRoutingPolicy) != "" {
+		parts = append(parts, strings.TrimSpace(toolRoutingPolicy))
 	}
 	if strings.TrimSpace(languagePolicy) != "" {
 		parts = append(parts, strings.TrimSpace(languagePolicy))

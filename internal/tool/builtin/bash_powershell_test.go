@@ -161,7 +161,7 @@ func TestShutdownFailureReasonIsActionable(t *testing.T) {
 		"用法: C:\\Windows\\System32\\shutdown.exe [/i | /l | /s]",
 		&exec.ExitError{},
 	)
-	if !strings.Contains(reason, "shutdown") || !strings.Contains(reason, "权限") {
+	if !strings.Contains(reason, "shutdown") || !strings.Contains(reason, "host_command") || !strings.Contains(reason, "Windows-native") {
 		t.Fatalf("shutdown reason should be actionable, got %q", reason)
 	}
 }

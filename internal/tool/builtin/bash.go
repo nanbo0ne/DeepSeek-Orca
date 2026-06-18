@@ -85,15 +85,17 @@ func (b bash) Description() string {
 			"  - file ops: Get-ChildItem (ls), Get-Content (cat), Remove-Item -Recurse -Force (rm -rf), Copy-Item (cp), Select-String (grep).\n" +
 			"  - no head/tail/which/touch: use Select-Object -First/-Last N, (Get-Command x).Source, New-Item.\n" +
 			"  - multi-line text to a native exe (e.g. git commit -m): use a single-quoted here-string @'...'@ (closing '@ at column 0)." +
-			bashToolSteer
+			bashToolSteer + hostToolSteer
 	}
-	return "Execute a command in the shell and return combined stdout/stderr." + bashToolSteer
+	return "Execute a command in the shell and return combined stdout/stderr." + bashToolSteer + hostToolSteer
 }
 
 // bashToolSteer points the model at the cross-platform built-in tools instead of
 // shell utilities, so it doesn't reach for grep/cat/ls/find (absent or different
 // on native Windows) when a native tool already does the job everywhere.
 const bashToolSteer = " Use for builds, tests, git, package managers, etc. To search/read/list/edit files, prefer the dedicated tools (grep, read_file, ls, glob, edit_file) over shell grep/cat/ls/find/sed — they behave identically on every OS. For symbol search, call graphs, or architecture questions, use codegraph tools instead of grep."
+
+const hostToolSteer = " For host/system actions, prefer host tools before bash: host_command for native OS commands, host_list_processes/host_kill_process for processes, host_open_app for launching apps, host_clipboard for clipboard, notify_user and automation_create for notifications and timed work, web_search for unknown URLs, node_repl_exec/python_repl_exec for reusable runtime work, and document_inspect/document_extract for Word/PPT/Excel/PDF/PDF-like files."
 
 // resolved returns the bound shell, resolving lazily for the zero-value instance
 // (e.g. a registry that never went through ConfineBash).
@@ -250,15 +252,15 @@ func shellExitReason(sh sandbox.Shell, command, output string, err error) string
 	lowerOut := strings.ToLower(output)
 	if strings.HasPrefix(lowerCmd, "shutdown") {
 		if strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "用法:") || strings.Contains(lowerOut, "没有参数") || strings.Contains(lowerOut, "must be used") {
-			return "Windows shutdown 参数没有被当前 shell 正确解析，或缺少执行关机/重启的系统权限"
+			return "Windows shutdown arguments were rejected or the current shell did not pass them correctly; use host_command with shell=cmd/powershell for Windows-native commands"
 		}
-		return "shutdown 命令失败，通常是权限不足、策略限制或参数不被当前系统接受"
+		return "shutdown failed; likely causes are insufficient permission, local policy restrictions, or arguments rejected by the operating system"
 	}
 	if sh.Kind == sandbox.ShellPowerShell && (hasUnquotedSeq(command, "&&") || hasUnquotedSeq(command, "||")) {
-		return "Windows PowerShell 5.1 不支持 bash 风格的 &&/|| 链式命令"
+		return "Windows PowerShell 5.1 does not support bash-style &&/|| chaining"
 	}
 	if code := exitCodeOf(err); code >= 0 {
-		return "进程返回非零退出码 " + strconv.Itoa(code) + "，请查看上方命令输出定位具体原因"
+		return "process returned non-zero exit code " + strconv.Itoa(code) + "; inspect the command output above for the concrete cause"
 	}
 	return ""
 }

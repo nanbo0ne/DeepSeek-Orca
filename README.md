@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.11
+# DeepSeek-Orca V2.0.12
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留了原有的核心 Agent 循环、工具调用、MCP、技能、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek 与 OpenAI-compatible provider 做了桌面端体验和 V2 工作流增强。
 
@@ -6,11 +6,11 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.11-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.11/DeepSeek-Orca-Setup-2.0.11-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.12-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.12/DeepSeek-Orca-Setup-2.0.12-windows-amd64.exe)
 
-## V2.0.11 宿主工具库
+## V2.0.12 宿主工具库
 
-V2.0.11 默认启用新的宿主工具库，不再额外放置“工具库拓展”开关。模型现在可以在现有审批体系下使用这些能力：
+V2.0.12 默认启用新的宿主工具库，不再额外放置“工具库拓展”开关。模型现在可以在现有审批体系下使用这些能力：
 
 - 原生宿主命令：通过 Windows `cmd.exe` / PowerShell 执行系统命令，避免 Git Bash 参数改写，适合 `shutdown`、`taskkill` 等 Windows 命令。
 - 系统与进程：读取系统信息、列出进程、结束进程、启动应用、读写文本剪贴板。

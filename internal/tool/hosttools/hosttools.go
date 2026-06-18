@@ -113,10 +113,10 @@ type automationCreate struct{ workDir string }
 
 func (automationCreate) Name() string { return "automation_create" }
 func (automationCreate) Description() string {
-	return "Create an unattended timed automation. It can show a reminder notification or run a native host command at a future time. The automation must not ask the user questions while running; it should finish, self-check obvious failures, and notify success or failure."
+	return "Create an unattended timed automation. Use structured action=notify for reminders and action=host_command for simple delayed native host commands. Include a clear label. The automation must not ask the user questions while running; it records status/result for automation_list."
 }
 func (automationCreate) Schema() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"label":{"type":"string"},"delay_seconds":{"type":"integer","minimum":1,"description":"Delay before running. Use either delay_seconds or run_at."},"run_at":{"type":"string","description":"RFC3339 timestamp for when to run."},"action":{"type":"string","enum":["notify","host_command"],"description":"Automation action."},"message":{"type":"string","description":"Notification body for notify action."},"command":{"type":"string","description":"Native host command for host_command action."}},"required":["action"]}`)
+	return json.RawMessage(`{"type":"object","properties":{"label":{"type":"string"},"delay_seconds":{"type":"integer","minimum":1,"description":"Delay before running. Use either delay_seconds or run_at."},"run_at":{"type":"string","description":"RFC3339 timestamp for when to run."},"action":{"type":"string","enum":["notify","host_command"],"description":"Structured automation action."},"message":{"type":"string","description":"Notification body for notify action."},"command":{"type":"string","description":"Simple native host command for host_command action. Prefer host tools directly for immediate system actions."}},"required":["action"]}`)
 }
 func (automationCreate) ReadOnly() bool { return false }
 func (a automationCreate) Execute(ctx context.Context, args json.RawMessage) (string, error) {
@@ -179,12 +179,14 @@ func runAutomation(ctx context.Context, workDir string, item *automationItem) {
 	switch item.Action {
 	case "notify":
 		err = notify.NewPlatformSender().Send(notify.Message{Title: firstNonEmpty(item.Label, "DeepSeek-Orca 自动化"), Body: item.Message})
-		result = "notification sent"
+		result = "status=done action=notify result=notification_sent"
 	case "host_command":
-		cmd := exec.CommandContext(ctx, nativeShellArgv("auto", item.Command)[0], nativeShellArgv("auto", item.Command)[1:]...)
+		argv := nativeShellArgv("auto", item.Command)
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		cmd.Dir = workDir
 		out, runErr := cmd.CombinedOutput()
-		result = decodeOutput(out)
+		decoded := strings.TrimSpace(decodeOutput(out))
+		result = strings.TrimSpace("status=done action=host_command shell=auto\n" + decoded)
 		err = runErr
 		if err == nil {
 			_ = notify.NewPlatformSender().Send(notify.Message{Title: "DeepSeek-Orca 自动化完成", Body: item.Label})
@@ -209,8 +211,10 @@ func (automationList) Name() string { return "automation_list" }
 func (automationList) Description() string {
 	return "List timed automations created in this app process."
 }
-func (automationList) Schema() json.RawMessage { return json.RawMessage(`{"type":"object","properties":{}}`) }
-func (automationList) ReadOnly() bool          { return true }
+func (automationList) Schema() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{}}`)
+}
+func (automationList) ReadOnly() bool { return true }
 func (automationList) Execute(context.Context, json.RawMessage) (string, error) {
 	b, _ := json.MarshalIndent(automations.list(), "", "  ")
 	return string(b), nil
@@ -227,14 +231,16 @@ func (automationCancel) Schema() json.RawMessage {
 }
 func (automationCancel) ReadOnly() bool { return false }
 func (automationCancel) Execute(_ context.Context, args json.RawMessage) (string, error) {
-	var p struct{ ID string `json:"id"` }
+	var p struct {
+		ID string `json:"id"`
+	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "", err
 	}
 	if automations.cancel(p.ID) {
-		return "Automation cancelled.", nil
+		return "status=cancelled result=automation_cancelled", nil
 	}
-	return "Automation was not scheduled or was not found.", nil
+	return "status=not_found result=automation_not_scheduled_or_not_found", nil
 }
 
 type threadList struct{}
@@ -248,7 +254,9 @@ func (threadList) Schema() json.RawMessage {
 }
 func (threadList) ReadOnly() bool { return true }
 func (threadList) Execute(_ context.Context, args json.RawMessage) (string, error) {
-	var p struct{ Limit int `json:"limit"` }
+	var p struct {
+		Limit int `json:"limit"`
+	}
 	_ = json.Unmarshal(args, &p)
 	if p.Limit <= 0 || p.Limit > 200 {
 		p.Limit = 50
@@ -280,7 +288,7 @@ type hostCommand struct{ workDir string }
 
 func (hostCommand) Name() string { return "host_command" }
 func (hostCommand) Description() string {
-	return "Execute a native host command directly through the operating system shell, bypassing Git Bash argument rewriting. On Windows, use this for native commands such as shutdown, taskkill, start, sc, reg, and PowerShell. This can alter the computer and requires approval unless tool approval is auto/yolo."
+	return "Execute a native host command directly through the operating system shell, bypassing Git Bash argument rewriting. Use as the fallback for OS/system commands when no more specific host tool fits. On Windows, use this for native commands such as shutdown, taskkill, start, sc, reg, and PowerShell. Returns status=done/status=failed style output. This can alter the computer and requires approval unless tool approval is auto/yolo."
 }
 func (hostCommand) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"command":{"type":"string","description":"Command text to execute in the native host shell."},"shell":{"type":"string","enum":["auto","cmd","powershell"],"description":"Windows shell choice. auto uses cmd on Windows and sh elsewhere."},"timeout_seconds":{"type":"integer","minimum":1,"maximum":3600,"description":"Optional timeout in seconds. Defaults to 120."}},"required":["command"]}`)
@@ -314,15 +322,15 @@ func (h hostCommand) Execute(ctx context.Context, args json.RawMessage) (string,
 	err := cmd.Run()
 	out := decodeOutput(buf.Bytes())
 	if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
-		return out, fmt.Errorf("host command timed out after %s", timeout)
+		return out, fmt.Errorf("status=failed tool=host_command shell=%s timeout=%s reason=timeout", normalizedHostShell(p.Shell), timeout)
 	}
 	if err != nil {
-		return out, fmt.Errorf("%s", hostExitSummary(p.Command, err, out))
+		return out, fmt.Errorf("%s", hostExitSummaryV2(p.Command, err, out, normalizedHostShell(p.Shell)))
 	}
 	if strings.TrimSpace(out) == "" {
-		return "Command completed with no output.", nil
+		return fmt.Sprintf("status=done tool=host_command shell=%s result=no_output", normalizedHostShell(p.Shell)), nil
 	}
-	return out, nil
+	return fmt.Sprintf("status=done tool=host_command shell=%s\n%s", normalizedHostShell(p.Shell), out), nil
 }
 
 func nativeShellArgv(shell, command string) []string {
@@ -335,6 +343,22 @@ func nativeShellArgv(shell, command string) []string {
 		}
 	}
 	return []string{"sh", "-c", command}
+}
+
+func normalizedHostShell(shell string) string {
+	s := strings.ToLower(strings.TrimSpace(shell))
+	if runtime.GOOS == "windows" {
+		switch s {
+		case "powershell", "pwsh":
+			return "powershell"
+		default:
+			return "cmd"
+		}
+	}
+	if s == "" || s == "auto" {
+		return "sh"
+	}
+	return s
 }
 
 func hostExitSummary(command string, err error, output string) string {
@@ -365,14 +389,51 @@ func hostExitSummary(command string, err error, output string) string {
 	return fmt.Sprintf("host command failed: %v", err)
 }
 
+func hostExitSummaryV2(command string, err error, output string, shell string) string {
+	code := -1
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		code = exitErr.ExitCode()
+	}
+	lowerCmd := strings.ToLower(strings.TrimSpace(command))
+	lowerOut := strings.ToLower(output)
+	reason := "process_returned_non_zero"
+	advice := "inspect stdout/stderr and adjust the command or use a more specific host tool"
+	if strings.HasPrefix(lowerCmd, "shutdown") {
+		switch {
+		case code == 1190 || strings.Contains(lowerOut, "1190") || (strings.Contains(lowerOut, "already") && strings.Contains(lowerOut, "shutdown")) || strings.Contains(lowerOut, "已经计划"):
+			reason = "shutdown_already_scheduled"
+			advice = "a Windows shutdown is already pending; do not repeat the schedule command unless you cancel first"
+		case strings.Contains(lowerOut, "access is denied") || strings.Contains(lowerOut, "拒绝访问"):
+			reason = "shutdown_access_denied"
+			advice = "run with elevated permission or check local policy/security software"
+		case strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "用法:"):
+			reason = "shutdown_arguments_rejected"
+			advice = "check shutdown.exe arguments and prefer shell=cmd for Windows-native syntax"
+		case strings.Contains(lowerOut, "no shutdown") || strings.Contains(lowerOut, "no pending shutdown") || strings.Contains(lowerOut, "没有正在执行"):
+			reason = "shutdown_none_pending"
+			advice = "there is no pending shutdown to cancel"
+		default:
+			reason = "shutdown_rejected"
+			advice = "check administrator permission, local policy, security software, and command arguments"
+		}
+	}
+	if code >= 0 {
+		return fmt.Sprintf("status=failed tool=host_command shell=%s exit_code=%d reason=%s advice=%q", shell, code, reason, advice)
+	}
+	return fmt.Sprintf("status=failed tool=host_command shell=%s reason=execution_failed error=%q advice=%q", shell, err.Error(), advice)
+}
+
 type hostSystemInfo struct{ workDir string }
 
 func (hostSystemInfo) Name() string { return "host_system_info" }
 func (hostSystemInfo) Description() string {
 	return "Return host OS, architecture, current user, working directory, PATH shell hints, and administrator/elevation hint. Read-only."
 }
-func (hostSystemInfo) Schema() json.RawMessage { return json.RawMessage(`{"type":"object","properties":{}}`) }
-func (hostSystemInfo) ReadOnly() bool          { return true }
+func (hostSystemInfo) Schema() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{}}`)
+}
+func (hostSystemInfo) ReadOnly() bool { return true }
 func (h hostSystemInfo) Execute(context.Context, json.RawMessage) (string, error) {
 	user := os.Getenv("USERNAME")
 	if user == "" {
@@ -462,7 +523,7 @@ func (hostKillProcess) Execute(ctx context.Context, args json.RawMessage) (strin
 	var p struct {
 		PID   int    `json:"pid"`
 		Name  string `json:"name"`
-		Force bool   `json:"force"`
+		Force *bool  `json:"force"`
 	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "", err
@@ -471,16 +532,17 @@ func (hostKillProcess) Execute(ctx context.Context, args json.RawMessage) (strin
 		return "", fmt.Errorf("pid or name is required")
 	}
 	var cmd *exec.Cmd
+	force := p.Force == nil || *p.Force
 	if runtime.GOOS == "windows" {
 		if p.PID > 0 {
 			args := []string{"/PID", strconv.Itoa(p.PID)}
-			if p.Force || !strings.Contains(string(argsJSON(args)), "force:false") {
+			if force {
 				args = append([]string{"/F"}, args...)
 			}
 			cmd = exec.CommandContext(ctx, "taskkill", args...)
 		} else {
 			args := []string{"/IM", p.Name}
-			if p.Force || !strings.Contains(string(argsJSON(args)), "force:false") {
+			if force {
 				args = append([]string{"/F"}, args...)
 			}
 			cmd = exec.CommandContext(ctx, "taskkill", args...)
@@ -496,8 +558,6 @@ func (hostKillProcess) Execute(ctx context.Context, args json.RawMessage) (strin
 	}
 	return firstNonEmpty(decodeOutput(out), "Process termination requested."), nil
 }
-
-func argsJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 
 type hostOpenApp struct{ workDir string }
 
@@ -866,7 +926,9 @@ func (documentInspect) Schema() json.RawMessage {
 }
 func (documentInspect) ReadOnly() bool { return true }
 func (d documentInspect) Execute(_ context.Context, args json.RawMessage) (string, error) {
-	var p struct{ Path string `json:"path"` }
+	var p struct {
+		Path string `json:"path"`
+	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "", err
 	}
