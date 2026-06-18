@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.9
+# DeepSeek-Orca V2.0.10
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留了原有的核心 Agent 循环、工具调用、MCP、技能、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek 与 OpenAI-compatible provider 做了桌面端体验和 V2 工作流增强。
 
@@ -6,7 +6,7 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.9-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.9/DeepSeek-Orca-Setup-2.0.9-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.10-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.10/DeepSeek-Orca-Setup-2.0.10-windows-amd64.exe)
 
 安装后打开 DeepSeek-Orca Desktop，在设置中填写 DeepSeek API Key，或添加兼容 OpenAI 接口的 provider。
 
@@ -53,6 +53,17 @@ V2 在发送按钮旁新增“增强模式”。开启后，当前会话会切�
 - 做任务级复查和最终复查。
 
 如果“询问”和“分步思考”同时开启，分步思考会跳过 brainstorm/方案构思环节，避免重复规划。
+
+## V2.0.10 补丁
+
+V2.0.10 重点修复自动标题和 shell 报错可读性：
+
+- 增强模式下的 `<system-reminder>`、`<workflow-reminder>`、`<memory-update>` 等注入块不再污染会话标题。
+- 首次真实用户消息与首次 AI 回复完成后，会用独立轻量对话自动生成会话标题，不写入主对话历史，不影响主上下文统计。
+- 左侧会话右键菜单新增“AI 生成标题”，可手动重新生成当前会话标题。
+- shell / bash 工具非零退出时会显示退出码、shell 类型、原始命令和简短原因，不再只显示 `exit status 1`。
+- Windows Git Bash 下的 `shutdown /s /t ... /c ...` 会自动通过 `cmd.exe /c` 兼容执行；失败时给出参数解析或权限不足提示。
+- 修复根目录测试中的 DeepSeek 默认 reasoning effort、Windows symlink 权限测试、serve 默认语言断言和中文 forget 输出兼容问题。
 
 ## V2.0.9 补丁
 

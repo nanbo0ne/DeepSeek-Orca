@@ -174,6 +174,15 @@ func EffectiveEffort(e *ProviderEntry) string {
 	}
 	supported := normalizedSupportedEfforts(e)
 	if len(supported) == 0 {
+		if cap, ok := resolvedModelReasoningCapability(e); ok {
+			def := normalizeEffortLevel(cap.Default)
+			if def != "" && def != "auto" && containsString(cap.Levels, def) {
+				return def
+			}
+			if len(cap.Levels) > 0 {
+				return cap.Levels[0]
+			}
+		}
 		return ""
 	}
 	def := normalizeEffortLevel(e.DefaultEffort)

@@ -22,6 +22,7 @@ import (
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/netclient"
 	"deepseek-orca/internal/provider"
 )
 
@@ -1308,9 +1309,23 @@ func (a *App) maybeAutoTitleTopic(tab *WorkspaceTab) bool {
 	if sessionPath == "" {
 		return false
 	}
-	nextTitle, updated := autoTitleTopicFromSession(titleRoot, tab.TopicID, sessionPath)
+	nextTitle, updated := "", false
+	if userText, assistantText := topicTitleInputsFromSession(sessionPath); userText != "" && assistantText != "" {
+		nextTitle = topicTitleFromText(userText)
+		if generated, err := a.generateTopicTitleWithProvider(tab.WorkspaceRoot, userText, assistantText); err == nil && generated != "" {
+			nextTitle = generated
+		}
+		if nextTitle != "" && nextTitle != loadTopicTitle(titleRoot, tab.TopicID) {
+			if err := setTopicTitleWithSource(titleRoot, tab.TopicID, nextTitle, topicTitleSourceAuto); err == nil {
+				updated = true
+			}
+		}
+	}
 	if !updated {
-		return false
+		nextTitle, updated = autoTitleTopicFromSession(titleRoot, tab.TopicID, sessionPath)
+		if !updated {
+			return false
+		}
 	}
 	a.updateOpenTopicTitle(tab.TopicID, nextTitle)
 	a.updateTopicSessionTitles(tab.TopicID, nextTitle)
@@ -1322,7 +1337,11 @@ func autoTitleTopicFromSession(workspaceRoot, topicID, sessionPath string) (stri
 	if source := loadTopicTitleSource(workspaceRoot, topicID); source != topicTitleSourceAuto {
 		return "", false
 	}
-	nextTitle := topicTitleFromSession(sessionPath)
+	userText, assistantText := topicTitleInputsFromSession(sessionPath)
+	if userText == "" || assistantText == "" {
+		return "", false
+	}
+	nextTitle := topicTitleFromText(userText)
 	if nextTitle == "" || nextTitle == loadTopicTitle(workspaceRoot, topicID) {
 		return "", false
 	}
@@ -1332,25 +1351,178 @@ func autoTitleTopicFromSession(workspaceRoot, topicID, sessionPath string) (stri
 	return nextTitle, true
 }
 
-func topicTitleFromSession(path string) string {
+func topicTitleInputsFromSession(path string) (string, string) {
 	f, err := os.Open(path)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
+	userText := ""
 	for {
 		var msg struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		}
 		if err := dec.Decode(&msg); err != nil {
-			return ""
+			return userText, ""
 		}
-		if msg.Role == "user" {
-			return topicTitleFromText(agent.HandoffTask(msg.Content))
+		switch msg.Role {
+		case "user":
+			if userText != "" {
+				continue
+			}
+			content := control.StripComposePrefixes(msg.Content)
+			if control.IsSyntheticUserMessage(content) {
+				continue
+			}
+			content = strings.TrimSpace(agent.HandoffTask(content))
+			if content != "" {
+				userText = content
+			}
+		case "assistant":
+			if userText == "" {
+				continue
+			}
+			content := strings.TrimSpace(msg.Content)
+			if content != "" {
+				return userText, content
+			}
 		}
 	}
+}
+
+func topicTitleFromSession(path string) string {
+	userText, _ := topicTitleInputsFromSession(path)
+	return topicTitleFromText(userText)
+}
+
+func (a *App) GenerateTopicTitle(scope, workspaceRoot, topicID string) (string, error) {
+	topicID = strings.TrimSpace(topicID)
+	if topicID == "" {
+		return "", fmt.Errorf("topicID is required")
+	}
+	if scope == "global" {
+		workspaceRoot = ""
+	} else if workspaceRoot != "" {
+		workspaceRoot = normalizeProjectRoot(workspaceRoot)
+	}
+	if scope == "" {
+		var ok bool
+		scope, workspaceRoot, ok = a.findTopicLocation(topicID)
+		if !ok {
+			return "", fmt.Errorf("topic %q not found", topicID)
+		}
+	}
+	titleRoot := topicTitleRoot(scope, workspaceRoot)
+	sessionPath := ""
+	a.mu.RLock()
+	for _, tab := range a.tabs {
+		if tab == nil || tab.TopicID != topicID || tab.Ctrl == nil {
+			continue
+		}
+		sessionPath = tab.Ctrl.SessionPath()
+		break
+	}
+	a.mu.RUnlock()
+	if sessionPath == "" {
+		sessionPath = findTopicSession(desktopSessionDir(workspaceRoot), topicID)
+	}
+	if sessionPath == "" && scope == "global" {
+		sessionPath = findTopicSession(config.SessionDir(), topicID)
+	}
+	if sessionPath == "" {
+		return "", fmt.Errorf("topic %q has no saved session yet", topicID)
+	}
+	userText, assistantText := topicTitleInputsFromSession(sessionPath)
+	if userText == "" {
+		return "", fmt.Errorf("topic %q has no user message to title", topicID)
+	}
+	fallback := topicTitleFromText(userText)
+	title := fallback
+	if assistantText != "" {
+		if generated, err := a.generateTopicTitleWithProvider(workspaceRoot, userText, assistantText); err == nil && generated != "" {
+			title = generated
+		}
+	}
+	if title == "" {
+		return "", fmt.Errorf("could not generate a title")
+	}
+	if err := setTopicTitleWithSource(titleRoot, topicID, title, topicTitleSourceAuto); err != nil {
+		return "", err
+	}
+	a.updateOpenTopicTitle(topicID, title)
+	a.updateTopicSessionTitles(topicID, title)
+	a.emitProjectTreeChanged()
+	return title, nil
+}
+
+func (a *App) generateTopicTitleWithProvider(workspaceRoot, userText, assistantText string) (string, error) {
+	cfg, err := config.LoadForRoot(workspaceRoot)
+	if err != nil {
+		return "", err
+	}
+	ref := cfg.DefaultModel
+	a.mu.RLock()
+	for _, tab := range a.tabs {
+		if tab != nil && normalizeProjectRoot(tab.WorkspaceRoot) == normalizeProjectRoot(workspaceRoot) && strings.TrimSpace(tab.model) != "" {
+			ref = tab.model
+			break
+		}
+	}
+	a.mu.RUnlock()
+	resolved, _, ok := cfg.ResolveModelWithFallback(ref)
+	if !ok {
+		return "", fmt.Errorf("unknown model %q", ref)
+	}
+	entry, ok := cfg.ResolveModel(resolved)
+	if !ok {
+		return "", fmt.Errorf("unknown model %q", resolved)
+	}
+	prov, err := boot.NewProviderWithProxy(entry, netclient.ProxySpec{Mode: netclient.ModeAuto})
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(a.bootContext(), 20*time.Second)
+	defer cancel()
+	req := provider.Request{
+		Temperature: 0.2,
+		MaxTokens:   64,
+		Messages: []provider.Message{
+			{Role: provider.RoleSystem, Content: "你是 DeepSeek-Orca 的会话标题生成器。只输出一个简短中文标题，6到18个字，不要引号、冒号、编号、解释或换行。"},
+			{Role: provider.RoleUser, Content: "用户请求：\n" + userText + "\n\nAI 回复：\n" + assistantText},
+		},
+	}
+	ch, err := prov.Stream(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for chunk := range ch {
+		switch chunk.Type {
+		case provider.ChunkText:
+			b.WriteString(chunk.Text)
+		case provider.ChunkError:
+			if chunk.Err != nil {
+				return "", chunk.Err
+			}
+		}
+	}
+	return cleanGeneratedTopicTitle(b.String()), nil
+}
+
+func cleanGeneratedTopicTitle(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.Trim(text, " \t\r\n\"'`“”‘’：:，,。.!！?？;；-—*#")
+	text = strings.Join(strings.Fields(text), "")
+	if text == "" {
+		return ""
+	}
+	runes := []rune(text)
+	if len(runes) > 18 {
+		text = string(runes[:18])
+	}
+	return topicTitleFromText(text)
 }
 
 func topicTitleFromText(text string) string {

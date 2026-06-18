@@ -1982,6 +1982,18 @@ export default function App() {
     await refreshProjectsAndTabs();
   }, [refreshProjectsAndTabs]);
 
+  const generateTopicTitle = useCallback(async (scope: string, workspaceRoot: string, topicId: string) => {
+    if (!topicId) return;
+    try {
+      const title = await app.GenerateTopicTitle(scope, workspaceRoot, topicId);
+      await refreshProjectsAndTabs();
+      showToast(t("projectTree.generateTitleSuccess", { title }));
+    } catch (err) {
+      showToast(t("projectTree.generateTitleFailed", { err: err instanceof Error ? err.message : String(err) }), "error");
+      throw err;
+    }
+  }, [refreshProjectsAndTabs, showToast, t]);
+
   const startActiveTopicRename = useCallback(() => {
     if (!activeTab?.topicId) return;
     topicRenameSkipCommitRef.current = false;
@@ -2115,6 +2127,7 @@ export default function App() {
               onCreateTopic={(scope, workspaceRoot) => openBlankSession(scope, scope === "project" ? workspaceRoot : "")}
               onTopicsChanged={refreshProjectsAndTabs}
               onRenameTopic={renameTopic}
+              onGenerateTopicTitle={generateTopicTitle}
               refreshSignal={projectRevision}
               onAddProject={async () => {
                 await switchFolder();

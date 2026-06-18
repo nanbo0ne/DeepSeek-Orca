@@ -9,7 +9,7 @@ import (
 	"deepseek-orca/internal/skill"
 )
 
-var reComposeBlock = regexp.MustCompile(`(?s)^\s*<(?:memory-update|background-jobs|system-reminder|workflow-reminder)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder)>\s*\n`)
+var reComposeBlock = regexp.MustCompile(`(?s)^\s*<(?:memory-update|background-jobs|system-reminder|workflow-reminder)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder)>\s*(?:\n|$)`)
 
 // PlanModeMarker is prepended to every user turn while plan mode is on. It rides
 // in the user message (not the system prompt or tools), so the cache-stable

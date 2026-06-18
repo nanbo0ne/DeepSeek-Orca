@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -131,8 +132,9 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 			"conditional chaining, or issue the commands as separate calls")
 	}
 
+	command := rewriteWindowsShutdownCommand(sh, p.Command)
 	// Wrap in the OS sandbox when configured; otherwise argv is just the shell.
-	argv, _ := sandbox.Command(b.sb, sh, p.Command)
+	argv, _ := sandbox.Command(b.sb, sh, command)
 	cmdEnv := bashCommandEnv(ctx)
 
 	if p.RunInBackground {
@@ -143,7 +145,7 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 		workDir := b.workDir
 		// The job runs under the manager's session context (no foreground timeout), so it
 		// survives this turn; its combined output streams to the job buffer.
-		job := jm.Start("bash", commandPreview(p.Command), func(jobCtx context.Context, out io.Writer) (string, error) {
+		job := jm.Start("bash", commandPreview(command), func(jobCtx context.Context, out io.Writer) (string, error) {
 			cmd := exec.CommandContext(jobCtx, argv[0], argv[1:]...)
 			cmd.Dir = workDir
 			cmd.Env = cmdEnv
@@ -196,9 +198,77 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 	}
 	if err != nil {
 		// Non-zero exit: feed output and error back so the model can self-correct.
-		return out, fmt.Errorf("command exited: %w", err)
+		return out, shellExitError(sh, p.Command, command, out, err)
 	}
 	return out, nil
+}
+
+func rewriteWindowsShutdownCommand(sh sandbox.Shell, command string) string {
+	if runtime.GOOS != "windows" || sh.Kind != sandbox.ShellBash {
+		return command
+	}
+	trimmed := strings.TrimSpace(command)
+	lower := strings.ToLower(trimmed)
+	if !strings.HasPrefix(lower, "shutdown ") && lower != "shutdown" {
+		return command
+	}
+	if !(strings.Contains(lower, " /s") || strings.Contains(lower, " /r") || strings.Contains(lower, " /g") || strings.Contains(lower, " /l") || strings.Contains(lower, " /a")) {
+		return command
+	}
+	escaped := strings.ReplaceAll(trimmed, `"`, `\"`)
+	return `cmd.exe /c "` + escaped + `"`
+}
+
+func shellExitError(sh sandbox.Shell, originalCommand, executedCommand, output string, err error) error {
+	code := -1
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		code = exitErr.ExitCode()
+	}
+	reason := shellExitReason(sh, originalCommand, output, err)
+	var b strings.Builder
+	if code >= 0 {
+		fmt.Fprintf(&b, "command exited with code %d", code)
+	} else {
+		fmt.Fprintf(&b, "command exited: %v", err)
+	}
+	fmt.Fprintf(&b, " (shell: %s)", sh.Kind.String())
+	if reason != "" {
+		b.WriteString(": ")
+		b.WriteString(reason)
+	}
+	if strings.TrimSpace(executedCommand) != strings.TrimSpace(originalCommand) {
+		b.WriteString(" [executed via: ")
+		b.WriteString(executedCommand)
+		b.WriteString("]")
+	}
+	return errors.New(b.String())
+}
+
+func shellExitReason(sh sandbox.Shell, command, output string, err error) string {
+	lowerCmd := strings.ToLower(strings.TrimSpace(command))
+	lowerOut := strings.ToLower(output)
+	if strings.HasPrefix(lowerCmd, "shutdown") {
+		if strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "用法:") || strings.Contains(lowerOut, "没有参数") || strings.Contains(lowerOut, "must be used") {
+			return "Windows shutdown 参数没有被当前 shell 正确解析，或缺少执行关机/重启的系统权限"
+		}
+		return "shutdown 命令失败，通常是权限不足、策略限制或参数不被当前系统接受"
+	}
+	if sh.Kind == sandbox.ShellPowerShell && (hasUnquotedSeq(command, "&&") || hasUnquotedSeq(command, "||")) {
+		return "Windows PowerShell 5.1 不支持 bash 风格的 &&/|| 链式命令"
+	}
+	if code := exitCodeOf(err); code >= 0 {
+		return "进程返回非零退出码 " + strconv.Itoa(code) + "，请查看上方命令输出定位具体原因"
+	}
+	return ""
+}
+
+func exitCodeOf(err error) int {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return -1
 }
 
 func (b bash) foregroundTimeout() time.Duration {

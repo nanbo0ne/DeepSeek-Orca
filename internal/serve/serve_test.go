@@ -85,7 +85,7 @@ func TestServeEndpoints(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("plan = %v / status %d", err, resp.StatusCode)
 	}
-	if c := ctrl.Compose("x"); !strings.Contains(c, "Plan mode") {
+	if c := ctrl.Compose("x"); !strings.HasPrefix(c, control.PlanModeMarker) {
 		t.Error("/plan {on:true} should have enabled plan mode (Compose would prepend the marker)")
 	}
 
@@ -246,6 +246,8 @@ func TestServeIndexPagePassesLanguagePreferenceToClient(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("APPDATA", filepath.Join(home, "AppData"))
+	t.Setenv("AppData", filepath.Join(home, "AppData"))
 
 	bc := NewBroadcaster()
 	ctrl := control.New(control.Options{Sink: bc})
@@ -262,8 +264,8 @@ func TestServeIndexPagePassesLanguagePreferenceToClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := string(body)
-	if !strings.Contains(html, "const __LANG_PREF = 'auto';") {
-		t.Fatalf("default language preference was not passed as auto:\n%s", html)
+	if !strings.Contains(html, "const __LANG_PREF = 'zh';") {
+		t.Fatalf("default language preference was not passed as zh:\n%s", html)
 	}
 	if !strings.Contains(html, "applyStaticI18n();") {
 		t.Fatal("index should translate static __('key') placeholders on the client")

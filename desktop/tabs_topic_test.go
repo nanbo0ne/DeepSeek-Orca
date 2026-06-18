@@ -48,7 +48,8 @@ func waitForTabReady(t *testing.T, app *App, tabID string) *WorkspaceTab {
 func writeTopicSession(t *testing.T, dir, name, topicID, topicTitle, workspaceRoot string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(`{"role":"user","content":"hello"}`+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(`{"role":"user","content":"hello"}`+"\n"+
+		`{"role":"assistant","content":"ok"}`+"\n"), 0o644); err != nil {
 		t.Fatalf("write session: %v", err)
 	}
 	if err := agent.SaveBranchMeta(path, agent.BranchMeta{
@@ -909,7 +910,8 @@ func TestAutoTitleTopicFromFirstUserMessage(t *testing.T) {
 		t.Fatalf("create topic: %v", err)
 	}
 	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
-	if err := os.WriteFile(sessionPath, []byte(`{"role":"user","content":"讲讲这个代码库的架构"}`+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(sessionPath, []byte(`{"role":"user","content":"讲讲这个代码库的架构"}`+"\n"+
+		`{"role":"assistant","content":"ok"}`+"\n"), 0o644); err != nil {
 		t.Fatalf("write session: %v", err)
 	}
 
@@ -950,6 +952,55 @@ func TestAutoTitleDoesNotOverrideManualTopicTitle(t *testing.T) {
 	}
 	if got := loadTopicTitle(projectRoot, topic.ID); got != "手动标题" {
 		t.Fatalf("stored title = %q, want 手动标题", got)
+	}
+}
+
+func TestAutoTitleSkipsSyntheticUserReminders(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	projectRoot := t.TempDir()
+	topic, err := NewApp().CreateTopic("project", projectRoot, "")
+	if err != nil {
+		t.Fatalf("create topic: %v", err)
+	}
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	data := strings.Join([]string{
+		`{"role":"user","content":"<system-reminder>\nmemory\n</system-reminder>"}`,
+		`{"role":"user","content":"分析登录模块错误"}`,
+		`{"role":"assistant","content":"我会检查登录模块并定位错误。"}`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(sessionPath, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	title, updated := autoTitleTopicFromSession(projectRoot, topic.ID, sessionPath)
+	if !updated {
+		t.Fatal("auto title should update")
+	}
+	if strings.Contains(title, "system-reminder") {
+		t.Fatalf("title used synthetic reminder: %q", title)
+	}
+	if title != "分析登录模块错误" {
+		t.Fatalf("generated title = %q", title)
+	}
+}
+
+func TestAutoTitleWaitsForAssistantReply(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	projectRoot := t.TempDir()
+	topic, err := NewApp().CreateTopic("project", projectRoot, "")
+	if err != nil {
+		t.Fatalf("create topic: %v", err)
+	}
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.WriteFile(sessionPath, []byte(`{"role":"user","content":"分析登录模块错误"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	if title, updated := autoTitleTopicFromSession(projectRoot, topic.ID, sessionPath); updated || title != "" {
+		t.Fatalf("auto title should wait for assistant reply, title=%q updated=%v", title, updated)
 	}
 }
 

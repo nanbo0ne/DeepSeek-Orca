@@ -136,3 +136,32 @@ func TestBashDescriptionReflectsShell(t *testing.T) {
 		t.Errorf("bash description should not mention PowerShell: %q", sh.Description())
 	}
 }
+
+func TestShellExitErrorIncludesExitCodeAndShell(t *testing.T) {
+	err := shellExitError(
+		sandbox.Shell{Kind: sandbox.ShellPowerShell, Path: "powershell"},
+		"exit 1",
+		"exit 1",
+		"",
+		&exec.ExitError{},
+	)
+	msg := err.Error()
+	if !strings.Contains(msg, "shell: powershell") {
+		t.Fatalf("error should include shell kind, got %q", msg)
+	}
+	if !strings.Contains(msg, "command exited") {
+		t.Fatalf("error should explain command exit, got %q", msg)
+	}
+}
+
+func TestShutdownFailureReasonIsActionable(t *testing.T) {
+	reason := shellExitReason(
+		sandbox.Shell{Kind: sandbox.ShellBash, Path: "bash"},
+		`shutdown /s /t 60 /c "DeepSeek-Orca test"`,
+		"用法: C:\\Windows\\System32\\shutdown.exe [/i | /l | /s]",
+		&exec.ExitError{},
+	)
+	if !strings.Contains(reason, "shutdown") || !strings.Contains(reason, "权限") {
+		t.Fatalf("shutdown reason should be actionable, got %q", reason)
+	}
+}

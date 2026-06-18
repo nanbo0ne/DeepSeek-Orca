@@ -4,7 +4,7 @@
 // new topic.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Archive, ChevronRight, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, History, Check, ListCollapse, ListRestart, Pin, PinOff, LoaderCircle } from "lucide-react";
+import { Archive, ChevronRight, Pencil, Plus, Folder, FolderPlus, Search, BriefcaseBusiness, Copy, FolderOpen, XCircle, History, Check, ListCollapse, ListRestart, Pin, PinOff, LoaderCircle, Sparkles } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
 import type { ProjectNode, ProjectTopicStatus } from "../lib/types";
@@ -22,6 +22,7 @@ interface ProjectTreeProps {
   onAddProject: () => Promise<void>;
   onCreateTopic?: (scope: string, workspaceRoot: string) => Promise<void> | void;
   onRenameTopic?: (topicId: string, title: string) => Promise<void> | void;
+  onGenerateTopicTitle?: (scope: string, workspaceRoot: string, topicId: string) => Promise<void> | void;
   onTopicsChanged?: () => Promise<void> | void;
   refreshSignal?: number;
 }
@@ -204,6 +205,7 @@ export function ProjectTree({
   onAddProject,
   onCreateTopic,
   onRenameTopic,
+  onGenerateTopicTitle,
   onTopicsChanged,
   refreshSignal,
 }: ProjectTreeProps) {
@@ -222,6 +224,7 @@ export function ProjectTree({
   const [projectDraft, setProjectDraft] = useState("");
   const [addingProject, setAddingProject] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ topicId: string; action: "trash" } | null>(null);
+  const [generatingTitleTopic, setGeneratingTitleTopic] = useState<string | null>(null);
   const [confirmRemoveProject, setConfirmRemoveProject] = useState<string | null>(null);
   const [dragProjectRoot, setDragProjectRoot] = useState<string | null>(null);
   const [dropProject, setDropProject] = useState<{ root: string; position: ProjectDropPosition } | null>(null);
@@ -431,6 +434,24 @@ export function ProjectTree({
     }
   };
 
+  const generateTopicTitle = async (scope: string, workspaceRoot: string, topicId: string) => {
+    if (!topicId || generatingTitleTopic) return;
+    setGeneratingTitleTopic(topicId);
+    setMenuTopic(null);
+    setMenuPoint(null);
+    setConfirmAction(null);
+    try {
+      if (onGenerateTopicTitle) await onGenerateTopicTitle(scope, workspaceRoot, topicId);
+      else await app.GenerateTopicTitle(scope, workspaceRoot, topicId);
+      await refresh();
+      await onTopicsChanged?.();
+    } catch {
+      /* caller may show a toast; keep the tree usable */
+    } finally {
+      setGeneratingTitleTopic(null);
+    }
+  };
+
   const commitRenameProject = async (root: string) => {
     const title = projectDraft.trim();
     setEditingProject(null);
@@ -615,6 +636,15 @@ export function ProjectTree({
           icon: <Pencil size={13} />,
           label: t("projectTree.renameTopic"),
           onSelect: () => startRenameTopic(node, label),
+        },
+        {
+          key: "ai-title",
+          icon: generatingTitleTopic === topicId ? <LoaderCircle size={13} className="project-tree__topic-spinner" /> : <Sparkles size={13} />,
+          label: generatingTitleTopic === topicId ? t("projectTree.generatingTitle") : t("projectTree.generateTitle"),
+          disabled: generatingTitleTopic === topicId,
+          onSelect: () => {
+            void generateTopicTitle(scope, node.root ?? "", topicId);
+          },
         },
         {
           key: "trash",

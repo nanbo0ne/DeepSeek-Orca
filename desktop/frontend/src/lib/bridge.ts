@@ -254,6 +254,7 @@ export interface AppBindings {
   ReorderProjects(workspaceRoots: string[]): Promise<void>;
   CreateTopic(scope: string, workspaceRoot: string, title: string): Promise<TopicMeta>;
   RenameTopic(topicID: string, title: string): Promise<void>;
+  GenerateTopicTitle(scope: string, workspaceRoot: string, topicID: string): Promise<string>;
   DeleteTopic(topicID: string): Promise<void>;
   TrashTopic(topicID: string): Promise<void>;
   ContextPanel(tabID: string): Promise<ContextPanelInfo>;
@@ -2323,6 +2324,11 @@ function makeMockApp(): AppBindings {
       mockTabs = mockTabs.map((tab) =>
         tab.topicId === topicID ? { ...tab, topicTitle: nextTitle } : tab,
       );
+    },
+    async GenerateTopicTitle(_scope: string, _workspaceRoot: string, topicID: string) {
+      const title = "AI 生成标题";
+      await this.RenameTopic(topicID, title);
+      return title;
     },
     async DeleteTopic(topicID: string) {
       deleteMockTopic(topicID);
