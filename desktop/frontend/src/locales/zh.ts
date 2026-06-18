@@ -36,6 +36,8 @@ export const zh: Record<DictKey, string> = {
   "topbar.skills": "Skill",
   "topbar.bot": "机器人",
   "topbar.botStatus": "打开机器人设置",
+  "topbar.automation": "自动化",
+  "topbar.automationStatus": "管理重复与持续自动化",
   "topbar.statusLights": "运行状态",
   "topbar.statusRead": "读取文件",
   "topbar.statusWrite": "写入文件",
@@ -71,6 +73,7 @@ export const zh: Record<DictKey, string> = {
   "rightDock.workbench": "工作区面板",
   "rightDock.views": "工作区视图",
   "rightDock.overview": "概览",
+  "rightDock.sideChat": "侧边聊天",
 
   // 话题栏
   "topicBar.renameSession": "重命名会话",
@@ -1128,6 +1131,35 @@ export const zh: Record<DictKey, string> = {
   "context.compaction": "压缩状态",
   "context.durationSeconds": "{seconds}秒",
   "context.durationMinutesSeconds": "{minutes}分{seconds}秒",
+
+  // 自动化管理
+  "automation.title": "自动化",
+  "automation.summary": "重复性、持续性、后台监控类任务。",
+  "automation.refresh": "刷新自动化",
+  "automation.clearFinished": "清理已结束",
+  "automation.empty": "暂无自动化。",
+  "automation.pause": "暂停",
+  "automation.resume": "恢复",
+  "automation.cancel": "取消",
+  "automation.nextRun": "下次运行",
+  "automation.lastRun": "上次运行",
+  "automation.status.running": "运行中",
+  "automation.status.scheduled": "等待中",
+  "automation.status.paused": "已暂停",
+  "automation.status.failed": "失败",
+  "automation.status.cancelled": "已取消",
+  "automation.action.notify": "通知",
+  "automation.action.hostCommand": "系统命令",
+
+  // 侧边聊天
+  "sideChat.title": "侧边聊天",
+  "sideChat.summary": "只读参考主对话，重点留意最近 1-2 轮。",
+  "sideChat.placeholder": "询问这段主对话…",
+  "sideChat.send": "发送",
+  "sideChat.stop": "停止",
+  "sideChat.clear": "清空侧边聊天",
+  "sideChat.empty": "可以在这里询问主对话相关问题。",
+  "sideChat.loading": "思考中…",
 
   // 崩溃兜底页
   "crash.title": "DeepSeek-Orca 遇到错误 —— 请截图发送",

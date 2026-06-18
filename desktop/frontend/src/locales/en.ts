@@ -35,6 +35,8 @@ export const en = {
   "topbar.skills": "Skill",
   "topbar.bot": "Bot",
   "topbar.botStatus": "Open bot settings",
+  "topbar.automation": "Automation",
+  "topbar.automationStatus": "Manage recurring automations",
   "topbar.statusLights": "Runtime status",
   "topbar.statusRead": "Reading files",
   "topbar.statusWrite": "Writing files",
@@ -70,6 +72,7 @@ export const en = {
   "rightDock.workbench": "Workspace panel",
   "rightDock.views": "Workspace views",
   "rightDock.overview": "Overview",
+  "rightDock.sideChat": "Side chat",
 
   // topic bar
   "topicBar.renameSession": "Rename session",
@@ -1126,6 +1129,35 @@ export const en = {
   "context.compaction": "Compaction",
   "context.durationSeconds": "{seconds}s",
   "context.durationMinutesSeconds": "{minutes}m {seconds}s",
+
+  // automation manager
+  "automation.title": "Automations",
+  "automation.summary": "Recurring, continuous, and background monitoring tasks.",
+  "automation.refresh": "Refresh automations",
+  "automation.clearFinished": "Clear finished",
+  "automation.empty": "No automations yet.",
+  "automation.pause": "Pause",
+  "automation.resume": "Resume",
+  "automation.cancel": "Cancel",
+  "automation.nextRun": "Next run",
+  "automation.lastRun": "Last run",
+  "automation.status.running": "running",
+  "automation.status.scheduled": "scheduled",
+  "automation.status.paused": "paused",
+  "automation.status.failed": "failed",
+  "automation.status.cancelled": "cancelled",
+  "automation.action.notify": "notification",
+  "automation.action.hostCommand": "host command",
+
+  // side chat
+  "sideChat.title": "Side chat",
+  "sideChat.summary": "Read-only Q&A over the main conversation, with recent turns prioritized.",
+  "sideChat.placeholder": "Ask about this conversation…",
+  "sideChat.send": "Send",
+  "sideChat.stop": "Stop",
+  "sideChat.clear": "Clear side chat",
+  "sideChat.empty": "Ask a question about the main conversation.",
+  "sideChat.loading": "Thinking…",
 
   // crash page
   "crash.title": "DeepSeek-Orca hit an error — screenshot this and send it over",

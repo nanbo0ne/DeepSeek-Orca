@@ -12,6 +12,7 @@ import {
   FileJson,
   GitBranch,
   History,
+  MessageSquareText,
   Settings as SettingsIcon,
   Pencil,
   Trash2,
@@ -40,6 +41,8 @@ import { AppChrome } from "./components/AppChrome";
 import { ProjectTree } from "./components/ProjectTree";
 import { NewSessionChooser } from "./components/NewSessionChooser";
 import { CopyButton } from "./components/CopyButton";
+import { AutomationPanel } from "./components/AutomationPanel";
+import { SideChatPanel } from "./components/SideChatPanel";
 import { parseTodos } from "./lib/tools";
 import { shouldShowTodoPanel } from "./lib/todoVisibility";
 import {
@@ -99,7 +102,7 @@ const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
 const ENHANCED_MODE_SWITCH_HOLD_MS = 520;
 
-type RightDockMode = "context" | "files" | "changed";
+type RightDockMode = "context" | "files" | "changed" | "sideChat";
 type WorkspaceRevealRequest = { id: number; path: string };
 type WorkspaceFileListRequest = { id: number; paths: string[] };
 type WorkspaceChangeListEntry = { key: string; path: string; meta: string; time: string; detail: string };
@@ -311,6 +314,13 @@ function safeFilename(name: string): string {
   return cleaned || "deepseek-orca-session";
 }
 
+function modelDisplayLabel(ref: string, displayLabel?: string): string {
+  const label = displayLabel?.trim();
+  if (label) return label;
+  const parts = ref.split("/").filter(Boolean);
+  return parts[parts.length - 1] || ref;
+}
+
 /** Global hotkey handler for shell-expand toggle (Ctrl/Cmd+B). */
 function ShellHotkeys() {
   const shellExpand = useShellExpand();
@@ -409,6 +419,7 @@ export default function App() {
   // clearing the key mid-session is the Settings panel's job, not the gate's.
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
+  const [automationPanelOpen, setAutomationPanelOpen] = useState(false);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newSessionChooserOpen, setNewSessionChooserOpen] = useState(false);
@@ -994,10 +1005,11 @@ export default function App() {
   // re-apply the current mode, or the pill would say plan/YOLO while the fresh
   // controller silently uses normal gating.
   const switchModel = useCallback(
-    async (name: string) => {
+    async (name: string, displayLabel?: string) => {
       if (!activeTabId) return;
+      const pendingLabel = modelDisplayLabel(name, displayLabel);
       latestModelSwitchRef.current[activeTabId] = name;
-      setPendingModelLabelsByTab((current) => (current[activeTabId] === name ? current : { ...current, [activeTabId]: name }));
+      setPendingModelLabelsByTab((current) => (current[activeTabId] === pendingLabel ? current : { ...current, [activeTabId]: pendingLabel }));
       if (runningRef.current) return;
       const applyRuntimePrefs = async () => {
         const nextCollaborationMode = collaborationModeRef.current;
@@ -1018,7 +1030,7 @@ export default function App() {
             delete latestModelSwitchRef.current[activeTabId];
             delete pendingModelSwitchRef.current[activeTabId];
             setPendingModelLabelsByTab((current) => {
-              if (current[activeTabId] !== name) return current;
+              if (current[activeTabId] !== pendingLabel) return current;
               const next = { ...current };
               delete next[activeTabId];
               return next;
@@ -2096,6 +2108,7 @@ export default function App() {
           onOpenView={openWorkbenchView}
           onOpenSkills={() => setSettingsTarget("skills")}
           onOpenBots={() => setSettingsTarget("bots")}
+          onOpenAutomations={() => setAutomationPanelOpen(true)}
           onToggleSidebar={toggleSidebar}
           onToggleWorkspacePanel={toggleWorkspacePanel}
           onOpenPalette={() => void openPalette()}
@@ -2499,6 +2512,16 @@ export default function App() {
                   <GitBranch size={13} />
                   <span className="workbench-dock__tab-label">{t("workspace.changedTab")}</span>
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={rightDockMode === "sideChat"}
+                  className={`workbench-dock__tab${rightDockMode === "sideChat" ? " workbench-dock__tab--active" : ""}`}
+                  onClick={() => openRightDockMode("sideChat")}
+                >
+                  <MessageSquareText size={13} />
+                  <span className="workbench-dock__tab-label">{t("rightDock.sideChat")}</span>
+                </button>
               </div>
             </div>
             <div className="workbench-dock__body">
@@ -2517,6 +2540,8 @@ export default function App() {
                   onOpenWorkspaceChangeList={openRightDockChangeList}
                   onOpenWorkspaceChangeFile={openRightDockChangeFile}
                 />
+              ) : rightDockMode === "sideChat" ? (
+                <SideChatPanel tabId={activeTabId} />
               ) : (
                 <WorkspacePanel
                   open={workspacePanelRenderable}
@@ -2572,6 +2597,10 @@ export default function App() {
               .catch((e) => console.warn("desktop preferences refresh failed", e));
           }}
         />
+      )}
+
+      {automationPanelOpen && (
+        <AutomationPanel onClose={() => setAutomationPanelOpen(false)} />
       )}
 
       <CommandPalette

@@ -1,14 +1,16 @@
-# DeepSeek-Orca CLI V2.0.12
+# DeepSeek-Orca CLI V2.0.13
 
 DeepSeek-Orca CLI is the terminal entry point for the DeepSeek-Orca coding agent. It keeps the core Reasonix-derived agent loop, tools, MCP, skills, memory, permission control, session resume, rollback, and compaction features.
 
 The Windows desktop installer is the recommended package for most users:
 
-[DeepSeek-Orca-Setup-2.0.12-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.12/DeepSeek-Orca-Setup-2.0.12-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.13/DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe)
 
-## V2.0.12 Host Tools
+## V2.0.13 Notes
 
-V2.0.12 adds a default host tool library shared by the agent runtime: native host commands, process/system helpers, notifications, web search, timed automations, Orca session listing, Node/Python execution, and basic document extraction helpers. Visual desktop control and screenshot recognition are not included in this release.
+V2.0.13 keeps the shared host tool library and tightens automation semantics: persisted automations are intended for explicit recurring, continuous, or background-monitoring tasks. The desktop app also adds an automation manager and a read-only side chat panel; those are desktop-first UI features.
+
+The shared host tools include native host commands, process/system helpers, notifications, web search, recurring automations, Orca session listing, Node/Python execution, and basic document extraction helpers. Visual desktop control and screenshot recognition are not included in this release.
 
 ## Build From Source
 

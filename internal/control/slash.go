@@ -12,7 +12,7 @@ import (
 // SlashItem is one slash-completion suggestion. Insert is the token text placed
 // at the current argument position (callers replace from the token's start, see
 // SlashArgItems' returned offset); Descend hints the menu to re-open one level
-// deeper after accepting (e.g. "/mcp " → "/mcp add ").
+// deeper after accepting (e.g. "/mcp " 鈫?"/mcp add ").
 type SlashItem struct {
 	Label   string `json:"label"`
 	Insert  string `json:"insert"`
@@ -21,7 +21,7 @@ type SlashItem struct {
 }
 
 // ArgData supplies the dynamic data SlashArgItems needs, so the completion logic
-// is one shared function both frontends call with their own session data — the
+// is one shared function both frontends call with their own session data 鈥?the
 // chat TUI (controller-free, from its cached lists) and the desktop (from the
 // controller). This keeps the CLI and desktop sub-command hints identical.
 type ArgData struct {
@@ -81,8 +81,8 @@ func autoPlanArgItems(prior []string) []SlashItem {
 		return nil
 	}
 	return []SlashItem{
-		{Label: "off", Insert: "off", Hint: "manual plan mode only"},
-		{Label: "on", Insert: "on", Hint: "auto-enter plan mode for complex tasks"},
+		{Label: "off", Insert: "off", Hint: "仅手动进入计划模式"},
+		{Label: "on", Insert: "on", Hint: "复杂任务自动进入计划模式"},
 	}
 }
 
@@ -102,18 +102,18 @@ func themeArgItems(prior []string) []SlashItem {
 		return nil
 	}
 	items := []SlashItem{
-		{Label: "auto", Insert: "auto", Hint: "mode · detect system or terminal background"},
-		{Label: "light", Insert: "light", Hint: "mode · force light shell"},
-		{Label: "dark", Insert: "dark", Hint: "mode · force dark shell"},
+		{Label: "auto", Insert: "auto", Hint: "mode 路 跟随系统或终端背景"},
+		{Label: "light", Insert: "light", Hint: "mode 路 强制浅色"},
+		{Label: "dark", Insert: "dark", Hint: "mode 路 强制深色"},
 	}
 	for _, st := range []struct {
 		name string
 		mode string
 		desc string
 	}{
-		{"slate", "native", "DeepSeek-Orca blue-white style"},
+		{"slate", "native", "DeepSeek-Orca 蓝白风格"},
 	} {
-		items = append(items, SlashItem{Label: st.name, Insert: st.name, Hint: st.mode + " · " + st.desc})
+		items = append(items, SlashItem{Label: st.name, Insert: st.name, Hint: st.mode + " 路 " + st.desc})
 	}
 	return items
 }
@@ -162,11 +162,11 @@ func mcpArgItems(prior []string, cur string, d ArgData) []SlashItem {
 	if len(prior) <= 1 {
 		return []SlashItem{
 			{Label: "add", Insert: "add ", Hint: i18n.M.ArgMcpAdd, Descend: true},
-			{Label: "connect", Insert: "connect ", Hint: "connect a configured MCP server", Descend: true},
-			{Label: "show", Insert: "show ", Hint: "show MCP server details", Descend: true},
-			{Label: "tools", Insert: "tools ", Hint: "show MCP server tools", Descend: true},
+			{Label: "connect", Insert: "connect ", Hint: "连接已配置的 MCP 服务器", Descend: true},
+			{Label: "show", Insert: "show ", Hint: "查看 MCP 服务器详情", Descend: true},
+			{Label: "tools", Insert: "tools ", Hint: "查看 MCP 服务器工具", Descend: true},
 			{Label: "remove", Insert: "remove ", Hint: i18n.M.ArgMcpRemove, Descend: true},
-			{Label: "import", Insert: "import", Hint: "import Codex-enabled servers from cc-switch"},
+			{Label: "import", Insert: "import", Hint: "从 cc-switch 导入 Codex 可用服务器"},
 		}
 	}
 	switch prior[1] {
@@ -194,16 +194,16 @@ func mcpArgItems(prior []string, cur string, d ArgData) []SlashItem {
 		}
 		var items []SlashItem
 		for _, name := range d.DisconnectedMCP {
-			items = append(items, SlashItem{Label: name, Insert: name, Hint: "configured"})
+			items = append(items, SlashItem{Label: name, Insert: name, Hint: "已配置"})
 		}
 		return items
 	case "add":
 		if strings.HasPrefix(cur, "-") {
 			return []SlashItem{
-				{Label: "--http", Insert: "--http ", Hint: "Streamable HTTP URL"},
-				{Label: "--sse", Insert: "--sse ", Hint: "legacy SSE URL"},
-				{Label: "--env", Insert: "--env ", Hint: "KEY=VALUE (stdio)"},
-				{Label: "--header", Insert: "--header ", Hint: "KEY=VALUE (remote)"},
+				{Label: "--http", Insert: "--http ", Hint: "Streamable HTTP 地址"},
+				{Label: "--sse", Insert: "--sse ", Hint: "旧版 SSE 地址"},
+				{Label: "--env", Insert: "--env ", Hint: "KEY=VALUE（stdio）"},
+				{Label: "--header", Insert: "--header ", Hint: "KEY=VALUE（远程）"},
 			}
 		}
 	}
@@ -259,8 +259,8 @@ func skillArgItems(prior []string, d ArgData) []SlashItem {
 	if len(prior) <= 1 {
 		return []SlashItem{
 			{Label: "show", Insert: "show ", Hint: i18n.M.ArgSkillShow, Descend: true},
-			{Label: "enable", Insert: "enable ", Hint: "enable a disabled skill", Descend: true},
-			{Label: "disable", Insert: "disable ", Hint: "disable an enabled skill", Descend: true},
+			{Label: "enable", Insert: "enable ", Hint: "启用已停用的 Skill", Descend: true},
+			{Label: "disable", Insert: "disable ", Hint: "停用已启用的 Skill", Descend: true},
 			{Label: "new", Insert: "new ", Hint: i18n.M.ArgSkillNew},
 			{Label: "paths", Insert: "paths", Hint: i18n.M.ArgSkillPaths},
 		}
@@ -300,7 +300,7 @@ func hooksArgItems(prior []string) []SlashItem {
 }
 
 // filterSlash keeps items whose label starts with the typed token (case-
-// insensitive) and drops no-op suggestions — ones whose insert wouldn't change
+// insensitive) and drops no-op suggestions 鈥?ones whose insert wouldn't change
 // the line because the token is already fully typed (e.g. "/skills list" offering
 // "list"). Without this the menu lingers on a complete command and Enter keeps
 // "accepting" the no-op instead of sending.
@@ -322,9 +322,9 @@ func filterSlash(items []SlashItem, line string, from int, cur string) []SlashIt
 
 // managementNotice handles the read-only management slash commands on the Submit
 // path (used by the desktop and HTTP frontends, which route raw input through
-// Submit — the chat TUI has its own richer handlers). It emits a Notice listing
+// Submit 鈥?the chat TUI has its own richer handlers). It emits a Notice listing
 // and reports whether it handled the verb. Skills and custom commands are NOT
-// here — those resolve to a turn in Submit.
+// here 鈥?those resolve to a turn in Submit.
 func (c *Controller) managementNotice(trimmed string) bool {
 	fields := strings.Fields(trimmed)
 	if len(fields) == 0 {
@@ -351,9 +351,9 @@ func (c *Controller) managementNotice(trimmed string) bool {
 			if err := c.SetSkillEnabled(fields[2], enabled); err != nil {
 				c.notice("skill " + sub + ": " + err.Error())
 			} else if enabled {
-				c.notice("enabled skill " + fields[2] + " — restart or refresh the session for the prompt and tools to update")
+				c.notice("enabled skill " + fields[2] + " 鈥?restart or refresh the session for the prompt and tools to update")
 			} else {
-				c.notice("disabled skill " + fields[2] + " — restart or refresh the session for the prompt and tools to update")
+				c.notice("disabled skill " + fields[2] + " 鈥?restart or refresh the session for the prompt and tools to update")
 			}
 			return true
 		}
@@ -366,7 +366,7 @@ func (c *Controller) managementNotice(trimmed string) bool {
 			if err != nil {
 				c.notice("mcp connect: " + err.Error())
 			} else {
-				c.notice(fmt.Sprintf("connected %s — %d tools", fields[2], n))
+				c.notice(fmt.Sprintf("connected %s 鈥?%d tools", fields[2], n))
 			}
 			return true
 		}
@@ -421,7 +421,7 @@ func (c *Controller) providerListText() string {
 		if p.Name == curProvider {
 			suffix = " (active)"
 		}
-		fmt.Fprintf(&b, "  %s — %d models%s\n", p.Name, len(models), suffix)
+		fmt.Fprintf(&b, "  %s 鈥?%d models%s\n", p.Name, len(models), suffix)
 	}
 	b.WriteString("switch with /provider <name>")
 	return strings.TrimRight(b.String(), "\n")
@@ -443,10 +443,10 @@ func (c *Controller) providerSwitchText(name string) string {
 				return fmt.Sprintf(i18n.M.ProviderNoModelsFmt, name)
 			}
 			if len(models) == 1 {
-				return fmt.Sprintf("provider %s — model: %s (switch with /model %s/%s)", name, models[0], name, models[0])
+				return fmt.Sprintf("provider %s 鈥?model: %s (switch with /model %s/%s)", name, models[0], name, models[0])
 			}
 			var b strings.Builder
-			fmt.Fprintf(&b, "provider %s — %d models:\n", name, len(models))
+			fmt.Fprintf(&b, "provider %s 鈥?%d models:\n", name, len(models))
 			for _, m := range models {
 				fmt.Fprintf(&b, "  %s/%s\n", name, m)
 			}
@@ -478,9 +478,9 @@ func (c *Controller) skillListText() string {
 	for _, s := range c.skills {
 		tag := ""
 		if s.RunAs == "subagent" {
-			tag = " 🧬"
+			tag = " 馃К"
 		}
-		fmt.Fprintf(&b, "  /%s%s — %s\n", s.Name, tag, s.Description)
+		fmt.Fprintf(&b, "  /%s%s 鈥?%s\n", s.Name, tag, s.Description)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -497,7 +497,7 @@ func (c *Controller) hookListText() string {
 		if match == "" {
 			match = "*"
 		}
-		fmt.Fprintf(&b, "  %s [%s] %s — %s\n", h.Event, h.Scope, match, h.Command)
+		fmt.Fprintf(&b, "  %s [%s] %s 鈥?%s\n", h.Event, h.Scope, match, h.Command)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

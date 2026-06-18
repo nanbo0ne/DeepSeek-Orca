@@ -19,6 +19,7 @@ import type {
   BotInstallStartResult,
   BotSettingsView,
   CapabilitiesView,
+  AutomationView,
   CheckpointMeta,
   CommandInfo,
   ContextInfo,
@@ -40,6 +41,7 @@ import type {
   ServerView,
   SessionMeta,
   SettingsView,
+  SideChatMessage,
   SkillRootView,
   SkillView,
   SlashArgsResult,
@@ -258,6 +260,15 @@ export interface AppBindings {
   DeleteTopic(topicID: string): Promise<void>;
   TrashTopic(topicID: string): Promise<void>;
   ContextPanel(tabID: string): Promise<ContextPanelInfo>;
+  ListAutomations(): Promise<AutomationView[]>;
+  PauseAutomation(id: string): Promise<void>;
+  ResumeAutomation(id: string): Promise<void>;
+  CancelAutomation(id: string): Promise<void>;
+  ClearFinishedAutomations(): Promise<void>;
+  ListSideChat(tabID: string): Promise<SideChatMessage[]>;
+  SendSideChat(tabID: string, input: string): Promise<void>;
+  ClearSideChat(tabID: string): Promise<void>;
+  CancelSideChat(tabID: string): Promise<void>;
   // New native-feel bindings (added with the desktop native-feel plan).
   ConfirmAction(req: NativeConfirmRequest): Promise<boolean>;
   SaveWindowState(state: DesktopWindowState): Promise<void>;
@@ -452,6 +463,20 @@ function makeMockApp(): AppBindings {
   let mockEffort = "auto";
   const day = 86_400_000;
   const t0 = Date.now();
+  let mockAutomations: AutomationView[] = [
+    {
+      id: "automation-demo",
+      label: "每日构建检查",
+      kind: "daily",
+      schedule: "daily 09:00",
+      action: "notify",
+      createdAt: new Date(Date.now() - day).toISOString(),
+      nextRunAt: new Date(Date.now() + 3_600_000).toISOString(),
+      status: "scheduled",
+      result: "",
+    },
+  ];
+  const mockSideChats: Record<string, SideChatMessage[]> = {};
   // Mutable so MCP add/remove/retry are observable in browser dev.
   let capServers: ServerView[] = [
     {
@@ -466,10 +491,10 @@ function makeMockApp(): AppBindings {
       prompts: 0,
       resources: 0,
       toolList: [
-        { name: "search", description: "Search symbols, files, and text in the workspace." },
-        { name: "context", description: "Fetch surrounding source context for a symbol or file." },
-        { name: "trace", description: "Follow callers and callees across the code graph." },
-        { name: "node", description: "Inspect a specific graph node." },
+        { name: "search", description: "搜索工作区里的符号、文件和文本。" },
+        { name: "context", description: "读取符号或文件附近的源码上下文。" },
+        { name: "trace", description: "沿代码图追踪调用方和被调用方。" },
+        { name: "node", description: "检查指定代码图节点。" },
       ],
     },
     { name: "github", transport: "stdio", status: "connected", configured: true, autoStart: true, tier: "background", command: "npx", args: ["-y", "@modelcontextprotocol/server-github"], tools: 12, prompts: 2, resources: 0 },
@@ -487,22 +512,22 @@ function makeMockApp(): AppBindings {
       prompts: 0,
       resources: 0,
       toolList: [
-        { name: "list_issues", description: "List and filter Linear issues." },
-        { name: "get_issue", description: "Fetch a Linear issue by id or key." },
-        { name: "create_issue", description: "Create a Linear issue." },
-        { name: "update_issue", description: "Update status, assignee, priority, or labels." },
-        { name: "list_projects", description: "List Linear projects." },
-        { name: "get_project", description: "Fetch project details." },
-        { name: "list_teams", description: "List Linear teams." },
-        { name: "search", description: "Search Linear workspace objects." },
+        { name: "list_issues", description: "列出并筛选 Linear 问题。" },
+        { name: "get_issue", description: "按 id 或 key 获取 Linear 问题。" },
+        { name: "create_issue", description: "创建 Linear 问题。" },
+        { name: "update_issue", description: "更新状态、负责人、优先级或标签。" },
+        { name: "list_projects", description: "列出 Linear 项目。" },
+        { name: "get_project", description: "获取项目详情。" },
+        { name: "list_teams", description: "列出 Linear 团队。" },
+        { name: "search", description: "搜索 Linear 工作区对象。" },
       ],
     },
     { name: "figma", transport: "http", status: "failed", configured: true, autoStart: true, tier: "background", url: "https://mcp.figma.com/mcp", authStatus: "required", authUrl: "https://mcp.figma.com/mcp", tools: 0, prompts: 0, resources: 0, error: "connect: 401 unauthorized" },
   ];
   const capSkills: SkillView[] = [
-    { name: "explore", description: "Investigate the codebase in an isolated subagent", scope: "builtin", runAs: "subagent", enabled: true },
-    { name: "review", description: "Review the staged diff", scope: "project", runAs: "inline", enabled: false },
-    { name: "init", description: "Scaffold a DEEPSEEK_ORCA.md for this repo", scope: "builtin", runAs: "inline", enabled: true },
+    { name: "explore", description: "用隔离 subagent 调研代码库", scope: "builtin", runAs: "subagent", enabled: true },
+    { name: "review", description: "审查暂存区 diff", scope: "project", runAs: "inline", enabled: false },
+    { name: "init", description: "为仓库生成 DEEPSEEK_ORCA.md", scope: "builtin", runAs: "inline", enabled: true },
   ];
   let capSkillRoots: SkillRootView[] = [
     { dir: "~/projects/deepseek-orca/.deepseek-orca/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
@@ -514,7 +539,7 @@ function makeMockApp(): AppBindings {
       configured: true,
       removable: true,
       skills: 1,
-      skillItems: [{ name: "review", description: "Review the staged diff", scope: "custom", runAs: "inline" }],
+      skillItems: [{ name: "review", description: "审查暂存区 diff", scope: "custom", runAs: "inline" }],
     },
     {
       dir: "~/.deepseek-orca/skills",
@@ -525,7 +550,7 @@ function makeMockApp(): AppBindings {
       removable: true,
       skills: 2,
       skillItems: [
-        { name: "explore", description: "Investigate the codebase in an isolated subagent", scope: "global", runAs: "subagent" },
+        { name: "explore", description: "用隔离 subagent 调研代码库", scope: "global", runAs: "subagent" },
         { name: "init", description: "Scaffold a DEEPSEEK_ORCA.md for this repo", scope: "global", runAs: "inline" },
       ],
     },
@@ -1536,14 +1561,14 @@ function makeMockApp(): AppBindings {
         },
     async Commands() {
       return [
-        { name: "new", description: "start new session; save transcript", kind: "builtin" as const },
-        { name: "clear", description: "discard current context", kind: "builtin" as const },
-        { name: "compact", description: "Summarize older history to free up context", kind: "builtin" as const },
-        { name: "model", description: "Switch model", kind: "builtin" as const },
-        { name: "effort", description: "Set reasoning effort", kind: "builtin" as const },
-        { name: "skill", description: "List skills", kind: "builtin" as const },
-        { name: "explore", description: "Investigate the codebase in an isolated subagent", kind: "skill" as const },
-        { name: "review", description: "Review the staged diff", hint: "[focus]", kind: "custom" as const },
+        { name: "new", description: "开启新会话并保存当前记录", kind: "builtin" as const },
+        { name: "clear", description: "清空当前上下文", kind: "builtin" as const },
+        { name: "compact", description: "压缩较早历史以释放上下文", kind: "builtin" as const },
+        { name: "model", description: "切换模型", kind: "builtin" as const },
+        { name: "effort", description: "设置思考强度", kind: "builtin" as const },
+        { name: "skill", description: "查看 Skill", kind: "builtin" as const },
+        { name: "explore", description: "用隔离 subagent 调研代码库", kind: "skill" as const },
+        { name: "review", description: "审查暂存区 diff", hint: "[关注点]", kind: "custom" as const },
       ];
     },
     async Capabilities() {
@@ -1570,7 +1595,7 @@ function makeMockApp(): AppBindings {
         resources: 0,
         toolList: Array.from({ length: tools }, (_, i) => ({
           name: `${input.name}_tool_${i + 1}`,
-          description: `Mock tool ${i + 1} exposed by ${input.name}.`,
+          description: `${input.name} 暴露的模拟工具 ${i + 1}。`,
         })),
       });
       return tools;
@@ -1639,11 +1664,11 @@ function makeMockApp(): AppBindings {
           configured: true,
           removable: true,
           skills: 1,
-          skillItems: [{ name: "local-dev", description: "Local custom development workflow", scope: "custom", runAs: "inline" }],
+          skillItems: [{ name: "local-dev", description: "本地自定义开发流程", scope: "custom", runAs: "inline" }],
         });
       }
       if (!capSkills.some((s) => s.name === "local-dev")) {
-        capSkills.push({ name: "local-dev", description: "Local custom development workflow", scope: "custom", runAs: "inline", enabled: true });
+        capSkills.push({ name: "local-dev", description: "本地自定义开发流程", scope: "custom", runAs: "inline", enabled: true });
       }
     },
     async RemoveSkillPath(path: string) {
@@ -1688,25 +1713,25 @@ function makeMockApp(): AppBindings {
       const cmd = input.slice(0, input.indexOf(" ") < 0 ? input.length : input.indexOf(" "));
       const subs: Record<string, { label: string; insert: string; hint: string; descend?: boolean }[]> = {
         "/skill": [
-          { label: "list", insert: "list", hint: "list skills" },
-          { label: "show", insert: "show ", hint: "show a skill's body", descend: true },
-          { label: "enable", insert: "enable ", hint: "enable a disabled skill", descend: true },
-          { label: "disable", insert: "disable ", hint: "disable an enabled skill", descend: true },
-          { label: "new", insert: "new ", hint: "scaffold a new skill" },
-          { label: "paths", insert: "paths", hint: "show discovery paths" },
+          { label: "list", insert: "list", hint: "列出 Skill" },
+          { label: "show", insert: "show ", hint: "查看 Skill 内容", descend: true },
+          { label: "enable", insert: "enable ", hint: "启用已停用的 Skill", descend: true },
+          { label: "disable", insert: "disable ", hint: "停用已启用的 Skill", descend: true },
+          { label: "new", insert: "new ", hint: "创建新的 Skill" },
+          { label: "paths", insert: "paths", hint: "查看发现路径" },
         ],
         "/hooks": [
-          { label: "list", insert: "list", hint: "list active hooks" },
-          { label: "trust", insert: "trust", hint: "trust this project's hooks" },
+          { label: "list", insert: "list", hint: "列出已启用 hook" },
+          { label: "trust", insert: "trust", hint: "信任此项目的 hook" },
         ],
         "/model": [
-          { label: "deepseek/deepseek-v4-flash", insert: "deepseek/deepseek-v4-flash", hint: "current" },
+          { label: "deepseek/deepseek-v4-flash", insert: "deepseek/deepseek-v4-flash", hint: "当前" },
           { label: "deepseek/deepseek-v4-pro", insert: "deepseek/deepseek-v4-pro", hint: "" },
         ],
         "/effort": [
-          { label: "auto", insert: "auto", hint: "use the model default" },
-          { label: "high", insert: "high", hint: "deeper reasoning" },
-          { label: "max", insert: "max", hint: "maximum reasoning" },
+          { label: "auto", insert: "auto", hint: "使用模型默认值" },
+          { label: "high", insert: "high", hint: "更深入思考" },
+          { label: "max", insert: "max", hint: "最高思考强度" },
         ],
       };
       const items = (subs[cmd] ?? [])
@@ -2368,6 +2393,41 @@ function makeMockApp(): AppBindings {
         ],
       };
     },
+    async ListAutomations() {
+      return mockAutomations.map((item) => ({ ...item }));
+    },
+    async PauseAutomation(id: string) {
+      mockAutomations = mockAutomations.map((item) => item.id === id ? { ...item, status: "paused" } : item);
+    },
+    async ResumeAutomation(id: string) {
+      mockAutomations = mockAutomations.map((item) => item.id === id ? { ...item, status: "scheduled", nextRunAt: new Date(Date.now() + 3_600_000).toISOString() } : item);
+    },
+    async CancelAutomation(id: string) {
+      mockAutomations = mockAutomations.map((item) => item.id === id ? { ...item, status: "cancelled", nextRunAt: undefined } : item);
+    },
+    async ClearFinishedAutomations() {
+      mockAutomations = mockAutomations.filter((item) => !["cancelled", "failed", "done"].includes(item.status));
+    },
+    async ListSideChat(tabID: string) {
+      return (mockSideChats[tabID] ?? []).map((item) => ({ ...item }));
+    },
+    async SendSideChat(tabID: string, input: string) {
+      const key = tabID || "active";
+      const now = Date.now();
+      const history = mockSideChats[key] ?? [];
+      history.push({ id: `mock-side-user-${now}`, role: "user", content: input, createdAt: now });
+      history.push({
+        id: `mock-side-assistant-${now}`,
+        role: "assistant",
+        content: `我会只读参考主对话来回答。你刚问的是：${input}`,
+        createdAt: now + 1,
+      });
+      mockSideChats[key] = history;
+    },
+    async ClearSideChat(tabID: string) {
+      delete mockSideChats[tabID || "active"];
+    },
+    async CancelSideChat(_tabID: string) {},
   };
 }
 

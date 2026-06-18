@@ -441,6 +441,32 @@ export interface ComposerInsertRequest {
   mode?: "insert" | "replace";
 }
 
+export interface AutomationView {
+  id: string;
+  label: string;
+  kind: string;
+  schedule: string;
+  action: string;
+  createdAt: string;
+  lastRunAt?: string;
+  nextRunAt?: string;
+  status: string;
+  result?: string;
+  error?: string;
+  intervalSeconds?: number;
+  dailyTime?: string;
+  weeklyDay?: string;
+  weeklyTime?: string;
+  monitor?: string;
+}
+
+export interface SideChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: number;
+}
+
 // MCP & Skills drawer (desktop/app.go Capabilities) - the GUI counterpart to
 // /mcp + /skill: connected/failed servers and discoverable skills.
 export interface ServerView {

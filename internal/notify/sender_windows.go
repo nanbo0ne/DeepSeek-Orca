@@ -14,8 +14,6 @@ func (PlatformSender) Send(m Message) error {
 	cmd := exec.Command("powershell", "-NoProfile", "-Command", `
 if (Get-Command New-BurntToastNotification -ErrorAction SilentlyContinue) {
   New-BurntToastNotification -Text $args[0], $args[1]
-} elseif (Get-Command msg -ErrorAction SilentlyContinue) {
-  msg $env:USERNAME ($args[0] + ': ' + $args[1])
 }
 `, m.Title, m.Body)
 	if err := cmd.Start(); err != nil {

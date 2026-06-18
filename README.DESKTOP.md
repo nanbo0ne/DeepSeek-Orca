@@ -1,4 +1,4 @@
-# DeepSeek-Orca Desktop V2.0.12
+# DeepSeek-Orca Desktop V2.0.13
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,11 +6,23 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.12-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.12/DeepSeek-Orca-Setup-2.0.12-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.13/DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe)
 
-## V2.0.12 Host Tool Library
+## V2.0.13 Interaction And Automation Update
 
-V2.0.12 makes the host tool library available by default, without adding another composer toggle. The model can now use native host commands, system information, process listing and termination, app launch, text clipboard access, desktop notifications, lightweight web search, timed automations, Orca session listing, Node/Python execution, and basic Word/PPT/Excel/PDF inspection or extraction tools.
+V2.0.13 focuses on smoother interaction and safer automation semantics.
+
+Model switching now updates the composer button and status bar immediately with the short model name, such as `deepseek-v4-pro`, while controller rebuild happens in the background. The UI should no longer flash a raw `provider/model` path during that short transition.
+
+Automation is now reserved for explicit recurring, continuous, or background-monitoring tasks. The persistent automation manager is available from the top-left toolbar next to the Bot button. It lists local automations and supports pause, resume, cancel, clear finished, and refresh. One-off timer-style requests are no longer represented as persisted automations.
+
+The right dock adds a fourth tab: Side chat. It is a read-only side conversation that can reference the main conversation, with recent turns prioritized. Side chat history is stored per main session and can be cleared without changing the main transcript, token statistics, compaction, or title generation.
+
+Slash menu descriptions and browser-demo capability text are more consistently localized in Chinese when using the Chinese UI.
+
+## Host Tool Library
+
+The host tool library is available by default, without adding another composer toggle. The model can now use native host commands, system information, process listing and termination, app launch, text clipboard access, desktop notifications, lightweight web search, recurring automations, Orca session listing, Node/Python execution, and basic Word/PPT/Excel/PDF inspection or extraction tools.
 
 Screenshot recognition, OCR, coordinate clicking, keyboard input, and visual desktop automation are intentionally not included yet because the current DeepSeek model path does not provide reliable image understanding.
 

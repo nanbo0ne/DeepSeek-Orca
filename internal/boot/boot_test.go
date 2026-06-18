@@ -695,6 +695,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	// The language policy is always appended at boot; strip it so this assertion
 	// is purely about whether project/ancestor memory leaked into the base.
 	base = stripLanguagePolicy(base)
+	base = stripToolRoutingPolicy(base)
 	if base != "JUST THE BASE" {
 		t.Fatalf("expected untouched base prompt, got:\n%s", sys)
 	}
@@ -749,6 +750,11 @@ func stripLanguagePolicy(s string) string {
 		s = strings.TrimSpace(strings.TrimSuffix(s, policy))
 	}
 	return s
+}
+
+func stripToolRoutingPolicy(s string) string {
+	s = strings.TrimSpace(s)
+	return strings.TrimSpace(strings.TrimSuffix(s, config.ToolRoutingPolicy))
 }
 
 func writeFile(t *testing.T, dir, name, body string) {

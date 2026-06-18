@@ -95,7 +95,7 @@ func (b bash) Description() string {
 // on native Windows) when a native tool already does the job everywhere.
 const bashToolSteer = " Use for builds, tests, git, package managers, etc. To search/read/list/edit files, prefer the dedicated tools (grep, read_file, ls, glob, edit_file) over shell grep/cat/ls/find/sed — they behave identically on every OS. For symbol search, call graphs, or architecture questions, use codegraph tools instead of grep."
 
-const hostToolSteer = " For host/system actions, prefer host tools before bash: host_command for native OS commands, host_list_processes/host_kill_process for processes, host_open_app for launching apps, host_clipboard for clipboard, notify_user and automation_create for notifications and timed work, web_search for unknown URLs, node_repl_exec/python_repl_exec for reusable runtime work, and document_inspect/document_extract for Word/PPT/Excel/PDF/PDF-like files."
+const hostToolSteer = " For host/system actions, prefer host tools before bash: host_command for native OS commands, host_list_processes/host_kill_process for processes, host_open_app for launching apps, host_clipboard for clipboard, notify_user for direct notifications, automation_create only for clearly recurring/continuous/background-monitoring tasks, web_search for unknown URLs, node_repl_exec/python_repl_exec for reusable runtime work, and document_inspect/document_extract for Word/PPT/Excel/PDF/PDF-like files."
 
 // resolved returns the bound shell, resolving lazily for the zero-value instance
 // (e.g. a registry that never went through ConfineBash).

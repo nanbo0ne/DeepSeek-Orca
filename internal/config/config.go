@@ -893,7 +893,7 @@ const ToolRoutingPolicy = `工具选择规则：
 - 开发命令：bash 主要用于构建、测试、git、包管理器和普通项目 shell 命令。
 - 系统/宿主操作：涉及操作系统状态、进程、应用启动、剪贴板、通知、定时自动化、Windows 原生命令、联网搜索、持久 REPL 或文档提取时，先考虑对应 host 工具。
 - host_command 是原生宿主命令兜底；Windows 上它使用 cmd/powershell 语义，通常比 bash 更适合 Windows 原生命令。
-- 自动化：延迟任务优先用 automation_create 的结构化 notify 或 host_command action，并提供清晰 label；用 automation_list/automation_cancel 管理状态。
+- 自动化：只有用户明确要求重复性、持续性或后台监控类任务时才用 automation_create，并提供清晰 label；用 automation_list/automation_cancel 管理状态。
 - 运行时：计算、JSON/数据转换、临时脚本和可复用变量优先用 node_repl_exec 或 python_repl_exec，避免反复拼复杂 shell one-liner。
 - 文档：Word、PowerPoint、Excel、PDF 先用 document_inspect 和 document_extract；复杂处理再配合 python_repl_exec。
 - 联网：不知道 URL 时用 web_search；已有具体 URL 时再用 web_fetch。

@@ -50,100 +50,285 @@ func Tools(workDir string) []tool.Tool {
 
 var automations = newAutomationStore()
 
+// AutomationView is shared by the tool output and desktop management UI.
+type AutomationView struct {
+	ID              string `json:"id"`
+	Label           string `json:"label"`
+	Kind            string `json:"kind"`
+	Schedule        string `json:"schedule"`
+	Action          string `json:"action"`
+	CreatedAt       string `json:"createdAt"`
+	LastRunAt       string `json:"lastRunAt,omitempty"`
+	NextRunAt       string `json:"nextRunAt,omitempty"`
+	Status          string `json:"status"`
+	Result          string `json:"result,omitempty"`
+	Error           string `json:"error,omitempty"`
+	IntervalSeconds int    `json:"intervalSeconds,omitempty"`
+	DailyTime       string `json:"dailyTime,omitempty"`
+	WeeklyDay       string `json:"weeklyDay,omitempty"`
+	WeeklyTime      string `json:"weeklyTime,omitempty"`
+	Monitor         string `json:"monitor,omitempty"`
+}
+
 type automationStore struct {
-	mu    sync.Mutex
-	next  int
-	items map[string]*automationItem
+	mu     sync.Mutex
+	loaded bool
+	next   int
+	items  map[string]*automationItem
 }
 
 type automationItem struct {
-	ID        string    `json:"id"`
-	Label     string    `json:"label"`
-	Action    string    `json:"action"`
-	Command   string    `json:"command,omitempty"`
-	Message   string    `json:"message,omitempty"`
-	RunAt     time.Time `json:"runAt"`
-	Status    string    `json:"status"`
-	Result    string    `json:"result,omitempty"`
-	cancel    context.CancelFunc
-	createdAt time.Time
+	ID              string    `json:"id"`
+	Label           string    `json:"label"`
+	Kind            string    `json:"kind"`
+	Action          string    `json:"action"`
+	Command         string    `json:"command,omitempty"`
+	Message         string    `json:"message,omitempty"`
+	IntervalSeconds int       `json:"interval_seconds,omitempty"`
+	DailyTime       string    `json:"daily_time,omitempty"`
+	WeeklyDay       string    `json:"weekly_day,omitempty"`
+	WeeklyTime      string    `json:"weekly_time,omitempty"`
+	Monitor         string    `json:"monitor,omitempty"`
+	WorkDir         string    `json:"workDir,omitempty"`
+	NextRunAt       time.Time `json:"nextRunAt,omitempty"`
+	LastRunAt       time.Time `json:"lastRunAt,omitempty"`
+	Status          string    `json:"status"`
+	Result          string    `json:"result,omitempty"`
+	Error           string    `json:"error,omitempty"`
+	CreatedAt       time.Time `json:"createdAt"`
+	cancel          context.CancelFunc
 }
 
 func newAutomationStore() *automationStore {
 	return &automationStore{items: map[string]*automationItem{}}
 }
 
+func automationFilePath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		dir = home
+	}
+	return filepath.Join(dir, "deepseek-orca", "desktop-automations.json")
+}
+
+func (s *automationStore) ensureLoadedLocked() {
+	if s.loaded {
+		return
+	}
+	s.loaded = true
+	b, err := os.ReadFile(automationFilePath())
+	if err != nil {
+		return
+	}
+	var items []*automationItem
+	if err := json.Unmarshal(b, &items); err != nil {
+		return
+	}
+	now := time.Now()
+	for _, item := range items {
+		if item == nil || strings.TrimSpace(item.ID) == "" {
+			continue
+		}
+		item.cancel = nil
+		if item.CreatedAt.IsZero() {
+			item.CreatedAt = now
+		}
+		if item.Status == "running" {
+			item.Status = "scheduled"
+		}
+		if item.Status == "scheduled" && item.NextRunAt.IsZero() {
+			item.NextRunAt = nextAutomationRun(item, now)
+		}
+		s.items[item.ID] = item
+		if strings.HasPrefix(item.ID, "automation-") {
+			if n, err := strconv.Atoi(strings.TrimPrefix(item.ID, "automation-")); err == nil && n > s.next {
+				s.next = n
+			}
+		}
+	}
+	for _, item := range s.items {
+		if item.Status == "scheduled" {
+			s.startLocked(item)
+		}
+	}
+}
+
+func (s *automationStore) persistLocked() {
+	path := automationFilePath()
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	items := make([]automationItem, 0, len(s.items))
+	for _, item := range s.items {
+		copy := *item
+		copy.cancel = nil
+		items = append(items, copy)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.Before(items[j].CreatedAt) })
+	b, _ := json.MarshalIndent(items, "", "  ")
+	_ = os.WriteFile(path, b, 0o644)
+}
+
 func (s *automationStore) add(item *automationItem) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.ensureLoadedLocked()
 	s.next++
 	item.ID = fmt.Sprintf("automation-%d", s.next)
-	item.createdAt = time.Now()
+	item.CreatedAt = time.Now()
+	item.Status = "scheduled"
+	item.NextRunAt = nextAutomationRun(item, time.Now())
 	s.items[item.ID] = item
+	s.startLocked(item)
+	s.persistLocked()
 }
 
 func (s *automationStore) list() []automationItem {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.ensureLoadedLocked()
 	out := make([]automationItem, 0, len(s.items))
 	for _, item := range s.items {
 		copy := *item
 		copy.cancel = nil
 		out = append(out, copy)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].createdAt.Before(out[j].createdAt) })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Status != out[j].Status {
+			return automationStatusRank(out[i].Status) < automationStatusRank(out[j].Status)
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
 	return out
+}
+
+func (s *automationStore) startLocked(item *automationItem) {
+	if item.cancel != nil || item.Status != "scheduled" {
+		return
+	}
+	runCtx, cancel := context.WithCancel(context.Background())
+	item.cancel = cancel
+	go runAutomation(runCtx, item)
 }
 
 func (s *automationStore) cancel(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.ensureLoadedLocked()
 	item := s.items[id]
-	if item == nil || item.Status != "scheduled" {
+	if item == nil {
 		return false
 	}
 	item.Status = "cancelled"
 	if item.cancel != nil {
 		item.cancel()
+		item.cancel = nil
 	}
+	item.NextRunAt = time.Time{}
+	s.persistLocked()
 	return true
+}
+
+func (s *automationStore) pause(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ensureLoadedLocked()
+	item := s.items[id]
+	if item == nil || item.Status != "scheduled" {
+		return false
+	}
+	item.Status = "paused"
+	if item.cancel != nil {
+		item.cancel()
+		item.cancel = nil
+	}
+	s.persistLocked()
+	return true
+}
+
+func (s *automationStore) resume(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ensureLoadedLocked()
+	item := s.items[id]
+	if item == nil || item.Status != "paused" {
+		return false
+	}
+	item.Status = "scheduled"
+	item.NextRunAt = nextAutomationRun(item, time.Now())
+	s.startLocked(item)
+	s.persistLocked()
+	return true
+}
+
+func (s *automationStore) clearFinished() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ensureLoadedLocked()
+	n := 0
+	for id, item := range s.items {
+		switch item.Status {
+		case "failed", "cancelled", "done":
+			if item.cancel != nil {
+				item.cancel()
+			}
+			delete(s.items, id)
+			n++
+		}
+	}
+	if n > 0 {
+		s.persistLocked()
+	}
+	return n
+}
+
+func automationStatusRank(status string) int {
+	switch status {
+	case "running":
+		return 0
+	case "scheduled":
+		return 1
+	case "paused":
+		return 2
+	case "failed":
+		return 3
+	case "cancelled":
+		return 4
+	default:
+		return 5
+	}
 }
 
 type automationCreate struct{ workDir string }
 
 func (automationCreate) Name() string { return "automation_create" }
 func (automationCreate) Description() string {
-	return "Create an unattended timed automation. Use structured action=notify for reminders and action=host_command for simple delayed native host commands. Include a clear label. The automation must not ask the user questions while running; it records status/result for automation_list."
+	return "Create a persistent automation only for clearly recurring, continuous, or background-monitoring tasks. Use action=notify for repeated reminders and action=host_command for repeated native host commands. Do not use this tool unless the user explicitly asks for a recurring/continuous/monitoring automation. The automation records status/result for automation_list and the desktop automation manager."
 }
 func (automationCreate) Schema() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"label":{"type":"string"},"delay_seconds":{"type":"integer","minimum":1,"description":"Delay before running. Use either delay_seconds or run_at."},"run_at":{"type":"string","description":"RFC3339 timestamp for when to run."},"action":{"type":"string","enum":["notify","host_command"],"description":"Structured automation action."},"message":{"type":"string","description":"Notification body for notify action."},"command":{"type":"string","description":"Simple native host command for host_command action. Prefer host tools directly for immediate system actions."}},"required":["action"]}`)
+	return json.RawMessage(`{"type":"object","properties":{"label":{"type":"string","description":"Short user-facing automation name."},"interval_seconds":{"type":"integer","minimum":60,"description":"Run repeatedly every N seconds."},"daily_time":{"type":"string","description":"Run every day at HH:MM local time."},"weekly_day":{"type":"string","enum":["monday","tuesday","wednesday","thursday","friday","saturday","sunday"],"description":"Run weekly on this day; requires weekly_time."},"weekly_time":{"type":"string","description":"Run weekly at HH:MM local time; requires weekly_day."},"monitor":{"type":"string","description":"Continuous/background monitoring intent label; combine with interval_seconds."},"action":{"type":"string","enum":["notify","host_command"],"description":"Structured recurring automation action."},"message":{"type":"string","description":"Notification body for notify action."},"command":{"type":"string","description":"Native host command for host_command action. Prefer host tools directly for immediate system actions."}},"required":["action"]}`)
 }
 func (automationCreate) ReadOnly() bool { return false }
 func (a automationCreate) Execute(ctx context.Context, args json.RawMessage) (string, error) {
 	var p struct {
-		Label        string `json:"label"`
-		DelaySeconds int    `json:"delay_seconds"`
-		RunAt        string `json:"run_at"`
-		Action       string `json:"action"`
-		Message      string `json:"message"`
-		Command      string `json:"command"`
+		Label           string `json:"label"`
+		IntervalSeconds int    `json:"interval_seconds"`
+		DailyTime       string `json:"daily_time"`
+		WeeklyDay       string `json:"weekly_day"`
+		WeeklyTime      string `json:"weekly_time"`
+		Monitor         string `json:"monitor"`
+		Action          string `json:"action"`
+		Message         string `json:"message"`
+		Command         string `json:"command"`
 	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "", err
 	}
-	runAt := time.Now().Add(time.Duration(p.DelaySeconds) * time.Second)
-	if strings.TrimSpace(p.RunAt) != "" {
-		t, err := time.Parse(time.RFC3339, p.RunAt)
-		if err != nil {
-			return "", fmt.Errorf("run_at must be RFC3339: %w", err)
-		}
-		runAt = t
-	}
-	if !runAt.After(time.Now()) {
-		return "", fmt.Errorf("scheduled time must be in the future")
-	}
 	if p.Label == "" {
 		p.Label = p.Action
+	}
+	kind, err := automationKind(p.IntervalSeconds, p.DailyTime, p.WeeklyDay, p.WeeklyTime, p.Monitor)
+	if err != nil {
+		return "", err
 	}
 	if p.Action == "notify" && strings.TrimSpace(p.Message) == "" {
 		return "", fmt.Errorf("message is required for notify automation")
@@ -151,72 +336,233 @@ func (a automationCreate) Execute(ctx context.Context, args json.RawMessage) (st
 	if p.Action == "host_command" && strings.TrimSpace(p.Command) == "" {
 		return "", fmt.Errorf("command is required for host_command automation")
 	}
-	runCtx, cancel := context.WithCancel(context.Background())
-	item := &automationItem{Label: p.Label, Action: p.Action, Command: p.Command, Message: p.Message, RunAt: runAt, Status: "scheduled", cancel: cancel}
+	item := &automationItem{
+		Label:           p.Label,
+		Kind:            kind,
+		Action:          p.Action,
+		Command:         p.Command,
+		Message:         p.Message,
+		IntervalSeconds: p.IntervalSeconds,
+		DailyTime:       p.DailyTime,
+		WeeklyDay:       strings.ToLower(strings.TrimSpace(p.WeeklyDay)),
+		WeeklyTime:      p.WeeklyTime,
+		Monitor:         p.Monitor,
+		WorkDir:         a.workDir,
+	}
 	automations.add(item)
-	go runAutomation(runCtx, a.workDir, item)
 	_ = ctx
-	return fmt.Sprintf("Scheduled %s for %s (id: %s).", item.Label, item.RunAt.Format(time.RFC3339), item.ID), nil
+	return fmt.Sprintf("status=done action=automation_create id=%s label=%q schedule=%s next_run_at=%s", item.ID, item.Label, automationScheduleLabel(item), item.NextRunAt.Format(time.RFC3339)), nil
 }
 
-func runAutomation(ctx context.Context, workDir string, item *automationItem) {
-	timer := time.NewTimer(time.Until(item.RunAt))
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-	case <-ctx.Done():
-		return
+func automationKind(interval int, dailyTime, weeklyDay, weeklyTime, monitor string) (string, error) {
+	hasInterval := interval > 0
+	hasDaily := strings.TrimSpace(dailyTime) != ""
+	hasWeekly := strings.TrimSpace(weeklyDay) != "" || strings.TrimSpace(weeklyTime) != ""
+	hasMonitor := strings.TrimSpace(monitor) != ""
+	if hasMonitor {
+		if !hasInterval {
+			return "", fmt.Errorf("monitor automations require interval_seconds")
+		}
+		return "monitor", nil
 	}
-	automations.mu.Lock()
-	if item.Status != "scheduled" {
+	if hasInterval {
+		return "interval", nil
+	}
+	if hasDaily {
+		if _, err := parseClock(dailyTime); err != nil {
+			return "", fmt.Errorf("daily_time must be HH:MM: %w", err)
+		}
+		return "daily", nil
+	}
+	if hasWeekly {
+		if strings.TrimSpace(weeklyDay) == "" || strings.TrimSpace(weeklyTime) == "" {
+			return "", fmt.Errorf("weekly automations require weekly_day and weekly_time")
+		}
+		if parseWeekday(weeklyDay) < 0 {
+			return "", fmt.Errorf("weekly_day must be monday..sunday")
+		}
+		if _, err := parseClock(weeklyTime); err != nil {
+			return "", fmt.Errorf("weekly_time must be HH:MM: %w", err)
+		}
+		return "weekly", nil
+	}
+	return "", fmt.Errorf("automation_create requires a recurring or continuous schedule: interval_seconds, daily_time, weekly_day+weekly_time, or monitor")
+}
+
+func runAutomation(ctx context.Context, item *automationItem) {
+	for {
+		wait := time.Until(item.NextRunAt)
+		if wait < 0 {
+			wait = 0
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		}
+		automations.mu.Lock()
+		if item.Status != "scheduled" {
+			item.cancel = nil
+			automations.mu.Unlock()
+			return
+		}
+		item.Status = "running"
+		item.LastRunAt = time.Now()
+		automations.persistLocked()
 		automations.mu.Unlock()
-		return
+
+		result, runErr := executeAutomation(ctx, item)
+
+		automations.mu.Lock()
+		if runErr != nil {
+			item.Status = "failed"
+			item.Error = runErr.Error()
+			item.Result = result
+			item.cancel = nil
+			automations.persistLocked()
+			automations.mu.Unlock()
+			return
+		}
+		item.Status = "scheduled"
+		item.Error = ""
+		item.Result = result
+		item.NextRunAt = nextAutomationRun(item, time.Now())
+		automations.persistLocked()
+		automations.mu.Unlock()
 	}
-	item.Status = "running"
-	automations.mu.Unlock()
-	var result string
-	var err error
+}
+
+func executeAutomation(ctx context.Context, item *automationItem) (string, error) {
 	switch item.Action {
 	case "notify":
-		err = notify.NewPlatformSender().Send(notify.Message{Title: firstNonEmpty(item.Label, "DeepSeek-Orca 自动化"), Body: item.Message})
-		result = "status=done action=notify result=notification_sent"
+		err := notify.NewPlatformSender().Send(notify.Message{Title: firstNonEmpty(item.Label, "DeepSeek-Orca Automation"), Body: item.Message})
+		return "status=done action=notify result=notification_sent", err
 	case "host_command":
 		argv := nativeShellArgv("auto", item.Command)
 		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		cmd.Dir = workDir
+		cmd.Dir = item.WorkDir
 		out, runErr := cmd.CombinedOutput()
 		decoded := strings.TrimSpace(decodeOutput(out))
-		result = strings.TrimSpace("status=done action=host_command shell=auto\n" + decoded)
-		err = runErr
-		if err == nil {
-			_ = notify.NewPlatformSender().Send(notify.Message{Title: "DeepSeek-Orca 自动化完成", Body: item.Label})
-		} else {
-			_ = notify.NewPlatformSender().Send(notify.Message{Title: "DeepSeek-Orca 自动化失败", Body: item.Label + ": " + err.Error()})
+		result := strings.TrimSpace("status=done action=host_command shell=auto\n" + decoded)
+		if runErr != nil {
+			return result, runErr
 		}
+		_ = notify.NewPlatformSender().Send(notify.Message{Title: "DeepSeek-Orca Automation Done", Body: item.Label})
+		return result, nil
+	default:
+		return "", fmt.Errorf("unknown automation action %q", item.Action)
 	}
-	automations.mu.Lock()
-	defer automations.mu.Unlock()
+}
+
+func nextAutomationRun(item *automationItem, now time.Time) time.Time {
+	switch item.Kind {
+	case "interval", "monitor":
+		seconds := item.IntervalSeconds
+		if seconds < 60 {
+			seconds = 60
+		}
+		return now.Add(time.Duration(seconds) * time.Second)
+	case "daily":
+		return nextDailyRun(now, item.DailyTime)
+	case "weekly":
+		return nextWeeklyRun(now, item.WeeklyDay, item.WeeklyTime)
+	default:
+		return now.Add(time.Hour)
+	}
+}
+
+func parseClock(value string) (time.Duration, error) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid clock")
+	}
+	h, err := strconv.Atoi(parts[0])
+	if err != nil || h < 0 || h > 23 {
+		return 0, fmt.Errorf("invalid hour")
+	}
+	m, err := strconv.Atoi(parts[1])
+	if err != nil || m < 0 || m > 59 {
+		return 0, fmt.Errorf("invalid minute")
+	}
+	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute, nil
+}
+
+func nextDailyRun(now time.Time, clock string) time.Time {
+	offset, err := parseClock(clock)
 	if err != nil {
-		item.Status = "failed"
-		item.Result = strings.TrimSpace(result + "\n" + err.Error())
-		return
+		return now.Add(24 * time.Hour)
 	}
-	item.Status = "done"
-	item.Result = result
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(offset)
+	if !start.After(now) {
+		start = start.Add(24 * time.Hour)
+	}
+	return start
+}
+
+func parseWeekday(value string) time.Weekday {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "sunday":
+		return time.Sunday
+	case "monday":
+		return time.Monday
+	case "tuesday":
+		return time.Tuesday
+	case "wednesday":
+		return time.Wednesday
+	case "thursday":
+		return time.Thursday
+	case "friday":
+		return time.Friday
+	case "saturday":
+		return time.Saturday
+	default:
+		return -1
+	}
+}
+
+func nextWeeklyRun(now time.Time, day, clock string) time.Time {
+	offset, err := parseClock(clock)
+	targetDay := parseWeekday(day)
+	if err != nil || targetDay < 0 {
+		return now.Add(7 * 24 * time.Hour)
+	}
+	days := (int(targetDay) - int(now.Weekday()) + 7) % 7
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(time.Duration(days)*24*time.Hour + offset)
+	if !start.After(now) {
+		start = start.Add(7 * 24 * time.Hour)
+	}
+	return start
+}
+
+func automationScheduleLabel(item *automationItem) string {
+	switch item.Kind {
+	case "monitor":
+		return fmt.Sprintf("monitor every %ds: %s", item.IntervalSeconds, item.Monitor)
+	case "interval":
+		return fmt.Sprintf("every %ds", item.IntervalSeconds)
+	case "daily":
+		return "daily " + item.DailyTime
+	case "weekly":
+		return "weekly " + item.WeeklyDay + " " + item.WeeklyTime
+	default:
+		return item.Kind
+	}
 }
 
 type automationList struct{}
 
 func (automationList) Name() string { return "automation_list" }
 func (automationList) Description() string {
-	return "List timed automations created in this app process."
+	return "List persistent recurring/continuous automations."
 }
 func (automationList) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{}}`)
 }
 func (automationList) ReadOnly() bool { return true }
 func (automationList) Execute(context.Context, json.RawMessage) (string, error) {
-	b, _ := json.MarshalIndent(automations.list(), "", "  ")
+	b, _ := json.MarshalIndent(ListAutomations(), "", "  ")
 	return string(b), nil
 }
 
@@ -224,7 +570,7 @@ type automationCancel struct{}
 
 func (automationCancel) Name() string { return "automation_cancel" }
 func (automationCancel) Description() string {
-	return "Cancel a scheduled automation that has not started yet."
+	return "Cancel a persistent automation."
 }
 func (automationCancel) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`)
@@ -240,7 +586,50 @@ func (automationCancel) Execute(_ context.Context, args json.RawMessage) (string
 	if automations.cancel(p.ID) {
 		return "status=cancelled result=automation_cancelled", nil
 	}
-	return "status=not_found result=automation_not_scheduled_or_not_found", nil
+	return "status=not_found result=automation_not_found", nil
+}
+
+// ListAutomations returns automation state for desktop management.
+func ListAutomations() []AutomationView {
+	items := automations.list()
+	out := make([]AutomationView, 0, len(items))
+	for _, item := range items {
+		out = append(out, automationView(item))
+	}
+	return out
+}
+
+func PauseAutomation(id string) bool  { return automations.pause(id) }
+func ResumeAutomation(id string) bool { return automations.resume(id) }
+func CancelAutomation(id string) bool { return automations.cancel(id) }
+func ClearFinishedAutomations() int   { return automations.clearFinished() }
+
+func automationView(item automationItem) AutomationView {
+	view := AutomationView{
+		ID:              item.ID,
+		Label:           item.Label,
+		Kind:            item.Kind,
+		Schedule:        automationScheduleLabel(&item),
+		Action:          item.Action,
+		Status:          item.Status,
+		Result:          item.Result,
+		Error:           item.Error,
+		IntervalSeconds: item.IntervalSeconds,
+		DailyTime:       item.DailyTime,
+		WeeklyDay:       item.WeeklyDay,
+		WeeklyTime:      item.WeeklyTime,
+		Monitor:         item.Monitor,
+	}
+	if !item.CreatedAt.IsZero() {
+		view.CreatedAt = item.CreatedAt.Format(time.RFC3339)
+	}
+	if !item.LastRunAt.IsZero() {
+		view.LastRunAt = item.LastRunAt.Format(time.RFC3339)
+	}
+	if !item.NextRunAt.IsZero() {
+		view.NextRunAt = item.NextRunAt.Format(time.RFC3339)
+	}
+	return view
 }
 
 type threadList struct{}
@@ -372,9 +761,9 @@ func hostExitSummary(command string, err error, output string) string {
 	reason := ""
 	if strings.HasPrefix(lowerCmd, "shutdown") {
 		switch {
-		case strings.Contains(lowerOut, "access is denied") || strings.Contains(lowerOut, "拒绝访问"):
+		case strings.Contains(lowerOut, "access is denied") || strings.Contains(lowerOut, "鎷掔粷璁块棶"):
 			reason = "shutdown failed: current process is not elevated or local policy denied the operation"
-		case strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "用法"):
+		case strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "鐢ㄦ硶"):
 			reason = "shutdown failed: arguments were rejected by Windows shutdown.exe"
 		default:
 			reason = "shutdown failed: Windows rejected the request; check administrator permission, policy, or security software"
@@ -401,16 +790,16 @@ func hostExitSummaryV2(command string, err error, output string, shell string) s
 	advice := "inspect stdout/stderr and adjust the command or use a more specific host tool"
 	if strings.HasPrefix(lowerCmd, "shutdown") {
 		switch {
-		case code == 1190 || strings.Contains(lowerOut, "1190") || (strings.Contains(lowerOut, "already") && strings.Contains(lowerOut, "shutdown")) || strings.Contains(lowerOut, "已经计划"):
+		case code == 1190 || strings.Contains(lowerOut, "1190") || (strings.Contains(lowerOut, "already") && strings.Contains(lowerOut, "shutdown")) || strings.Contains(lowerOut, "宸茬粡璁″垝"):
 			reason = "shutdown_already_scheduled"
 			advice = "a Windows shutdown is already pending; do not repeat the schedule command unless you cancel first"
-		case strings.Contains(lowerOut, "access is denied") || strings.Contains(lowerOut, "拒绝访问"):
+		case strings.Contains(lowerOut, "access is denied") || strings.Contains(lowerOut, "鎷掔粷璁块棶"):
 			reason = "shutdown_access_denied"
 			advice = "run with elevated permission or check local policy/security software"
-		case strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "用法:"):
+		case strings.Contains(lowerOut, "usage:") || strings.Contains(lowerOut, "鐢ㄦ硶:"):
 			reason = "shutdown_arguments_rejected"
 			advice = "check shutdown.exe arguments and prefer shell=cmd for Windows-native syntax"
-		case strings.Contains(lowerOut, "no shutdown") || strings.Contains(lowerOut, "no pending shutdown") || strings.Contains(lowerOut, "没有正在执行"):
+		case strings.Contains(lowerOut, "no shutdown") || strings.Contains(lowerOut, "no pending shutdown") || strings.Contains(lowerOut, "娌℃湁姝ｅ湪鎵ц"):
 			reason = "shutdown_none_pending"
 			advice = "there is no pending shutdown to cancel"
 		default:

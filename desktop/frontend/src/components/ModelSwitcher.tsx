@@ -8,7 +8,7 @@ import { ANCHORED_POPOVER_CLOSE_MS, AnchoredPopover } from "./AnchoredPopover";
 
 // ModelSwitcher opens an upward popover listing configured providers. Selecting
 // one switches the active model while the current conversation continues.
-export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?: string; onPick: (name: string) => void }) {
+export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?: string; onPick: (name: string, displayLabel?: string) => void }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -49,8 +49,8 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
 
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
-  const pick = (name: string) => {
-    onPick(name);
+  const pick = (name: string, displayLabel?: string) => {
+    onPick(name, displayLabel);
     closeMenu();
   };
 
@@ -84,7 +84,7 @@ export function ModelSwitcher({ label, tabId, onPick }: { label: string; tabId?:
               role="option"
               aria-selected={m.current}
               className={`modelsw__item ${m.current ? "modelsw__item--current" : ""}`}
-              onClick={() => pick(m.ref)}
+              onClick={() => pick(m.ref, m.model)}
             >
               <span className="modelsw__copy">
                 <span className="modelsw__model" title={m.model}>{m.model}</span>
