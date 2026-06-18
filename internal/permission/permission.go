@@ -298,6 +298,7 @@ type Approver interface {
 type Gate struct {
 	Policy   Policy
 	Approver Approver
+	Bypass   bool
 
 	// OnRemember, when set, is invoked with a new allow rule the user chose to
 	// remember (e.g. "Bash(go build)"), so the front-end can persist it.
@@ -311,6 +312,9 @@ func NewGate(p Policy, a Approver) *Gate { return &Gate{Policy: p, Approver: a} 
 // interface expects. A denied or refused call returns allow=false with a short
 // reason the agent feeds back to the model.
 func (g *Gate) Check(ctx context.Context, toolName string, args json.RawMessage, readOnly bool) (bool, string, error) {
+	if g.Bypass {
+		return true, "", nil
+	}
 	if toolName == "bash" && !readOnly {
 		subject := Subject(args)
 		if isReadOnlyBashSubject(subject) {

@@ -1,4 +1,4 @@
-# DeepSeek-Orca Desktop V2.0.10
+# DeepSeek-Orca Desktop V2.0.11
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,7 +6,17 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.10-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.10/DeepSeek-Orca-Setup-2.0.10-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.11-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.11/DeepSeek-Orca-Setup-2.0.11-windows-amd64.exe)
+
+## V2.0.11 Host Tool Library
+
+V2.0.11 makes the host tool library available by default, without adding another composer toggle. The model can now use native host commands, system information, process listing and termination, app launch, text clipboard access, desktop notifications, lightweight web search, timed automations, Orca session listing, Node/Python execution, and basic Word/PPT/Excel/PDF inspection or extraction tools.
+
+Screenshot recognition, OCR, coordinate clicking, keyboard input, and visual desktop automation are intentionally not included yet because the current DeepSeek model path does not provide reliable image understanding.
+
+Approval semantics are clearer in this version: ask mode prompts, auto mode automatically approves tool permission prompts, and yolo mode is full access for tool operations. Use yolo only when you truly want the agent to run any tool action without additional permission gates.
+
+The composer layout was also changed so the bottom mode row is a real layout region instead of being hidden behind the right-side buttons. Long input text should no longer cover the current approval/model/effort row.
 
 Then:
 

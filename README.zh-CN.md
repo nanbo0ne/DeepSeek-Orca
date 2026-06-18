@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.10
+# DeepSeek-Orca V2.0.11
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留了原有的核心 Agent 循环、工具调用、MCP、技能、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek 与 OpenAI-compatible provider 做了桌面端体验和 V2 工作流增强。
 
@@ -6,7 +6,15 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.10-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.10/DeepSeek-Orca-Setup-2.0.10-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.11-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.11/DeepSeek-Orca-Setup-2.0.11-windows-amd64.exe)
+
+## V2.0.11 宿主工具库
+
+V2.0.11 默认启用新的宿主工具库，不再额外放置“工具库拓展”开关。模型现在可以在现有审批体系下使用原生宿主命令、系统信息、进程列表、结束进程、启动应用、文本剪贴板、系统通知、定时自动化、Orca 会话列表、联网搜索、Node/Python 执行，以及 Word/PPT/Excel/PDF 的基础检查和文本提取工具。
+
+本版暂不包含截图识图、OCR、坐标点击、键盘输入或视觉桌面控制。审批语义同步调整为：`ask` 正常询问，`auto` 自动审批工具权限请求，`yolo` 是真正的工具全权限模式，会允许任何工具操作。
+
+同时修复输入框底部参数行被长文本框遮挡的问题，当前审批、模型、思考强度等状态会稳定露出。
 
 安装后打开 DeepSeek-Orca Desktop，在设置中填写 DeepSeek API Key，或添加兼容 OpenAI 接口的 provider。
 

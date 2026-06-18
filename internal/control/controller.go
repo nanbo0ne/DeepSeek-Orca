@@ -1195,6 +1195,9 @@ func (c *Controller) newInteractiveGate() *permission.Gate {
 		policy.Mode = permission.Ask
 	}
 	gate := permission.NewGate(policy, gateApprover{c})
+	if mode == ToolApprovalYolo {
+		gate.Bypass = true
+	}
 	gate.OnRemember = func(rule string) {
 		if c.onRemember != nil {
 			_ = c.onRemember(rule)

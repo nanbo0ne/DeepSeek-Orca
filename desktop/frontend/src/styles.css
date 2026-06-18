@@ -3801,6 +3801,12 @@ a[href] {
 .composer-card {
   container-type: inline-size;
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "input input"
+    "meta actions";
+  align-items: end;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-elev);
@@ -3810,21 +3816,21 @@ a[href] {
 }
 .composer-card__actions {
   --wails-draggable: no-drag;
-  position: absolute;
-  right: 10px;
-  bottom: 9px;
-  z-index: var(--z-local-raised);
+  grid-area: actions;
+  position: relative;
+  z-index: var(--z-local-base);
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  max-width: min(430px, calc(100% - 20px));
+  min-width: max-content;
+  max-width: 100%;
+  padding: 5px 10px 6px 0;
   pointer-events: auto;
 }
 .composer-card--resized {
   height: var(--composer-height);
-  display: flex;
-  flex-direction: column;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 .composer-card:focus-within {
   border-color: var(--fg-faint);
@@ -3960,6 +3966,7 @@ a[href] {
   flex-shrink: 0;
 }
 .composer {
+  grid-area: input;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -4142,6 +4149,7 @@ a[href] {
   outline: none;
 }
 .composer-meta {
+  grid-area: meta;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -4150,14 +4158,14 @@ a[href] {
   width: 100%;
   min-width: 0;
   min-height: 40px;
-  padding: 5px 170px 6px 14px;
+  padding: 5px 8px 6px 14px;
   overflow: hidden;
   color: var(--fg-dim);
   font-family: var(--sans);
   font-size: 12px;
 }
 .composer-card--running .composer-meta {
-  padding-right: min(224px, 38%);
+  padding-right: 8px;
 }
 
 .composer-meta__params {

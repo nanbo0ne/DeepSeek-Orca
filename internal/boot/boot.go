@@ -41,6 +41,7 @@ import (
 	"deepseek-orca/internal/skill"
 	"deepseek-orca/internal/tool"
 	"deepseek-orca/internal/tool/builtin"
+	"deepseek-orca/internal/tool/hosttools"
 )
 
 // ErrUnknownModel is returned by Build when the configured model can't be
@@ -219,6 +220,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	searchSpec := builtin.ResolveSearch(cfg.Tools.Search.Engine, cfg.Tools.Search.RgPath, stderr)
 	bashTimeout := time.Duration(cfg.BashTimeoutSeconds()) * time.Second
 	addBuiltins(reg, cfg.Tools.Enabled, cfg.WriteRootsForRoot(root), bashSpec, bashTimeout, searchSpec, stderr, root, proxySpec)
+	for _, t := range hosttools.Tools(root) {
+		reg.Add(t)
+	}
 	// Always construct a host, even with no plugins configured, so the controller's
 	// host pointer is stable for the session and `/mcp add` can hot-add into it.
 	pluginHost := plugin.NewHost()
