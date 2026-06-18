@@ -1,4 +1,4 @@
-# DeepSeek-Orca Desktop V2.0.13
+# DeepSeek-Orca Desktop V2.0.14
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,11 +6,13 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.13/DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.14-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.14/DeepSeek-Orca-Setup-2.0.14-windows-amd64.exe)
 
-## V2.0.13 Interaction And Automation Update
+## V2.0.14 Interaction And Automation Update
 
-V2.0.13 focuses on smoother interaction and safer automation semantics.
+V2.0.14 also fixes the bottom status bar approval indicator. Ask, auto approve, and full access now remain visible on light backgrounds and use distinct colors so the current permission mode can be checked at a glance.
+
+V2.0.14 focuses on smoother interaction and safer automation semantics.
 
 Model switching now updates the composer button and status bar immediately with the short model name, such as `deepseek-v4-pro`, while controller rebuild happens in the background. The UI should no longer flash a raw `provider/model` path during that short transition.
 

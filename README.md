@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.13
+# DeepSeek-Orca V2.0.14
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,9 +6,13 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.13/DeepSeek-Orca-Setup-2.0.13-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.14-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.14/DeepSeek-Orca-Setup-2.0.14-windows-amd64.exe)
 
-## V2.0.13 新功能
+## V2.0.14 新功能
+
+### 底部状态栏审批状态更清晰
+
+底部状态栏现在会稳定显示当前审批权限，并用不同颜色区分三种状态：`需要批准` 使用蓝色，`自动批准` 使用绿色，`完全访问权限` 使用红色。该修复避免了浅色背景下权限文字不可见的问题，也让用户不需要悬停 tooltip 才能确认当前权限模式。
 
 ### 模型切换更丝滑
 

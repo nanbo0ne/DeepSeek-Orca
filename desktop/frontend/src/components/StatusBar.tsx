@@ -213,14 +213,19 @@ export function StatusBar({
         {goalMode && <span className="statusbar__plan">{t("composer.goalMode")}</span>}
         {askWorkflowEnabled && <span className="statusbar__plan">{t("composer.askWorkflow")}</span>}
         {stepThinkingEnabled && <span className="statusbar__plan">{t("composer.stepThinking")}</span>}
+        {toolApprovalMode === "ask" && (
+          <Tooltip label={t("composer.accessAskTitle")}>
+            <span className="statusbar__approval statusbar__approval--ask">{t("composer.accessAsk")}</span>
+          </Tooltip>
+        )}
         {toolApprovalMode === "auto" && (
           <Tooltip label={t("composer.accessAutoTitle")}>
-            <span className="statusbar__yolo">{t("composer.accessAuto")}</span>
+            <span className="statusbar__approval statusbar__approval--auto">{t("composer.accessAuto")}</span>
           </Tooltip>
         )}
         {toolApprovalMode === "yolo" && (
           <Tooltip label={t("status.yoloTitle")}>
-            <span className="statusbar__yolo">{t("composer.accessYolo")}</span>
+            <span className="statusbar__approval statusbar__approval--yolo">{t("composer.accessYolo")}</span>
           </Tooltip>
         )}
       </div>

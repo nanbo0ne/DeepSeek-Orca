@@ -5207,16 +5207,28 @@ a[href] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.statusbar__yolo {
-  color: var(--mode-yolo-fg);
+.statusbar__approval {
   letter-spacing: 0.6px;
-  flex: 0 0 48px;
-  width: 48px;
-  min-width: 48px;
+  flex: 0 0 76px;
+  width: 76px;
+  min-width: 76px;
+  font-weight: 700;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.statusbar__approval--ask {
+  color: var(--accent);
+}
+
+.statusbar__approval--auto {
+  color: var(--ok);
+}
+
+.statusbar__approval--yolo {
+  color: var(--mode-yolo-bg);
 }
 /* model switcher (bottom-of-window popover) */
 .modelsw {
