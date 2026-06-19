@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca Desktop V2.0.17
+﻿# DeepSeek-Orca Desktop V2.0.18
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,8 +6,15 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.17/DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.18/DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe)
 
+## V2.0.18 UI And CodeGraph Fixes
+
+V2.0.18 focuses on desktop layout stability. The top toolbar now gives normal-width windows enough space for the main action labels before falling back to compact icon-only controls. The right dock uses a two-by-two navigation layout so Overview, Files, Changes, and Side Chat can all remain fully visible.
+
+The running composer controls were tightened so Pause, status text, and Stop no longer push the input row out of alignment. Queued prompts now render as a small floating rounded panel instead of occupying a full rectangular row. The Tool Library panel also uses a neutral default background for enabled rows and reserves blue emphasis for hover.
+
+CodeGraph steering now uses the actual registered MCP tool names, such as `mcp__codegraph__context` and `mcp__codegraph__search`, so the model is no longer told to call bare `codegraph_search`.
 ## V2.0.17 Tool Library Update
 
 V2.0.17 adds a Tool Library button next to Automation in the top bar. It manages the newer extended host-tool groups: thread management, web search, Node/Python REPL, document tools, system/host tools, long-term conversation search, and the proactive tool-use steering switch.

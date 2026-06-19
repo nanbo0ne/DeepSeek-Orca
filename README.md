@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.17
+﻿# DeepSeek-Orca V2.0.18
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,8 +6,23 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.17/DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.18/DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe)
 
+## V2.0.18 修复
+
+### 顶栏、右侧栏与运行中布局稳定性
+
+V2.0.18 修复桌面端几处高频 UI 抖动和遮挡问题：
+
+- 顶栏工具按钮优先使用左上整条可用空间，正常窗口宽度下不再挤压省略。
+- 右侧 dock 的 `概览 / 文件 / 改动 / 侧边聊天` 改为两行两列紧凑导航，四个选项完整显示。
+- AI 正在生成时，右下角暂停、运行状态、停止按钮使用稳定收缩布局，避免错位和挤压输入栏。
+- “待发送”队列改为浮动圆角小面板，只占自身矩形区域，不再占据整条方形空间。
+- 工具库面板的开启项默认保持白色 / 浅色，鼠标悬停时才使用蓝色强调。
+
+### CodeGraph 工具名修复
+
+CodeGraph 提示现在使用实际注册的 MCP 工具名，例如 `mcp__codegraph__context` 和 `mcp__codegraph__search`，不再引导模型调用裸 `codegraph_search`，避免出现 `unknown tool "codegraph_search"`。
 ## V2.0.17 新功能
 
 ### 新增“工具库”管理面板

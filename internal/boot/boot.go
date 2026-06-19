@@ -371,12 +371,12 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		prefix := plugin.ToolPrefix("codegraph")
 		var cgTools []string
 		for _, name := range reg.Names() {
-			if strings.HasPrefix(name, prefix) {
+			if strings.HasPrefix(name, prefix) && name != prefix+"connect" {
 				cgTools = append(cgTools, name)
 			}
 		}
 		if len(cgTools) > 0 {
-			sysPrompt += "\n\n" + codegraph.SteerText
+			sysPrompt += "\n\n" + codegraph.SteerTextForTools(cgTools)
 			skill.SetExtraReadTools(cgTools)
 		}
 	}

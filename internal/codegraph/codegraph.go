@@ -28,17 +28,62 @@ import (
 
 const initTimeout = 30 * time.Second
 
-// SteerText is injected into the system prompt when CodeGraph tools are
-// available, so the model knows to prefer them for symbol-level questions.
-const SteerText = `## Code Intelligence (codegraph)
-You have codegraph tools for symbol-level code intelligence. For architecture questions, "how does X work", call graphs, symbol search, and impact analysis, prefer codegraph tools over grep/read_file:
-- codegraph_context — entry points + related symbols + key code in one call (USE THIS FIRST for "how does X work")
-- codegraph_search — find symbols by name (functions, types, interfaces)
-- codegraph_callers / codegraph_callees — trace call chains
-- codegraph_impact — what breaks if I change X
-- codegraph_trace — full call path between two symbols
-- codegraph_files — project file tree with symbol counts
-Use grep/read_file for content search (comments, strings, config values) and when codegraph is not available.`
+// SteerTextForTools is injected into the system prompt when CodeGraph tools are
+// available, so the model knows to prefer the exact registered MCP tool names
+// for symbol-level questions. The names passed here must be model-visible names
+// such as mcp__codegraph__context, not raw server names.
+func SteerTextForTools(toolNames []string) string {
+	bySuffix := func(suffix string) string {
+		for _, name := range toolNames {
+			if strings.HasSuffix(name, suffix) {
+				return name
+			}
+		}
+		return ""
+	}
+	context := bySuffix("__context")
+	search := bySuffix("__search")
+	callers := bySuffix("__callers")
+	callees := bySuffix("__callees")
+	impact := bySuffix("__impact")
+	trace := bySuffix("__trace")
+	files := bySuffix("__files")
+
+	var b strings.Builder
+	b.WriteString("## Code Intelligence (codegraph)\n")
+	b.WriteString("You have CodeGraph tools for symbol-level code intelligence. Use the exact registered tool names below; do not call bare codegraph_* names.\n")
+	b.WriteString("For architecture questions, \"how does X work\", call graphs, symbol search, and impact analysis, prefer these tools over grep/read_file:\n")
+	if context != "" {
+		b.WriteString("- " + context + " - entry points, related symbols, and key code in one call. Use this first for \"how does X work\".\n")
+	}
+	if search != "" {
+		b.WriteString("- " + search + " - find symbols by name, including functions, types, and interfaces.\n")
+	}
+	if callers != "" || callees != "" {
+		b.WriteString("- " + joinAvailable(callers, callees) + " - trace callers and callees.\n")
+	}
+	if impact != "" {
+		b.WriteString("- " + impact + " - estimate what depends on a symbol or what may break after a change.\n")
+	}
+	if trace != "" {
+		b.WriteString("- " + trace + " - find a call path between symbols.\n")
+	}
+	if files != "" {
+		b.WriteString("- " + files + " - inspect the project file tree with symbol counts.\n")
+	}
+	b.WriteString("Use grep/read_file for comments, strings, config values, generated text, or when a CodeGraph tool is not available.")
+	return b.String()
+}
+
+func joinAvailable(values ...string) string {
+	var out []string
+	for _, value := range values {
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return strings.Join(out, " / ")
+}
 
 // BundleDirName is the optional directory, beside the deepseek-orca executable, where
 // an operator can place an unpacked CodeGraph bundle for offline use. Its
