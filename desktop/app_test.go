@@ -1402,6 +1402,75 @@ func TestForkCreatesActiveTabWithoutSwitchingSourceController(t *testing.T) {
 	}
 }
 
+func TestForkGlobalTopicGetsIndependentWorkspaceRoot(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	sourceRoot, err := ensureIndependentWorkspaceRoot("topic_source_global")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := desktopSessionDir(sourceRoot)
+	path := agent.NewSessionPath(dir, "test")
+	sess := agent.NewSession("sys")
+	exec := agent.New(nil, nil, sess, agent.Options{}, event.Discard)
+	runner := &appendingDesktopRunner{session: sess, started: make(chan string, 2)}
+	ctrl := control.New(control.Options{
+		Runner:        runner,
+		Executor:      exec,
+		Sink:          event.Discard,
+		SessionDir:    dir,
+		SessionPath:   path,
+		Label:         "test",
+		WorkspaceRoot: sourceRoot,
+	})
+	app := NewApp()
+	app.setTestCtrl(ctrl, "deepseek/test")
+	app.tabs["test"].Scope = "global"
+	app.tabs["test"].WorkspaceRoot = sourceRoot
+	app.tabs["test"].TopicID = "topic_source_global"
+	app.tabs["test"].TopicTitle = "Global source"
+	defer ctrl.Close()
+
+	ctrl.Submit("first")
+	<-runner.started
+	waitNotRunning(t, ctrl)
+	ctrl.Submit("second")
+	<-runner.started
+	waitNotRunning(t, ctrl)
+
+	meta, err := app.Fork(1)
+	if err != nil {
+		t.Fatalf("Fork: %v", err)
+	}
+	if meta.Scope != "global" {
+		t.Fatalf("fork scope = %q, want global", meta.Scope)
+	}
+	if meta.WorkspaceRoot == "" || filepath.Clean(meta.WorkspaceRoot) == filepath.Clean(sourceRoot) {
+		t.Fatalf("fork workspace root = %q, want non-empty root distinct from %q", meta.WorkspaceRoot, sourceRoot)
+	}
+	if got, want := filepath.Clean(meta.WorkspaceRoot), filepath.Clean(independentWorkspaceRoot(meta.TopicID)); got != want {
+		t.Fatalf("fork workspace root = %q, want independent root %q", got, want)
+	}
+	forkDir := desktopSessionDir(meta.WorkspaceRoot)
+	infos, err := agent.ListSessions(forkDir)
+	if err != nil {
+		t.Fatalf("list fork dir: %v", err)
+	}
+	var found bool
+	for _, info := range infos {
+		if info.TopicID != meta.TopicID {
+			continue
+		}
+		found = true
+		if filepath.Clean(info.WorkspaceRoot) != filepath.Clean(meta.WorkspaceRoot) {
+			t.Fatalf("fork branch workspace root = %q, want %q", info.WorkspaceRoot, meta.WorkspaceRoot)
+		}
+	}
+	if !found {
+		t.Fatalf("fork session with topic %q not found in %s", meta.TopicID, forkDir)
+	}
+}
+
 func TestCapabilitiesShowsDefaultMCPAsInitializingNotDisabled(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	dir := robustTempDir(t)

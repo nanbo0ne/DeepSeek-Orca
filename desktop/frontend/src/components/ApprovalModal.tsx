@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../lib/i18n";
 import type { WireApproval } from "../lib/types";
+import { PlanProposalCard } from "./PlanProposalCard";
 import { PromptAction, PromptDetailToggle, PromptShelf } from "./PromptShelf";
 
 export function ApprovalModal({
@@ -69,10 +70,14 @@ export function ApprovalModal({
       inputRef.current?.focus();
       return;
     }
-    onRevisePlan?.(text);
+    const previousPlan = subject.trim();
+    onRevisePlan?.(
+      previousPlan
+        ? `Revise the plan using the previous complete plan and the user's requested changes. Produce a complete replacement plan. Do not execute yet; remain in plan mode and wait for approval.\n\nPrevious complete plan:\n${previousPlan}\n\nUser requested changes:\n${text}`
+        : text,
+    );
   };
 
-  // The plan is already shown above as the assistant's reply; this is just the gate.
   if (isPlanApproval) {
     return (
       <PromptShelf
@@ -92,6 +97,7 @@ export function ApprovalModal({
           </>
         }
       >
+        <PlanProposalCard plan={subject} />
         {revisionOpen && (
           <div className="plan-revision">
             <textarea

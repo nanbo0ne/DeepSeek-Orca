@@ -356,12 +356,53 @@ func TestDefaultGlobalTabGetsMigratedTopicID(t *testing.T) {
 	if tab.Ctrl == nil {
 		t.Fatalf("tab controller was not built")
 	}
-	if tab.Ctrl.SessionPath() != sessionPath {
-		t.Fatalf("tab session path = %q, want %q", tab.Ctrl.SessionPath(), sessionPath)
+	wantSessionDir := desktopSessionDir(independentWorkspaceRoot(wantTopicID))
+	if got := filepath.Dir(tab.Ctrl.SessionPath()); filepath.Clean(got) != filepath.Clean(wantSessionDir) {
+		t.Fatalf("tab session dir = %q, want independent dir %q", got, wantSessionDir)
+	}
+	history := tab.Ctrl.History()
+	if len(history) == 0 || history[0].Content != "resume this legacy tab" {
+		t.Fatalf("restored history = %+v, want migrated legacy transcript", history)
 	}
 	f := loadTabsFile()
 	if len(f.Tabs) != 1 || f.Tabs[0].ID != "tab_legacy" || f.Tabs[0].TopicID != wantTopicID {
 		t.Fatalf("desktop tabs file = %+v, want tab id and migrated topic", f)
+	}
+}
+
+func TestOpenGlobalTabBackfillsIndependentWorkspaceForLegacySession(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	dir := config.SessionDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir sessions: %v", err)
+	}
+	topicID := "legacy_global_topic"
+	sessionPath := writeTopicSessionWithPrompt(t, dir, "legacy-global.jsonl", topicID, "Legacy", "", "legacy prompt", time.Now())
+
+	app := NewApp()
+	meta, err := app.OpenGlobalTab(topicID)
+	if err != nil {
+		t.Fatalf("OpenGlobalTab: %v", err)
+	}
+	if meta.WorkspaceRoot == "" {
+		t.Fatalf("global tab workspace root is empty: %+v", meta)
+	}
+	if got, want := filepath.Clean(meta.WorkspaceRoot), filepath.Clean(independentWorkspaceRoot(topicID)); got != want {
+		t.Fatalf("workspace root = %q, want independent root %q", got, want)
+	}
+	branch, ok, err := agent.LoadBranchMeta(sessionPath)
+	if err != nil {
+		t.Fatalf("load branch meta: %v", err)
+	}
+	if !ok {
+		t.Fatal("branch meta missing")
+	}
+	if branch.WorkspaceRoot == "" {
+		t.Fatalf("legacy branch meta workspace root was not backfilled: %+v", branch)
+	}
+	if got, want := filepath.Clean(branch.WorkspaceRoot), filepath.Clean(independentWorkspaceRoot(topicID)); got != want {
+		t.Fatalf("branch workspace root = %q, want %q", got, want)
 	}
 }
 
@@ -392,16 +433,17 @@ func TestBuildTabControllerRestoresPinnedSessionBeforeTopicFallback(t *testing.T
 	}
 	defer tab.Ctrl.Close()
 
-	if got := filepath.Clean(tab.Ctrl.SessionPath()); got != filepath.Clean(pinned) {
-		t.Fatalf("restored session path = %q, want pinned %q", got, pinned)
+	wantPinnedDir := desktopSessionDir(independentWorkspaceRoot(topicID))
+	if got := filepath.Dir(tab.Ctrl.SessionPath()); filepath.Clean(got) != filepath.Clean(wantPinnedDir) {
+		t.Fatalf("restored session dir = %q, want independent pinned dir %q", got, wantPinnedDir)
 	}
 	history := tab.Ctrl.History()
 	if len(history) == 0 || history[0].Content != "full 64-turn conversation" {
 		t.Fatalf("restored history = %+v, want pinned long conversation", history)
 	}
 	f := loadTabsFile()
-	if len(f.Tabs) != 1 || filepath.Clean(f.Tabs[0].SessionPath) != filepath.Clean(pinned) {
-		t.Fatalf("desktop tabs file = %+v, want pinned session path %q", f, pinned)
+	if len(f.Tabs) != 1 || filepath.Clean(filepath.Dir(f.Tabs[0].SessionPath)) != filepath.Clean(wantPinnedDir) {
+		t.Fatalf("desktop tabs file = %+v, want migrated pinned dir %q", f, wantPinnedDir)
 	}
 }
 

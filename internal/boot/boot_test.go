@@ -84,6 +84,59 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	}
 }
 
+func TestBuildPromptProfilesShareTaskTrackingAndRoutingPolicies(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		enhanced bool
+	}{
+		{name: "normal", enhanced: false},
+		{name: "enhanced", enhanced: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := robustTempDir(t)
+			t.Chdir(dir)
+			writeFile(t, dir, "deepseek-orca.toml", `
+default_model = "test-model"
+
+[codegraph]
+enabled = false
+
+[agent]
+system_prompt = "BASE SYSTEM PROMPT"
+
+[[providers]]
+name = "test-model"
+kind = "openai"
+base_url = "https://example.invalid"
+model = "x"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
+`)
+
+			ctrl, err := Build(context.Background(), Options{EnhancedMode: tc.enhanced})
+			if err != nil {
+				t.Fatalf("Build: %v", err)
+			}
+			defer ctrl.Close()
+
+			sys := systemMessage(ctrl.History())
+			for _, want := range []string{
+				config.TaskTrackingPolicy,
+				config.ToolRoutingPolicy,
+				config.LanguagePolicy,
+				"todo_write",
+				"automation_create",
+			} {
+				if !strings.Contains(sys, want) {
+					t.Fatalf("%s prompt missing %q:\n%s", tc.name, want, sys)
+				}
+			}
+			if strings.Contains(sys, "任务跟踪规则") {
+				t.Fatalf("%s prompt should use the English task tracking policy, got:\n%s", tc.name, sys)
+			}
+		})
+	}
+}
+
 func TestBuildSubagentSkillFailedContinuationPersistsTranscript(t *testing.T) {
 	isolateConfigHome(t)
 	dir := robustTempDir(t)
@@ -485,6 +538,9 @@ func TestBuildDiscoversSkills(t *testing.T) {
 	dir := robustTempDir(t)
 	home := robustTempDir(t)
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Chdir(dir)
 	writeFile(t, dir, "deepseek-orca.toml", `
@@ -611,7 +667,7 @@ func TestBuildOmitsExcludedSkillRootsFromPromptAndRuntimeList(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Chdir(dir)
 	excluded := filepath.Join(home, ".agents", "skills")
-	writeFile(t, home, ".deepseek-orca/skills/keep.md", "---\ndescription: keep\n---\nplaybook")
+	writeFile(t, dir, ".deepseek-orca/skills/keep.md", "---\ndescription: keep\n---\nplaybook")
 	writeFile(t, home, ".agents/skills/noisy.md", "---\ndescription: noisy\n---\nplaybook")
 	writeFile(t, dir, "deepseek-orca.toml", fmt.Sprintf(`
 default_model = "test-model"
@@ -648,7 +704,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	if strings.Contains(sys, "noisy") {
 		t.Fatalf("excluded skill name should be omitted from system prompt:\n%s", sys)
 	}
-	if !strings.Contains(sys, "keep") {
+	if !strings.Contains(sys, "- keep") {
 		t.Fatalf("non-excluded skill should remain in system prompt:\n%s", sys)
 	}
 }
@@ -696,6 +752,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	// is purely about whether project/ancestor memory leaked into the base.
 	base = stripLanguagePolicy(base)
 	base = stripToolRoutingPolicy(base)
+	base = stripTaskTrackingPolicy(base)
 	if base != "JUST THE BASE" {
 		t.Fatalf("expected untouched base prompt, got:\n%s", sys)
 	}
@@ -755,6 +812,11 @@ func stripLanguagePolicy(s string) string {
 func stripToolRoutingPolicy(s string) string {
 	s = strings.TrimSpace(s)
 	return strings.TrimSpace(strings.TrimSuffix(s, config.ToolRoutingPolicy))
+}
+
+func stripTaskTrackingPolicy(s string) string {
+	s = strings.TrimSpace(s)
+	return strings.TrimSpace(strings.TrimSuffix(s, config.TaskTrackingPolicy))
 }
 
 func writeFile(t *testing.T, dir, name, body string) {

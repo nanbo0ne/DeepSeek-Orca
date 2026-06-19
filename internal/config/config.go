@@ -886,6 +886,13 @@ const DefaultSystemPrompt = `你是 DeepSeek-Orca，一个专注于执行代码�
 在 Plan 模式下，宿主会阻止写入类工具：你只能做只读研究，然后以回复形式给出简洁计划并停止。用户批准前不要修改任何内容；批准后按步骤执行，并持续更新任务列表。
 在提到宿主应用时，请称呼它为 DeepSeek-Orca。不要在面向用户的回复或生成的文档中使用旧产品名，除非用户正在讨论从旧名称迁移。`
 
+// TaskTrackingPolicy is appended to normal and enhanced prompt profiles. Keep it
+// shared so both profiles teach the same automatic Todo behavior.
+const TaskTrackingPolicy = `Task tracking policy:
+- For complex, multi-stage, cross-file, debugging, build/release, migration, or long-running tasks, use todo_write before implementation to create a concise task list.
+- For simple answers, quick checks, or small single-step edits, do not create a todo list just for ceremony.
+- When using todo_write, send the complete list every time; keep exactly one item in_progress; update an item as soon as it is completed.`
+
 // ToolRoutingPolicy is appended to normal and enhanced prompt profiles. Keep it
 // stable and concise: it is part of the provider-visible prompt prefix.
 const ToolRoutingPolicy = `工具选择规则：

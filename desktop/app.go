@@ -393,7 +393,15 @@ func (a *App) restoreOrBuildTabs() {
 			if entry.Scope == "project" {
 				tab = a.createTabEntryWithID(entry.Scope, entry.WorkspaceRoot, entry.TopicID, id)
 			} else {
-				tab = a.createTabEntryWithID("global", globalTabWorkspaceRoot(), entry.TopicID, id)
+				topicID := strings.TrimSpace(entry.TopicID)
+				if topicID == "" {
+					topicID = newTopicID()
+				}
+				workspaceRoot := independentWorkspaceRoot(topicID)
+				if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+					workspaceRoot = root
+				}
+				tab = a.createTabEntryWithID("global", workspaceRoot, topicID, id)
 			}
 			tab.model = entry.Model
 			tab.effort = cloneStringPtr(entry.Effort)
@@ -431,7 +439,12 @@ func (a *App) restoreOrBuildTabs() {
 	}
 
 	// First launch: create a default independent-workspace tab.
-	tab := a.createTabEntry("global", globalTabWorkspaceRoot(), "")
+	topicID := newTopicID()
+	workspaceRoot := independentWorkspaceRoot(topicID)
+	if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+		workspaceRoot = root
+	}
+	tab := a.createTabEntry("global", workspaceRoot, topicID)
 	tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
 	tab.TopicTitle = "独立工作区"
 	a.mu.Lock()
@@ -447,6 +460,17 @@ func (a *App) createTabEntry(scope, workspaceRoot, topicID string) *WorkspaceTab
 }
 
 func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *WorkspaceTab {
+	if scope != "project" {
+		scope = "global"
+		if strings.TrimSpace(topicID) == "" {
+			topicID = newTopicID()
+		}
+		if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+			workspaceRoot = root
+		} else if strings.TrimSpace(workspaceRoot) == "" {
+			workspaceRoot = independentWorkspaceRoot(topicID)
+		}
+	}
 	tab := &WorkspaceTab{
 		ID:               id,
 		Scope:            scope,
@@ -908,6 +932,42 @@ func (a *App) NewSession() error {
 	}
 	a.mu.Unlock()
 
+	if tab != nil && tab.Scope == "global" {
+		_ = ctrl.Snapshot()
+		topicID := newTopicID()
+		workspaceRoot := independentWorkspaceRoot(topicID)
+		if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+			workspaceRoot = root
+		}
+		topicTitle := defaultTopicTitle
+		if err := setTopicTitleWithSource("", topicID, topicTitle, topicTitleSourceAuto); err != nil {
+			return err
+		}
+		_ = setTopicCreatedAt("", topicID, time.Now().UnixMilli())
+		f := loadProjectsFile()
+		f.GlobalTopics = prependUniqueString(f.GlobalTopics, topicID)
+		_ = saveProjectsFile(f)
+
+		ctrl.Close()
+		a.mu.Lock()
+		tab.Ctrl = nil
+		tab.Ready = false
+		tab.StartupErr = ""
+		tab.WorkspaceRoot = workspaceRoot
+		tab.TopicID = topicID
+		tab.TopicTitle = topicTitle
+		tab.SessionPath = ""
+		tab.mode = "normal"
+		tab.goal = ""
+		tab.askWorkflow = false
+		tab.stepThinking = false
+		a.saveTabsLocked()
+		a.mu.Unlock()
+		a.startTabControllerBuild(tab)
+		a.emitProjectTreeChanged()
+		return nil
+	}
+
 	if err := ctrl.NewSession(); err != nil {
 		return err
 	}
@@ -1067,6 +1127,16 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	titleRoot := workspaceRoot
 	if scope == "global" {
 		titleRoot = ""
+		if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+			workspaceRoot = root
+		} else {
+			workspaceRoot = independentWorkspaceRoot(topicID)
+		}
+		if migratedPath, err := migrateForkSessionToWorkspace(newPath, workspaceRoot); err == nil {
+			newPath = migratedPath
+		} else {
+			return TabMeta{}, err
+		}
 	}
 	if err := setTopicTitle(titleRoot, topicID, topicTitle); err != nil {
 		return TabMeta{}, err
@@ -1106,6 +1176,32 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	a.emitProjectTreeChanged()
 	a.startTabControllerBuild(tab)
 	return meta, nil
+}
+
+func migrateForkSessionToWorkspace(sessionPath, workspaceRoot string) (string, error) {
+	sessionPath = strings.TrimSpace(sessionPath)
+	workspaceRoot = strings.TrimSpace(workspaceRoot)
+	if sessionPath == "" || workspaceRoot == "" {
+		return sessionPath, nil
+	}
+	targetDir := desktopSessionDir(workspaceRoot)
+	if filepath.Clean(filepath.Dir(sessionPath)) == filepath.Clean(targetDir) {
+		return sessionPath, nil
+	}
+	loaded, err := agent.LoadSession(sessionPath)
+	if err != nil {
+		return "", err
+	}
+	targetPath := filepath.Join(targetDir, filepath.Base(sessionPath))
+	if _, err := os.Stat(targetPath); err == nil {
+		targetPath = agent.NewSessionPath(targetDir, strings.TrimSuffix(filepath.Base(sessionPath), filepath.Ext(sessionPath)))
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if err := loaded.Save(targetPath); err != nil {
+		return "", err
+	}
+	return targetPath, nil
 }
 
 // SummarizeFrom / SummarizeUpTo compress the conversation from / up to the start

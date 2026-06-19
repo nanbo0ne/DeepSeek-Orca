@@ -5691,6 +5691,25 @@ a[href] {
   box-shadow: 0 7px 18px rgba(0, 0, 0, 0.1);
   padding: 10px;
 }
+.plan-proposal-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 92%, var(--accent) 8%);
+  overflow: hidden;
+}
+.plan-proposal-card__body {
+  padding: 10px 13px;
+  color: var(--fg);
+}
+.plan-proposal-card__body .md {
+  font-size: var(--text-sm);
+}
+.plan-proposal-card__body .md > :first-child {
+  margin-top: 0;
+}
+.plan-proposal-card__body .md > :last-child {
+  margin-bottom: 0;
+}
 .plan-revision {
   margin-top: 6px;
 }

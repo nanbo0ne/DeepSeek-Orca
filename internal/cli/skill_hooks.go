@@ -145,19 +145,19 @@ func (m *chatTUI) skillSaveEnabledChanges(changes map[string]bool) {
 			name, enabled = n, e
 		}
 		if enabled {
-			notice = "enabled skill " + name + " — refreshing session"
+			notice = "已启用 skill " + name + "，正在刷新会话"
 		} else {
-			notice = "disabled skill " + name + " — refreshing session"
+			notice = "已停用 skill " + name + "，正在刷新会话"
 		}
 	} else {
-		notice = fmt.Sprintf("updated %d skills — refreshing session", len(changes))
+		notice = fmt.Sprintf("已更新 %d 个 skill，正在刷新会话", len(changes))
 	}
 	m.scheduleSkillSessionRefresh("skill toggle", notice)
 }
 
 func (m *chatTUI) scheduleSkillSessionRefresh(reason, notice string) bool {
 	if m.buildController == nil {
-		m.notice("skill refresh unavailable in this session")
+		m.notice("当前会话无法刷新 skill")
 		return false
 	}
 	if m.ctrl == nil {

@@ -12,7 +12,7 @@
   "info": {
     "companyName": "DeepSeek-Orca",
     "productName": "DeepSeek-Orca",
-    "productVersion": "2.0.14",
+    "productVersion": "2.0.15",
     "copyright": "Copyright (c) 2026 DeepSeek-Orca Contributors",
     "comments": "DeepSeek-Orca desktop - a Wails shell around the Go kernel."
   }

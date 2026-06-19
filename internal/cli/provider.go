@@ -53,16 +53,16 @@ func (m *chatTUI) showProviders() {
 
 		status := ""
 		if p.Name == curProvider {
-			status = "  " + viewStatus("active")
+			status = "  " + viewStatus("当前")
 		}
-		modelLabel := fmt.Sprintf("%d models", len(models))
+		modelLabel := fmt.Sprintf("%d 个模型", len(models))
 		if len(models) == 1 {
 			modelLabel = models[0]
 		}
 		line := fmt.Sprintf("  %-16s  %-20s  %s%s", p.Name, modelLabel, dim(p.Kind), status)
 		lines = append(lines, line)
 	}
-	lines = append(lines, viewHint(viewCompactText("switch with /provider <name>", m.width)))
+	lines = append(lines, viewHint(viewCompactText("使用 /provider <name> 切换", m.width)))
 	m.commitLine(strings.Join(lines, "\n"))
 }
 

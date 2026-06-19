@@ -176,9 +176,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 	}
 	if opts.EnhancedMode {
-		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.ToolRoutingPolicy, config.LanguagePolicy)
+		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.ToolRoutingPolicy, config.LanguagePolicy)
 	} else {
-		sysPrompt += "\n\n" + config.ToolRoutingPolicy + "\n\n" + config.LanguagePolicy
+		sysPrompt += "\n\n" + config.TaskTrackingPolicy + "\n\n" + config.ToolRoutingPolicy + "\n\n" + config.LanguagePolicy
 	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)

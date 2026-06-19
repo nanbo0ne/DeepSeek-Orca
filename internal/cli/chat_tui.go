@@ -3672,7 +3672,7 @@ func (m *chatTUI) runMCPSubcommand(input string) {
 			m.notice("mcp add: " + err.Error())
 			return
 		}
-		m.notice(fmt.Sprintf("connected %s — %d tools, saved to config (available next message)", entry.Name, n))
+		m.notice(fmt.Sprintf("已连接 %s：%d 个工具，已保存到配置（下一条消息可用）", entry.Name, n))
 	case "connect":
 		if len(args) < 3 {
 			m.notice("usage: /mcp connect <name>")
@@ -3684,7 +3684,7 @@ func (m *chatTUI) runMCPSubcommand(input string) {
 			return
 		}
 		m.host = m.ctrl.Host()
-		m.notice(fmt.Sprintf("connected %s — %d tools (available next message)", args[2], n))
+		m.notice(fmt.Sprintf("已连接 %s：%d 个工具（下一条消息可用）", args[2], n))
 	case "remove", "rm":
 		if len(args) < 3 {
 			m.notice("usage: /mcp remove <name>")

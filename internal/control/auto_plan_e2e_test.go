@@ -60,6 +60,7 @@ func TestAutoPlanGateEndToEnd(t *testing.T) {
 	ag := agent.New(prov, tool.NewRegistry(), agent.NewSession(""), agent.Options{}, event.Discard)
 
 	approvalID := make(chan string, 1)
+	approvalSubject := make(chan string, 1)
 	var seeded bool
 	c := New(Options{
 		AutoPlan: "on",
@@ -69,6 +70,7 @@ func TestAutoPlanGateEndToEnd(t *testing.T) {
 			switch e.Kind {
 			case event.ApprovalRequest:
 				approvalID <- e.Approval.ID
+				approvalSubject <- e.Approval.Subject
 			case event.ToolDispatch:
 				if e.Tool.ID == "plan-seed" {
 					seeded = true
@@ -90,6 +92,9 @@ func TestAutoPlanGateEndToEnd(t *testing.T) {
 	}
 	if c.PlanMode() {
 		t.Fatal("plan mode should be off after approval")
+	}
+	if got := <-approvalSubject; !strings.Contains(got, "Add the config field") || !strings.Contains(got, "Wire it into boot") {
+		t.Fatalf("plan approval subject = %q, want complete plan text", got)
 	}
 	if !seeded {
 		t.Fatal("approved plan should seed the task list")

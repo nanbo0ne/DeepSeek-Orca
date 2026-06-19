@@ -12,7 +12,7 @@ import (
 // SlashItem is one slash-completion suggestion. Insert is the token text placed
 // at the current argument position (callers replace from the token's start, see
 // SlashArgItems' returned offset); Descend hints the menu to re-open one level
-// deeper after accepting (e.g. "/mcp " 鈫?"/mcp add ").
+// deeper after accepting (e.g. "/mcp " -> "/mcp add ").
 type SlashItem struct {
 	Label   string `json:"label"`
 	Insert  string `json:"insert"`
@@ -21,7 +21,7 @@ type SlashItem struct {
 }
 
 // ArgData supplies the dynamic data SlashArgItems needs, so the completion logic
-// is one shared function both frontends call with their own session data 鈥?the
+// is one shared function both frontends call with their own session data: the
 // chat TUI (controller-free, from its cached lists) and the desktop (from the
 // controller). This keeps the CLI and desktop sub-command hints identical.
 type ArgData struct {
@@ -102,9 +102,9 @@ func themeArgItems(prior []string) []SlashItem {
 		return nil
 	}
 	items := []SlashItem{
-		{Label: "auto", Insert: "auto", Hint: "mode 路 跟随系统或终端背景"},
-		{Label: "light", Insert: "light", Hint: "mode 路 强制浅色"},
-		{Label: "dark", Insert: "dark", Hint: "mode 路 强制深色"},
+		{Label: "auto", Insert: "auto", Hint: "模式：跟随系统或终端背景"},
+		{Label: "light", Insert: "light", Hint: "模式：强制浅色"},
+		{Label: "dark", Insert: "dark", Hint: "模式：强制深色"},
 	}
 	for _, st := range []struct {
 		name string
@@ -113,7 +113,7 @@ func themeArgItems(prior []string) []SlashItem {
 	}{
 		{"slate", "native", "DeepSeek-Orca 蓝白风格"},
 	} {
-		items = append(items, SlashItem{Label: st.name, Insert: st.name, Hint: st.mode + " 路 " + st.desc})
+		items = append(items, SlashItem{Label: st.name, Insert: st.name, Hint: st.mode + "：" + st.desc})
 	}
 	return items
 }
@@ -300,7 +300,7 @@ func hooksArgItems(prior []string) []SlashItem {
 }
 
 // filterSlash keeps items whose label starts with the typed token (case-
-// insensitive) and drops no-op suggestions 鈥?ones whose insert wouldn't change
+// insensitive) and drops no-op suggestions: ones whose insert wouldn't change
 // the line because the token is already fully typed (e.g. "/skills list" offering
 // "list"). Without this the menu lingers on a complete command and Enter keeps
 // "accepting" the no-op instead of sending.
@@ -322,9 +322,9 @@ func filterSlash(items []SlashItem, line string, from int, cur string) []SlashIt
 
 // managementNotice handles the read-only management slash commands on the Submit
 // path (used by the desktop and HTTP frontends, which route raw input through
-// Submit 鈥?the chat TUI has its own richer handlers). It emits a Notice listing
+// Submit; the chat TUI has its own richer handlers). It emits a Notice listing
 // and reports whether it handled the verb. Skills and custom commands are NOT
-// here 鈥?those resolve to a turn in Submit.
+// here; those resolve to a turn in Submit.
 func (c *Controller) managementNotice(trimmed string) bool {
 	fields := strings.Fields(trimmed)
 	if len(fields) == 0 {
@@ -351,9 +351,9 @@ func (c *Controller) managementNotice(trimmed string) bool {
 			if err := c.SetSkillEnabled(fields[2], enabled); err != nil {
 				c.notice("skill " + sub + ": " + err.Error())
 			} else if enabled {
-				c.notice("enabled skill " + fields[2] + " 鈥?restart or refresh the session for the prompt and tools to update")
+				c.notice("已启用 skill " + fields[2] + "；请重启或刷新会话，让提示词和工具更新")
 			} else {
-				c.notice("disabled skill " + fields[2] + " 鈥?restart or refresh the session for the prompt and tools to update")
+				c.notice("已停用 skill " + fields[2] + "；请重启或刷新会话，让提示词和工具更新")
 			}
 			return true
 		}
@@ -366,7 +366,7 @@ func (c *Controller) managementNotice(trimmed string) bool {
 			if err != nil {
 				c.notice("mcp connect: " + err.Error())
 			} else {
-				c.notice(fmt.Sprintf("connected %s 鈥?%d tools", fields[2], n))
+				c.notice(fmt.Sprintf("已连接 %s：%d 个工具", fields[2], n))
 			}
 			return true
 		}
@@ -419,11 +419,11 @@ func (c *Controller) providerListText() string {
 		}
 		suffix := ""
 		if p.Name == curProvider {
-			suffix = " (active)"
+			suffix = "（当前）"
 		}
-		fmt.Fprintf(&b, "  %s 鈥?%d models%s\n", p.Name, len(models), suffix)
+		fmt.Fprintf(&b, "  %s：%d 个模型%s\n", p.Name, len(models), suffix)
 	}
-	b.WriteString("switch with /provider <name>")
+	b.WriteString("使用 /provider <name> 切换")
 	return strings.TrimRight(b.String(), "\n")
 }
 
@@ -443,14 +443,14 @@ func (c *Controller) providerSwitchText(name string) string {
 				return fmt.Sprintf(i18n.M.ProviderNoModelsFmt, name)
 			}
 			if len(models) == 1 {
-				return fmt.Sprintf("provider %s 鈥?model: %s (switch with /model %s/%s)", name, models[0], name, models[0])
+				return fmt.Sprintf("供应商 %s：模型 %s（使用 /model %s/%s 切换）", name, models[0], name, models[0])
 			}
 			var b strings.Builder
-			fmt.Fprintf(&b, "provider %s 鈥?%d models:\n", name, len(models))
+			fmt.Fprintf(&b, "供应商 %s：%d 个模型：\n", name, len(models))
 			for _, m := range models {
 				fmt.Fprintf(&b, "  %s/%s\n", name, m)
 			}
-			fmt.Fprintf(&b, "switch with /model %s/<model>", name)
+			fmt.Fprintf(&b, "使用 /model %s/<model> 切换", name)
 			return strings.TrimRight(b.String(), "\n")
 		}
 	}
@@ -480,7 +480,7 @@ func (c *Controller) skillListText() string {
 		if s.RunAs == "subagent" {
 			tag = " 馃К"
 		}
-		fmt.Fprintf(&b, "  /%s%s 鈥?%s\n", s.Name, tag, s.Description)
+		fmt.Fprintf(&b, "  /%s%s — %s\n", s.Name, tag, s.Description)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -497,7 +497,7 @@ func (c *Controller) hookListText() string {
 		if match == "" {
 			match = "*"
 		}
-		fmt.Fprintf(&b, "  %s [%s] %s 鈥?%s\n", h.Event, h.Scope, match, h.Command)
+		fmt.Fprintf(&b, "  %s [%s] %s — %s\n", h.Event, h.Scope, match, h.Command)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -517,7 +517,7 @@ func (c *Controller) mcpListText() string {
 		if b.Len() > 0 {
 			b.WriteString("\n")
 		}
-		b.WriteString("MCP startup failures:\n")
+		b.WriteString("MCP 启动失败：\n")
 		for _, f := range failures {
 			fmt.Fprintf(&b, "  %s (%s): %s\n", f.Name, f.Transport, f.Error)
 		}

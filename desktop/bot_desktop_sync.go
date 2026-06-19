@@ -26,7 +26,11 @@ type botSessionUpdatedEvent struct {
 }
 
 func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg bot.InboundMessage) (bot.SessionChoice, error) {
-	root := globalWorkspaceRoot()
+	topicID := newTopicID()
+	root := independentWorkspaceRoot(topicID)
+	if ensured, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+		root = ensured
+	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return bot.SessionChoice{}, err
 	}
@@ -35,7 +39,6 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 		return bot.SessionChoice{}, err
 	}
 
-	topicID := newTopicID()
 	title := "机器人新对话"
 	if err := setTopicTitleWithSource("", topicID, title, topicTitleSourceAuto); err != nil {
 		return bot.SessionChoice{}, err

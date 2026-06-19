@@ -1,4 +1,4 @@
-# DeepSeek-Orca V2.0.14
+﻿# DeepSeek-Orca V2.0.15
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,9 +6,21 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.14-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.14/DeepSeek-Orca-Setup-2.0.14-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.15/DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe)
 
-## V2.0.14 新功能
+## V2.0.15 新功能
+
+### 自动 Todo 覆盖普通与增强模式
+
+复杂、多阶段、跨文件、排查、构建发布或迁移任务现在会在普通模式和增强模式中共享同一套英文任务跟踪策略。模型会更稳定地自行判断何时调用 `todo_write` 建立待办清单；简单问答、小型检查和单步修改不会为了形式强制创建清单。该策略保持英文且足够短，避免再次把工具上下文大面积中文化。
+
+### Codex 风格计划卡片
+
+计划模式的审批现在会把完整计划放进独立圆角计划卡中展示。用户可以直接开始执行，也可以输入修改意见；修改时 DeepSeek-Orca 会把上一版完整计划和用户修改要求一起交给模型，要求生成一份完整替代计划，并继续停留在计划模式等待批准。批准后仍会从最终计划种下 Todo，并按 `todo_write` / `complete_step` 串行推进。
+
+### 独立工作区真正隔离
+
+独立工作区中的每个对话现在都会拥有自己的小工作区目录，文件、附件、配置、记忆、工具 cwd 和会话目录不再与其他独立对话串线。旧版全局会话首次打开时会自动补写并迁移到 per-topic 独立会话目录；不会复制旧共享工作区里的文件，避免磁盘膨胀和归属混乱。Fork 独立对话时也会创建新的小工作区，不共享源对话后续文件状态。
 
 ### 底部状态栏审批状态更清晰
 

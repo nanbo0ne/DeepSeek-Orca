@@ -56,9 +56,10 @@ func TestCarriedRebuildsKeepOneSession(t *testing.T) {
 	}
 }
 
-// EnsureBlankTab reuses an already-open blank tab rather than creating a second one.
+// Global blank tabs are independent conversations: every new standalone chat
+// gets its own topic and workspace root instead of reusing another blank tab.
 
-func TestEnsureBlankTabReusesExistingBlankTab(t *testing.T) {
+func TestEnsureBlankTabCreatesIndependentGlobalBlankTabs(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
@@ -70,11 +71,17 @@ func TestEnsureBlankTabReusesExistingBlankTab(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if second.ID != first.ID {
-		t.Fatalf("EnsureBlankTab created duplicate blank tab: first=%q second=%q", first.ID, second.ID)
+	if second.ID == first.ID {
+		t.Fatalf("EnsureBlankTab reused global blank tab %q; want independent tab", first.ID)
 	}
-	if tabs := app.ListTabs(); len(tabs) != 1 {
-		t.Fatalf("ListTabs length = %d, want 1: %+v", len(tabs), tabs)
+	if first.TopicID == second.TopicID {
+		t.Fatalf("global blank tabs share topic %q", first.TopicID)
+	}
+	if first.WorkspaceRoot == "" || first.WorkspaceRoot == second.WorkspaceRoot {
+		t.Fatalf("global blank tabs should have distinct workspace roots: first=%q second=%q", first.WorkspaceRoot, second.WorkspaceRoot)
+	}
+	if tabs := app.ListTabs(); len(tabs) != 2 {
+		t.Fatalf("ListTabs length = %d, want 2: %+v", len(tabs), tabs)
 	}
 }
 
@@ -101,10 +108,10 @@ func TestEnsureBlankTabCreatesOneBlankPerProject(t *testing.T) {
 	}
 }
 
-// EnsureBlankTab picks up an existing blank topic created in the sidebar
-// instead of creating a fresh topic, for global scope.
+// EnsureBlankTab does not reuse an existing global blank topic; each standalone
+// conversation is its own small workspace.
 
-func TestEnsureBlankTabOpensExistingSidebarBlankTopic(t *testing.T) {
+func TestEnsureBlankTabDoesNotReuseExistingGlobalSidebarBlankTopic(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
@@ -117,11 +124,11 @@ func TestEnsureBlankTabOpensExistingSidebarBlankTopic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if meta.TopicID != topic.ID {
-		t.Fatalf("EnsureBlankTab opened topic %q, want existing blank topic %q", meta.TopicID, topic.ID)
+	if meta.TopicID == topic.ID {
+		t.Fatalf("EnsureBlankTab reused global topic %q; want fresh independent topic", topic.ID)
 	}
-	if topics := loadProjectsFile().GlobalTopics; len(topics) != 1 {
-		t.Fatalf("global topics length = %d, want 1: %v", len(topics), topics)
+	if topics := loadProjectsFile().GlobalTopics; len(topics) != 2 {
+		t.Fatalf("global topics length = %d, want 2: %v", len(topics), topics)
 	}
 }
 

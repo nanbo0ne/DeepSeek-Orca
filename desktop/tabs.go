@@ -659,17 +659,27 @@ func (a *App) OpenProjectTab(workspaceRoot, topicID string) (TabMeta, error) {
 	return a.tabMeta(tab, true), nil
 }
 
-// OpenGlobalTab opens a new global-scope tab (no project root). The global
-// workspace root is the deepseek-orca user config directory.
+// OpenGlobalTab opens a global-scope topic. Each global topic gets its own
+// independent workspace root so standalone conversations cannot bleed files,
+// attachments, memory, or tool cwd into one another.
 func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
-	globalRoot := globalWorkspaceRoot()
-	if err := os.MkdirAll(globalRoot, 0o755); err != nil {
-		return TabMeta{}, fmt.Errorf("create global workspace: %w", err)
+	if strings.TrimSpace(topicID) == "" {
+		topicID = newTopicID()
+	}
+	globalRoot, err := ensureIndependentWorkspaceRoot(topicID)
+	if err != nil {
+		return TabMeta{}, fmt.Errorf("create independent workspace: %w", err)
 	}
 
 	a.mu.Lock()
 	for _, tab := range a.tabs {
 		if tab.Scope == "global" && tab.TopicID == topicID {
+			if tab.WorkspaceRoot != globalRoot {
+				tab.WorkspaceRoot = globalRoot
+				if strings.TrimSpace(tab.TopicTitle) == "" {
+					tab.TopicTitle = topicTitleForTab("global", "", topicID)
+				}
+			}
 			a.activeTabID = tab.ID
 			meta := a.tabMeta(tab, true)
 			a.saveTabsLocked()
@@ -712,7 +722,6 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		scope = "global"
 	}
 
-	globalRoot := ""
 	if scope == "project" {
 		workspaceRoot = strings.TrimSpace(workspaceRoot)
 		if workspaceRoot == "" {
@@ -725,10 +734,6 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		_ = addProject(workspaceRoot, "")
 	} else {
 		workspaceRoot = ""
-		globalRoot = globalWorkspaceRoot()
-		if err := os.MkdirAll(globalRoot, 0o755); err != nil {
-			return TabMeta{}, fmt.Errorf("create global workspace: %w", err)
-		}
 	}
 
 	var created *WorkspaceTab
@@ -744,12 +749,11 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		}
 	}
 
-	if topicID := a.indexedBlankTopicIDLocked(scope, workspaceRoot); topicID != "" {
-		a.mu.Unlock()
-		if scope == "global" {
-			return a.OpenGlobalTab(topicID)
+	if scope == "project" {
+		if topicID := a.indexedBlankTopicIDLocked(scope, workspaceRoot); topicID != "" {
+			a.mu.Unlock()
+			return a.OpenProjectTab(workspaceRoot, topicID)
 		}
-		return a.OpenProjectTab(workspaceRoot, topicID)
 	}
 
 	topicID := newTopicID()
@@ -775,7 +779,12 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 	tabID := a.newUniqueTabIDLocked()
 	actualRoot := workspaceRoot
 	if scope == "global" {
-		actualRoot = globalRoot
+		var err error
+		actualRoot, err = ensureIndependentWorkspaceRoot(topicID)
+		if err != nil {
+			a.mu.Unlock()
+			return TabMeta{}, fmt.Errorf("create independent workspace: %w", err)
+		}
 	}
 	created = &WorkspaceTab{
 		ID:               tabID,
@@ -805,6 +814,9 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 // matching the given scope/project root — no running controller, no real history.
 func (a *App) blankTabMatchesTargetLocked(tab *WorkspaceTab, scope, workspaceRoot string) bool {
 	if tab == nil || tab.Scope != scope {
+		return false
+	}
+	if scope == "global" {
 		return false
 	}
 	if scope == "project" && tab.WorkspaceRoot != workspaceRoot {
@@ -1041,12 +1053,51 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		}
 	}
 	if topicID != "" {
-		if _, dir := a.findKnownTopicSession(topicID); dir != "" {
+		if existingPath, dir := a.findKnownTopicSession(topicID); dir != "" {
+			if tab.Scope == "global" {
+				if migratedPath, migratedDir, err := ensureGlobalTopicSessionInIndependentRoot(topicID, existingPath); err == nil {
+					if migratedPath != "" {
+						existingPath = migratedPath
+					}
+					if migratedDir != "" {
+						dir = migratedDir
+					}
+				} else {
+					a.noticeForTab(tab.ID, fmt.Sprintf("could not migrate independent session for topic %s: %v", topicID, err))
+				}
+				if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil && tab.WorkspaceRoot != root {
+					a.mu.Lock()
+					tab.WorkspaceRoot = root
+					root = tab.WorkspaceRoot
+					a.saveTabsLocked()
+					a.mu.Unlock()
+				}
+				_ = existingPath
+			}
 			sessionDir = dir
 		}
 	}
 	if pinnedDir := tabPinnedSessionDir(tab.SessionPath); pinnedDir != "" {
-		sessionDir = pinnedDir
+		if tab.Scope == "global" && topicID != "" {
+			if migratedPath, migratedDir, err := ensureGlobalTopicSessionInIndependentRoot(topicID, tab.SessionPath); err == nil {
+				if migratedPath != "" && migratedPath != tab.SessionPath {
+					a.mu.Lock()
+					tab.SessionPath = migratedPath
+					a.saveTabsLocked()
+					a.mu.Unlock()
+				}
+				if migratedDir != "" {
+					sessionDir = migratedDir
+				} else {
+					sessionDir = pinnedDir
+				}
+			} else {
+				a.noticeForTab(tab.ID, fmt.Sprintf("could not migrate pinned independent session for topic %s: %v", topicID, err))
+				sessionDir = pinnedDir
+			}
+		} else {
+			sessionDir = pinnedDir
+		}
 	}
 
 	ctrl, err := boot.Build(buildCtx, boot.Options{
@@ -3615,6 +3666,43 @@ func globalWorkspaceRoot() string {
 	return filepath.Join(dir, "deepseek-orca", "global-workspace")
 }
 
+func independentWorkspaceRoot(topicID string) string {
+	topicID = strings.TrimSpace(topicID)
+	if topicID == "" {
+		topicID = "untitled"
+	}
+	safe := sanitizeSessionComponent(topicID)
+	if safe == "" {
+		safe = "untitled"
+	}
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".deepseek-orca", "independent-workspaces", safe, "workspace")
+	}
+	return filepath.Join(dir, "deepseek-orca", "independent-workspaces", safe, "workspace")
+}
+
+func sanitizeSessionComponent(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-' || r == '.' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	return strings.Trim(b.String(), "._-")
+}
+
+func ensureIndependentWorkspaceRoot(topicID string) (string, error) {
+	root := independentWorkspaceRoot(topicID)
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", err
+	}
+	return root, nil
+}
+
 func ensureGlobalWorkspaceRoot() (string, error) {
 	root := globalWorkspaceRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
@@ -3712,6 +3800,70 @@ func saveTabSessionMeta(tab *WorkspaceTab, path string) error {
 	return agent.SaveBranchMetaPreserveUpdated(path, m)
 }
 
+func ensureGlobalTopicSessionInIndependentRoot(topicID, sessionPath string) (string, string, error) {
+	topicID = strings.TrimSpace(topicID)
+	sessionPath = strings.TrimSpace(sessionPath)
+	if topicID == "" || sessionPath == "" {
+		return sessionPath, "", nil
+	}
+	root, err := ensureIndependentWorkspaceRoot(topicID)
+	if err != nil {
+		return "", "", err
+	}
+	targetDir := desktopSessionDir(root)
+	if filepath.Clean(filepath.Dir(sessionPath)) == filepath.Clean(targetDir) {
+		if err := backfillGlobalBranchWorkspace(sessionPath, root, topicID); err != nil {
+			return "", "", err
+		}
+		return sessionPath, targetDir, nil
+	}
+	loaded, err := agent.LoadSession(sessionPath)
+	if err != nil {
+		return "", "", err
+	}
+	targetPath := filepath.Join(targetDir, filepath.Base(sessionPath))
+	if _, err := os.Stat(targetPath); err == nil {
+		targetPath = agent.NewSessionPath(targetDir, strings.TrimSuffix(filepath.Base(sessionPath), filepath.Ext(sessionPath)))
+	} else if !os.IsNotExist(err) {
+		return "", "", err
+	}
+	if err := loaded.Save(targetPath); err != nil {
+		return "", "", err
+	}
+	if meta, ok, err := agent.LoadBranchMeta(sessionPath); err != nil {
+		return "", "", err
+	} else if ok {
+		meta.Scope = "global"
+		meta.WorkspaceRoot = root
+		meta.TopicID = topicID
+		if err := agent.SaveBranchMetaPreserveUpdated(targetPath, meta); err != nil {
+			return "", "", err
+		}
+	} else if err := backfillGlobalBranchWorkspace(targetPath, root, topicID); err != nil {
+		return "", "", err
+	}
+	if err := backfillGlobalBranchWorkspace(sessionPath, root, topicID); err != nil {
+		return "", "", err
+	}
+	return targetPath, targetDir, nil
+}
+
+func backfillGlobalBranchWorkspace(sessionPath, workspaceRoot, topicID string) error {
+	if strings.TrimSpace(sessionPath) == "" {
+		return nil
+	}
+	meta, err := agent.EnsureBranchMeta(sessionPath)
+	if err != nil {
+		return err
+	}
+	meta.Scope = "global"
+	meta.WorkspaceRoot = workspaceRoot
+	if strings.TrimSpace(meta.TopicID) == "" {
+		meta.TopicID = topicID
+	}
+	return agent.SaveBranchMetaPreserveUpdated(sessionPath, meta)
+}
+
 func canonicalTabSessionPath(path string) string {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -3766,7 +3918,11 @@ func (a *App) knownSessionDirs() []string {
 	}
 	add(config.SessionDir()) // legacy/global sessions from earlier desktop builds
 	add(desktopSessionDir(globalWorkspaceRoot()))
-	for _, project := range loadProjectsFile().Projects {
+	projectsFile := loadProjectsFile()
+	for _, topicID := range projectsFile.GlobalTopics {
+		add(desktopSessionDir(independentWorkspaceRoot(topicID)))
+	}
+	for _, project := range projectsFile.Projects {
 		add(desktopSessionDir(project.Root))
 	}
 	a.mu.RLock()

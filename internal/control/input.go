@@ -77,6 +77,7 @@ func IsSyntheticUserMessage(content string) bool {
 // messages the chat UI must never render as user bubbles (#3653).
 var syntheticPrefixes = []string{
 	"Plan approved — plan mode is off",
+	"计划已批准，Plan 模式已关闭",
 	"Host final-answer readiness check failed",
 	"宿主的最终回复就绪检查未通过",
 	"You are already in the executor phase",

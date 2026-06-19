@@ -613,9 +613,7 @@ func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, disp
 	if proposal == "" {
 		return nil // no substantive proposal to gate
 	}
-	// The plan is already visible as the assistant's answer, so the request
-	// carries no subject — it's purely the gate.
-	allow, _, err := c.requestApproval(ctx, planApprovalTool, "")
+	allow, _, err := c.requestApproval(ctx, planApprovalTool, proposal)
 	if err != nil {
 		return err
 	}
