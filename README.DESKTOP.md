@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca Desktop V2.0.16
+﻿# DeepSeek-Orca Desktop V2.0.17
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,7 +6,15 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.16/DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.17/DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe)
+
+## V2.0.17 Tool Library Update
+
+V2.0.17 adds a Tool Library button next to Automation in the top bar. It manages the newer extended host-tool groups: thread management, web search, Node/Python REPL, document tools, system/host tools, long-term conversation search, and the proactive tool-use steering switch.
+
+Disabled tool groups are removed from both the registered tool schema and the model-visible routing policy. Bash remains available for development shell tasks, but it no longer advertises disabled dedicated tools in its own description.
+
+The new read-only `conversation_search` and `conversation_read` tools let the model search older local transcripts after context compression, then read fuller nearby context by locator.
 
 ## V2.0.16 Interaction And Automation Update
 

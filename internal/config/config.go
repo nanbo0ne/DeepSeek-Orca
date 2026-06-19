@@ -48,6 +48,7 @@ type Config struct {
 	Agent         AgentConfig         `toml:"agent"`
 	Providers     []ProviderEntry     `toml:"providers"`
 	Tools         ToolsConfig         `toml:"tools"`
+	ToolLibrary   ToolLibraryConfig   `toml:"tool_library"`
 	Permissions   PermissionsConfig   `toml:"permissions"`
 	Sandbox       SandboxConfig       `toml:"sandbox"`
 	Network       NetworkConfig       `toml:"network"`
@@ -776,6 +777,30 @@ type ToolsConfig struct {
 	Search             SearchConfig `toml:"search"`
 }
 
+// ToolLibraryConfig controls the newer host-tool groups that can be managed
+// from the desktop Tool Library panel. Defaults keep the current full library.
+type ToolLibraryConfig struct {
+	ThreadManagementEnabled   bool `toml:"thread_management_enabled"`
+	WebSearchEnabled          bool `toml:"web_search_enabled"`
+	REPLRuntimeEnabled        bool `toml:"repl_runtime_enabled"`
+	DocumentToolsEnabled      bool `toml:"document_tools_enabled"`
+	HostSystemToolsEnabled    bool `toml:"host_system_tools_enabled"`
+	ConversationSearchEnabled bool `toml:"conversation_search_enabled"`
+	ProactiveToolUseEnabled   bool `toml:"proactive_tool_use_enabled"`
+}
+
+func DefaultToolLibrarySettings() ToolLibraryConfig {
+	return ToolLibraryConfig{
+		ThreadManagementEnabled:   true,
+		WebSearchEnabled:          true,
+		REPLRuntimeEnabled:        true,
+		DocumentToolsEnabled:      true,
+		HostSystemToolsEnabled:    true,
+		ConversationSearchEnabled: true,
+		ProactiveToolUseEnabled:   true,
+	}
+}
+
 const defaultBashTimeoutSeconds = 120
 
 // BashTimeoutSeconds returns the foreground bash timeout in seconds. An omitted
@@ -912,20 +937,83 @@ const ToolRoutingPolicy = `工具选择规则：
 const LanguagePolicy = `请使用用户最新消息所使用的语言回复：用户用中文就用中文，用户用英文就用英文，并在用户切换语言时同步切换。` +
 	`这也应影响你的思考和表述方式。代码、标识符、文件路径、shell 命令以及必须保持原样的技术术语不要翻译。`
 
-// ActiveToolRoutingPolicy is the clean provider-visible tool policy used by
-// current prompt builders. It intentionally stays in English to avoid corrupting
-// model-visible tool context.
-const ActiveToolRoutingPolicy = `Tool use and evidence policy:
-- Be evidence-first: when an answer depends on current facts, external information, repository state, file contents, command output, runtime behavior, or the user's local environment, use the appropriate tool before answering instead of guessing from memory.
-- For files and code, prefer read_file, grep, ls, glob, edit_file, write_file, and multi_edit. Do not substitute shell cat/grep/ls/sed when a dedicated tool fits.
-- For development commands, use bash mainly for builds, tests, git, package managers, and ordinary project shell tasks.
-- For host/system actions, processes, app launch, clipboard, notifications, recurring automation, native Windows commands, web search, persistent REPL work, or document extraction, prefer the matching host tool before falling back to shell.
-- Use host_command as the native OS command fallback; on Windows it uses cmd/powershell semantics and is usually better than bash for Windows-native commands.
-- Use automation_create only when the user clearly asks for recurring, continuous, or background-monitoring work. Use automation_list and automation_cancel to inspect or manage existing automations.
-- Use node_repl_exec or python_repl_exec for calculations, JSON/data transformations, quick scripts, reusable variables, and checks where a persistent runtime is clearer than a complex shell one-liner.
-- Use document_inspect and document_extract for Word, PowerPoint, Excel, PDF, and similar document work; combine with python_repl_exec for complex processing.
-- Use web_search when you do not know the URL and need current web information; use web_fetch when you already have a specific URL or after selecting a search result.
-- If a tool fails, read the structured status/error, fix the parameters, choose the recommended fallback tool, or explain the blocker. Do not repeat the same failing call unchanged.`
+// ActiveToolRoutingPolicy is the default clean provider-visible tool policy used
+// by current prompt builders. It intentionally stays in English to avoid
+// corrupting model-visible tool context.
+var ActiveToolRoutingPolicy = BuildActiveToolRoutingPolicy(DefaultToolLibrarySettings())
+
+func BuildActiveToolRoutingPolicy(settings ToolLibraryConfig) string {
+	settings = NormalizeToolLibrarySettings(settings)
+	lines := []string{"Tool use and evidence policy:"}
+	if settings.ProactiveToolUseEnabled {
+		lines = append(lines, "- Be evidence-first: when an answer depends on current facts, external information, repository state, file contents, command output, runtime behavior, or the user's local environment, use the appropriate tool before answering instead of guessing from memory.")
+	}
+	lines = append(lines,
+		"- For files and code, prefer read_file, grep, ls, glob, edit_file, write_file, and multi_edit. Do not substitute shell cat/grep/ls/sed when a dedicated tool fits.",
+		"- For development commands, use bash mainly for builds, tests, git, package managers, and ordinary project shell tasks.",
+	)
+	if settings.HostSystemToolsEnabled || settings.ThreadManagementEnabled || settings.WebSearchEnabled || settings.REPLRuntimeEnabled || settings.DocumentToolsEnabled || settings.ConversationSearchEnabled {
+		lines = append(lines, "- For managed host capabilities, prefer the matching dedicated host tool before falling back to shell.")
+	}
+	if settings.HostSystemToolsEnabled {
+		lines = append(lines,
+			"- Use host_command as the native OS command fallback; on Windows it uses cmd/powershell semantics and is usually better than bash for Windows-native commands.",
+			"- Use host_system_info, host_list_processes, host_kill_process, host_open_app, host_clipboard, and notify_user for system state, processes, app launch, clipboard, and direct notifications.",
+			"- Use automation_create only when the user clearly asks for recurring, continuous, or background-monitoring work. Use automation_list and automation_cancel to inspect or manage existing automations.",
+		)
+	}
+	if settings.ThreadManagementEnabled {
+		lines = append(lines, "- Use thread_list when you need to inspect saved DeepSeek-Orca conversation threads/topics.")
+	}
+	if settings.ConversationSearchEnabled {
+		lines = append(lines, "- Use conversation_search to find older user/model conversation details after context compression; use conversation_read with a returned locator when you need the fuller nearby transcript.")
+	}
+	if settings.REPLRuntimeEnabled {
+		lines = append(lines, "- Use node_repl_exec or python_repl_exec for calculations, JSON/data transformations, quick scripts, reusable variables, and checks where a persistent runtime is clearer than a complex shell one-liner.")
+	}
+	if settings.DocumentToolsEnabled {
+		lines = append(lines, "- Use document_inspect and document_extract for Word, PowerPoint, Excel, PDF, and similar document work; combine with python_repl_exec for complex processing when the REPL runtime is enabled.")
+	}
+	if settings.WebSearchEnabled {
+		lines = append(lines, "- Use web_search when you do not know the URL and need current web information; use web_fetch when you already have a specific URL or after selecting a search result.")
+	} else {
+		lines = append(lines, "- Use web_fetch only when you already have a specific URL.")
+	}
+	lines = append(lines, "- If a tool fails, read the structured status/error, fix the parameters, choose the recommended fallback tool, or explain the blocker. Do not repeat the same failing call unchanged.")
+	return strings.Join(lines, "\n")
+}
+
+func BuildBashHostToolSteer(settings ToolLibraryConfig) string {
+	settings = NormalizeToolLibrarySettings(settings)
+	parts := []string{}
+	if settings.HostSystemToolsEnabled {
+		parts = append(parts, "host_command for native OS commands", "host_list_processes/host_kill_process for processes", "host_open_app for launching apps", "host_clipboard for clipboard", "notify_user for direct notifications")
+	}
+	parts = append(parts, "automation_create only for clearly recurring/continuous/background-monitoring tasks")
+	if settings.ThreadManagementEnabled {
+		parts = append(parts, "thread_list for saved conversation topics")
+	}
+	if settings.ConversationSearchEnabled {
+		parts = append(parts, "conversation_search/conversation_read for older local transcript details")
+	}
+	if settings.WebSearchEnabled {
+		parts = append(parts, "web_search for unknown URLs")
+	}
+	if settings.REPLRuntimeEnabled {
+		parts = append(parts, "node_repl_exec/python_repl_exec for reusable runtime work")
+	}
+	if settings.DocumentToolsEnabled {
+		parts = append(parts, "document_inspect/document_extract for Word/PPT/Excel/PDF files")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " For host/system actions, prefer enabled dedicated host tools before bash: " + strings.Join(parts, ", ") + "."
+}
+
+func NormalizeToolLibrarySettings(settings ToolLibraryConfig) ToolLibraryConfig {
+	return settings
+}
 
 // ActiveLanguagePolicy is the clean provider-visible language policy used by
 // current prompt builders.
@@ -961,6 +1049,7 @@ func Default() *Config {
 		// resolves to allow) while `deepseek-orca chat` prompts before writers. Users add
 		// deny/allow rules to harden or quiet specific tools.
 		Permissions: PermissionsConfig{Mode: "ask"},
+		ToolLibrary: DefaultToolLibrarySettings(),
 		// Sandbox on by default: bash is jailed (macOS), network allowed so
 		// builds/downloads work. Set bash = "off" to disable. Network=true here
 		// so an absent [sandbox] in a user's file keeps egress (zero value would

@@ -27,6 +27,7 @@ type Workspace struct {
 	BashTimeout time.Duration
 	Search      SearchSpec
 	ProxySpec   netclient.ProxySpec
+	HostSteer   string
 }
 
 // Tools returns the built-in tools bound to the workspace, ready to Add to a
@@ -49,7 +50,7 @@ func (w Workspace) Tools(enabled ...string) []tool.Tool {
 		"notebook_edit": notebookEdit{workDir: w.Dir, roots: roots},
 		"delete_range":  deleteRange{workDir: w.Dir, roots: roots},
 		"delete_symbol": deleteSymbol{workDir: w.Dir, roots: roots},
-		"bash":          bash{workDir: w.Dir, sb: w.Bash, timeout: w.BashTimeout},
+		"bash":          bash{workDir: w.Dir, sb: w.Bash, timeout: w.BashTimeout, hostSteer: w.HostSteer},
 		"ls":            listDir{workDir: w.Dir},
 		"glob":          globTool{workDir: w.Dir},
 		"grep":          grepTool{workDir: w.Dir, rg: w.Search.RgPath},

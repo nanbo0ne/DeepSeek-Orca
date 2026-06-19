@@ -997,6 +997,32 @@ func TestAutoTitleDoesNotOverrideManualTopicTitle(t *testing.T) {
 	}
 }
 
+func TestAutoTitleDoesNotRefreshExistingAutoTitle(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	projectRoot := t.TempDir()
+	app := NewApp()
+	topic, err := app.CreateTopic("project", projectRoot, "")
+	if err != nil {
+		t.Fatalf("create topic: %v", err)
+	}
+	if err := setTopicTitleWithSource(projectRoot, topic.ID, "Existing Auto Title", topicTitleSourceAuto); err != nil {
+		t.Fatalf("set auto title: %v", err)
+	}
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.WriteFile(sessionPath, []byte(`{"role":"user","content":"new user request that should not retitle"}`+"\n"+
+		`{"role":"assistant","content":"assistant reply"}`+"\n"), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	if title, updated := autoTitleTopicFromSession(projectRoot, topic.ID, sessionPath); updated || title != "" {
+		t.Fatalf("existing auto title should not refresh, title=%q updated=%v", title, updated)
+	}
+	if got := loadTopicTitle(projectRoot, topic.ID); got != "Existing Auto Title" {
+		t.Fatalf("stored title = %q, want Existing Auto Title", got)
+	}
+}
+
 func TestAutoTitleSkipsSyntheticUserReminders(t *testing.T) {
 	isolateDesktopUserDirs(t)
 

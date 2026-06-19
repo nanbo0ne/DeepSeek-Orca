@@ -762,6 +762,10 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		a.mu.Unlock()
 		return TabMeta{}, err
 	}
+	if err := setTopicCreatedAt(workspaceRoot, topicID, time.Now().UnixMilli()); err != nil {
+		a.mu.Unlock()
+		return TabMeta{}, err
+	}
 	f := loadProjectsFile()
 	if workspaceRoot == "" {
 		f.GlobalTopics = prependUniqueString(f.GlobalTopics, topicID)
@@ -1356,6 +1360,10 @@ func (a *App) maybeAutoTitleTopic(tab *WorkspaceTab) bool {
 	if source := loadTopicTitleSource(titleRoot, tab.TopicID); source != topicTitleSourceAuto {
 		return false
 	}
+	currentTitle := strings.TrimSpace(loadTopicTitle(titleRoot, tab.TopicID))
+	if currentTitle != "" && currentTitle != defaultTopicTitle {
+		return false
+	}
 	sessionPath := tab.Ctrl.SessionPath()
 	if sessionPath == "" {
 		return false
@@ -1386,6 +1394,10 @@ func (a *App) maybeAutoTitleTopic(tab *WorkspaceTab) bool {
 
 func autoTitleTopicFromSession(workspaceRoot, topicID, sessionPath string) (string, bool) {
 	if source := loadTopicTitleSource(workspaceRoot, topicID); source != topicTitleSourceAuto {
+		return "", false
+	}
+	currentTitle := strings.TrimSpace(loadTopicTitle(workspaceRoot, topicID))
+	if currentTitle != "" && currentTitle != defaultTopicTitle {
 		return "", false
 	}
 	userText, assistantText := topicTitleInputsFromSession(sessionPath)
@@ -1540,8 +1552,8 @@ func (a *App) generateTopicTitleWithProvider(workspaceRoot, userText, assistantT
 		Temperature: 0.2,
 		MaxTokens:   64,
 		Messages: []provider.Message{
-			{Role: provider.RoleSystem, Content: "你是 DeepSeek-Orca 的会话标题生成器。只输出一个简短中文标题，6到18个字，不要引号、冒号、编号、解释或换行。"},
-			{Role: provider.RoleUser, Content: "用户请求：\n" + userText + "\n\nAI 回复：\n" + assistantText},
+			{Role: provider.RoleSystem, Content: "You generate short DeepSeek-Orca conversation titles. Output exactly one concise Chinese title, preferably 6-18 Chinese characters. Do not include quotes, prefixes, numbering, explanations, or newlines."},
+			{Role: provider.RoleUser, Content: "User request:\n" + userText + "\n\nAssistant reply:\n" + assistantText},
 		},
 	}
 	ch, err := prov.Stream(ctx, req)
@@ -1564,7 +1576,7 @@ func (a *App) generateTopicTitleWithProvider(workspaceRoot, userText, assistantT
 
 func cleanGeneratedTopicTitle(text string) string {
 	text = strings.TrimSpace(text)
-	text = strings.Trim(text, " \t\r\n\"'`“”‘’：:，,。.!！?？;；-—*#")
+	text = strings.TrimFunc(text, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsPunct(r) || r == '#' })
 	text = strings.Join(strings.Fields(text), "")
 	if text == "" {
 		return ""
@@ -1582,14 +1594,14 @@ func topicTitleFromText(text string) string {
 		return ""
 	}
 	text = strings.Join(strings.Fields(text), " ")
-	text = strings.Trim(text, " \t\r\n，。！？；：、,.!?;:\"'`“”‘’()（）[]【】")
+	text = strings.TrimFunc(text, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsPunct(r) })
 	if text == "" {
 		return ""
 	}
 	const maxRunes = 18
 	runes := []rune(text)
 	if len(runes) > maxRunes {
-		text = strings.TrimRightFunc(string(runes[:maxRunes]), unicode.IsPunct) + "…"
+		text = strings.TrimRightFunc(string(runes[:maxRunes]), unicode.IsPunct) + "..."
 	}
 	if text == defaultTopicTitle {
 		return ""

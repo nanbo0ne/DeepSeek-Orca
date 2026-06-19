@@ -1,10 +1,14 @@
-﻿# DeepSeek-Orca CLI V2.0.16
+﻿# DeepSeek-Orca CLI V2.0.17
 
 DeepSeek-Orca CLI is the terminal entry point for the DeepSeek-Orca coding agent. It keeps the core Reasonix-derived agent loop, tools, MCP, skills, memory, permission control, session resume, rollback, and compaction features.
 
 The Windows desktop installer is the recommended package for most users:
 
-[DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.16/DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.17/DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe)
+
+## V2.0.17 Notes
+
+V2.0.17 adds configurable Tool Library groups for the desktop host-tool layer. The model-visible tool routing policy is now generated from those settings, and the new read-only conversation search tools can retrieve older local transcript details after context compression.
 
 ## V2.0.16 Notes
 

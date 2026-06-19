@@ -139,6 +139,46 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	}
 }
 
+func TestBuildPromptRespectsToolLibrarySettings(t *testing.T) {
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	writeFile(t, dir, "deepseek-orca.toml", `
+default_model = "test-model"
+
+[codegraph]
+enabled = false
+
+[tool_library]
+web_search_enabled = false
+proactive_tool_use_enabled = false
+
+[agent]
+system_prompt = "BASE SYSTEM PROMPT"
+
+[[providers]]
+name = "test-model"
+kind = "openai"
+base_url = "https://example.invalid"
+model = "x"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
+`)
+
+	ctrl, err := Build(context.Background(), Options{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer ctrl.Close()
+	sys := systemMessage(ctrl.History())
+	for _, forbidden := range []string{"Be evidence-first", "Use web_search"} {
+		if strings.Contains(sys, forbidden) {
+			t.Fatalf("prompt should not contain disabled policy %q:\n%s", forbidden, sys)
+		}
+	}
+	if !strings.Contains(sys, "Use web_fetch only when you already have a specific URL") {
+		t.Fatalf("prompt missing web_fetch fallback:\n%s", sys)
+	}
+}
+
 func TestBuildSubagentSkillFailedContinuationPersistsTranscript(t *testing.T) {
 	isolateConfigHome(t)
 	dir := robustTempDir(t)
@@ -594,7 +634,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 func TestAddBuiltinsWithWorkspaceRootKeepsSessionTools(t *testing.T) {
 	reg := tool.NewRegistry()
 	var stderr bytes.Buffer
-	addBuiltins(reg, nil, []string{robustTempDir(t)}, sandbox.Spec{}, 120*time.Second, builtin.SearchSpec{}, &stderr, robustTempDir(t), netclient.ProxySpec{})
+	addBuiltins(reg, nil, []string{robustTempDir(t)}, sandbox.Spec{}, 120*time.Second, builtin.SearchSpec{}, &stderr, robustTempDir(t), netclient.ProxySpec{}, config.BuildBashHostToolSteer(config.DefaultToolLibrarySettings()))
 	for _, name := range []string{
 		"todo_write",
 		"complete_step",

@@ -276,6 +276,15 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	}
 	fmt.Fprintf(&b, "bash_timeout_seconds = %d   # foreground safety cap; set 0 for no tool-local cap\n\n", c.BashTimeoutSeconds())
 
+	b.WriteString("[tool_library]\n")
+	fmt.Fprintf(&b, "thread_management_enabled = %v   # thread_list\n", c.ToolLibrary.ThreadManagementEnabled)
+	fmt.Fprintf(&b, "web_search_enabled = %v   # web_search for unknown URLs/current web facts\n", c.ToolLibrary.WebSearchEnabled)
+	fmt.Fprintf(&b, "repl_runtime_enabled = %v   # node_repl_exec and python_repl_exec\n", c.ToolLibrary.REPLRuntimeEnabled)
+	fmt.Fprintf(&b, "document_tools_enabled = %v   # document_inspect and document_extract for Word/PPT/Excel/PDF\n", c.ToolLibrary.DocumentToolsEnabled)
+	fmt.Fprintf(&b, "host_system_tools_enabled = %v   # host_command, process/app/clipboard/notify tools\n", c.ToolLibrary.HostSystemToolsEnabled)
+	fmt.Fprintf(&b, "conversation_search_enabled = %v   # conversation_search/conversation_read for old local transcripts\n", c.ToolLibrary.ConversationSearchEnabled)
+	fmt.Fprintf(&b, "proactive_tool_use_enabled = %v   # stronger evidence-first tool-use steering\n\n", c.ToolLibrary.ProactiveToolUseEnabled)
+
 	b.WriteString("[codegraph]\n")
 	fmt.Fprintf(&b, "enabled      = %v   # built-in MCP server; off by default for first-run sessions\n", c.Codegraph.Enabled)
 	fmt.Fprintf(&b, "auto_install = %v   # fetch the runtime when CodeGraph is enabled but missing\n", c.Codegraph.AutoInstall)

@@ -5,10 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"testing"
+
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/provider"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func TestToolsExposeDefaultHostLibraryWithoutVisualTools(t *testing.T) {
@@ -34,6 +41,8 @@ func TestToolsExposeDefaultHostLibraryWithoutVisualTools(t *testing.T) {
 		"python_repl_exec",
 		"document_inspect",
 		"document_extract",
+		"conversation_search",
+		"conversation_read",
 	} {
 		if !got[name] {
 			t.Fatalf("missing host tool %q", name)
@@ -43,6 +52,78 @@ func TestToolsExposeDefaultHostLibraryWithoutVisualTools(t *testing.T) {
 		if got[name] {
 			t.Fatalf("visual/control tool %q should not be registered in v2.0.11 host library", name)
 		}
+	}
+}
+
+func TestToolsRespectToolLibrarySettings(t *testing.T) {
+	settings := config.DefaultToolLibrarySettings()
+	settings.WebSearchEnabled = false
+	settings.REPLRuntimeEnabled = false
+	settings.DocumentToolsEnabled = false
+	settings.HostSystemToolsEnabled = false
+	settings.ThreadManagementEnabled = false
+	settings.ConversationSearchEnabled = false
+	tools := Tools(t.TempDir(), settings)
+	got := map[string]bool{}
+	for _, tl := range tools {
+		got[tl.Name()] = true
+	}
+	for _, name := range []string{"automation_create", "automation_list", "automation_cancel"} {
+		if !got[name] {
+			t.Fatalf("automation tool %q should remain available", name)
+		}
+	}
+	for _, name := range []string{"host_command", "thread_list", "web_search", "node_repl_exec", "python_repl_exec", "document_inspect", "conversation_search", "conversation_read"} {
+		if got[name] {
+			t.Fatalf("tool %q should be disabled by tool library settings", name)
+		}
+	}
+}
+
+func TestConversationSearchSkipsSyntheticMessagesAndReadLocator(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("AppData", filepath.Join(home, "AppData"))
+	workDir := filepath.Join(home, "workspace")
+	dir := config.ProjectSessionDir(workDir)
+	s := &agent.Session{Messages: []provider.Message{
+		{Role: provider.RoleUser, Content: "<system-reminder>needle hidden</system-reminder>"},
+		{Role: provider.RoleUser, Content: "用户要求：查找长期对话检索 needle-visible"},
+		{Role: provider.RoleAssistant, Content: "我会实现 conversation_search。"},
+	}}
+	path := filepath.Join(dir, "session.jsonl")
+	if err := s.Save(path); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	args, _ := json.Marshal(map[string]any{"query": "needle", "limit": 5})
+	out, err := (conversationSearch{workDir: workDir}).Execute(context.Background(), args)
+	if err != nil {
+		t.Fatalf("conversation_search: %v", err)
+	}
+	if strings.Contains(out, "needle hidden") {
+		t.Fatalf("conversation_search should skip synthetic reminders: %s", out)
+	}
+	if !strings.Contains(out, "needle-visible") {
+		t.Fatalf("conversation_search missing real hit: %s", out)
+	}
+	var decoded struct {
+		Hits []struct {
+			Locator string `json:"locator"`
+		} `json:"hits"`
+	}
+	if err := json.Unmarshal([]byte(out), &decoded); err != nil || len(decoded.Hits) != 1 {
+		t.Fatalf("decode hits (%d): %v\n%s", len(decoded.Hits), err, out)
+	}
+	readArgs, _ := json.Marshal(map[string]any{"locator": decoded.Hits[0].Locator, "before": 1, "after": 1})
+	readOut, err := (conversationRead{workDir: workDir}).Execute(context.Background(), readArgs)
+	if err != nil {
+		t.Fatalf("conversation_read: %v", err)
+	}
+	if !strings.Contains(readOut, "conversation_search") || strings.Contains(readOut, "needle hidden") {
+		t.Fatalf("conversation_read output mismatch: %s", readOut)
 	}
 }
 
@@ -80,6 +161,20 @@ func TestParseBaiduHTML(t *testing.T) {
 	}
 	if got[0].Title != "百度 标题" || got[0].URL != "https://example.com/a" || got[0].Snippet != "摘要内容" {
 		t.Fatalf("parseBaiduHTML result = %#v", got[0])
+	}
+}
+
+func TestDecodeOutputDecodesGB18030(t *testing.T) {
+	raw, err := simplifiedchinese.GB18030.NewEncoder().Bytes([]byte("你好世界\n第二行"))
+	if err != nil {
+		t.Fatalf("encode gb18030: %v", err)
+	}
+	got := decodeOutput(raw)
+	if got != "你好世界\n第二行" {
+		t.Fatalf("decodeOutput = %q", got)
+	}
+	if strings.ContainsRune(got, '\uFFFD') {
+		t.Fatalf("decodeOutput left replacement characters: %q", got)
 	}
 }
 

@@ -2154,6 +2154,11 @@ a[href] {
   color: var(--err);
   border-bottom: 1px solid var(--border-soft);
 }
+.banner--success {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elev));
+  color: var(--accent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-soft));
+}
 .banner--update {
   display: flex;
   align-items: center;
@@ -12074,7 +12079,7 @@ a[href] {
   --wails-draggable: no-drag;
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 100%;
+  max-width: min(100%, 264px);
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -12101,7 +12106,7 @@ a[href] {
 
 .composer-runstatus__text {
   min-width: 0;
-  max-width: 156px;
+  max-width: 132px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -12123,6 +12128,14 @@ a[href] {
   color: var(--accent);
   font: inherit;
   font-weight: 620;
+}
+
+.composer-runstatus__pause span,
+.composer-runstatus__stop span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-runstatus__pause:hover,
@@ -12175,6 +12188,49 @@ a[href] {
   color: var(--fg-faint);
   background: var(--button-bg);
   border-color: var(--border-soft);
+}
+
+@container (max-width: 720px) {
+  .composer-runstatus {
+    max-width: min(100%, 214px);
+    gap: 6px;
+    padding-left: 8px;
+  }
+
+  .composer-runstatus__text {
+    max-width: 74px;
+  }
+
+  .composer-runstatus__pause,
+  .composer-runstatus__stop {
+    padding-inline: 7px;
+  }
+}
+
+@container (max-width: 560px) {
+  .composer-card--running .composer-meta {
+    padding-right: 92px;
+  }
+
+  .composer-runstatus {
+    max-width: 76px;
+    gap: 4px;
+    padding: 0 4px;
+  }
+
+  .composer-runstatus__dot,
+  .composer-runstatus__text,
+  .composer-runstatus__pause span,
+  .composer-runstatus__stop span {
+    display: none;
+  }
+
+  .composer-runstatus__pause,
+  .composer-runstatus__stop {
+    width: 28px;
+    min-width: 28px;
+    padding: 0;
+  }
 }
 
 .composer-context {
@@ -15071,11 +15127,12 @@ a[href] {
 }
 
 .workbench-dock__tabs {
-  flex: 0 1 auto;
-  width: max-content;
+  flex: 1 1 auto;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   justify-content: center;
   gap: 3px;
@@ -15091,9 +15148,9 @@ a[href] {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  flex: 0 1 auto;
-  min-width: 30px;
-  max-width: 118px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
   height: 24px;
   padding: 0 8px;
   border: 0;
@@ -15127,24 +15184,13 @@ a[href] {
 }
 
 @container (max-width: 520px) {
-  .workbench-dock__tabs {
-    width: 100%;
-  }
-
   .workbench-dock__tab {
-    flex: 1 1 0;
-    max-width: none;
+    padding-inline: 6px;
   }
 }
 
-@container (max-width: 340px) {
-  .workbench-dock__tabs {
-    width: auto;
-  }
-
+@container (max-width: 420px) {
   .workbench-dock__tab {
-    flex: 0 0 30px;
-    width: 30px;
     padding: 0;
     gap: 0;
   }
@@ -15304,6 +15350,118 @@ a[href] {
 .automation-panel__clear:disabled,
 .automation-panel__icon:disabled {
   opacity: 0.5;
+}
+
+.tool-library-modal {
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 64px));
+}
+
+.tool-library-panel {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  max-height: 560px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.tool-library-panel__row {
+  --wails-draggable: no-drag;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+}
+
+.tool-library-panel__row:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+}
+
+.tool-library-panel__row--on {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border-soft));
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elev));
+}
+
+.tool-library-panel__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tool-library-panel__copy strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.tool-library-panel__copy span {
+  color: var(--fg-faint);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tool-library-panel__switch {
+  position: relative;
+  display: inline-flex;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--border);
+  flex: 0 0 auto;
+  transition: background 160ms var(--ease-out);
+}
+
+.tool-library-panel__switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.22);
+  transition: transform 160ms var(--ease-out);
+}
+
+.tool-library-panel__row--on .tool-library-panel__switch {
+  background: var(--accent);
+}
+
+.tool-library-panel__row--on .tool-library-panel__switch span {
+  transform: translateX(16px);
+}
+
+.tool-library-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-elev);
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.tool-library-panel__footer > span {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.tool-library-panel__actions {
+  display: inline-flex;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .side-chat {
@@ -16558,12 +16716,13 @@ a[href] {
 
 .workbench-dock__tabs {
   width: 100%;
+  min-width: 0;
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg) 72%, transparent);
 }
 
 .workbench-dock__tab {
-  flex: 1 1 0;
+  min-width: 0;
   max-width: none;
   height: 28px;
   border-radius: 7px;
@@ -18126,6 +18285,12 @@ a[href] {
 
 :root[data-theme-style] .composer-card--running .composer-meta {
   padding-right: min(224px, 38%);
+}
+
+@container (max-width: 560px) {
+  :root[data-theme-style] .composer-card--running .composer-meta {
+    padding-right: 92px;
+  }
 }
 
 :root[data-theme-style] .composer-modebar,

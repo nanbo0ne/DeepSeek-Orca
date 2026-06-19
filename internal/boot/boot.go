@@ -176,9 +176,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 	}
 	if opts.EnhancedMode {
-		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.ActiveToolRoutingPolicy, config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
 	} else {
-		sysPrompt += "\n\n" + config.TaskTrackingPolicy + "\n\n" + config.ActiveToolRoutingPolicy + "\n\n" + config.ActiveLanguagePolicy
+		sysPrompt += "\n\n" + config.TaskTrackingPolicy + "\n\n" + config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary) + "\n\n" + config.ActiveLanguagePolicy
 	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
@@ -219,8 +219,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 	searchSpec := builtin.ResolveSearch(cfg.Tools.Search.Engine, cfg.Tools.Search.RgPath, stderr)
 	bashTimeout := time.Duration(cfg.BashTimeoutSeconds()) * time.Second
-	addBuiltins(reg, cfg.Tools.Enabled, cfg.WriteRootsForRoot(root), bashSpec, bashTimeout, searchSpec, stderr, root, proxySpec)
-	for _, t := range hosttools.Tools(root) {
+	addBuiltins(reg, cfg.Tools.Enabled, cfg.WriteRootsForRoot(root), bashSpec, bashTimeout, searchSpec, stderr, root, proxySpec, config.BuildBashHostToolSteer(cfg.ToolLibrary))
+	for _, t := range hosttools.Tools(root, cfg.ToolLibrary) {
 		reg.Add(t)
 	}
 	// Always construct a host, even with no plugins configured, so the controller's
@@ -1044,12 +1044,12 @@ func NewProviderWithProxy(e *config.ProviderEntry, proxy netclient.ProxySpec) (p
 // instance bound to writeRoots (preserving registry order).
 // When workDir is non-empty, tools resolve relative paths against it instead of
 // the process cwd, enabling concurrent multi-project sessions.
-func addBuiltins(reg *tool.Registry, enabled, writeRoots []string, bashSpec sandbox.Spec, bashTimeout time.Duration, searchSpec builtin.SearchSpec, stderr io.Writer, workDir string, proxySpec netclient.ProxySpec) {
+func addBuiltins(reg *tool.Registry, enabled, writeRoots []string, bashSpec sandbox.Spec, bashTimeout time.Duration, searchSpec builtin.SearchSpec, stderr io.Writer, workDir string, proxySpec netclient.ProxySpec, hostSteer string) {
 	// If a workspace directory is set, use workspace-bound tools that resolve
 	// paths relative to that directory. Otherwise fall back to the process-cwd
 	// compile-time builtins.
 	if workDir != "" {
-		ws := builtin.Workspace{Dir: workDir, WriteRoots: writeRoots, Bash: bashSpec, BashTimeout: bashTimeout, Search: searchSpec, ProxySpec: proxySpec}
+		ws := builtin.Workspace{Dir: workDir, WriteRoots: writeRoots, Bash: bashSpec, BashTimeout: bashTimeout, Search: searchSpec, ProxySpec: proxySpec, HostSteer: hostSteer}
 		for _, t := range ws.Tools(enabled...) {
 			reg.Add(t)
 		}

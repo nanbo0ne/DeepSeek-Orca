@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.16
+﻿# DeepSeek-Orca V2.0.17
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,7 +6,21 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.16/DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.17/DeepSeek-Orca-Setup-2.0.17-windows-amd64.exe)
+
+## V2.0.17 新功能
+
+### 新增“工具库”管理面板
+
+顶栏“自动化”右侧新增“工具库”按钮，用于集中管理后一批扩展工具。用户可以独立开关线程管理、联网搜索、Node/Python 运行时、Word/PPT/Excel/PDF 工具库、系统/主机工具、长期对话检索，以及“更积极调用工具”。
+
+关闭某一组后，该组专用工具不会暴露给模型，工具路由提示词中也不会继续推荐它。`bash` 仍保留为开发命令、构建、测试、git、包管理器等任务的兜底入口。
+
+### 长期对话检索
+
+新增只读 `conversation_search` / `conversation_read` 工具。模型可以先用较短查询搜索旧对话中的用户需求、AI 回复或工具摘要，拿到 locator 后再读取附近更完整的上下文。这样即使对话经历多次压缩，也可以按需找回更早的信息，而不是把全部旧历史塞回当前上下文。
+
+检索会跳过 `<system-reminder>`、`<workflow-reminder>`、`<context-checkpoint>`、`<memory-update>` 等系统注入内容，优先返回真实用户 / AI 对话和必要工具摘要。
 
 ## V2.0.16 新功能
 

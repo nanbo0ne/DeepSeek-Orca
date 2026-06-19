@@ -173,6 +173,16 @@ export interface TopicMeta {
   createdAt: number;
 }
 
+export interface ToolLibrarySettings {
+  threadManagementEnabled: boolean;
+  webSearchEnabled: boolean;
+  replRuntimeEnabled: boolean;
+  documentToolsEnabled: boolean;
+  hostSystemToolsEnabled: boolean;
+  conversationSearchEnabled: boolean;
+  proactiveToolUseEnabled: boolean;
+}
+
 export interface ContextPanelInfo {
   usedTokens: number;
   windowTokens: number;

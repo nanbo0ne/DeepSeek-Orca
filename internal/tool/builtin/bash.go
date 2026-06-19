@@ -68,10 +68,11 @@ func cachedBashShellPATH(ctx context.Context) string {
 // zero or negative means no tool-local cap, while parent context cancellation
 // still kills the process tree.
 type bash struct {
-	sb      sandbox.Spec
-	shell   sandbox.Shell
-	workDir string
-	timeout time.Duration
+	sb        sandbox.Spec
+	shell     sandbox.Shell
+	workDir   string
+	timeout   time.Duration
+	hostSteer string
 }
 
 func (bash) Name() string { return "bash" }
@@ -85,9 +86,9 @@ func (b bash) Description() string {
 			"  - file ops: Get-ChildItem (ls), Get-Content (cat), Remove-Item -Recurse -Force (rm -rf), Copy-Item (cp), Select-String (grep).\n" +
 			"  - no head/tail/which/touch: use Select-Object -First/-Last N, (Get-Command x).Source, New-Item.\n" +
 			"  - multi-line text to a native exe (e.g. git commit -m): use a single-quoted here-string @'...'@ (closing '@ at column 0)." +
-			bashToolSteer + hostToolSteer
+			bashToolSteer + b.hostToolSteer()
 	}
-	return "Execute a command in the shell and return combined stdout/stderr." + bashToolSteer + hostToolSteer
+	return "Execute a command in the shell and return combined stdout/stderr." + bashToolSteer + b.hostToolSteer()
 }
 
 // bashToolSteer points the model at the cross-platform built-in tools instead of
@@ -96,6 +97,13 @@ func (b bash) Description() string {
 const bashToolSteer = " Use for builds, tests, git, package managers, etc. To search/read/list/edit files, prefer the dedicated tools (grep, read_file, ls, glob, edit_file) over shell grep/cat/ls/find/sed — they behave identically on every OS. For symbol search, call graphs, or architecture questions, use codegraph tools instead of grep."
 
 const hostToolSteer = " For host/system actions, prefer host tools before bash: host_command for native OS commands, host_list_processes/host_kill_process for processes, host_open_app for launching apps, host_clipboard for clipboard, notify_user for direct notifications, automation_create only for clearly recurring/continuous/background-monitoring tasks, web_search for unknown URLs, node_repl_exec/python_repl_exec for reusable runtime work, and document_inspect/document_extract for Word/PPT/Excel/PDF/PDF-like files."
+
+func (b bash) hostToolSteer() string {
+	if strings.TrimSpace(b.hostSteer) != "" {
+		return b.hostSteer
+	}
+	return hostToolSteer
+}
 
 // resolved returns the bound shell, resolving lazily for the zero-value instance
 // (e.g. a registry that never went through ConfineBash).

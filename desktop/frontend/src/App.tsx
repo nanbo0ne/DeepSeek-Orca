@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { ShellExpandProvider, useShellExpand } from "./lib/shellExpand";
 import {
   Activity,
@@ -42,7 +42,9 @@ import { ProjectTree } from "./components/ProjectTree";
 import { NewSessionChooser } from "./components/NewSessionChooser";
 import { CopyButton } from "./components/CopyButton";
 import { AutomationPanel } from "./components/AutomationPanel";
+import { ToolLibraryPanel } from "./components/ToolLibraryPanel";
 import { SideChatPanel } from "./components/SideChatPanel";
+import { ContextMenu, contextMenuPointFromEvent, type ContextMenuItem, type ContextMenuPoint } from "./components/ContextMenu";
 import { parseTodos } from "./lib/tools";
 import { shouldShowTodoPanel } from "./lib/todoVisibility";
 import {
@@ -164,6 +166,103 @@ function loadSidebarWidth(): number {
 
 function saveSidebarWidth(width: number): void {
   saveLayoutSize("sidebarWidthGraphite", width, clampSidebarWidth);
+}
+
+type TextEditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement;
+
+function isTextInputElement(el: Element | null): el is HTMLInputElement {
+  if (!(el instanceof HTMLInputElement)) return false;
+  const nonTextTypes = new Set([
+    "button",
+    "checkbox",
+    "color",
+    "file",
+    "hidden",
+    "image",
+    "radio",
+    "range",
+    "reset",
+    "submit",
+  ]);
+  return !nonTextTypes.has(el.type);
+}
+
+function editableElementFromTarget(target: EventTarget | null): TextEditableElement | null {
+  const el = target instanceof Element ? target : null;
+  if (!el) return null;
+  const input = el.closest("input");
+  if (isTextInputElement(input)) return input;
+  const textarea = el.closest("textarea");
+  if (textarea instanceof HTMLTextAreaElement) return textarea;
+  for (let node: Element | null = el; node; node = node.parentElement) {
+    if (node instanceof HTMLElement && node.isContentEditable) return node;
+  }
+  return null;
+}
+
+function textSelectionForEditable(el: TextEditableElement): string {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? start;
+    return el.value.slice(Math.min(start, end), Math.max(start, end));
+  }
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || !selection.toString()) return "";
+  return el.contains(selection.anchorNode) && el.contains(selection.focusNode) ? selection.toString() : "";
+}
+
+function editableHasText(el: TextEditableElement): boolean {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return el.value.length > 0;
+  return (el.textContent ?? "").length > 0;
+}
+
+function canMutateEditable(el: TextEditableElement): boolean {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return !el.disabled && !el.readOnly;
+  return el.isContentEditable;
+}
+
+function setNativeEditableValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  setter?.call(el, value);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function replaceEditableSelection(el: TextEditableElement, inserted: string): void {
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? start;
+    const safeStart = Math.min(start, end);
+    const safeEnd = Math.max(start, end);
+    const next = el.value.slice(0, safeStart) + inserted + el.value.slice(safeEnd);
+    const pos = safeStart + inserted.length;
+    setNativeEditableValue(el, next);
+    requestAnimationFrame(() => {
+      el.focus();
+      try {
+        el.selectionStart = el.selectionEnd = pos;
+      } catch {
+        /* selection APIs are unavailable for a few input types */
+      }
+    });
+    return;
+  }
+  el.focus();
+  document.execCommand("insertText", false, inserted);
+}
+
+function selectAllEditable(el: TextEditableElement): void {
+  el.focus();
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    el.selectionStart = 0;
+    el.selectionEnd = el.value.length;
+    return;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 function normalizeDesktopPlatform(value: string): DesktopPlatform {
@@ -420,6 +519,7 @@ export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
   const [automationPanelOpen, setAutomationPanelOpen] = useState(false);
+  const [toolLibraryPanelOpen, setToolLibraryPanelOpen] = useState(false);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newSessionChooserOpen, setNewSessionChooserOpen] = useState(false);
@@ -453,6 +553,11 @@ export default function App() {
   const [sidebarTogglePressed, setSidebarTogglePressed] = useState(false);
   const [workspaceTogglePressed, setWorkspaceTogglePressed] = useState(false);
   const [clearContextPending, setClearContextPending] = useState(false);
+  const [textEditMenuPoint, setTextEditMenuPoint] = useState<ContextMenuPoint | null>(null);
+  const [textEditTarget, setTextEditTarget] = useState<TextEditableElement | null>(null);
+  const [textEditSelection, setTextEditSelection] = useState("");
+  const [selectionMenuPoint, setSelectionMenuPoint] = useState<ContextMenuPoint | null>(null);
+  const [selectionMenuText, setSelectionMenuText] = useState("");
   const [queuedPromptsByTab, setQueuedPromptsByTab] = useState<Record<string, QueuedPrompt[]>>({});
   const topicRenameSkipCommitRef = useRef(false);
   const topicRenameCommitHandledRef = useRef(false);
@@ -2069,12 +2174,133 @@ export default function App() {
     }
     openWorkspacePanel("files");
   };
+  const closeTextEditMenu = () => {
+    setTextEditMenuPoint(null);
+    setTextEditTarget(null);
+    setTextEditSelection("");
+  };
+  const closeSelectionMenu = () => {
+    setSelectionMenuPoint(null);
+    setSelectionMenuText("");
+  };
+  const openTextContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const editable = editableElementFromTarget(event.target);
+    if (editable) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSelectionMenu();
+      setTextEditTarget(editable);
+      setTextEditSelection(textSelectionForEditable(editable));
+      setTextEditMenuPoint(contextMenuPointFromEvent(event));
+      return;
+    }
+    const selected = window.getSelection()?.toString() ?? "";
+    if (!selected.trim()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeTextEditMenu();
+    setSelectionMenuText(selected);
+    setSelectionMenuPoint(contextMenuPointFromEvent(event));
+  };
+  const textEditCanMutate = textEditTarget ? canMutateEditable(textEditTarget) : false;
+  const textEditMenuItems: ContextMenuItem[] = [
+    {
+      key: "paste",
+      label: t("composer.editPaste"),
+      disabled: !textEditTarget || !textEditCanMutate,
+      onSelect: () => {
+        const target = textEditTarget;
+        closeTextEditMenu();
+        if (!target) return;
+        target.focus();
+        void (async () => {
+          try {
+            const pasted = await navigator.clipboard?.readText();
+            if (typeof pasted === "string") {
+              replaceEditableSelection(target, pasted);
+              return;
+            }
+          } catch {
+            /* Fall through to the legacy command path for WebView permission quirks. */
+          }
+          target.focus();
+          document.execCommand("paste");
+        })();
+      },
+    },
+    { type: "separator", key: "sep-clipboard" },
+    {
+      key: "copy",
+      label: t("composer.editCopy"),
+      disabled: !textEditSelection,
+      onSelect: () => {
+        const selected = textEditSelection;
+        const target = textEditTarget;
+        closeTextEditMenu();
+        if (!selected) return;
+        void (async () => {
+          try {
+            await navigator.clipboard?.writeText(selected);
+          } catch {
+            target?.focus();
+            document.execCommand("copy");
+          }
+        })();
+      },
+    },
+    {
+      key: "cut",
+      label: t("composer.editCut"),
+      disabled: !textEditTarget || !textEditCanMutate || !textEditSelection,
+      onSelect: () => {
+        const selected = textEditSelection;
+        const target = textEditTarget;
+        closeTextEditMenu();
+        if (!target || !selected) return;
+        void (async () => {
+          try {
+            await navigator.clipboard?.writeText(selected);
+            replaceEditableSelection(target, "");
+          } catch {
+            target.focus();
+            document.execCommand("cut");
+          }
+        })();
+      },
+    },
+    { type: "separator", key: "sep-select" },
+    {
+      key: "select-all",
+      label: t("composer.editSelectAll"),
+      disabled: !textEditTarget || !editableHasText(textEditTarget),
+      onSelect: () => {
+        const target = textEditTarget;
+        closeTextEditMenu();
+        if (target) selectAllEditable(target);
+      },
+    },
+  ];
+  const selectionMenuItems: ContextMenuItem[] = [
+    {
+      key: "copy-selection",
+      label: t("common.copy"),
+      onSelect: () => {
+        const selected = selectionMenuText;
+        closeSelectionMenu();
+        if (selected) void navigator.clipboard?.writeText(selected);
+      },
+    },
+  ];
 
   return (
     <ShellExpandProvider>
     <ShellHotkeys />
     <TextSizeHotkeys />
-    <div ref={appRef} className={["app", `app--${desktopPlatform}`, browserPreviewChrome ? "app--browser-preview" : ""].filter(Boolean).join(" ")}>
+    <div
+      ref={appRef}
+      className={["app", `app--${desktopPlatform}`, browserPreviewChrome ? "app--browser-preview" : ""].filter(Boolean).join(" ")}
+      onContextMenu={openTextContextMenu}
+    >
       <div
         className={[
           "layout",
@@ -2109,6 +2335,7 @@ export default function App() {
           onOpenSkills={() => setSettingsTarget("skills")}
           onOpenBots={() => setSettingsTarget("bots")}
           onOpenAutomations={() => setAutomationPanelOpen(true)}
+          onOpenToolLibrary={() => setToolLibraryPanelOpen(true)}
           onToggleSidebar={toggleSidebar}
           onToggleWorkspacePanel={toggleWorkspacePanel}
           onOpenPalette={() => void openPalette()}
@@ -2487,6 +2714,7 @@ export default function App() {
                     aria-selected={rightDockMode === "context"}
                     className={`workbench-dock__tab${rightDockMode === "context" ? " workbench-dock__tab--active" : ""}`}
                     onClick={() => openRightDockMode("context")}
+                    title={t("rightDock.overview")}
                   >
                     <Activity size={13} />
                     <span className="workbench-dock__tab-label">{t("rightDock.overview")}</span>
@@ -2498,6 +2726,7 @@ export default function App() {
                   aria-selected={rightDockMode === "files"}
                   className={`workbench-dock__tab${rightDockMode === "files" ? " workbench-dock__tab--active" : ""}`}
                   onClick={() => openRightDockMode("files")}
+                  title={t("workspace.filesTab")}
                 >
                   <FileText size={13} />
                   <span className="workbench-dock__tab-label">{t("workspace.filesTab")}</span>
@@ -2508,6 +2737,7 @@ export default function App() {
                   aria-selected={rightDockMode === "changed"}
                   className={`workbench-dock__tab${rightDockMode === "changed" ? " workbench-dock__tab--active" : ""}`}
                   onClick={() => openRightDockMode("changed")}
+                  title={t("workspace.changedTab")}
                 >
                   <GitBranch size={13} />
                   <span className="workbench-dock__tab-label">{t("workspace.changedTab")}</span>
@@ -2518,6 +2748,7 @@ export default function App() {
                   aria-selected={rightDockMode === "sideChat"}
                   className={`workbench-dock__tab${rightDockMode === "sideChat" ? " workbench-dock__tab--active" : ""}`}
                   onClick={() => openRightDockMode("sideChat")}
+                  title={t("rightDock.sideChat")}
                 >
                   <MessageSquareText size={13} />
                   <span className="workbench-dock__tab-label">{t("rightDock.sideChat")}</span>
@@ -2603,6 +2834,10 @@ export default function App() {
         <AutomationPanel onClose={() => setAutomationPanelOpen(false)} />
       )}
 
+      {toolLibraryPanelOpen && (
+        <ToolLibraryPanel onClose={() => setToolLibraryPanelOpen(false)} />
+      )}
+
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
@@ -2628,6 +2863,22 @@ export default function App() {
       )}
 
       {needsOnboarding && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
+      <ContextMenu
+        open={Boolean(textEditMenuPoint)}
+        point={textEditMenuPoint}
+        items={textEditMenuItems}
+        onClose={closeTextEditMenu}
+        minWidth={132}
+        ariaLabel={t("composer.editMenu")}
+      />
+      <ContextMenu
+        open={Boolean(selectionMenuPoint)}
+        point={selectionMenuPoint}
+        items={selectionMenuItems}
+        onClose={closeSelectionMenu}
+        minWidth={120}
+        ariaLabel={t("common.copy")}
+      />
     </div>
     </ShellExpandProvider>
   );

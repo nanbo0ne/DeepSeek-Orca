@@ -46,6 +46,7 @@ import type {
   SkillView,
   SlashArgsResult,
   TabMeta,
+  ToolLibrarySettings,
   TopicMeta,
   WireEvent,
   WorkspaceChangesView,
@@ -265,6 +266,8 @@ export interface AppBindings {
   ResumeAutomation(id: string): Promise<void>;
   CancelAutomation(id: string): Promise<void>;
   ClearFinishedAutomations(): Promise<void>;
+  GetToolLibrarySettings(): Promise<ToolLibrarySettings>;
+  SetToolLibrarySettings(settings: ToolLibrarySettings): Promise<void>;
   ListSideChat(tabID: string): Promise<SideChatMessage[]>;
   SendSideChat(tabID: string, input: string): Promise<void>;
   ClearSideChat(tabID: string): Promise<void>;
@@ -476,6 +479,15 @@ function makeMockApp(): AppBindings {
       result: "",
     },
   ];
+  let mockToolLibrarySettings: ToolLibrarySettings = {
+    threadManagementEnabled: true,
+    webSearchEnabled: true,
+    replRuntimeEnabled: true,
+    documentToolsEnabled: true,
+    hostSystemToolsEnabled: true,
+    conversationSearchEnabled: true,
+    proactiveToolUseEnabled: true,
+  };
   const mockSideChats: Record<string, SideChatMessage[]> = {};
   // Mutable so MCP add/remove/retry are observable in browser dev.
   let capServers: ServerView[] = [
@@ -2407,6 +2419,12 @@ function makeMockApp(): AppBindings {
     },
     async ClearFinishedAutomations() {
       mockAutomations = mockAutomations.filter((item) => !["cancelled", "failed", "done"].includes(item.status));
+    },
+    async GetToolLibrarySettings() {
+      return { ...mockToolLibrarySettings };
+    },
+    async SetToolLibrarySettings(settings: ToolLibrarySettings) {
+      mockToolLibrarySettings = { ...settings };
     },
     async ListSideChat(tabID: string) {
       return (mockSideChats[tabID] ?? []).map((item) => ({ ...item }));

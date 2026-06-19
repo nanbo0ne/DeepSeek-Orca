@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func testAppWithOrderedTabs(t *testing.T, active string, ids ...string) *App {
@@ -117,6 +118,21 @@ func TestNewUniqueTabIDLockedUsesFreshRandomID(t *testing.T) {
 	}
 	if len(got) != len("tab_")+32 {
 		t.Fatalf("tab id = %q, length %d, want 36", got, len(got))
+	}
+}
+
+func TestEnsureBlankTabStoresCreatedAtForSorting(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+
+	before := time.Now().Add(-time.Second).UnixMilli()
+	tab, err := app.EnsureBlankTab("global", "")
+	if err != nil {
+		t.Fatalf("EnsureBlankTab: %v", err)
+	}
+	createdAt := loadTopicCreatedAt("", tab.TopicID)
+	if createdAt < before {
+		t.Fatalf("createdAt = %d, want >= %d", createdAt, before)
 	}
 }
 

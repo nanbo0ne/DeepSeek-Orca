@@ -21,18 +21,23 @@ export interface EditorProps {
 // a code block or tool result is shown. See desktop/README.md ("Editor seam").
 const Impl = lazy(() => import("./editors/HljsCode"));
 
+function displayValue(value: string): string {
+  return value.replace(/\uFFFD{2,}/g, (match) => `[无法解码的文本 x${match.length}]`);
+}
+
 export function CodeViewer(props: EditorProps) {
+  const shown = displayValue(props.value);
   return (
     <div className="code-block">
       <CopyButton text={props.value} className="code-block__copy" />
       <Suspense
         fallback={
           <pre className="code code--loading">
-            <code>{props.value}</code>
+            <code>{shown}</code>
           </pre>
         }
       >
-        <Impl {...props} />
+        <Impl {...props} value={shown} />
       </Suspense>
     </div>
   );

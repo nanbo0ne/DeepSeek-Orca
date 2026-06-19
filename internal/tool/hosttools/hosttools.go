@@ -19,33 +19,55 @@ import (
 	"sync"
 	"time"
 
+	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/config"
+	fileenc "deepseek-orca/internal/fileutil/encoding"
 	"deepseek-orca/internal/notify"
+	"deepseek-orca/internal/proc"
+	"deepseek-orca/internal/provider"
 	"deepseek-orca/internal/tool"
 )
 
 // Tools returns the default host-tool library. It intentionally excludes visual
 // desktop control, OCR, screenshots, and coordinate input.
-func Tools(workDir string) []tool.Tool {
+func Tools(workDir string, settingsOpt ...config.ToolLibraryConfig) []tool.Tool {
+	settings := config.DefaultToolLibrarySettings()
+	if len(settingsOpt) > 0 {
+		settings = config.NormalizeToolLibrarySettings(settingsOpt[0])
+	}
 	rt := newRuntimeManager(workDir)
-	return []tool.Tool{
-		hostCommand{workDir: workDir},
-		hostSystemInfo{workDir: workDir},
-		hostListProcesses{},
-		hostKillProcess{},
-		hostOpenApp{workDir: workDir},
-		hostClipboard{},
-		notifyUser{},
+	out := []tool.Tool{
 		automationCreate{workDir: workDir},
 		automationList{},
 		automationCancel{},
-		threadList{},
-		webSearch{},
-		nodeRepl{rt: rt},
-		pythonRepl{rt: rt},
-		documentInspect{workDir: workDir},
-		documentExtract{workDir: workDir},
 	}
+	if settings.HostSystemToolsEnabled {
+		out = append(out,
+			hostCommand{workDir: workDir},
+			hostSystemInfo{workDir: workDir},
+			hostListProcesses{},
+			hostKillProcess{},
+			hostOpenApp{workDir: workDir},
+			hostClipboard{},
+			notifyUser{},
+		)
+	}
+	if settings.ThreadManagementEnabled {
+		out = append(out, threadList{})
+	}
+	if settings.WebSearchEnabled {
+		out = append(out, webSearch{})
+	}
+	if settings.REPLRuntimeEnabled {
+		out = append(out, nodeRepl{rt: rt}, pythonRepl{rt: rt})
+	}
+	if settings.DocumentToolsEnabled {
+		out = append(out, documentInspect{workDir: workDir}, documentExtract{workDir: workDir})
+	}
+	if settings.ConversationSearchEnabled {
+		out = append(out, conversationSearch{workDir: workDir}, conversationRead{workDir: workDir})
+	}
+	return out
 }
 
 var automations = newAutomationStore()
@@ -442,6 +464,7 @@ func executeAutomation(ctx context.Context, item *automationItem) (string, error
 	case "host_command":
 		argv := nativeShellArgv("auto", item.Command)
 		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		proc.HideWindow(cmd)
 		cmd.Dir = item.WorkDir
 		out, runErr := cmd.CombinedOutput()
 		decoded := strings.TrimSpace(decodeOutput(out))
@@ -673,6 +696,321 @@ func (threadList) Execute(_ context.Context, args json.RawMessage) (string, erro
 	return string(b), nil
 }
 
+type conversationSearch struct{ workDir string }
+
+func (conversationSearch) Name() string { return "conversation_search" }
+func (conversationSearch) Description() string {
+	return "Search older local DeepSeek-Orca conversation transcripts after context compression. Returns short snippets and locators; use conversation_read for fuller nearby transcript. Read-only."
+}
+func (conversationSearch) Schema() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Words or phrase to search for in user/assistant conversation text."},"scope":{"type":"string","enum":["current_workspace","all"],"description":"current_workspace searches sessions for the active workspace plus legacy/global sessions; all searches every known local session directory."},"limit":{"type":"integer","minimum":1,"maximum":20}},"required":["query"]}`)
+}
+func (conversationSearch) ReadOnly() bool { return true }
+func (c conversationSearch) Execute(_ context.Context, args json.RawMessage) (string, error) {
+	var p struct {
+		Query string `json:"query"`
+		Scope string `json:"scope"`
+		Limit int    `json:"limit"`
+	}
+	if err := json.Unmarshal(args, &p); err != nil {
+		return "", fmt.Errorf("invalid args: %w", err)
+	}
+	p.Query = strings.TrimSpace(p.Query)
+	if p.Query == "" {
+		return "", fmt.Errorf("query is required")
+	}
+	if p.Limit <= 0 || p.Limit > 20 {
+		p.Limit = 8
+	}
+	dirs := conversationSessionDirs(c.workDir, p.Scope)
+	hits := conversationSearchHits(p.Query, dirs, p.Limit)
+	out := map[string]any{
+		"status": "done",
+		"query":  p.Query,
+		"scope":  normalizedConversationScope(p.Scope),
+		"hits":   hits,
+	}
+	b, _ := json.MarshalIndent(out, "", "  ")
+	return string(b), nil
+}
+
+type conversationRead struct{ workDir string }
+
+func (conversationRead) Name() string { return "conversation_read" }
+func (conversationRead) Description() string {
+	return "Read a fuller nearby transcript window for a locator returned by conversation_search. Read-only and limited to local DeepSeek-Orca session files."
+}
+func (conversationRead) Schema() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{"locator":{"type":"string","description":"A locator returned by conversation_search, formatted as path#index."},"before":{"type":"integer","minimum":0,"maximum":12},"after":{"type":"integer","minimum":0,"maximum":12}},"required":["locator"]}`)
+}
+func (conversationRead) ReadOnly() bool { return true }
+func (c conversationRead) Execute(_ context.Context, args json.RawMessage) (string, error) {
+	var p struct {
+		Locator string `json:"locator"`
+		Before  int    `json:"before"`
+		After   int    `json:"after"`
+	}
+	if err := json.Unmarshal(args, &p); err != nil {
+		return "", fmt.Errorf("invalid args: %w", err)
+	}
+	path, index, err := parseConversationLocator(p.Locator)
+	if err != nil {
+		return "", err
+	}
+	if !conversationPathAllowed(path, conversationSessionDirs(c.workDir, "all")) {
+		return "", fmt.Errorf("locator is outside known DeepSeek-Orca session directories")
+	}
+	sess, err := agent.LoadSession(path)
+	if err != nil {
+		return "", err
+	}
+	if index < 0 || index >= len(sess.Messages) {
+		return "", fmt.Errorf("locator message index %d is outside transcript length %d", index, len(sess.Messages))
+	}
+	if p.Before <= 0 {
+		p.Before = 2
+	}
+	if p.After <= 0 {
+		p.After = 3
+	}
+	if p.Before > 12 {
+		p.Before = 12
+	}
+	if p.After > 12 {
+		p.After = 12
+	}
+	start := index - p.Before
+	if start < 0 {
+		start = 0
+	}
+	end := index + p.After + 1
+	if end > len(sess.Messages) {
+		end = len(sess.Messages)
+	}
+	rows := make([]map[string]any, 0, end-start)
+	for i := start; i < end; i++ {
+		m := sess.Messages[i]
+		if !conversationMessageVisible(m) && i != index {
+			continue
+		}
+		rows = append(rows, map[string]any{
+			"index":   i,
+			"role":    string(m.Role),
+			"name":    m.Name,
+			"content": trimConversationText(conversationMessageText(m), 6000),
+		})
+	}
+	out := map[string]any{
+		"status":   "done",
+		"locator":  conversationLocator(path, index),
+		"path":     path,
+		"messages": rows,
+	}
+	b, _ := json.MarshalIndent(out, "", "  ")
+	return string(b), nil
+}
+
+func conversationSearchHits(query string, dirs []string, limit int) []map[string]any {
+	needle := strings.ToLower(query)
+	var hits []map[string]any
+	for _, path := range conversationSessionFiles(dirs) {
+		sess, err := agent.LoadSession(path)
+		if err != nil {
+			continue
+		}
+		for i, m := range sess.Messages {
+			if !conversationMessageVisible(m) {
+				continue
+			}
+			text := conversationMessageText(m)
+			if !strings.Contains(strings.ToLower(text), needle) {
+				continue
+			}
+			hits = append(hits, map[string]any{
+				"locator": conversationLocator(path, i),
+				"path":    path,
+				"index":   i,
+				"role":    string(m.Role),
+				"name":    m.Name,
+				"snippet": conversationSnippet(text, needle, 360),
+			})
+			if len(hits) >= limit {
+				return hits
+			}
+		}
+	}
+	return hits
+}
+
+func conversationSessionDirs(workDir, scope string) []string {
+	seen := map[string]bool{}
+	var dirs []string
+	add := func(dir string) {
+		dir = strings.TrimSpace(dir)
+		if dir == "" {
+			return
+		}
+		if abs, err := filepath.Abs(dir); err == nil {
+			dir = abs
+		}
+		dir = filepath.Clean(dir)
+		if seen[dir] {
+			return
+		}
+		seen[dir] = true
+		dirs = append(dirs, dir)
+	}
+	add(config.ProjectSessionDir(workDir))
+	add(config.SessionDir())
+	if normalizedConversationScope(scope) == "all" {
+		base := config.MemoryUserDir()
+		for _, root := range []string{
+			filepath.Join(base, "projects"),
+			filepath.Join(base, "deepseek-orca", "independent-workspaces"),
+			filepath.Join(base, "independent-workspaces"),
+		} {
+			_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+				if err != nil || !d.IsDir() || filepath.Base(path) != "sessions" {
+					return nil
+				}
+				add(path)
+				return filepath.SkipDir
+			})
+		}
+	}
+	return dirs
+}
+
+func normalizedConversationScope(scope string) string {
+	if strings.EqualFold(strings.TrimSpace(scope), "all") {
+		return "all"
+	}
+	return "current_workspace"
+}
+
+func conversationSessionFiles(dirs []string) []string {
+	var files []string
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".jsonl") {
+				continue
+			}
+			files = append(files, filepath.Join(dir, entry.Name()))
+		}
+	}
+	sort.Slice(files, func(i, j int) bool {
+		ii, ierr := os.Stat(files[i])
+		ji, jerr := os.Stat(files[j])
+		if ierr != nil || jerr != nil {
+			return files[i] < files[j]
+		}
+		return ii.ModTime().After(ji.ModTime())
+	})
+	return files
+}
+
+func conversationMessageVisible(m provider.Message) bool {
+	text := strings.TrimSpace(m.Content)
+	if text == "" && m.Role != provider.RoleTool {
+		return false
+	}
+	if m.Role != provider.RoleUser && m.Role != provider.RoleAssistant && m.Role != provider.RoleTool {
+		return false
+	}
+	for _, prefix := range []string{"<system-reminder>", "<workflow-reminder>", "<context-checkpoint>", "<memory-update>"} {
+		if strings.HasPrefix(text, prefix) {
+			return false
+		}
+	}
+	return true
+}
+
+func conversationMessageText(m provider.Message) string {
+	if m.Role == provider.RoleTool && strings.TrimSpace(m.Name) != "" {
+		return m.Name + ": " + m.Content
+	}
+	return m.Content
+}
+
+func conversationLocator(path string, index int) string {
+	return filepath.Clean(path) + "#" + strconv.Itoa(index)
+}
+
+func parseConversationLocator(locator string) (string, int, error) {
+	locator = strings.TrimSpace(locator)
+	pos := strings.LastIndex(locator, "#")
+	if pos <= 0 || pos == len(locator)-1 {
+		return "", 0, fmt.Errorf("locator must be formatted as path#index")
+	}
+	index, err := strconv.Atoi(locator[pos+1:])
+	if err != nil || index < 0 {
+		return "", 0, fmt.Errorf("invalid locator message index")
+	}
+	path := filepath.Clean(locator[:pos])
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	return path, index, nil
+}
+
+func conversationPathAllowed(path string, dirs []string) bool {
+	path = filepath.Clean(path)
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	for _, dir := range dirs {
+		dir = filepath.Clean(dir)
+		if abs, err := filepath.Abs(dir); err == nil {
+			dir = abs
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err == nil && rel != "." && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
+			return true
+		}
+	}
+	return false
+}
+
+func conversationSnippet(text, needle string, max int) string {
+	lower := strings.ToLower(text)
+	pos := strings.Index(lower, needle)
+	if pos < 0 {
+		return trimConversationText(text, max)
+	}
+	start := pos - max/3
+	if start < 0 {
+		start = 0
+	}
+	end := start + max
+	if end > len(text) {
+		end = len(text)
+		start = end - max
+		if start < 0 {
+			start = 0
+		}
+	}
+	out := strings.TrimSpace(text[start:end])
+	if start > 0 {
+		out = "..." + out
+	}
+	if end < len(text) {
+		out += "..."
+	}
+	return out
+}
+
+func trimConversationText(text string, max int) string {
+	text = strings.TrimSpace(text)
+	if max <= 0 || len(text) <= max {
+		return text
+	}
+	return strings.TrimSpace(text[:max]) + "..."
+}
+
 type hostCommand struct{ workDir string }
 
 func (hostCommand) Name() string { return "host_command" }
@@ -704,6 +1042,7 @@ func (h hostCommand) Execute(ctx context.Context, args json.RawMessage) (string,
 	defer cancel()
 	argv := nativeShellArgv(p.Shell, p.Command)
 	cmd := exec.CommandContext(runCtx, argv[0], argv[1:]...)
+	proc.HideWindow(cmd)
 	cmd.Dir = h.workDir
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
@@ -849,6 +1188,7 @@ func elevationHint() string {
 		return "not-root"
 	}
 	cmd := exec.Command("cmd.exe", "/c", "net session >nul 2>nul")
+	proc.HideWindow(cmd)
 	if err := cmd.Run(); err == nil {
 		return "administrator"
 	}
@@ -880,6 +1220,7 @@ func (hostListProcesses) Execute(ctx context.Context, args json.RawMessage) (str
 	} else {
 		cmd = exec.CommandContext(ctx, "sh", "-c", "ps -eo pid,comm,%cpu,rss | head -n 500")
 	}
+	proc.HideWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -941,6 +1282,7 @@ func (hostKillProcess) Execute(ctx context.Context, args json.RawMessage) (strin
 	} else {
 		cmd = exec.CommandContext(ctx, "pkill", p.Name)
 	}
+	proc.HideWindow(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return decodeOutput(out), err
@@ -983,6 +1325,7 @@ func (h hostOpenApp) Execute(ctx context.Context, args json.RawMessage) (string,
 	} else {
 		cmd = exec.CommandContext(ctx, p.Target, p.Args...)
 	}
+	proc.HideWindow(cmd)
 	cmd.Dir = h.workDir
 	if err := cmd.Start(); err != nil {
 		return "", err
@@ -1027,28 +1370,37 @@ func (hostClipboard) Execute(ctx context.Context, args json.RawMessage) (string,
 
 func clipboardRead(ctx context.Context) (string, error) {
 	if runtime.GOOS == "windows" {
-		out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw").Output()
+		cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw")
+		proc.HideWindow(cmd)
+		out, err := cmd.Output()
 		return decodeOutput(out), err
 	}
 	if runtime.GOOS == "darwin" {
-		out, err := exec.CommandContext(ctx, "pbpaste").Output()
+		cmd := exec.CommandContext(ctx, "pbpaste")
+		proc.HideWindow(cmd)
+		out, err := cmd.Output()
 		return decodeOutput(out), err
 	}
-	out, err := exec.CommandContext(ctx, "sh", "-c", "xclip -selection clipboard -o 2>/dev/null || xsel --clipboard --output 2>/dev/null").Output()
+	cmd := exec.CommandContext(ctx, "sh", "-c", "xclip -selection clipboard -o 2>/dev/null || xsel --clipboard --output 2>/dev/null")
+	proc.HideWindow(cmd)
+	out, err := cmd.Output()
 	return decodeOutput(out), err
 }
 
 func clipboardWrite(ctx context.Context, text string) error {
 	if runtime.GOOS == "windows" {
 		cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", "Set-Clipboard -Value $args[0]", text)
+		proc.HideWindow(cmd)
 		return cmd.Run()
 	}
 	if runtime.GOOS == "darwin" {
 		cmd := exec.CommandContext(ctx, "pbcopy")
+		proc.HideWindow(cmd)
 		cmd.Stdin = strings.NewReader(text)
 		return cmd.Run()
 	}
 	cmd := exec.CommandContext(ctx, "sh", "-c", "xclip -selection clipboard 2>/dev/null || xsel --clipboard --input 2>/dev/null")
+	proc.HideWindow(cmd)
 	cmd.Stdin = strings.NewReader(text)
 	return cmd.Run()
 }
@@ -1317,6 +1669,7 @@ func runInterpreter(ctx context.Context, dir, exe string, args []string, timeout
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, exe, args...)
+	proc.HideWindow(cmd)
 	cmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -1471,6 +1824,7 @@ with zipfile.ZipFile(sys.argv[1]) as z:
   print(re.sub(r"<[^>]+>", " ", z.read(n).decode("utf-8","ignore")))`
 	}
 	cmd := exec.Command(pythonExe(), "-c", code, path)
+	proc.HideWindow(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return decodeOutput(out), err
@@ -1501,7 +1855,7 @@ func resolvePath(workDir, p string) string {
 }
 
 func decodeOutput(b []byte) string {
-	return strings.ReplaceAll(string(b), "\r\n", "\n")
+	return strings.ReplaceAll(fileenc.DecodeText(b), "\r\n", "\n")
 }
 
 func firstNonEmpty(values ...string) string {
