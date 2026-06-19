@@ -114,7 +114,11 @@ func (a *App) ListSideChat(tabID string) []SideChatMessage {
 		return []SideChatMessage{}
 	}
 	f := loadSideChatFile()
-	return append([]SideChatMessage(nil), f.Sessions[key]...)
+	history := f.Sessions[key]
+	if len(history) == 0 {
+		return []SideChatMessage{}
+	}
+	return append([]SideChatMessage{}, history...)
 }
 
 func (a *App) ClearSideChat(tabID string) error {

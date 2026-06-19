@@ -11,6 +11,7 @@ export function SideChatPanel({ tabId }: { tabId?: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+  const safeMessages = Array.isArray(messages) ? messages : [];
 
   const load = useCallback(async () => {
     if (!tabId) {
@@ -19,8 +20,10 @@ export function SideChatPanel({ tabId }: { tabId?: string }) {
     }
     setErr("");
     try {
-      setMessages(await app.ListSideChat(tabId));
+      const next = await app.ListSideChat(tabId);
+      setMessages(Array.isArray(next) ? next : []);
     } catch (e) {
+      setMessages([]);
       setErr(String((e as Error)?.message ?? e));
     }
   }, [tabId]);
@@ -32,7 +35,7 @@ export function SideChatPanel({ tabId }: { tabId?: string }) {
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, busy]);
+  }, [safeMessages.length, busy]);
 
   const send = async () => {
     const text = input.trim();
@@ -73,16 +76,16 @@ export function SideChatPanel({ tabId }: { tabId?: string }) {
           <h2>{t("sideChat.title")}</h2>
           <p>{t("sideChat.summary")}</p>
         </div>
-        <button type="button" className="side-chat__icon" disabled={!tabId || busy || messages.length === 0} onClick={() => void clear()} aria-label={t("sideChat.clear")}>
+        <button type="button" className="side-chat__icon" disabled={!tabId || busy || safeMessages.length === 0} onClick={() => void clear()} aria-label={t("sideChat.clear")}>
           <Eraser size={14} />
         </button>
       </header>
       {err && <div className="side-chat__error">{err}</div>}
       <div className="side-chat__messages" ref={listRef}>
-        {messages.length === 0 ? (
+        {safeMessages.length === 0 ? (
           <div className="side-chat__empty">{t("sideChat.empty")}</div>
         ) : (
-          messages.map((message) => (
+          safeMessages.map((message) => (
             <div className={`side-chat__msg side-chat__msg--${message.role}`} key={message.id}>
               <div className="side-chat__bubble">{message.content}</div>
             </div>

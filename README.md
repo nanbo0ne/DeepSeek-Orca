@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.18
+﻿# DeepSeek-Orca V2.0.19
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,7 +6,17 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.18/DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.19-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.19/DeepSeek-Orca-Setup-2.0.19-windows-amd64.exe)
+
+## V2.0.19 修复
+
+### 侧边聊天崩溃与右侧栏布局修复
+
+V2.0.19 修复点击“侧边聊天”时偶发的 React 崩溃，并将右侧 dock 导航恢复为一行四项：
+
+- 侧边聊天历史为空或桥接层返回 `null` 时，现在会稳定按空数组处理，不再因读取 `length` 报错。
+- 后端 `ListSideChat` 空历史明确返回空列表，减少 Wails 桥接层把空切片序列化为 `null` 的风险。
+- 右侧 dock 的 `概览 / 文件 / 改动 / 侧边聊天` 恢复为一横行布局，通过缩小字号、图标和间距确保不越界。
 
 ## V2.0.18 修复
 
@@ -157,3 +167,4 @@ go test ./...
 桌面端 Windows 安装包使用仓库脚本构建。
 
 License: MIT.
+
