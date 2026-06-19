@@ -1,20 +1,24 @@
-﻿# DeepSeek-Orca CLI V2.0.15
+﻿# DeepSeek-Orca CLI V2.0.16
 
 DeepSeek-Orca CLI is the terminal entry point for the DeepSeek-Orca coding agent. It keeps the core Reasonix-derived agent loop, tools, MCP, skills, memory, permission control, session resume, rollback, and compaction features.
 
 The Windows desktop installer is the recommended package for most users:
 
-[DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.15/DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.16/DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe)
 
-## V2.0.15 Notes
+## V2.0.16 Notes
 
-V2.0.15 completes the shared automatic Todo policy for both normal and enhanced prompt profiles. The added model-visible policy is intentionally short and English-only: complex multi-step tasks should use `todo_write`, while simple one-step work should not create ceremonial lists.
+V2.0.16 changes `web_search` to avoid DuckDuckGo. Host web search now tries China-accessible sources first: Bing China, then Baidu as fallback. Known URLs should still be read with `web_fetch`.
+
+Normal mode and enhanced mode now share a clean English evidence-first tool policy. When an answer depends on current facts, external information, repository state, file contents, command output, runtime behavior, or the local environment, the model is explicitly steered to use the appropriate tool before answering instead of guessing from memory.
+
+V2.0.16 completes the shared automatic Todo policy for both normal and enhanced prompt profiles. The added model-visible policy is intentionally short and English-only: complex multi-step tasks should use `todo_write`, while simple one-step work should not create ceremonial lists.
 
 Desktop plan mode now uses a dedicated plan proposal card and revised-plan flow, and standalone desktop conversations now get per-topic independent workspace roots and session directories. These are desktop-first changes, but they preserve the shared `todo_write` / `complete_step` behavior used by the core agent.
 
-V2.0.15 includes a desktop status-bar polish fix: the approval mode indicator now uses distinct visible colors for ask, auto approve, and full access.
+V2.0.16 includes a desktop status-bar polish fix: the approval mode indicator now uses distinct visible colors for ask, auto approve, and full access.
 
-V2.0.15 keeps the shared host tool library and tightens automation semantics: persisted automations are intended for explicit recurring, continuous, or background-monitoring tasks. The desktop app also adds an automation manager and a read-only side chat panel; those are desktop-first UI features.
+V2.0.16 keeps the shared host tool library and tightens automation semantics: persisted automations are intended for explicit recurring, continuous, or background-monitoring tasks. The desktop app also adds an automation manager and a read-only side chat panel; those are desktop-first UI features.
 
 The shared host tools include native host commands, process/system helpers, notifications, web search, recurring automations, Orca session listing, Node/Python execution, and basic document extraction helpers. Visual desktop control and screenshot recognition are not included in this release.
 

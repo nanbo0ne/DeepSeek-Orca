@@ -1084,7 +1084,7 @@ type webSearch struct{}
 
 func (webSearch) Name() string { return "web_search" }
 func (webSearch) Description() string {
-	return "Search the web for current information and return structured title/url/snippet results. Use when you do not already know the URL. Follow up with web_fetch to read a selected result."
+	return "Search the web for current information using China-accessible search sources and return structured title/url/snippet results. Use when you do not already know the URL. Follow up with web_fetch to read a selected result."
 }
 func (webSearch) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":10}},"required":["query"]}`)
@@ -1104,20 +1104,12 @@ func (webSearch) Execute(ctx context.Context, args json.RawMessage) (string, err
 	if p.Limit <= 0 || p.Limit > 10 {
 		p.Limit = 5
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://duckduckgo.com/html/?q="+url.QueryEscape(p.Query), nil)
+	results, searched, err := runWebSearch(ctx, p.Query, p.Limit)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 DeepSeek-Orca")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	results := parseDuckDuckGoHTML(string(body), p.Limit)
 	if len(results) == 0 {
-		return "No search results parsed. Try a more specific query or use web_fetch with a known URL.", nil
+		return fmt.Sprintf("No search results parsed from %s. Try a more specific query or use web_fetch with a known URL.", strings.Join(searched, ", ")), nil
 	}
 	b, _ := json.MarshalIndent(results, "", "  ")
 	return string(b), nil
@@ -1129,27 +1121,91 @@ type searchResult struct {
 	Snippet string `json:"snippet,omitempty"`
 }
 
-func parseDuckDuckGoHTML(html string, limit int) []searchResult {
+type searchSource struct {
+	Name  string
+	URL   string
+	Parse func(string, int) []searchResult
+}
+
+func runWebSearch(ctx context.Context, query string, limit int) ([]searchResult, []string, error) {
+	sources := []searchSource{
+		{Name: "Bing China", URL: "https://cn.bing.com/search?q=" + url.QueryEscape(query), Parse: parseBingHTML},
+		{Name: "Baidu", URL: "https://www.baidu.com/s?wd=" + url.QueryEscape(query), Parse: parseBaiduHTML},
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	var searched []string
+	var errs []string
+	for _, source := range sources {
+		searched = append(searched, source.Name)
+		req, err := http.NewRequestWithContext(ctx, "GET", source.URL, nil)
+		if err != nil {
+			errs = append(errs, source.Name+": "+err.Error())
+			continue
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 DeepSeek-Orca")
+		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.6")
+		resp, err := client.Do(req)
+		if err != nil {
+			errs = append(errs, source.Name+": "+err.Error())
+			continue
+		}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			errs = append(errs, fmt.Sprintf("%s: HTTP %d", source.Name, resp.StatusCode))
+			continue
+		}
+		if results := source.Parse(string(body), limit); len(results) > 0 {
+			return results, searched, nil
+		}
+		errs = append(errs, source.Name+": no results parsed")
+	}
+	if len(errs) > 0 {
+		return nil, searched, fmt.Errorf("web_search failed after trying %s: %s", strings.Join(searched, ", "), strings.Join(errs, "; "))
+	}
+	return nil, searched, nil
+}
+
+func parseBingHTML(html string, limit int) []searchResult {
 	var out []searchResult
-	parts := strings.Split(html, `class="result__a"`)
+	parts := strings.Split(html, `<li class="b_algo"`)
 	for _, part := range parts[1:] {
 		if len(out) >= limit {
 			break
 		}
 		href := extractBetween(part, `href="`, `"`)
-		title := stripHTML(extractBetween(part, ">", "</a>"))
-		snippet := stripHTML(extractBetween(part, `class="result__snippet"`, "</a>"))
-		if i := strings.Index(snippet, ">"); i >= 0 {
-			snippet = strings.TrimSpace(snippet[i+1:])
+		titleBlock := extractBetween(part, "<h2", "</h2>")
+		title := stripHTML(titleBlock)
+		snippet := stripHTML(extractBetween(part, `<p>`, `</p>`))
+		if title != "" && strings.HasPrefix(href, "http") {
+			out = append(out, searchResult{Title: htmlUnescape(title), URL: htmlUnescape(href), Snippet: htmlUnescape(snippet)})
 		}
-		if strings.Contains(href, "uddg=") {
-			if u, err := url.Parse(href); err == nil {
-				if decoded := u.Query().Get("uddg"); decoded != "" {
-					href = decoded
-				}
+	}
+	return out
+}
+
+func parseBaiduHTML(html string, limit int) []searchResult {
+	var out []searchResult
+	parts := strings.Split(html, `class="result`)
+	for _, part := range parts[1:] {
+		if len(out) >= limit {
+			break
+		}
+		href := extractBetween(part, `href="`, `"`)
+		titleBlock := extractBetween(part, `<h3`, `</h3>`)
+		if i := strings.Index(titleBlock, ">"); i >= 0 {
+			titleBlock = titleBlock[i+1:]
+		}
+		title := stripHTML(titleBlock)
+		snippet := stripHTML(extractBetween(part, `<span class="content-right_8Zs40">`, `</span>`))
+		if snippet == "" {
+			snippetBlock := extractBetween(part, `<div class="c-abstract`, `</div>`)
+			if i := strings.Index(snippetBlock, ">"); i >= 0 {
+				snippetBlock = snippetBlock[i+1:]
 			}
+			snippet = stripHTML(snippetBlock)
 		}
-		if title != "" && href != "" {
+		if title != "" && strings.HasPrefix(href, "http") {
 			out = append(out, searchResult{Title: htmlUnescape(title), URL: htmlUnescape(href), Snippet: htmlUnescape(snippet)})
 		}
 	}

@@ -912,6 +912,25 @@ const ToolRoutingPolicy = `工具选择规则：
 const LanguagePolicy = `请使用用户最新消息所使用的语言回复：用户用中文就用中文，用户用英文就用英文，并在用户切换语言时同步切换。` +
 	`这也应影响你的思考和表述方式。代码、标识符、文件路径、shell 命令以及必须保持原样的技术术语不要翻译。`
 
+// ActiveToolRoutingPolicy is the clean provider-visible tool policy used by
+// current prompt builders. It intentionally stays in English to avoid corrupting
+// model-visible tool context.
+const ActiveToolRoutingPolicy = `Tool use and evidence policy:
+- Be evidence-first: when an answer depends on current facts, external information, repository state, file contents, command output, runtime behavior, or the user's local environment, use the appropriate tool before answering instead of guessing from memory.
+- For files and code, prefer read_file, grep, ls, glob, edit_file, write_file, and multi_edit. Do not substitute shell cat/grep/ls/sed when a dedicated tool fits.
+- For development commands, use bash mainly for builds, tests, git, package managers, and ordinary project shell tasks.
+- For host/system actions, processes, app launch, clipboard, notifications, recurring automation, native Windows commands, web search, persistent REPL work, or document extraction, prefer the matching host tool before falling back to shell.
+- Use host_command as the native OS command fallback; on Windows it uses cmd/powershell semantics and is usually better than bash for Windows-native commands.
+- Use automation_create only when the user clearly asks for recurring, continuous, or background-monitoring work. Use automation_list and automation_cancel to inspect or manage existing automations.
+- Use node_repl_exec or python_repl_exec for calculations, JSON/data transformations, quick scripts, reusable variables, and checks where a persistent runtime is clearer than a complex shell one-liner.
+- Use document_inspect and document_extract for Word, PowerPoint, Excel, PDF, and similar document work; combine with python_repl_exec for complex processing.
+- Use web_search when you do not know the URL and need current web information; use web_fetch when you already have a specific URL or after selecting a search result.
+- If a tool fails, read the structured status/error, fix the parameters, choose the recommended fallback tool, or explain the blocker. Do not repeat the same failing call unchanged.`
+
+// ActiveLanguagePolicy is the clean provider-visible language policy used by
+// current prompt builders.
+const ActiveLanguagePolicy = `Reply in the language used by the user's latest message. If the user writes Chinese, reply in Chinese; if the user writes English, reply in English. Preserve code, identifiers, file paths, shell commands, and required technical terms exactly.`
+
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{

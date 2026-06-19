@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.15
+﻿# DeepSeek-Orca V2.0.16
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,9 +6,17 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.15/DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.16/DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe)
 
-## V2.0.15 新功能
+## V2.0.16 新功能
+
+### Web Search 改用国内可访问搜索源
+
+`web_search` 不再调用 DuckDuckGo。新的搜索链路默认优先使用 Bing 国内版，并在解析不到结果或访问失败时 fallback 到百度搜索。这样在国内网络环境下，未知 URL 的联网检索不会因为 DuckDuckGo 超时而整条失败；已知 URL 仍继续使用 `web_fetch` 直接抓取。
+
+### 模型更主动调用工具验证事实
+
+普通模式和增强模式现在都会使用新的英文 `Tool use and evidence policy`。当回答依赖当前事实、外部信息、仓库状态、文件内容、命令输出、运行时行为或本机环境时，模型会被明确要求先调用合适工具验证，而不是凭记忆猜测。该策略同时保留克制约束：简单常识问答和无需验证的短回答不会为了形式强行调用工具。
 
 ### 自动 Todo 覆盖普通与增强模式
 

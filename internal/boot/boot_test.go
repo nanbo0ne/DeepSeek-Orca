@@ -121,10 +121,12 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 			sys := systemMessage(ctrl.History())
 			for _, want := range []string{
 				config.TaskTrackingPolicy,
-				config.ToolRoutingPolicy,
-				config.LanguagePolicy,
+				config.ActiveToolRoutingPolicy,
+				config.ActiveLanguagePolicy,
 				"todo_write",
 				"automation_create",
+				"Be evidence-first",
+				"Use web_search when you do not know the URL",
 			} {
 				if !strings.Contains(sys, want) {
 					t.Fatalf("%s prompt missing %q:\n%s", tc.name, want, sys)
@@ -785,7 +787,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	defer ctrl.Close()
 
 	sys := systemMessage(ctrl.History())
-	if !strings.Contains(sys, config.LanguagePolicy) {
+	if !strings.Contains(sys, config.ActiveLanguagePolicy) {
 		t.Fatalf("language policy missing from system prompt:\n%s", sys)
 	}
 }
@@ -802,6 +804,7 @@ func systemMessage(msgs []provider.Message) string {
 func stripLanguagePolicy(s string) string {
 	s = strings.TrimSpace(s)
 	for _, policy := range []string{
+		config.ActiveLanguagePolicy,
 		config.LanguagePolicy,
 	} {
 		s = strings.TrimSpace(strings.TrimSuffix(s, policy))
@@ -811,7 +814,10 @@ func stripLanguagePolicy(s string) string {
 
 func stripToolRoutingPolicy(s string) string {
 	s = strings.TrimSpace(s)
-	return strings.TrimSpace(strings.TrimSuffix(s, config.ToolRoutingPolicy))
+	for _, policy := range []string{config.ActiveToolRoutingPolicy, config.ToolRoutingPolicy} {
+		s = strings.TrimSpace(strings.TrimSuffix(s, policy))
+	}
+	return s
 }
 
 func stripTaskTrackingPolicy(s string) string {

@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca Desktop V2.0.15
+﻿# DeepSeek-Orca Desktop V2.0.16
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,19 +6,23 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.15/DeepSeek-Orca-Setup-2.0.15-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.16/DeepSeek-Orca-Setup-2.0.16-windows-amd64.exe)
 
-## V2.0.15 Interaction And Automation Update
+## V2.0.16 Interaction And Automation Update
 
-V2.0.15 completes the automatic Todo, plan-mode, and independent workspace isolation work. Normal mode and enhanced mode now share the same short English task-tracking policy, so complex multi-step work can trigger `todo_write` consistently without localizing tool schemas or the enhanced core prompt.
+V2.0.16 changes `web_search` to avoid DuckDuckGo. The desktop host search tool now tries China-accessible search sources first: Bing China, then Baidu as fallback. Known URLs should still be read directly with `web_fetch`.
+
+Normal mode and enhanced mode now share a clean English evidence-first tool policy. When an answer depends on current facts, external information, repository state, file contents, command output, runtime behavior, or the local environment, the model is explicitly steered to use the appropriate tool before answering instead of guessing from memory.
+
+V2.0.16 completes the automatic Todo, plan-mode, and independent workspace isolation work. Normal mode and enhanced mode now share the same short English task-tracking policy, so complex multi-step work can trigger `todo_write` consistently without localizing tool schemas or the enhanced core prompt.
 
 Plan mode now renders a dedicated rounded plan proposal card. Revision requests include the previous complete plan plus the user's requested changes and ask the model for a complete replacement plan while staying in plan mode. Once approved, the final plan seeds the Todo panel and execution continues through the existing `todo_write` / `complete_step` flow.
 
 Standalone conversations are isolated more strictly. Each independent topic gets its own workspace root, session directory, attachment area, memory/config scope, and tool cwd. Older global sessions are backfilled into per-topic session directories when first opened, without copying the old shared workspace contents.
 
-V2.0.15 also fixes the bottom status bar approval indicator. Ask, auto approve, and full access now remain visible on light backgrounds and use distinct colors so the current permission mode can be checked at a glance.
+V2.0.16 also fixes the bottom status bar approval indicator. Ask, auto approve, and full access now remain visible on light backgrounds and use distinct colors so the current permission mode can be checked at a glance.
 
-V2.0.15 focuses on smoother interaction and safer automation semantics.
+V2.0.16 focuses on smoother interaction and safer automation semantics.
 
 Model switching now updates the composer button and status bar immediately with the short model name, such as `deepseek-v4-pro`, while controller rebuild happens in the background. The UI should no longer flash a raw `provider/model` path during that short transition.
 
