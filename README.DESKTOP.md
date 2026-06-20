@@ -1,6 +1,8 @@
-﻿# DeepSeek-Orca Desktop V2.0.22
+# DeepSeek-Orca Desktop V2.0.22
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
+
+Release notes are no longer kept in README files. They are stored in [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md).
 
 ## Install
 
@@ -8,102 +10,81 @@ Download the Windows installer:
 
 [DeepSeek-Orca-Setup-2.0.22-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.22/DeepSeek-Orca-Setup-2.0.22-windows-amd64.exe)
 
-## V2.0.21 UI Polish
+## What It Is For
 
-V2.0.21 makes the completed-turn process summary quieter and simplifies the Appearance font choices. Folded process rows now show only elapsed thinking time, with token usage available after expanding the row. The mode menu descriptions are shorter and more task-specific.
+DeepSeek-Orca Desktop is designed for local development, long-running AI collaboration, and desktop-first agent workflows:
 
-The font picker now offers only Heiti, FangSong, and KaiTi. Heiti is the default label and uses Microsoft YaHei first with SimHei fallback. Legacy saved font choices are migrated back to Heiti, while code, terminal, and tool-output areas keep a monospace primary font to preserve alignment.
+- Read, edit, test, and roll back code in a project workspace.
+- Manage conversations by project, independent workspace, pinned topic, history, and trash.
+- Extend the agent through MCP, skills, memory files, CodeGraph, and slash commands.
+- Control tool permissions through approval modes.
+- Use host tools for web search, local commands, process management, runtime checks, and document extraction.
+- Recover older intent after context compression through long-term conversation search.
 
-## V2.0.20 Prompt And Memory Profiles
+## Prompt Modes
 
-V2.0.20 upgrades the composer mode control into three prompt profiles: Assistant, Normal, and Enhanced. Assistant mode runs as `Orca` for general help, while Normal and Enhanced run as `DeepSeek-Orca` for engineering collaboration and stronger agentic coding workflows.
+The composer mode menu provides three prompt profiles:
 
-The prompt profiles are adapted from the user-provided Claude, GPT, and Claude Code style references while preserving English model-visible prompt structure and mapping platform-specific tools to DeepSeek-Orca's real desktop tools.
+- Assistant mode: general help, daily questions, light explanation, and casual support. It runs as `Orca` and reads assistant memory only.
+- Normal mode: regular conversations, search, ordinary development work, and lighter engineering collaboration. It runs as `DeepSeek-Orca`.
+- Enhanced mode: complex coding, long tasks, higher-quality reasoning, architecture work, review, and agentic coding. It runs as `DeepSeek-Orca` and may use more tokens.
 
-Memory is now partitioned by mode. Assistant mode reads and writes assistant memory only. Normal and Enhanced modes read all memory but write to the shared agent memory profile. The Memory panel adds filters for all profiles, Assistant mode, and Normal/Enhanced memory.
+Normal and Enhanced modes read all memory but write to the shared agent memory profile. Assistant mode reads and writes only assistant memory.
 
-## V2.0.18 UI And CodeGraph Fixes
+## Workspaces And Conversations
 
-V2.0.18 focuses on desktop layout stability. The top toolbar now gives normal-width windows enough space for the main action labels before falling back to compact icon-only controls. The right dock uses a two-by-two navigation layout so Overview, Files, Changes, and Side Chat can all remain fully visible.
+DeepSeek-Orca supports both project workspaces and independent workspaces:
 
-The running composer controls were tightened so Pause, status text, and Stop no longer push the input row out of alignment. Queued prompts now render as a small floating rounded panel instead of occupying a full rectangular row. The Tool Library panel also uses a neutral default background for enabled rows and reserves blue emphasis for hover.
-
-CodeGraph steering now uses the actual registered MCP tool names, such as `mcp__codegraph__context` and `mcp__codegraph__search`, so the model is no longer told to call bare `codegraph_search`.
-## V2.0.17 Tool Library Update
-
-V2.0.17 adds a Tool Library button next to Automation in the top bar. It manages the newer extended host-tool groups: thread management, web search, Node/Python REPL, document tools, system/host tools, long-term conversation search, and the proactive tool-use steering switch.
-
-Disabled tool groups are removed from both the registered tool schema and the model-visible routing policy. Bash remains available for development shell tasks, but it no longer advertises disabled dedicated tools in its own description.
-
-The new read-only `conversation_search` and `conversation_read` tools let the model search older local transcripts after context compression, then read fuller nearby context by locator.
-
-## V2.0.16 Interaction And Automation Update
-
-V2.0.16 changes `web_search` to avoid DuckDuckGo. The desktop host search tool now tries China-accessible search sources first: Bing China, then Baidu as fallback. Known URLs should still be read directly with `web_fetch`.
-
-Normal mode and enhanced mode now share a clean English evidence-first tool policy. When an answer depends on current facts, external information, repository state, file contents, command output, runtime behavior, or the local environment, the model is explicitly steered to use the appropriate tool before answering instead of guessing from memory.
-
-V2.0.16 completes the automatic Todo, plan-mode, and independent workspace isolation work. Normal mode and enhanced mode now share the same short English task-tracking policy, so complex multi-step work can trigger `todo_write` consistently without localizing tool schemas or the enhanced core prompt.
-
-Plan mode now renders a dedicated rounded plan proposal card. Revision requests include the previous complete plan plus the user's requested changes and ask the model for a complete replacement plan while staying in plan mode. Once approved, the final plan seeds the Todo panel and execution continues through the existing `todo_write` / `complete_step` flow.
-
-Standalone conversations are isolated more strictly. Each independent topic gets its own workspace root, session directory, attachment area, memory/config scope, and tool cwd. Older global sessions are backfilled into per-topic session directories when first opened, without copying the old shared workspace contents.
-
-V2.0.16 also fixes the bottom status bar approval indicator. Ask, auto approve, and full access now remain visible on light backgrounds and use distinct colors so the current permission mode can be checked at a glance.
-
-V2.0.16 focuses on smoother interaction and safer automation semantics.
-
-Model switching now updates the composer button and status bar immediately with the short model name, such as `deepseek-v4-pro`, while controller rebuild happens in the background. The UI should no longer flash a raw `provider/model` path during that short transition.
-
-Automation is now reserved for explicit recurring, continuous, or background-monitoring tasks. The persistent automation manager is available from the top-left toolbar next to the Bot button. It lists local automations and supports pause, resume, cancel, clear finished, and refresh. One-off timer-style requests are no longer represented as persisted automations.
-
-The right dock adds a fourth tab: Side chat. It is a read-only side conversation that can reference the main conversation, with recent turns prioritized. Side chat history is stored per main session and can be cleared without changing the main transcript, token statistics, compaction, or title generation.
-
-Slash menu descriptions and browser-demo capability text are more consistently localized in Chinese when using the Chinese UI.
+- Project workspaces are bound to real code folders and are best for long-lived repository work.
+- Independent workspaces are useful for temporary chats, experiments, and tasks that should not touch a project folder.
+- Each independent conversation gets its own small workspace root, so files, attachments, config, memory, tool cwd, and session data do not leak across independent conversations.
+- New conversations inherit the last active conversation's model, thinking effort, approval level, and prompt mode. Temporary collaboration options reset by default.
 
 ## Host Tool Library
 
-The host tool library is available by default, without adding another composer toggle. The model can now use native host commands, system information, process listing and termination, app launch, text clipboard access, desktop notifications, lightweight web search, recurring automations, Orca session listing, Node/Python execution, and basic Word/PPT/Excel/PDF inspection or extraction tools.
+The host tool library is enabled by default and can be managed from the Tool Library panel. Disabled tool groups are removed from both the registered tool schema and the model-visible routing policy.
 
-Screenshot recognition, OCR, coordinate clicking, keyboard input, and visual desktop automation are intentionally not included yet because the current DeepSeek model path does not provide reliable image understanding.
+Main tool groups include:
 
-Approval semantics are clearer in this version: ask mode prompts, auto mode automatically approves tool permission prompts, and yolo mode is full access for tool operations. Use yolo only when you truly want the agent to run any tool action without additional permission gates.
+- System and host tools: native commands, system information, process listing, process termination, app launch, clipboard, and notifications.
+- Web search: `web_search` for unknown URLs and `web_fetch` for known URLs.
+- Node / Python runtimes: script validation, data processing, dependency checks, and structured output.
+- Document tools: basic inspection and text extraction for Word, PowerPoint, Excel, and PDF files.
+- Thread management: local DeepSeek-Orca session and topic inspection.
+- Long-term conversation search: search older local conversations after compaction, then read fuller nearby context by locator.
 
-The composer layout was also changed so the bottom mode row is a real layout region instead of being hidden behind the right-side buttons. Long input text should no longer cover the current approval/model/effort row.
+Screenshot recognition, OCR, coordinate clicking, keyboard input, and visual desktop automation are intentionally not included yet.
 
-Then:
+## Approval Modes
 
-1. Run the installer.
+DeepSeek-Orca uses approval modes to control tool behavior:
+
+- Ask: risky or confirmation-worthy tool operations ask first.
+- Auto approve: ordinary tool permission prompts are approved automatically.
+- Full access: tool operations can run without extra approval gates.
+
+Use full access only when the task boundary, workspace, and risk are clear.
+
+## Planning, Todo, And Side Chat
+
+- Complex tasks can use automatic Todo tracking to split work into visible steps and update status as execution progresses.
+- Plan mode presents a dedicated plan proposal card. You can approve the plan or request a complete replacement plan before execution.
+- Side chat is a read-only right-dock conversation that can reference the main transcript, with recent turns prioritized. It does not write to the main history or participate in main token statistics, compaction, or title generation.
+
+## Automation
+
+Automation is reserved for clearly recurring, continuous, or background-monitoring tasks, such as periodic build checks, daily reminders, or log monitoring.
+
+One-off timer-style requests are not persisted as automations. Automation records are stored locally and can be viewed, paused, resumed, cancelled, or cleared after completion.
+
+## Getting Started
+
+1. Run the Windows installer.
 2. Start DeepSeek-Orca Desktop.
 3. Add a DeepSeek API key or OpenAI-compatible provider in Settings.
 4. Create a new conversation from the left sidebar.
 5. Choose a project folder or an independent workspace.
-
-## V2 Desktop Workflow
-
-V2 adds three important workflow controls directly around the composer.
-
-Enhanced Mode sits next to the send button. It uses a separate Claude-like prompt/context profile for complex coding tasks. Memory files are injected as dynamic `<system-reminder>` context instead of being folded into the stable system prompt, and the existing memory chain remains compatible: `DEEPSEEK_ORCA.md`, `AGENTS.md`, `CLAUDE.md`, and local variants.
-
-The small question-mark icon beside Enhanced Mode explains the tradeoff: better answer quality can cost more tokens and lower cache hit rates. If the current conversation is already above 50,000 tokens, switching mode asks for confirmation before rebuilding the controller.
-
-The Ask switch in the plus menu enables a stricter clarification workflow: inspect first, ask only what cannot be discovered locally, lock a plan, run an internal review when useful, and wait for final confirmation before risky edits.
-
-The Step Thinking switch enables a staged workflow for large tasks: explore, brainstorm, design, plan, execute, and review. When Ask is also enabled, Step Thinking skips brainstorming so the two workflows do not duplicate each other.
-
-New conversations inherit the last active conversation's model, thinking effort, approval level, and Enhanced Mode. Temporary plus-menu choices such as Ask, Step Thinking, Plan Mode, and Goal Mode are intentionally reset to off.
-
-## Everyday Features
-
-- Sidebar conversation management by project, independent workspace, pinned topics, history, and trash.
-- Composer controls for model, thinking effort, approval level, Enhanced Mode, Ask, Step Thinking, Plan, and Goal.
-- File, image, workspace, slash-command, and past-chat references.
-- Ask/auto/yolo approval modes.
-- Checkpoints, rewind, and file rollback.
-- Context panel with token usage, cache hits, request counts, elapsed time, and cost.
-- Persistent telemetry across restarts.
-- MCP servers, local skills, memory files, CodeGraph, and slash commands.
-- QQ/WeChat bot integration.
+6. Select Assistant, Normal, or Enhanced mode based on the task.
 
 ## Installed Files
 

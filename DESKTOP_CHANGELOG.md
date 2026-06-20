@@ -6,3 +6,61 @@
 - Removed FangSong and KaiTi from the appearance font picker.
 - Added three easier-reading Windows-friendly font choices: DengXian, SimSun, and Microsoft YaHei UI.
 - Kept Heiti as the default display option, implemented with Microsoft YaHei first and SimHei fallback.
+- Moved README release notes into this changelog so README files can stay focused on download links and stable product documentation.
+
+## V2.0.21 - Process Statistics And Font Settings
+
+- Folded completed-turn process rows now show only elapsed thinking time by default.
+- Token usage is shown in smaller text after expanding the process row.
+- Mode menu descriptions were shortened and made more task-specific.
+- The font picker was simplified to Chinese display fonts.
+- Legacy saved font preferences fall back to the default display font.
+- Code, terminal, and tool-output areas keep a monospace primary font to preserve alignment.
+
+## V2.0.20 - Prompt And Memory Profiles
+
+- Added three prompt profiles: Assistant, Normal, and Enhanced.
+- Assistant mode runs as `Orca` for general help.
+- Normal and Enhanced modes run as `DeepSeek-Orca` for engineering collaboration and stronger agentic coding workflows.
+- Prompt profiles were adapted from user-provided Claude, GPT, and Claude Code style references while preserving English model-visible prompt structure.
+- Platform-specific tool names were mapped to DeepSeek-Orca's real desktop tools.
+- Memory was partitioned by mode: Assistant reads and writes assistant memory only; Normal and Enhanced read all memory but write to the shared agent memory profile.
+- The Memory panel added filters for all profiles, Assistant mode, and Normal/Enhanced memory.
+
+## V2.0.19 - Side Chat And Right Dock Fixes
+
+- Fixed a React crash when opening Side Chat with empty or null side-chat history.
+- `ListSideChat` now returns an empty list for empty history instead of allowing null bridge results.
+- Restored the right dock navigation to a single-row four-tab layout with tighter font, icon, and spacing rules.
+
+## V2.0.18 - Top Bar, Right Dock, Composer, And CodeGraph
+
+- Improved top toolbar layout so normal-width windows have enough room for main action labels before compacting controls.
+- Adjusted right dock navigation so Overview, Files, Changes, and Side Chat remain visible.
+- Tightened running composer controls so Pause, status text, and Stop no longer push the input row out of alignment.
+- Rendered queued prompts as a small floating rounded panel instead of a full-width rectangular row.
+- Fixed Tool Library enabled-row colors so blue is reserved for hover emphasis.
+- Updated CodeGraph steering to use actual MCP tool names such as `mcp__codegraph__context` and `mcp__codegraph__search`.
+- Removed guidance that caused the model to call unknown bare `codegraph_search`.
+
+## V2.0.17 - Tool Library And Long-Term Conversation Search
+
+- Added a Tool Library button next to Automation in the top bar.
+- Added switches for thread management, web search, Node/Python REPL, document tools, system/host tools, long-term conversation search, and proactive tool-use steering.
+- Disabled tool groups are removed from both the registered tool schema and model-visible routing policy.
+- Added read-only `conversation_search` and `conversation_read` tools for finding older local transcript information after context compression.
+
+## V2.0.16 - Search, Automation, Todo, Plan Mode, And Workspace Isolation
+
+- Changed `web_search` to avoid DuckDuckGo and use China-accessible search sources first.
+- Added an evidence-first tool policy for Normal and Enhanced modes.
+- Added shared automatic Todo tracking policy for complex multi-step work in Normal and Enhanced modes.
+- Added Codex-style plan proposal cards.
+- Revision requests now include the previous complete plan and ask for a complete replacement plan while staying in plan mode.
+- Independent conversations now use separate per-topic workspace roots, session directories, attachment areas, memory/config scopes, and tool cwd.
+- Fixed bottom status bar approval indicators so Ask, Auto approve, and Full access remain visible and color-coded.
+- Made model switching update visible short model labels immediately while controller rebuild happens in the background.
+- Reserved automation for explicit recurring, continuous, or background-monitoring tasks.
+- Added the Automation manager next to the Bot button.
+- Added Side Chat as a read-only right-dock conversation that can reference the main transcript without writing to the main history.
+- Localized slash menu descriptions and browser-demo capability text more consistently in the Chinese UI.
