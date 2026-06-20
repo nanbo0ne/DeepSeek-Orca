@@ -1,4 +1,4 @@
-export const FONT_FAMILIES = ["heiti", "fangsong", "kaiti"] as const;
+export const FONT_FAMILIES = ["heiti", "dengxian", "simsun", "yahei-ui"] as const;
 
 export type FontFamily = (typeof FONT_FAMILIES)[number];
 

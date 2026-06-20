@@ -244,14 +244,16 @@
   --font-cjk: "Microsoft YaHei", "微软雅黑", SimHei, "黑体";
 }
 
-:root[data-font-family="fangsong"] {
-  --font-cjk: FangSong, "仿宋", STFangsong, FangSong_GB2312,
-    "Microsoft YaHei", "微软雅黑";
+:root[data-font-family="dengxian"] {
+  --font-cjk: DengXian, "等线", "Microsoft YaHei", "微软雅黑", SimHei, "黑体";
 }
 
-:root[data-font-family="kaiti"] {
-  --font-cjk: KaiTi, "楷体", STKaiti, KaiTi_GB2312,
-    "Microsoft YaHei", "微软雅黑";
+:root[data-font-family="simsun"] {
+  --font-cjk: SimSun, "宋体", NSimSun, "新宋体", "Microsoft YaHei", "微软雅黑";
+}
+
+:root[data-font-family="yahei-ui"] {
+  --font-cjk: "Microsoft YaHei UI", "Microsoft YaHei", "微软雅黑", SimHei, "黑体";
 }
 
 @media (prefers-color-scheme: light) {
@@ -4000,7 +4002,7 @@ a[href] {
   grid-area: input;
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
   min-height: 0;
   background: transparent;
   border: none;
@@ -4041,6 +4043,7 @@ a[href] {
   font-weight: 600;
   line-height: 1.55;
   flex-shrink: 0;
+  margin-top: 0;
 }
 .composer__input {
   flex: 1;
@@ -4060,6 +4063,7 @@ a[href] {
   display: none;                    /* Chrome / Safari / Wails webview */
 }
 .composer-card--resized .composer__input {
+  align-self: stretch;
   height: 100%;
   max-height: none;
   overflow-y: auto;

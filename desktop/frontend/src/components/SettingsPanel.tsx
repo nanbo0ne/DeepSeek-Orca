@@ -3407,10 +3407,12 @@ function fontFamilyName(font: FontFamily, t: ReturnType<typeof useT>): string {
   switch (font) {
     case "heiti":
       return t("settings.fontFamilyHeiti");
-    case "fangsong":
-      return t("settings.fontFamilyFangSong");
-    case "kaiti":
-      return t("settings.fontFamilyKaiTi");
+    case "dengxian":
+      return t("settings.fontFamilyDengXian");
+    case "simsun":
+      return t("settings.fontFamilySimSun");
+    case "yahei-ui":
+      return t("settings.fontFamilyYaHeiUI");
   }
 }
 
