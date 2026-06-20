@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca Desktop V2.0.20
+﻿# DeepSeek-Orca Desktop V2.0.21
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,7 +6,13 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.20/DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.21-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.21/DeepSeek-Orca-Setup-2.0.21-windows-amd64.exe)
+
+## V2.0.21 UI Polish
+
+V2.0.21 makes the completed-turn process summary quieter and simplifies the Appearance font choices. Folded process rows now show only elapsed thinking time, with token usage available after expanding the row. The mode menu descriptions are shorter and more task-specific.
+
+The font picker now offers only Heiti, FangSong, and KaiTi. Heiti is the default label and uses Microsoft YaHei first with SimHei fallback. Legacy saved font choices are migrated back to Heiti, while code, terminal, and tool-output areas keep a monospace primary font to preserve alignment.
 
 ## V2.0.20 Prompt And Memory Profiles
 

@@ -3405,16 +3405,12 @@ function textSizeName(size: TextSize, t: ReturnType<typeof useT>): string {
 
 function fontFamilyName(font: FontFamily, t: ReturnType<typeof useT>): string {
   switch (font) {
-    case "system":
-      return t("settings.fontFamilySystem");
-    case "yahei":
-      return t("settings.fontFamilyYaHei");
-    case "pingfang":
-      return t("settings.fontFamilyPingFang");
-    case "noto":
-      return t("settings.fontFamilyNoto");
-    case "comic":
-      return t("settings.fontFamilyComic");
+    case "heiti":
+      return t("settings.fontFamilyHeiti");
+    case "fangsong":
+      return t("settings.fontFamilyFangSong");
+    case "kaiti":
+      return t("settings.fontFamilyKaiTi");
   }
 }
 

@@ -188,10 +188,10 @@
 
   --radius: 9px;
   --maxw: 940px;
+  --font-cjk: "Microsoft YaHei", "微软雅黑", SimHei, "黑体";
   --mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Consolas,
-    "Liberation Mono", Menlo, monospace;
-  --sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC",
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Liberation Mono", Menlo, var(--font-cjk), monospace;
+  --sans: var(--font-cjk), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -240,26 +240,18 @@
 }
 
 /* font-family presets */
-:root[data-font-family="yahei"] {
-  --sans: "Microsoft YaHei", "微软雅黑", "PingFang SC", "Noto Sans SC",
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+:root[data-font-family="heiti"] {
+  --font-cjk: "Microsoft YaHei", "微软雅黑", SimHei, "黑体";
 }
 
-:root[data-font-family="pingfang"] {
-  --sans: "PingFang SC", "苹方-简", "Noto Sans SC",
-    "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
+:root[data-font-family="fangsong"] {
+  --font-cjk: FangSong, "仿宋", STFangsong, FangSong_GB2312,
+    "Microsoft YaHei", "微软雅黑";
 }
 
-:root[data-font-family="noto"] {
-  --sans: "Noto Sans SC", "Noto Sans", "PingFang SC",
-    "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
-}
-
-:root[data-font-family="comic"] {
-  --sans: "Comic Sans MS", "Comic Sans", "Trebuchet MS",
-    "Microsoft YaHei", "PingFang SC", "Noto Sans SC", cursive, sans-serif;
+:root[data-font-family="kaiti"] {
+  --font-cjk: KaiTi, "楷体", STKaiti, KaiTi_GB2312,
+    "Microsoft YaHei", "微软雅黑";
 }
 
 @media (prefers-color-scheme: light) {
@@ -3283,6 +3275,13 @@ a[href] {
   flex-direction: column;
   gap: 6px;
   padding: 8px;
+}
+
+.turn-process-summary__stats {
+  padding: 0 2px 4px;
+  color: var(--fg-faint);
+  font-size: var(--font-caption);
+  line-height: 1.35;
 }
 
 .turn-process-summary__body > .process-card {
@@ -16337,8 +16336,8 @@ a[href] {
   --button-radius: 7px;
   --radius: 8px;
   --maxw: 920px;
-  --sans: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC",
-    "Microsoft YaHei", BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sans: var(--font-cjk), -apple-system, "SF Pro Text",
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 :root[data-theme="light"] {

@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.20
+﻿# DeepSeek-Orca V2.0.21
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,7 +6,19 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.20/DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.21-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.21/DeepSeek-Orca-Setup-2.0.21-windows-amd64.exe)
+
+## V2.0.21 修复
+
+### 过程统计与字体设置优化
+
+V2.0.21 弱化每轮完成后的过程统计展示，并精简外观字体选项：
+
+- 过程折叠行默认只显示思考耗时；展开后才以小号文字显示本轮 token。
+- 三种对话模式的说明文案改为更贴合用途的短句，避免菜单内文字过长。
+- 字体设置精简为 `黑体 / 仿宋 / 楷体`，移除旧的系统默认、苹方、思源黑体和 Comic Sans 选项。
+- 默认字体显示为黑体，实际优先使用微软雅黑并回退到黑体；旧字体偏好会自动回退到黑体。
+- 普通 UI 全局跟随字体选择，代码、终端和工具输出继续保留等宽主字体以避免宽度错乱。
 
 ## V2.0.20 新功能
 

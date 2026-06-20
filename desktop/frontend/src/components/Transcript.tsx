@@ -1,4 +1,4 @@
-import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
 import type { CheckpointMeta, JobView } from "../lib/types";
 import { useT } from "../lib/i18n";
@@ -68,12 +68,13 @@ function TurnProcessSummary({
     <ProcessCard
       tone="violet"
       icon={<ProcessBrainIcon size={12} />}
-      kind={turnStatsLabel(stats)}
+      kind={turnStatsCollapsedLabel(stats)}
       open={open}
       onOpenChange={setOpen}
       className="turn-process-summary"
     >
       <div className="turn-process-summary__body">
+        <div className="turn-process-summary__stats">{turnStatsTokenLabel(stats)}</div>
         {visibleItems.map((item) => renderProcessItem(item, subcalls, liveToolID, defaultExpandThinking))}
       </div>
     </ProcessCard>
@@ -94,24 +95,24 @@ function BackgroundJobsCard({ jobs }: { jobs: JobView[] }) {
   );
 }
 
-// ── Layer budgets ─────────────────────────────────────────────────────────────
+// Layer budgets
 // Hot zone: the most recent N user turns are always fully rendered. All data
-// stays in memory (items[]), so expanding a warm turn is instant — no API call.
+// stays in memory (items[]), so expanding a warm turn is instant - no API call.
 // Cold zone: a "load more" button paginates the warm zone in batches.
 //
-//   items[0]  ─┐
-//   ...        │ Cold zone  ───  paginated, shown on "load more"
-//              ├────────────  warmTurnStart
-//   ...        │ Warm zone  ───  collapsible summary cards (individual expand)
-//              ├────────────  hotStartIdx
-//   items[N]  ─┤ Hot zone   ───  fully rendered
-//   ...        │
-//   items[end] ┘
+//   items[0]
+//   ...        Cold zone - paginated, shown on "load more"
+//              warmTurnStart
+//   ...        Warm zone - collapsible summary cards (individual expand)
+//              hotStartIdx
+//   items[N]   Hot zone - fully rendered
+//   ...
+//   items[end]
 
 const HOT_TURNS = 30;
 const WARM_PAGE_SIZE = 20; // cold-zone pagination batch
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
+// Helpers
 
 function questionAnchorId(id: string): string {
   return `question-anchor-${id}`;
@@ -191,9 +192,15 @@ function formatTurnElapsed(ms: number): string {
   return `${seconds}s`;
 }
 
-function turnStatsLabel(item: TurnStatsItem): string {
-  const tokens = typeof item.tokens === "number" && item.tokens > 0 ? `${item.tokens} tokens` : "token 消耗待统计";
-  return `已思考 ${formatTurnElapsed(item.elapsedMs)}，${tokens}`;
+function turnStatsCollapsedLabel(item: TurnStatsItem): string {
+  return `已思考 ${formatTurnElapsed(item.elapsedMs)}`;
+}
+
+function turnStatsTokenLabel(item: TurnStatsItem): string {
+  if (typeof item.tokens === "number" && item.tokens > 0) {
+    return `本轮 token：${item.tokens.toLocaleString()}`;
+  }
+  return "token 消耗待统计";
 }
 
 // Summarise a warm turn for its compact card.
@@ -202,7 +209,7 @@ function warmUserPreview(text: string): string {
   return cleaned.length <= 80 ? cleaned : cleaned.slice(0, 77) + "...";
 }
 
-// ── Turn grouping ─────────────────────────────────────────────────────────────
+// Turn grouping
 // A turn is everything from one UserMessage up to (but not including) the next
 // UserMessage. This grouping is used only for warm-zone rendering; the hot zone
 // still uses the flat items array to preserve the existing rendering logic.
@@ -252,7 +259,7 @@ function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[
   return groups;
 }
 
-// ── Transcript component ──────────────────────────────────────────────────────
+// Transcript component
 
 export function Transcript({
   items,
@@ -434,12 +441,10 @@ export function Transcript({
   }, [items]);
   const liveToolID = useMemo(() => lastRunningToolID(items), [items]);
   const backgroundTaskJobs = useMemo(() => jobs.filter((job) => job.kind === "task" && job.status === "running"), [jobs]);
-
-  // ── Layer state ────────────────────────────────────────────────────────────
+  // Layer state
   const [expandedWarmTurns, setExpandedWarmTurns] = useState<Set<number>>(new Set());
   const [coldPage, setColdPage] = useState(0);
-
-  // Compute turn groups (memoised — only rebuilds when user turns change,
+  // Compute turn groups (memoized; only rebuilds when user turns change,
   // not on every streaming token). The warm previews are static once built.
   const turnGroupKey = questions.length;
   const turnGroups = useMemo(() => buildTurnGroups(items, questions), [turnGroupKey, questions]);
@@ -460,8 +465,7 @@ export function Transcript({
   const warmTurnCount = turnGroups.length - Math.min(turnGroups.length, HOT_TURNS);
   const shownWarmStart = Math.max(0, warmTurnCount - coldPage * WARM_PAGE_SIZE);
   const coldTurnCount = shownWarmStart;
-
-  // ── The turn action menu ──────────────────────────────────────────────────
+  // The turn action menu
   const [openAction, setOpenAction] = useState<OpenTurnAction | null>(null);
   useEffect(() => {
     if (openAction === null) return;
@@ -475,8 +479,7 @@ export function Transcript({
 
   const userTurn = useMemo(() => new Map(questions.map((question) => [question.id, question.turn])), [questions]);
   const checkpointsByTurn = useMemo(() => new Map(checkpoints.map((checkpoint) => [checkpoint.turn, checkpoint])), [checkpoints]);
-
-  // ── JumpBar integration ───────────────────────────────────────────────────
+  // JumpBar integration
   const jumpToQuestion = (question: QuestionAnchor) => {
     const el = scrollRef.current;
     const node = document.getElementById(questionAnchorId(question.id));
@@ -503,8 +506,7 @@ export function Transcript({
     }
     jumpToQuestion(question);
   }, [turnGroups.length]);
-
-  // ── Hot zone: fully rendered from hotStartIdx to end ─────────────────────
+  // Hot zone: fully rendered from hotStartIdx to end
   // Memoized separately from the assembly so streaming tokens don't rebuild
   // the warm/cold zone JSX trees. Uses LiveStreamContext for streaming data
   // (added by upstream PR #3423) instead of per-call renderSegments.
@@ -632,8 +634,7 @@ export function Transcript({
     pushTurnActions();
     return out;
   }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID, defaultExpandThinking]);
-
-  // ── Assemble rendered output ──────────────────────────────────────────────
+  // Assemble rendered output
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
   // don't rebuild it. The hot zone uses LiveAssistantMessage (reads live from
   // LiveStreamContext) so streaming updates are captured immediately.
@@ -700,7 +701,7 @@ export function Transcript({
   );
 }
 
-// ── WarmZone sub-component (React.memo for streaming isolation) ────────────
+// WarmZone sub-component (React.memo for streaming isolation)
 // Receives structural props only; reads streaming state (items, live) via refs
 // so it never invalidates on streaming token arrival.
 
@@ -927,7 +928,7 @@ function WarmTurnItems({
   return nodes;
 }
 
-// ── Warm turn summary card ────────────────────────────────────────────────────
+// Warm turn summary card
 
 function WarmTurnCard({
   userText,
@@ -970,7 +971,7 @@ function WarmTurnCard({
   );
 }
 
-// ── JumpBar, PhaseCard, NoticeCard, CompactionCard ────────────────────────────
+// JumpBar, PhaseCard, NoticeCard, CompactionCard
 
 function QuestionJumpBar({
   questions,

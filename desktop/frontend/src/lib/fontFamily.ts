@@ -1,8 +1,8 @@
-export const FONT_FAMILIES = ["system", "yahei", "pingfang", "noto", "comic"] as const;
+export const FONT_FAMILIES = ["heiti", "fangsong", "kaiti"] as const;
 
 export type FontFamily = (typeof FONT_FAMILIES)[number];
 
-export const DEFAULT_FONT_FAMILY: FontFamily = "system";
+export const DEFAULT_FONT_FAMILY: FontFamily = "heiti";
 
 const FONT_FAMILY_KEY = "deepseek-orca-font-family";
 
@@ -18,8 +18,7 @@ export function getFontFamily(): FontFamily {
 export function applyFontFamily(font: FontFamily): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  if (font === DEFAULT_FONT_FAMILY) root.removeAttribute("data-font-family");
-  else root.setAttribute("data-font-family", font);
+  root.setAttribute("data-font-family", font);
   try {
     localStorage.setItem(FONT_FAMILY_KEY, font);
   } catch {
