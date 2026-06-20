@@ -56,6 +56,7 @@ import {
   type CollaborationMode,
   type ComposerInsertRequest,
   type Mode,
+  type PromptMode,
   type SessionMeta,
   type SettingsTab,
   type SettingsView,
@@ -118,6 +119,12 @@ type HistoryViewState =
   | { kind: "history"; source: "scope"; filter: HistoryScopeFilter; sessions: SessionMeta[] }
   | { kind: "history"; source: "all"; sessions: SessionMeta[] }
   | { kind: "trash"; sessions: SessionMeta[] };
+
+function normalizePromptMode(mode?: string, enhanced?: boolean): PromptMode {
+  if (mode === "assistant" || mode === "enhanced") return mode;
+  if (mode === "normal") return "normal";
+  return enhanced ? "enhanced" : "normal";
+}
 
 function clampSidebarWidth(width: number): number {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)));
@@ -473,7 +480,6 @@ export default function App() {
     setToolApprovalMode: setControllerToolApprovalMode,
     setAskWorkflow: setControllerAskWorkflow,
     setStepThinking: setControllerStepThinking,
-    setEnhancedMode: _setControllerEnhancedMode,
     togglePause,
     setGoal: setControllerGoal,
     clearGoal: clearControllerGoal,
@@ -504,11 +510,11 @@ export default function App() {
   const [toolApprovalModesByTab, setToolApprovalModesByTab] = useState<Record<string, ToolApprovalMode>>({});
   const [askWorkflowsByTab, setAskWorkflowsByTab] = useState<Record<string, boolean>>({});
   const [stepThinkingsByTab, setStepThinkingsByTab] = useState<Record<string, boolean>>({});
-  const [enhancedModesByTab, setEnhancedModesByTab] = useState<Record<string, boolean>>({});
-  const [enhancedModeSwitchingByTab, setEnhancedModeSwitchingByTab] = useState<Record<string, boolean>>({});
+  const [promptModesByTab, setPromptModesByTab] = useState<Record<string, PromptMode>>({});
+  const [promptModeSwitchingByTab, setPromptModeSwitchingByTab] = useState<Record<string, boolean>>({});
   const [pendingModelLabelsByTab, setPendingModelLabelsByTab] = useState<Record<string, string>>({});
   const [pendingEffortsByTab, setPendingEffortsByTab] = useState<Record<string, string>>({});
-  const [pendingEnhancedModesByTab, setPendingEnhancedModesByTab] = useState<Record<string, boolean>>({});
+  const [pendingPromptModesByTab, setPendingPromptModesByTab] = useState<Record<string, PromptMode>>({});
   const yoloRestoreToolApprovalModesRef = useRef<Record<string, RestorableToolApprovalMode>>({});
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
@@ -563,13 +569,14 @@ export default function App() {
   const topicRenameCommitHandledRef = useRef(false);
   const nextQueuedPromptIdRef = useRef(1);
   const queuedPromptDispatchingRef = useRef(false);
-  const enhancedModeSwitchingRef = useRef<Record<string, boolean>>({});
-  const enhancedModeSwitchTimersRef = useRef<Record<string, number>>({});
+  const promptModeSwitchingRef = useRef<Record<string, boolean>>({});
+  const promptModeSwitchTimersRef = useRef<Record<string, number>>({});
   const pendingModelSwitchRef = useRef<Record<string, Promise<void>>>({});
   const pendingEffortSwitchRef = useRef<Record<string, Promise<void>>>({});
-  const pendingEnhancedSwitchRef = useRef<Record<string, Promise<void>>>({});
+  const pendingPromptModeSwitchRef = useRef<Record<string, Promise<void>>>({});
   const latestModelSwitchRef = useRef<Record<string, string>>({});
   const latestEffortSwitchRef = useRef<Record<string, string>>({});
+  const latestPromptModeSwitchRef = useRef<Record<string, PromptMode>>({});
   const appRef = useRef<HTMLDivElement>(null);
   const sidebarTogglePressTimerRef = useRef<number | null>(null);
   const workspaceTogglePressTimerRef = useRef<number | null>(null);
@@ -625,10 +632,10 @@ export default function App() {
       if (workspaceTogglePressTimerRef.current !== null) {
         window.clearTimeout(workspaceTogglePressTimerRef.current);
       }
-      for (const timer of Object.values(enhancedModeSwitchTimersRef.current)) {
+      for (const timer of Object.values(promptModeSwitchTimersRef.current)) {
         window.clearTimeout(timer);
       }
-      enhancedModeSwitchTimersRef.current = {};
+      promptModeSwitchTimersRef.current = {};
     };
   }, []);
 
@@ -770,10 +777,10 @@ export default function App() {
   const stepThinkingEnabled = activeTabId
     ? stepThinkingsByTab[activeTabId] ?? Boolean(state.meta?.stepThinkingEnabled ?? activeTab?.stepThinkingEnabled)
     : false;
-  const enhancedModeEnabled = activeTabId
-    ? pendingEnhancedModesByTab[activeTabId] ?? enhancedModesByTab[activeTabId] ?? Boolean(state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
-    : false;
-  const enhancedModeSwitching = activeTabId ? Boolean(enhancedModeSwitchingByTab[activeTabId]) : false;
+  const promptMode = activeTabId
+    ? pendingPromptModesByTab[activeTabId] ?? promptModesByTab[activeTabId] ?? normalizePromptMode(state.meta?.promptMode ?? activeTab?.promptMode, state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
+    : "normal";
+  const promptModeSwitching = activeTabId ? Boolean(promptModeSwitchingByTab[activeTabId]) : false;
   collaborationModeRef.current = collaborationMode;
   toolApprovalModeRef.current = toolApprovalMode;
   askWorkflowEnabledRef.current = askWorkflowEnabled;
@@ -909,7 +916,10 @@ export default function App() {
     });
     setAskWorkflowsByTab((current) => (current[activeTabId] === Boolean(state.meta?.askWorkflowEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.askWorkflowEnabled) }));
     setStepThinkingsByTab((current) => (current[activeTabId] === Boolean(state.meta?.stepThinkingEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.stepThinkingEnabled) }));
-    setEnhancedModesByTab((current) => (current[activeTabId] === Boolean(state.meta?.enhancedModeEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.enhancedModeEnabled) }));
+    setPromptModesByTab((current) => {
+      const nextMode = normalizePromptMode(state.meta?.promptMode, state.meta?.enhancedModeEnabled);
+      return current[activeTabId] === nextMode ? current : { ...current, [activeTabId]: nextMode };
+    });
   }, [activeTabId, goalDraftMode, legacyMode, setGoalDraftModeForTab, state.meta]);
 
   const syncModeToController = useCallback((m: Mode) => setControllerMode(m), [setControllerMode]);
@@ -1005,28 +1015,28 @@ export default function App() {
     },
     [activeTabId, setControllerStepThinking],
   );
-  const applyEnhancedMode = useCallback(
-    async (enabled: boolean) => {
-      if (!activeTabId || enabled === enhancedModeEnabled) return;
+  const applyPromptMode = useCallback(
+    async (mode: PromptMode) => {
+      if (!activeTabId || mode === promptMode) return;
+      latestPromptModeSwitchRef.current[activeTabId] = mode;
+      setPendingPromptModesByTab((current) => (current[activeTabId] === mode ? current : { ...current, [activeTabId]: mode }));
+      setPromptModesByTab((current) => (current[activeTabId] === mode ? current : { ...current, [activeTabId]: mode }));
       if (runningRef.current) {
-        setPendingEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
-        setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
         return;
       }
-      if (enhancedModeSwitchingRef.current[activeTabId]) return;
-      enhancedModeSwitchingRef.current[activeTabId] = true;
-      setEnhancedModeSwitchingByTab((current) => (current[activeTabId] ? current : { ...current, [activeTabId]: true }));
-      setPendingEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
-      const releaseSwitchLock = () => {
+      if (promptModeSwitchingRef.current[activeTabId]) return;
+      promptModeSwitchingRef.current[activeTabId] = true;
+      setPromptModeSwitchingByTab((current) => (current[activeTabId] ? current : { ...current, [activeTabId]: true }));
+      const releaseSwitchLock = (settledMode: PromptMode) => {
         if (typeof window === "undefined") {
-          delete enhancedModeSwitchingRef.current[activeTabId];
-          setPendingEnhancedModesByTab((current) => {
-            if (current[activeTabId] !== enabled) return current;
+          delete promptModeSwitchingRef.current[activeTabId];
+          setPendingPromptModesByTab((current) => {
+            if (current[activeTabId] !== settledMode) return current;
             const next = { ...current };
             delete next[activeTabId];
             return next;
           });
-          setEnhancedModeSwitchingByTab((current) => {
+          setPromptModeSwitchingByTab((current) => {
             if (!current[activeTabId]) return current;
             const next = { ...current };
             delete next[activeTabId];
@@ -1034,18 +1044,18 @@ export default function App() {
           });
           return;
         }
-        const previousTimer = enhancedModeSwitchTimersRef.current[activeTabId];
+        const previousTimer = promptModeSwitchTimersRef.current[activeTabId];
         if (previousTimer) window.clearTimeout(previousTimer);
-        enhancedModeSwitchTimersRef.current[activeTabId] = window.setTimeout(() => {
-          delete enhancedModeSwitchingRef.current[activeTabId];
-          delete enhancedModeSwitchTimersRef.current[activeTabId];
-          setPendingEnhancedModesByTab((current) => {
-            if (current[activeTabId] !== enabled) return current;
+        promptModeSwitchTimersRef.current[activeTabId] = window.setTimeout(() => {
+          delete promptModeSwitchingRef.current[activeTabId];
+          delete promptModeSwitchTimersRef.current[activeTabId];
+          setPendingPromptModesByTab((current) => {
+            if (current[activeTabId] !== settledMode) return current;
             const next = { ...current };
             delete next[activeTabId];
             return next;
           });
-          setEnhancedModeSwitchingByTab((current) => {
+          setPromptModeSwitchingByTab((current) => {
             if (!current[activeTabId]) return current;
             const next = { ...current };
             delete next[activeTabId];
@@ -1053,23 +1063,30 @@ export default function App() {
           });
         }, ENHANCED_MODE_SWITCH_HOLD_MS);
       };
+      let settledMode = mode;
       try {
-        setEnhancedModesByTab((current) => (current[activeTabId] === enabled ? current : { ...current, [activeTabId]: enabled }));
-        await app.SetEnhancedModeForTab(activeTabId, enabled);
+        while (true) {
+          const target = latestPromptModeSwitchRef.current[activeTabId] ?? settledMode;
+          settledMode = target;
+          await app.SetPromptModeForTab(activeTabId, target);
+          await refreshMeta();
+          if (latestPromptModeSwitchRef.current[activeTabId] === target) break;
+        }
+        delete latestPromptModeSwitchRef.current[activeTabId];
       } catch (err) {
-        setEnhancedModesByTab((current) => (current[activeTabId] === enhancedModeEnabled ? current : { ...current, [activeTabId]: enhancedModeEnabled }));
-        setPendingEnhancedModesByTab((current) => {
-          if (current[activeTabId] !== enabled) return current;
+        delete latestPromptModeSwitchRef.current[activeTabId];
+        setPromptModesByTab((current) => (current[activeTabId] === promptMode ? current : { ...current, [activeTabId]: promptMode }));
+        setPendingPromptModesByTab((current) => {
           const next = { ...current };
           delete next[activeTabId];
           return next;
         });
         showToast(err instanceof Error ? err.message : String(err), "error");
       } finally {
-        releaseSwitchLock();
+        releaseSwitchLock(settledMode);
       }
     },
-    [activeTabId, enhancedModeEnabled, showToast],
+    [activeTabId, promptMode, refreshMeta, showToast],
   );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;
@@ -1230,27 +1247,28 @@ export default function App() {
       pendingEffortSwitchRef.current[tabId] = task;
     }
     await pendingEffortSwitchRef.current[tabId];
-    const hasPendingEnhanced = Object.prototype.hasOwnProperty.call(pendingEnhancedModesByTab, tabId);
-    if (hasPendingEnhanced && !pendingEnhancedSwitchRef.current[tabId]) {
-      const nextEnhanced = pendingEnhancedModesByTab[tabId];
+    const hasPendingPromptMode = Object.prototype.hasOwnProperty.call(pendingPromptModesByTab, tabId);
+    if (hasPendingPromptMode && !pendingPromptModeSwitchRef.current[tabId]) {
+      const nextPromptMode = pendingPromptModesByTab[tabId];
       const task = (async () => {
         try {
-          await app.SetEnhancedModeForTab(tabId, nextEnhanced);
+          await app.SetPromptModeForTab(tabId, nextPromptMode);
           await refreshMeta();
         } finally {
-          delete pendingEnhancedSwitchRef.current[tabId];
-          setPendingEnhancedModesByTab((current) => {
-            if (current[tabId] !== nextEnhanced) return current;
+          delete pendingPromptModeSwitchRef.current[tabId];
+          if (latestPromptModeSwitchRef.current[tabId] === nextPromptMode) delete latestPromptModeSwitchRef.current[tabId];
+          setPendingPromptModesByTab((current) => {
+            if (current[tabId] !== nextPromptMode) return current;
             const next = { ...current };
             delete next[tabId];
             return next;
           });
         }
       })();
-      pendingEnhancedSwitchRef.current[tabId] = task;
+      pendingPromptModeSwitchRef.current[tabId] = task;
     }
-    await pendingEnhancedSwitchRef.current[tabId];
-  }, [pendingEffortsByTab, pendingEnhancedModesByTab, refreshMeta]);
+    await pendingPromptModeSwitchRef.current[tabId];
+  }, [pendingEffortsByTab, pendingPromptModesByTab, refreshMeta]);
 
   const startGoal = useCallback(
     async (nextGoal: string) => {
@@ -2560,6 +2578,7 @@ export default function App() {
                 actionPending={state.messageAction != null}
                 rewindDisabled={state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
                 defaultExpandThinking={expandThinking}
+                jobs={state.jobs}
               />
             )}
           </main>
@@ -2629,8 +2648,8 @@ export default function App() {
               askWorkflowEnabled={askWorkflowEnabled}
               stepThinkingEnabled={stepThinkingEnabled}
               toolApprovalMode={toolApprovalMode}
-              enhancedModeEnabled={enhancedModeEnabled}
-              enhancedModeSwitching={enhancedModeSwitching}
+              promptMode={promptMode}
+              promptModeSwitching={promptModeSwitching}
               paused={Boolean(state.meta?.paused)}
               goal={goal}
               cwd={state.meta?.cwd}
@@ -2646,7 +2665,7 @@ export default function App() {
               onSetToolApprovalMode={applyToolApprovalMode}
               onSetAskWorkflow={applyAskWorkflow}
               onSetStepThinking={applyStepThinking}
-              onSetEnhancedMode={(enabled) => void applyEnhancedMode(enabled)}
+              onSetPromptMode={(mode) => void applyPromptMode(mode)}
               onTogglePause={() => void togglePause()}
               onToggleYoloApprovalMode={toggleYoloApprovalMode}
               onSetGoal={startGoal}

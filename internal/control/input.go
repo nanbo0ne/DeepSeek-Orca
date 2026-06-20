@@ -108,6 +108,7 @@ func (c *Controller) Compose(text string) string {
 	goalStatus := c.goalStatus
 	notes := c.pendingMemory
 	enhanced := c.enhancedMode
+	memoryReminder := c.memoryReminder
 	askWorkflow := c.askWorkflow
 	stepThinking := c.stepThinking
 	mem := c.mem
@@ -117,7 +118,7 @@ func (c *Controller) Compose(text string) string {
 	if reminder := promptprofile.WorkflowReminder(askWorkflow, stepThinking); reminder != "" {
 		text = reminder + "\n\n" + text
 	}
-	if enhanced {
+	if enhanced || memoryReminder {
 		if reminder := promptprofile.MemoryReminder(mem); reminder != "" {
 			text = reminder + "\n\n" + text
 		}

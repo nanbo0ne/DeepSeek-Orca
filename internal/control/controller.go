@@ -61,25 +61,26 @@ type Controller struct {
 	sink     event.Sink
 	policy   permission.Policy
 
-	label         string
-	systemPrompt  string
-	sessionDir    string
-	host          *plugin.Host
-	commands      []command.Command
-	skills        []skill.Skill
-	allSkills     []skill.Skill
-	skillStore    *skill.Store
-	allSkillStore *skill.Store
-	hooks         *hook.Runner // session hook runner; nil-safe (no hooks configured)
-	mem           *memory.Set
-	enhancedMode  bool
-	askWorkflow   bool
-	stepThinking  bool
-	cleanup       func()
-	autoPlan      string
-	classifier    autoPlanClassifier
-	startedOnce   bool                             // guards the one-shot SessionStart hook on first turn
-	onRemember    func(rule string) RememberResult // set via Options; invoked when user picks "always allow"
+	label          string
+	systemPrompt   string
+	sessionDir     string
+	host           *plugin.Host
+	commands       []command.Command
+	skills         []skill.Skill
+	allSkills      []skill.Skill
+	skillStore     *skill.Store
+	allSkillStore  *skill.Store
+	hooks          *hook.Runner // session hook runner; nil-safe (no hooks configured)
+	mem            *memory.Set
+	enhancedMode   bool
+	memoryReminder bool
+	askWorkflow    bool
+	stepThinking   bool
+	cleanup        func()
+	autoPlan       string
+	classifier     autoPlanClassifier
+	startedOnce    bool                             // guards the one-shot SessionStart hook on first turn
+	onRemember     func(rule string) RememberResult // set via Options; invoked when user picks "always allow"
 
 	// balanceURL/balanceKey target the active provider's optional wallet-balance
 	// endpoint (empty when the provider declares none). Captured at build so a
@@ -272,26 +273,27 @@ type RememberResult struct {
 // lets the controller mint and rotate session files; Host/Commands are surfaced
 // to frontends that resolve MCP prompts and slash commands.
 type Options struct {
-	Runner        agent.Runner
-	Executor      *agent.Agent
-	Sink          event.Sink
-	Policy        permission.Policy
-	Label         string
-	SystemPrompt  string
-	SessionDir    string
-	SessionPath   string
-	Host          *plugin.Host
-	Commands      []command.Command
-	Skills        []skill.Skill
-	AllSkills     []skill.Skill
-	SkillStore    *skill.Store
-	AllSkillStore *skill.Store
-	Hooks         *hook.Runner
-	Memory        *memory.Set
-	EnhancedMode  bool
-	AskWorkflow   bool
-	StepThinking  bool
-	Cleanup       func()
+	Runner         agent.Runner
+	Executor       *agent.Agent
+	Sink           event.Sink
+	Policy         permission.Policy
+	Label          string
+	SystemPrompt   string
+	SessionDir     string
+	SessionPath    string
+	Host           *plugin.Host
+	Commands       []command.Command
+	Skills         []skill.Skill
+	AllSkills      []skill.Skill
+	SkillStore     *skill.Store
+	AllSkillStore  *skill.Store
+	Hooks          *hook.Runner
+	Memory         *memory.Set
+	EnhancedMode   bool
+	MemoryReminder bool
+	AskWorkflow    bool
+	StepThinking   bool
+	Cleanup        func()
 	// BalanceURL/BalanceKey wire the active provider's optional wallet-balance
 	// endpoint and bearer key; empty when the provider declares no balance_url.
 	BalanceURL    string
@@ -346,6 +348,7 @@ func New(opts Options) *Controller {
 		hooks:            opts.Hooks,
 		mem:              opts.Memory,
 		enhancedMode:     opts.EnhancedMode,
+		memoryReminder:   opts.MemoryReminder,
 		askWorkflow:      opts.AskWorkflow,
 		stepThinking:     opts.StepThinking,
 		cleanup:          opts.Cleanup,
@@ -2595,7 +2598,15 @@ func (c *Controller) ForgetMemory(name string) error {
 	if c.mem == nil {
 		return nil
 	}
-	if err := c.mem.Store.Delete(name); err != nil {
+	store := c.mem.Store
+	if !store.Exists(name) {
+		if c.mem.SharedStore.Exists(name) {
+			store = c.mem.SharedStore
+		} else if c.mem.AssistantStore.Exists(name) {
+			store = c.mem.AssistantStore
+		}
+	}
+	if err := store.Delete(name); err != nil {
 		return err
 	}
 	c.pendingMemory = append(c.pendingMemory,
@@ -2630,7 +2641,7 @@ func (c *Controller) refreshMemoryLocked() {
 	if c.mem == nil {
 		return
 	}
-	c.mem = memory.Load(memory.Options{CWD: c.mem.CWD, UserDir: c.mem.UserDir})
+	c.mem = memory.Load(memory.Options{CWD: c.mem.CWD, UserDir: c.mem.UserDir, Profile: c.mem.Profile})
 }
 
 // --- approval bridge (agent gate → events) ---

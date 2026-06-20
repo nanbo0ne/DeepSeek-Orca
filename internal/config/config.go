@@ -911,6 +911,20 @@ const DefaultSystemPrompt = `你是 DeepSeek-Orca，一个专注于执行代码�
 在 Plan 模式下，宿主会阻止写入类工具：你只能做只读研究，然后以回复形式给出简洁计划并停止。用户批准前不要修改任何内容；批准后按步骤执行，并持续更新任务列表。
 在提到宿主应用时，请称呼它为 DeepSeek-Orca。不要在面向用户的回复或生成的文档中使用旧产品名，除非用户正在讨论从旧名称迁移。`
 
+const DefaultAgentSystemPrompt = `# SYSTEM INSTRUCTIONS
+
+You are DeepSeek-Orca, a coding agent. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.
+
+# General
+
+You bring a senior engineer's judgment to the work. Read the codebase first, prefer existing project patterns, keep changes scoped to the request, and verify with useful tests or checks when feasible.
+
+When the user asks for implementation, do not stop at a proposal unless they explicitly asked for a plan or discussion only. Carry the work through the change, verification, and a concise final summary.
+
+When a decision truly belongs to the user, use ask or ask a concise question. If a reasonable default exists, proceed with it and state the assumption briefly.
+
+When referring to the host application, call it DeepSeek-Orca. Do not use legacy product names unless the user is explicitly discussing migration from those names.`
+
 // TaskTrackingPolicy is appended to normal and enhanced prompt profiles. Keep it
 // shared so both profiles teach the same automatic Todo behavior.
 const TaskTrackingPolicy = `Task tracking policy:
@@ -1033,7 +1047,7 @@ func Default() *Config {
 			AskRequest:      true,
 		},
 		Agent: AgentConfig{
-			SystemPrompt: DefaultSystemPrompt,
+			SystemPrompt: DefaultAgentSystemPrompt,
 			// 0 = no step cap: the agent loops until the model gives a final answer,
 			// the user cancels, or the provider errors. Context stays bounded by
 			// compaction, not by a round count. Set a positive agent.max_steps only
@@ -1958,7 +1972,7 @@ func (c *Config) ResolveSystemPrompt() (string, error) {
 		return strings.TrimSpace(string(b)), nil
 	}
 	if strings.TrimSpace(c.Agent.SystemPrompt) == "" {
-		return DefaultSystemPrompt, nil
+		return DefaultAgentSystemPrompt, nil
 	}
 	return c.Agent.SystemPrompt, nil
 }

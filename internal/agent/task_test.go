@@ -152,6 +152,24 @@ func TestTaskToolReturnsProfileResolutionErrors(t *testing.T) {
 	}
 }
 
+func TestTaskToolBackgroundGuidanceRequiresWaitForDependentWork(t *testing.T) {
+	task := newTestTaskTool(t, &mockProvider{name: "sub"}, tool.NewRegistry(), "sys", "", "", nil)
+	desc := task.Description()
+	if !strings.Contains(desc, "call wait before giving the final answer") {
+		t.Fatalf("Description() missing dependent-background wait guidance:\n%s", desc)
+	}
+	schema := string(task.Schema())
+	for _, want := range []string{
+		"Use only when the user explicitly wants background work",
+		"If the current answer needs this research",
+		"call wait first",
+	} {
+		if !strings.Contains(schema, want) {
+			t.Fatalf("Schema() missing %q:\n%s", want, schema)
+		}
+	}
+}
+
 func TestTaskToolRequiresTranscriptStore(t *testing.T) {
 	sub := &mockProvider{name: "sub", chunks: []provider.Chunk{
 		{Type: provider.ChunkText, Text: "answer"},

@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca Desktop V2.0.18
+﻿# DeepSeek-Orca Desktop V2.0.20
 
 DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
 
@@ -6,7 +6,15 @@ DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It br
 
 Download the Windows installer:
 
-[DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.18/DeepSeek-Orca-Setup-2.0.18-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.20/DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe)
+
+## V2.0.20 Prompt And Memory Profiles
+
+V2.0.20 upgrades the composer mode control into three prompt profiles: Assistant, Normal, and Enhanced. Assistant mode runs as `Orca` for general help, while Normal and Enhanced run as `DeepSeek-Orca` for engineering collaboration and stronger agentic coding workflows.
+
+The prompt profiles are adapted from the user-provided Claude, GPT, and Claude Code style references while preserving English model-visible prompt structure and mapping platform-specific tools to DeepSeek-Orca's real desktop tools.
+
+Memory is now partitioned by mode. Assistant mode reads and writes assistant memory only. Normal and Enhanced modes read all memory but write to the shared agent memory profile. The Memory panel adds filters for all profiles, Assistant mode, and Normal/Enhanced memory.
 
 ## V2.0.18 UI And CodeGraph Fixes
 

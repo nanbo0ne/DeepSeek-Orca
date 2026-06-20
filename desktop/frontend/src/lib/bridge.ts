@@ -116,6 +116,7 @@ export interface AppBindings {
   SetToolApprovalModeForTab(tabID: string, mode: string): Promise<void>;
   SetAskWorkflowForTab(tabID: string, enabled: boolean): Promise<void>;
   SetStepThinkingForTab(tabID: string, enabled: boolean): Promise<void>;
+  SetPromptModeForTab(tabID: string, mode: string): Promise<void>;
   SetEnhancedModeForTab(tabID: string, enabled: boolean): Promise<void>;
   SetGoal(goal: string): Promise<void>;
   SetGoalForTab(tabID: string, goal: string): Promise<void>;
@@ -1352,8 +1353,12 @@ function makeMockApp(): AppBindings {
         async SetStepThinkingForTab(tabID, enabled) {
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, stepThinkingEnabled: enabled } : tab));
         },
+        async SetPromptModeForTab(tabID, mode) {
+          const next = mode === "assistant" || mode === "enhanced" ? mode : "normal";
+          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, promptMode: next, enhancedModeEnabled: next === "enhanced" } : tab));
+        },
         async SetEnhancedModeForTab(tabID, enabled) {
-          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, enhancedModeEnabled: enabled } : tab));
+          await this.SetPromptModeForTab(tabID, enabled ? "enhanced" : "normal");
         },
         async PauseTab(tabID) {
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, paused: true } : tab));
@@ -1545,6 +1550,7 @@ function makeMockApp(): AppBindings {
             toolApprovalMode,
             askWorkflowEnabled: active?.askWorkflowEnabled ?? false,
             stepThinkingEnabled: active?.stepThinkingEnabled ?? false,
+            promptMode: active?.promptMode ?? (active?.enhancedModeEnabled ? "enhanced" : "normal"),
             enhancedModeEnabled: active?.enhancedModeEnabled ?? false,
             paused: active?.paused ?? false,
             goal: active?.goal ?? "",
@@ -1565,6 +1571,7 @@ function makeMockApp(): AppBindings {
             toolApprovalMode,
             askWorkflowEnabled: tab?.askWorkflowEnabled ?? false,
             stepThinkingEnabled: tab?.stepThinkingEnabled ?? false,
+            promptMode: tab?.promptMode ?? (tab?.enhancedModeEnabled ? "enhanced" : "normal"),
             enhancedModeEnabled: tab?.enhancedModeEnabled ?? false,
             paused: tab?.paused ?? false,
             goal: tab?.goal ?? "",
@@ -1919,6 +1926,7 @@ function makeMockApp(): AppBindings {
             description: "User prefers tabs",
             type: "user",
             body: "Indent with tabs.",
+            profile: "shared-agent",
           },
         ],
         scopes: [

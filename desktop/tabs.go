@@ -67,6 +67,7 @@ type WorkspaceTab struct {
 	askWorkflow      bool
 	stepThinking     bool
 	enhancedMode     bool
+	promptMode       string
 	disabledMCP      map[string]ServerView
 	mcpOrder         []string
 }
@@ -75,7 +76,41 @@ type recentConversationPrefs struct {
 	Model            string  `json:"model,omitempty"`
 	Effort           *string `json:"effort,omitempty"`
 	ToolApprovalMode string  `json:"toolApprovalMode,omitempty"`
+	PromptMode       string  `json:"promptMode,omitempty"`
 	EnhancedMode     bool    `json:"enhancedModeEnabled,omitempty"`
+}
+
+const (
+	promptModeAssistant = "assistant"
+	promptModeNormal    = "normal"
+	promptModeEnhanced  = "enhanced"
+)
+
+func normalizePromptMode(mode string, enhanced bool) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case promptModeAssistant:
+		return promptModeAssistant
+	case promptModeEnhanced:
+		return promptModeEnhanced
+	case promptModeNormal:
+		return promptModeNormal
+	default:
+		if enhanced {
+			return promptModeEnhanced
+		}
+		return promptModeNormal
+	}
+}
+
+func currentTabPromptMode(tab *WorkspaceTab) string {
+	if tab == nil {
+		return promptModeNormal
+	}
+	return normalizePromptMode(tab.promptMode, tab.enhancedMode)
+}
+
+func tabPromptModeIsEnhanced(tab *WorkspaceTab) bool {
+	return currentTabPromptMode(tab) == promptModeEnhanced
 }
 
 const (
@@ -553,6 +588,7 @@ type TabMeta struct {
 	ToolApprovalMode  string `json:"toolApprovalMode"`
 	AskWorkflow       bool   `json:"askWorkflowEnabled"`
 	StepThinking      bool   `json:"stepThinkingEnabled"`
+	PromptMode        string `json:"promptMode"`
 	EnhancedMode      bool   `json:"enhancedModeEnabled"`
 	Goal              string `json:"goal,omitempty"`
 	GoalStatus        string `json:"goalStatus,omitempty"`
@@ -576,7 +612,8 @@ func (a *App) tabMeta(tab *WorkspaceTab, active bool) TabMeta {
 		ToolApprovalMode:  currentTabToolApprovalMode(tab),
 		AskWorkflow:       tab.askWorkflow,
 		StepThinking:      tab.stepThinking,
-		EnhancedMode:      tab.enhancedMode,
+		PromptMode:        currentTabPromptMode(tab),
+		EnhancedMode:      tabPromptModeIsEnhanced(tab),
 		Goal:              currentTabGoal(tab),
 		GoalStatus:        currentTabGoalStatus(tab),
 		StartupErr:        tab.StartupErr,
@@ -1111,7 +1148,8 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		WorkspaceRoot:  root,
 		SessionDir:     sessionDir,
 		EffortOverride: cloneStringPtr(tab.effort),
-		EnhancedMode:   tab.enhancedMode,
+		PromptMode:     currentTabPromptMode(tab),
+		EnhancedMode:   tabPromptModeIsEnhanced(tab),
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -1643,6 +1681,7 @@ type desktopTabEntry struct {
 	ToolApprovalMode string  `json:"toolApprovalMode,omitempty"`
 	AskWorkflow      bool    `json:"askWorkflowEnabled,omitempty"`
 	StepThinking     bool    `json:"stepThinkingEnabled,omitempty"`
+	PromptMode       string  `json:"promptMode,omitempty"`
 	EnhancedMode     bool    `json:"enhancedModeEnabled,omitempty"`
 }
 
@@ -1680,7 +1719,8 @@ func (a *App) saveTabsLocked() {
 				ToolApprovalMode: persistedToolApprovalMode(currentTabToolApprovalMode(tab)),
 				AskWorkflow:      tab.askWorkflow,
 				StepThinking:     tab.stepThinking,
-				EnhancedMode:     tab.enhancedMode,
+				PromptMode:       currentTabPromptMode(tab),
+				EnhancedMode:     tabPromptModeIsEnhanced(tab),
 			})
 		}
 	}

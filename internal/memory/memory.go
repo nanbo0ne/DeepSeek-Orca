@@ -13,11 +13,14 @@ import (
 // UserDir are retained so the controller can resolve quick-add targets without
 // re-deriving discovery context.
 type Set struct {
-	Docs    []Source // DEEPSEEK_ORCA.md / AGENTS.md, ascending precedence
-	Store   Store    // auto-memory store (may be a zero/disabled Store)
-	Index   string   // MEMORY.md contents at load time
-	CWD     string   // project working dir used for discovery
-	UserDir string   // user config root (may be "")
+	Docs           []Source // DEEPSEEK_ORCA.md / AGENTS.md, ascending precedence
+	Store          Store    // active writable auto-memory store (may be a zero/disabled Store)
+	SharedStore    Store    // ordinary coding-agent memory store
+	AssistantStore Store    // assistant-mode memory store
+	Index          string   // MEMORY.md contents visible to this session at load time
+	CWD            string   // project working dir used for discovery
+	UserDir        string   // user config root (may be "")
+	Profile        string   // assistant, shared-agent, or all
 }
 
 // Options configures discovery. CWD defaults to "." and UserDir is the user
@@ -26,6 +29,29 @@ type Set struct {
 type Options struct {
 	CWD     string
 	UserDir string
+	Profile string
+}
+
+const (
+	ProfileSharedAgent = "shared-agent"
+	ProfileAssistant   = "assistant"
+	ProfileAll         = "all"
+)
+
+type ProfiledMemory struct {
+	Memory
+	Profile string
+}
+
+func NormalizeProfile(profile string) string {
+	switch strings.ToLower(strings.TrimSpace(profile)) {
+	case ProfileAssistant:
+		return ProfileAssistant
+	case ProfileAll:
+		return ProfileAll
+	default:
+		return ProfileSharedAgent
+	}
 }
 
 // Load discovers all memory for a session: the hierarchical docs and the
@@ -36,14 +62,44 @@ func Load(opts Options) *Set {
 	if cwd == "" {
 		cwd = "."
 	}
-	store := StoreFor(opts.UserDir, cwd)
-	return &Set{
-		Docs:    discoverDocs(cwd, opts.UserDir),
-		Store:   store,
-		Index:   store.Index(),
-		CWD:     cwd,
-		UserDir: opts.UserDir,
+	profile := NormalizeProfile(opts.Profile)
+	sharedStore := StoreFor(opts.UserDir, cwd)
+	assistantStore := AssistantStoreFor(opts.UserDir, cwd)
+	store := sharedStore
+	docs := discoverDocs(cwd, opts.UserDir)
+	index := sharedStore.Index()
+	if profile == ProfileAssistant {
+		store = assistantStore
+		docs = nil
+		index = assistantStore.Index()
+	} else if profile == ProfileAll {
+		index = combineIndexes(sharedStore.Index(), assistantStore.Index())
 	}
+	return &Set{
+		Docs:           docs,
+		Store:          store,
+		SharedStore:    sharedStore,
+		AssistantStore: assistantStore,
+		Index:          index,
+		CWD:            cwd,
+		UserDir:        opts.UserDir,
+		Profile:        profile,
+	}
+}
+
+func combineIndexes(shared, assistant string) string {
+	shared = strings.TrimSpace(shared)
+	assistant = strings.TrimSpace(assistant)
+	if shared == "" {
+		if assistant == "" {
+			return ""
+		}
+		return "# Assistant memories\n\n" + assistant
+	}
+	if assistant == "" {
+		return shared
+	}
+	return "# Shared agent memories\n\n" + shared + "\n\n# Assistant memories\n\n" + assistant
 }
 
 // DocPath returns the doc-memory file a given scope writes to. To avoid splitting
@@ -130,7 +186,11 @@ func (s *Set) Block() string {
 	}
 	var b strings.Builder
 	b.WriteString("# Memory\n\n")
-	b.WriteString("Persistent context loaded from memory files. Treat it as durable, user-authored guidance for this project.\n")
+	if s.Profile == ProfileAssistant {
+		b.WriteString("Persistent context loaded from assistant-mode memory. Treat it as durable background from prior assistant-mode conversations.\n")
+	} else {
+		b.WriteString("Persistent context loaded from memory files. Treat it as durable, user-authored guidance for this project.\n")
+	}
 
 	for _, d := range s.Docs {
 		fmt.Fprintf(&b, "\n## %s (%s)\n\n%s\n", d.Path, d.Scope, strings.TrimSpace(d.Body))
@@ -145,6 +205,22 @@ func (s *Set) Block() string {
 		fmt.Fprintf(&b, "\n\n(stored under %s)\n", s.Store.Dir)
 	}
 	return b.String()
+}
+
+// ListProfiled returns saved auto-memories from every local memory profile so
+// the desktop panel can classify them without changing the active prompt scope.
+func (s *Set) ListProfiled() []ProfiledMemory {
+	if s == nil {
+		return nil
+	}
+	var out []ProfiledMemory
+	for _, m := range s.SharedStore.List() {
+		out = append(out, ProfiledMemory{Memory: m, Profile: ProfileSharedAgent})
+	}
+	for _, m := range s.AssistantStore.List() {
+		out = append(out, ProfiledMemory{Memory: m, Profile: ProfileAssistant})
+	}
+	return out
 }
 
 // Compose folds the memory block onto the base system prompt and returns the

@@ -187,6 +187,33 @@ func TestStoreForSlug(t *testing.T) {
 	}
 }
 
+func TestLoadProfilesPartitionAssistantAndSharedMemory(t *testing.T) {
+	userDir := t.TempDir()
+	cwd := t.TempDir()
+	if _, err := StoreFor(userDir, cwd).Save(Memory{Name: "shared-fact", Description: "shared detail", Body: "shared body"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AssistantStoreFor(userDir, cwd).Save(Memory{Name: "assistant-fact", Description: "assistant detail", Body: "assistant body"}); err != nil {
+		t.Fatal(err)
+	}
+
+	assistant := Load(Options{CWD: cwd, UserDir: userDir, Profile: ProfileAssistant})
+	if !strings.Contains(assistant.Index, "assistant-fact.md") || strings.Contains(assistant.Index, "shared-fact.md") {
+		t.Fatalf("assistant profile index = %q, want assistant only", assistant.Index)
+	}
+	if assistant.Store.Dir != assistant.AssistantStore.Dir {
+		t.Fatalf("assistant writable store = %q, want %q", assistant.Store.Dir, assistant.AssistantStore.Dir)
+	}
+
+	all := Load(Options{CWD: cwd, UserDir: userDir, Profile: ProfileAll})
+	if !strings.Contains(all.Index, "assistant-fact.md") || !strings.Contains(all.Index, "shared-fact.md") {
+		t.Fatalf("all profile index = %q, want shared and assistant", all.Index)
+	}
+	if all.Store.Dir != all.SharedStore.Dir {
+		t.Fatalf("all writable store = %q, want shared %q", all.Store.Dir, all.SharedStore.Dir)
+	}
+}
+
 // TestDisabledStoreIsNoOp ensures a zero Store (no user config dir) never panics
 // and errors cleanly on Save.
 func TestDisabledStoreIsNoOp(t *testing.T) {

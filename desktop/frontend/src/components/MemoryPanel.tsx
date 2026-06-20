@@ -81,6 +81,10 @@ function memoryDocPreview(body: string): string {
   return lines.length > 6 ? `${preview}\n...` : preview;
 }
 
+function memoryProfileLabel(profile: string | undefined, t: ReturnType<typeof useT>): string {
+  return profile === "assistant" ? t("memory.profile.assistant") : t("memory.profile.sharedAgent");
+}
+
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err || "Unknown error");
@@ -115,6 +119,7 @@ export function MemoryPanel({
   const [highlight, setHighlight] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [profileFilter, setProfileFilter] = useState("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirmForget, setConfirmForget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -138,6 +143,7 @@ export function MemoryPanel({
     () =>
       facts.filter((f) => {
         if (typeFilter !== "all" && f.type !== typeFilter) return false;
+        if (profileFilter !== "all" && (f.profile || "shared-agent") !== profileFilter) return false;
         if (normalizedFilter) {
           const hay = [f.name, f.description, f.body].join(" ").toLowerCase();
           if (!hay.includes(normalizedFilter)) return false;
@@ -148,7 +154,7 @@ export function MemoryPanel({
           .toLowerCase()
           .includes(normalizedQuery);
       }),
-    [facts, normalizedQuery, normalizedFilter, typeFilter],
+    [facts, normalizedQuery, normalizedFilter, profileFilter, typeFilter],
   );
 
   const scrollToFact = (name: string) => {
@@ -168,6 +174,7 @@ export function MemoryPanel({
     if (!visible) {
       setQuery("");
       setTypeFilter("all");
+      setProfileFilter("all");
       window.setTimeout(() => scrollToFact(name), 0);
       return;
     }
@@ -319,6 +326,18 @@ export function MemoryPanel({
                     </button>
                   ))}
                 </div>
+                <div className="mem-filter" role="tablist" aria-label={t("memory.profileFilter")}>
+                  {["all", "assistant", "shared-agent"].map((profile) => (
+                    <button
+                      className={`mem-filter__item${profileFilter === profile ? " mem-filter__item--on" : ""}`}
+                      onClick={() => setProfileFilter(profile)}
+                      type="button"
+                      key={profile}
+                    >
+                      {profile === "all" ? t("memory.profile.all") : memoryProfileLabel(profile, t)}
+                    </button>
+                  ))}
+                </div>
               </div>
               {error && <div className="mem-error" role="alert">{error}</div>}
               {facts.length === 0 ? (
@@ -331,6 +350,7 @@ export function MemoryPanel({
                     onClick={() => {
                       setQuery("");
                       setTypeFilter("all");
+                      setProfileFilter("all");
                     }}
                     type="button"
                   >
@@ -365,6 +385,7 @@ export function MemoryPanel({
                             <span className="mem-fact__title">{displayTitle(f)}</span>
                             <span className="mem-fact__meta">
                               {f.type && <span className="mem-fact__type" data-mem-type={f.type}>{f.type}</span>}
+                              <span className="mem-fact__type">{memoryProfileLabel(f.profile, t)}</span>
                               <span className="mem-fact__slug">{f.name}</span>
                             </span>
                             <span className="mem-fact__desc">{f.description}</span>
@@ -598,6 +619,7 @@ export function MemorySettingsPage() {
 	const [highlight, setHighlight] = useState<string | null>(null);
 	const [query, setQuery] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
+	const [profileFilter, setProfileFilter] = useState("all");
 	const [expanded, setExpanded] = useState<string | null>(null);
 	const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
 	const [confirmForget, setConfirmForget] = useState<string | null>(null);
@@ -622,13 +644,14 @@ export function MemorySettingsPage() {
 		() =>
 			facts.filter((f) => {
 				if (typeFilter !== "all" && f.type !== typeFilter) return false;
+				if (profileFilter !== "all" && (f.profile || "shared-agent") !== profileFilter) return false;
 				if (!normalizedQuery) return true;
 				return [displayTitle(f), f.name, f.description, f.type, f.body]
 					.join(" ")
 					.toLowerCase()
 					.includes(normalizedQuery);
 			}),
-		[facts, normalizedQuery, typeFilter],
+		[facts, normalizedQuery, profileFilter, typeFilter],
 	);
 
 	const scrollToFact = useCallback((name: string) => {
@@ -647,6 +670,7 @@ export function MemorySettingsPage() {
 		if (!visible) {
 			setQuery("");
 			setTypeFilter("all");
+			setProfileFilter("all");
 			window.setTimeout(() => scrollToFact(name), 0);
 			return;
 		}
@@ -782,6 +806,18 @@ export function MemorySettingsPage() {
 							{showAdd ? t("common.collapse") : t("memory.addMemory")}
 						</button>
 					</div>
+					<div className="mem-filter" role="tablist" aria-label={t("memory.profileFilter")}>
+						{["all", "assistant", "shared-agent"].map((profile) => (
+							<button
+								className={"mem-filter__item" + (profileFilter === profile ? " mem-filter__item--on" : "")}
+								onClick={() => setProfileFilter(profile)}
+								type="button"
+								key={profile}
+							>
+								{profile === "all" ? t("memory.profile.all") : memoryProfileLabel(profile, t)}
+							</button>
+						))}
+					</div>
 				</div>
 				{showAdd && (
 					<div className="mem-add-card">
@@ -867,6 +903,7 @@ export function MemorySettingsPage() {
 							onClick={() => {
 								setQuery("");
 								setTypeFilter("all");
+								setProfileFilter("all");
 							}}
 							type="button"
 						>
@@ -901,6 +938,7 @@ export function MemorySettingsPage() {
 											<span className="mem-fact__title">{displayTitle(f)}</span>
 											<span className="mem-fact__meta">
 												{f.type && <span className="mem-fact__type" data-mem-type={f.type}>{f.type}</span>}
+												<span className="mem-fact__type">{memoryProfileLabel(f.profile, t)}</span>
 												<span className="mem-fact__slug">{f.name}</span>
 											</span>
 											<span className="mem-fact__desc">{f.description}</span>

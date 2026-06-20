@@ -1,16 +1,17 @@
 import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
-import type { CheckpointMeta } from "../lib/types";
+import type { CheckpointMeta, JobView } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
 import { AssistantMessage, TurnActions, UserMessage } from "./Message";
-import { ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon } from "./ProcessCard";
+import { ProcessBrainIcon, ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon } from "./ProcessCard";
 import { ToolCard } from "./ToolCard";
 import { ArrowDown, ChevronRight } from "lucide-react";
 import { Welcome } from "./Welcome";
 
 type ToolItem = Extract<Item, { kind: "tool" }>;
 type AssistantItem = Extract<Item, { kind: "assistant" }>;
+type TurnStatsItem = Extract<Item, { kind: "turn_stats" }>;
 type OpenTurnAction = { turn: number; menu: "summary" | "rewind" };
 type QuestionAnchor = { id: string; text: string; turn: number };
 
@@ -22,6 +23,76 @@ const LiveAssistantMessage = memo(function LiveAssistantMessage({ item, defaultE
   const shown = live && live.id === item.id ? { ...item, text: live.text, reasoning: live.reasoning, streaming: true } : item;
   return <AssistantMessage item={shown} defaultExpanded={defaultExpanded} />;
 });
+
+function renderProcessItem(
+  item: Item,
+  subcalls: ReadonlyMap<string, ToolItem[]>,
+  liveToolID: string,
+  defaultExpandThinking: boolean,
+): ReactNode {
+  switch (item.kind) {
+    case "assistant":
+      if (!item.reasoning) return null;
+      return <AssistantMessage key={item.id} item={{ ...item, text: "" }} defaultExpanded={defaultExpandThinking} />;
+    case "tool":
+      if (item.parentId || item.name === "todo_write" || item.name === "exit_plan_mode") return null;
+      return <ToolCard key={item.id} item={item} subcalls={subcalls.get(item.id)} livePulse={item.id === liveToolID} />;
+    case "phase":
+      return <PhaseCard key={item.id} text={item.text} />;
+    case "notice":
+      return <NoticeCard key={item.id} level={item.level} text={item.text} />;
+    case "compaction":
+      return <CompactionCard key={item.id} item={item} />;
+    default:
+      return null;
+  }
+}
+
+function TurnProcessSummary({
+  stats,
+  items,
+  subcalls,
+  liveToolID,
+  defaultExpandThinking,
+}: {
+  stats: TurnStatsItem;
+  items: Item[];
+  subcalls: ReadonlyMap<string, ToolItem[]>;
+  liveToolID: string;
+  defaultExpandThinking: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const visibleItems = items.filter(isProcessItem);
+  if (visibleItems.length === 0) return null;
+  return (
+    <ProcessCard
+      tone="violet"
+      icon={<ProcessBrainIcon size={12} />}
+      kind={turnStatsLabel(stats)}
+      open={open}
+      onOpenChange={setOpen}
+      className="turn-process-summary"
+    >
+      <div className="turn-process-summary__body">
+        {visibleItems.map((item) => renderProcessItem(item, subcalls, liveToolID, defaultExpandThinking))}
+      </div>
+    </ProcessCard>
+  );
+}
+
+function BackgroundJobsCard({ jobs }: { jobs: JobView[] }) {
+  const label = jobs.length === 1 ? jobs[0].label || jobs[0].id : `${jobs.length} tasks`;
+  return (
+    <ProcessCard
+      tone="accent"
+      icon={<ProcessPhaseIcon size={12} />}
+      kind="research"
+      name={`后台研究仍在运行：${label}`}
+      meta={<ProcessStatusIcon state="running" label="后台研究仍在运行" />}
+      className="background-jobs-card"
+    />
+  );
+}
 
 // ── Layer budgets ─────────────────────────────────────────────────────────────
 // Hot zone: the most recent N user turns are always fully rendered. All data
@@ -96,6 +167,35 @@ function lastRunningToolID(items: Item[]): string {
   return "";
 }
 
+function isProcessItem(item: Item): boolean {
+  if (item.kind === "assistant") return Boolean(item.reasoning);
+  if (item.kind === "tool") return !item.parentId && item.name !== "todo_write" && item.name !== "exit_plan_mode";
+  return item.kind === "notice" || item.kind === "phase" || item.kind === "compaction";
+}
+
+function isProcessItemRunning(item: Item): boolean {
+  if (item.kind === "assistant") return item.streaming;
+  if (item.kind === "tool") return item.status === "running";
+  if (item.kind === "compaction") return item.pending;
+  return false;
+}
+
+function formatTurnElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (hours > 0) return `${hours}hr${pad(minutes)}min${pad(seconds)}s`;
+  if (minutes > 0) return `${minutes}min${pad(seconds)}s`;
+  return `${seconds}s`;
+}
+
+function turnStatsLabel(item: TurnStatsItem): string {
+  const tokens = typeof item.tokens === "number" && item.tokens > 0 ? `${item.tokens} tokens` : "token 消耗待统计";
+  return `已思考 ${formatTurnElapsed(item.elapsedMs)}，${tokens}`;
+}
+
 // Summarise a warm turn for its compact card.
 function warmUserPreview(text: string): string {
   const cleaned = replaceAttachmentRefsForDisplay(text).replace(/\s+/g, " ").trim();
@@ -167,6 +267,7 @@ export function Transcript({
   questionNavigator = true,
   defaultExpandThinking = false,
   followButton = true,
+  jobs = [],
 }: {
   items: Item[];
   live?: LiveStream;
@@ -180,6 +281,7 @@ export function Transcript({
   questionNavigator?: boolean;
   defaultExpandThinking?: boolean;
   followButton?: boolean;
+  jobs?: JobView[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(false);
@@ -331,6 +433,7 @@ export function Transcript({
     return m;
   }, [items]);
   const liveToolID = useMemo(() => lastRunningToolID(items), [items]);
+  const backgroundTaskJobs = useMemo(() => jobs.filter((job) => job.kind === "task" && job.status === "running"), [jobs]);
 
   // ── Layer state ────────────────────────────────────────────────────────────
   const [expandedWarmTurns, setExpandedWarmTurns] = useState<Set<number>>(new Set());
@@ -411,7 +514,22 @@ export function Transcript({
     let actionText = "";
     let actionReady = false;
     let activeTurn: number | undefined;
+    let pendingProcessItems: Item[] = [];
+    let pendingAnswerNodes: ReactNode[] = [];
+    const flushProcessItems = () => {
+      for (const item of pendingProcessItems) {
+        const rendered = renderProcessItem(item, subcallsByParent, liveToolID, defaultExpandThinking);
+        if (rendered) out.push(rendered);
+      }
+      pendingProcessItems = [];
+    };
+    const flushPendingAnswers = () => {
+      out.push(...pendingAnswerNodes);
+      pendingAnswerNodes = [];
+    };
     const pushTurnActions = () => {
+      flushProcessItems();
+      flushPendingAnswers();
       if (activeTurn == null || !actionReady || actionText.trim() === "") return;
       const turn = activeTurn;
       const openMenu = openAction && openAction.turn === turn ? openAction.menu : null;
@@ -448,27 +566,72 @@ export function Transcript({
           break;
         }
         case "assistant":
-          out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
+          if (it.streaming) {
+            flushProcessItems();
+            flushPendingAnswers();
+            out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
+          } else if (it.reasoning) {
+            pendingProcessItems.push(it);
+            if (it.text.trim() !== "") {
+              pendingAnswerNodes.push(<AssistantMessage key={`${it.id}-text`} item={{ ...it, reasoning: "" }} defaultExpanded={defaultExpandThinking} />);
+            }
+          } else {
+            flushProcessItems();
+            flushPendingAnswers();
+            out.push(<AssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
+          }
           if (!it.streaming && it.text.trim() !== "") {
             actionText = it.text;
             actionReady = true;
           }
           break;
-        case "steer": out.push(<SteerCard key={it.id} text={it.text} />); break;
+        case "steer":
+          flushProcessItems();
+          flushPendingAnswers();
+          out.push(<SteerCard key={it.id} text={it.text} />);
+          break;
         case "tool":
           if (it.parentId) break;
           if (it.name === "todo_write") break;
           if (it.name === "exit_plan_mode") break;
-          out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} livePulse={it.id === liveToolID} />);
+          if (isProcessItemRunning(it)) {
+            flushProcessItems();
+            out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} livePulse={it.id === liveToolID} />);
+          } else {
+            pendingProcessItems.push(it);
+          }
           break;
-        case "phase": out.push(<PhaseCard key={it.id} text={it.text} />); break;
-        case "notice": out.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
-        case "compaction": out.push(<CompactionCard key={it.id} item={it} />); break;
+        case "phase":
+        case "notice":
+        case "compaction":
+          if (isProcessItemRunning(it)) {
+            flushProcessItems();
+            out.push(renderProcessItem(it, subcallsByParent, liveToolID, defaultExpandThinking));
+          } else {
+            pendingProcessItems.push(it);
+          }
+          break;
+        case "turn_stats": {
+          const processItems = pendingProcessItems;
+          pendingProcessItems = [];
+          out.push(
+            <TurnProcessSummary
+              key={it.id}
+              stats={it}
+              items={processItems}
+              subcalls={subcallsByParent}
+              liveToolID={liveToolID}
+              defaultExpandThinking={defaultExpandThinking}
+            />,
+          );
+          flushPendingAnswers();
+          break;
+        }
       }
     }
     pushTurnActions();
     return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID]);
+  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID, defaultExpandThinking]);
 
   // ── Assemble rendered output ──────────────────────────────────────────────
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
@@ -518,6 +681,7 @@ export function Transcript({
             />
           )}
           {hotZoneNodes}
+          {backgroundTaskJobs.length > 0 && <BackgroundJobsCard jobs={backgroundTaskJobs} />}
         </LiveStreamContext.Provider>
       </div>
 
@@ -756,6 +920,7 @@ function WarmTurnItems({
       case "steer": nodes.push(<SteerCard key={it.id} text={it.text} />); break;
       case "notice": nodes.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
       case "compaction": nodes.push(<CompactionCard key={it.id} item={it} />); break;
+      case "turn_stats": break;
     }
   }
   pushTurnActions();

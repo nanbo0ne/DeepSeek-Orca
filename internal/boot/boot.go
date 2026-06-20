@@ -83,8 +83,34 @@ type Options struct {
 	SessionDir string
 	// EnhancedMode switches prompt/context assembly to the V2 Claude-like profile.
 	EnhancedMode bool
+	// PromptMode selects the desktop prompt profile. Valid values are
+	// "assistant", "normal", and "enhanced". Empty preserves the legacy
+	// EnhancedMode behavior.
+	PromptMode string
 	// PauseWait is an optional cooperative pause gate for interactive frontends.
 	PauseWait func(context.Context) error
+}
+
+const (
+	PromptModeAssistant = "assistant"
+	PromptModeNormal    = "normal"
+	PromptModeEnhanced  = "enhanced"
+)
+
+func normalizePromptMode(mode string, enhanced bool) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case PromptModeAssistant:
+		return PromptModeAssistant
+	case PromptModeEnhanced:
+		return PromptModeEnhanced
+	case PromptModeNormal:
+		return PromptModeNormal
+	default:
+		if enhanced {
+			return PromptModeEnhanced
+		}
+		return PromptModeNormal
+	}
 }
 
 // Build loads config, resolves the model(s), and returns a Controller wrapping a
@@ -130,6 +156,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// shares this synchronized sink. The job manager is session-scoped — its jobs
 	// outlive a turn and are cancelled by Controller.Close.
 	sink := event.Sync(opts.Sink)
+	promptMode := normalizePromptMode(opts.PromptMode, opts.EnhancedMode)
+	enhancedMode := promptMode == PromptModeEnhanced
+	assistantMode := promptMode == PromptModeAssistant
 
 	if migErr != nil {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "config migration from ~/.deepseek-orca failed: " + migErr.Error()})
@@ -169,16 +198,18 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// before language/memory/skills append, so a "replace" style (keep-coding
 	// false) still keeps those. Applied once, into the cache-stable prefix.
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
-		if opts.EnhancedMode {
+		if enhancedMode {
 			outputStylePrompt = outputstyle.Apply("", st)
-		} else {
+		} else if !assistantMode {
 			sysPrompt = outputstyle.Apply(sysPrompt, st)
 		}
 	}
-	if opts.EnhancedMode {
+	if assistantMode {
+		sysPrompt = promptprofile.AssistantSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
+	} else if enhancedMode {
 		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
 	} else {
-		sysPrompt += "\n\n" + config.TaskTrackingPolicy + "\n\n" + config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary) + "\n\n" + config.ActiveLanguagePolicy
+		sysPrompt = promptprofile.NormalSystemPrompt(sysPrompt, "", config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
 	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
@@ -186,9 +217,13 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// durable, cache-stable prefix every turn reuses, so memory costs nothing per
 	// turn. Mid-session changes never touch this prefix — they ride the
 	// controller's transient turn-injection and fold in on the next session.
-	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir()})
+	memoryProfile := memory.ProfileAll
+	if assistantMode {
+		memoryProfile = memory.ProfileAssistant
+	}
+	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir(), Profile: memoryProfile})
 	projectChecks := instruction.ExtractHostChecks(mem.Docs)
-	if !opts.EnhancedMode {
+	if !enhancedMode && !assistantMode {
 		sysPrompt = memory.Compose(sysPrompt, mem)
 	}
 
@@ -207,7 +242,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	skills := skillStore.List()
 	allSkillStore := skill.New(skill.Options{ProjectRoot: root, CustomPaths: cfg.SkillCustomPaths(), ExcludedPaths: cfg.SkillExcludedPaths(), MaxDepth: cfg.SkillMaxDepth(), Stderr: io.Discard})
 	allSkills := allSkillStore.List()
-	sysPrompt = skill.ApplyIndex(sysPrompt, skills)
+	if !assistantMode {
+		sysPrompt = skill.ApplyIndex(sysPrompt, skills)
+	}
 
 	reg := tool.NewRegistry()
 	bashSpec := sandbox.Spec{Mode: cfg.BashMode(), WriteRoots: cfg.WriteRootsForRoot(root), Network: cfg.Sandbox.Network}
@@ -375,7 +412,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				cgTools = append(cgTools, name)
 			}
 		}
-		if len(cgTools) > 0 {
+		if len(cgTools) > 0 && !assistantMode {
 			sysPrompt += "\n\n" + codegraph.SteerTextForTools(cgTools)
 			skill.SetExtraReadTools(cgTools)
 		}
@@ -726,31 +763,32 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 
 	ctrlOpts := control.Options{
-		Runner:        runner,
-		Executor:      executor,
-		Sink:          sink,
-		Policy:        policy,
-		Label:         label,
-		SystemPrompt:  sysPrompt,
-		SessionDir:    sessionDir,
-		Host:          pluginHost,
-		Commands:      cmds,
-		Skills:        skills,
-		AllSkills:     allSkills,
-		SkillStore:    skillStore,
-		AllSkillStore: allSkillStore,
-		Hooks:         hookRunner,
-		Memory:        mem,
-		EnhancedMode:  opts.EnhancedMode,
-		Cleanup:       cleanup,
-		BalanceURL:    entry.BalanceURL,
-		BalanceKey:    entry.APIKey(),
-		BalanceClient: balanceClient,
-		Jobs:          jm,
-		Registry:      reg,
-		PluginCtx:     ctx,
-		WorkspaceRoot: root,
-		AutoPlan:      cfg.Agent.AutoPlan,
+		Runner:         runner,
+		Executor:       executor,
+		Sink:           sink,
+		Policy:         policy,
+		Label:          label,
+		SystemPrompt:   sysPrompt,
+		SessionDir:     sessionDir,
+		Host:           pluginHost,
+		Commands:       cmds,
+		Skills:         skills,
+		AllSkills:      allSkills,
+		SkillStore:     skillStore,
+		AllSkillStore:  allSkillStore,
+		Hooks:          hookRunner,
+		Memory:         mem,
+		EnhancedMode:   enhancedMode,
+		MemoryReminder: enhancedMode || assistantMode,
+		Cleanup:        cleanup,
+		BalanceURL:     entry.BalanceURL,
+		BalanceKey:     entry.APIKey(),
+		BalanceClient:  balanceClient,
+		Jobs:           jm,
+		Registry:       reg,
+		PluginCtx:      ctx,
+		WorkspaceRoot:  root,
+		AutoPlan:       cfg.Agent.AutoPlan,
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)
 		},

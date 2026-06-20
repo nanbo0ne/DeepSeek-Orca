@@ -42,6 +42,7 @@ export type Item =
   | { kind: "steer"; id: string; text: string }
   | { kind: "phase"; id: string; text: string }
   | { kind: "notice"; id: string; level: "info" | "warn"; text: string }
+  | { kind: "turn_stats"; id: string; elapsedMs: number; tokens?: number }
   | {
       kind: "compaction";
       id: string;
@@ -86,7 +87,9 @@ interface State {
   pendingUser?: string;
   discardTurn?: boolean;
   turnStartAt: number;
+  turnProcessStartAt: number;
   turnTokens: number;
+  turnUsageTokens: number;
   sessionTokens: number;
   sessionCost: number;
   sessionCurrency: string;
@@ -102,7 +105,9 @@ export const initialState: State = {
   jobs: [],
   checkpoints: [],
   turnStartAt: 0,
+  turnProcessStartAt: 0,
   turnTokens: 0,
+  turnUsageTokens: 0,
   sessionTokens: 0,
   sessionCost: 0,
   sessionCurrency: "¥",
@@ -150,6 +155,7 @@ function sameMeta(a?: Meta, b?: Meta): boolean {
     a.toolApprovalMode === b.toolApprovalMode &&
     a.askWorkflowEnabled === b.askWorkflowEnabled &&
     a.stepThinkingEnabled === b.stepThinkingEnabled &&
+    a.promptMode === b.promptMode &&
     a.enhancedModeEnabled === b.enhancedModeEnabled &&
     a.paused === b.paused &&
     a.goal === b.goal &&
@@ -298,6 +304,33 @@ function flushPendingUser(s: State): State {
   };
 }
 
+function usageTotalTokens(usage?: WireUsage): number {
+  if (!usage) return 0;
+  if (usage.totalTokens > 0) return usage.totalTokens;
+  return Math.max(0, (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0));
+}
+
+function hasCurrentTurnActivity(items: Item[]): boolean {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.kind === "user") return false;
+    if (it.kind === "assistant" || it.kind === "tool" || it.kind === "notice" || it.kind === "phase" || it.kind === "compaction") return true;
+  }
+  return false;
+}
+
+function appendTurnStats(s: State, items: Item[], now = Date.now()): { items: Item[]; seq: number } {
+  if (!s.turnStartAt || !hasCurrentTurnActivity(items)) return { items, seq: s.seq };
+  const elapsedMs = Math.max(0, now - (s.turnProcessStartAt || s.turnStartAt));
+  const stats: Item = {
+    kind: "turn_stats",
+    id: `ts${s.seq}`,
+    elapsedMs,
+    tokens: s.turnUsageTokens > 0 ? s.turnUsageTokens : undefined,
+  };
+  return { items: [...items, stats], seq: s.seq + 1 };
+}
+
 function applyEvent(s: State, e: WireEvent): State {
   if (s.discardTurn) {
     if (e.kind === "turn_done") return { ...s, discardTurn: false, running: false, turnActive: false, currentAssistant: undefined, live: undefined };
@@ -316,7 +349,7 @@ function applyEvent(s: State, e: WireEvent): State {
       if (!text) return s;
       const lastItem = s.items[s.items.length - 1];
       if (lastItem?.kind === "user" && lastItem.text === text) {
-        return { ...s, running: true, turnStartAt: Date.now(), turnTokens: 0 };
+        return { ...s, running: true, turnStartAt: Date.now(), turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
       }
       return {
         ...s,
@@ -324,7 +357,9 @@ function applyEvent(s: State, e: WireEvent): State {
         items: [...s.items, { kind: "user", id: `u${s.seq}`, text }],
         running: true,
         turnStartAt: Date.now(),
+        turnProcessStartAt: 0,
         turnTokens: 0,
+        turnUsageTokens: 0,
       };
     }
     case "session_updated":
@@ -337,7 +372,8 @@ function applyEvent(s: State, e: WireEvent): State {
       let cur: State = s;
       if (cur.pendingUser !== undefined) cur = flushPendingUser(cur);
       const { items, id, seq } = ensureAssistant(cur);
-      return { ...cur, items, currentAssistant: id, seq, live: { id, text: "", reasoning: "" }, running: true, turnActive: true, turnStartAt: Date.now(), turnTokens: 0 };
+      const now = Date.now();
+      return { ...cur, items, currentAssistant: id, seq, live: { id, text: "", reasoning: "" }, running: true, turnActive: true, turnStartAt: now, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     case "text":
     case "reasoning": {
@@ -345,7 +381,7 @@ function applyEvent(s: State, e: WireEvent): State {
       const delta = e.text ?? e.reasoning ?? "";
       const base = s.live?.id === id ? s.live : { id, text: "", reasoning: "" };
       const live = e.kind === "text" ? { ...base, text: base.text + delta } : { ...base, reasoning: base.reasoning + delta };
-      return { ...s, items, live, currentAssistant: id, seq };
+      return { ...s, items, live, currentAssistant: id, seq, turnProcessStartAt: s.turnProcessStartAt || Date.now() };
     }
     case "message": {
       const { items, id, seq } = ensureAssistant(s);
@@ -367,7 +403,7 @@ function applyEvent(s: State, e: WireEvent): State {
         if (it.kind === "tool") next[idx] = { ...it, name: t.name, args: t.args ? t.args : it.args, readOnly: t.readOnly, profile: t.profile ?? it.profile };
         return { ...s, items: next };
       }
-      return { ...s, seq: s.seq + 1, items: [...s.items, { kind: "tool", id, name: t.name, args: t.args ?? "", readOnly: t.readOnly, status: "running", isShell: id.startsWith("shell-"), parentId: t.parentId, profile: t.profile }] };
+      return { ...s, seq: s.seq + 1, turnProcessStartAt: s.turnProcessStartAt || Date.now(), items: [...s.items, { kind: "tool", id, name: t.name, args: t.args ?? "", readOnly: t.readOnly, status: "running", isShell: id.startsWith("shell-"), parentId: t.parentId, profile: t.profile }] };
     }
     case "tool_result": {
       const t = e.tool;
@@ -398,16 +434,17 @@ function applyEvent(s: State, e: WireEvent): State {
     }
     case "usage": {
       const turnTokens = s.turnTokens + (e.usage?.completionTokens ?? 0);
+      const turnUsageTokens = s.turnUsageTokens + usageTotalTokens(e.usage);
       const sessionTokens = Math.max(0, s.context.sessionTokens ?? s.sessionTokens, s.sessionTokens);
       const sessionCurrency = e.usage?.currency || s.sessionCurrency || "¥";
-      return { ...s, usage: e.usage, context: { ...s.context, sessionTokens }, turnTokens, sessionTokens, sessionCurrency };
+      return { ...s, usage: e.usage, context: { ...s.context, sessionTokens }, turnTokens, turnUsageTokens, sessionTokens, sessionCurrency };
     }
     case "notice":
-      return { ...s, running: s.turnActive ? s.running : false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "" }] };
+      return { ...s, running: s.turnActive ? s.running : false, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "" }] };
     case "phase":
-      return { ...s, seq: s.seq + 1, items: [...s.items, { kind: "phase", id: `p${s.seq}`, text: e.text ?? "" }] };
+      return { ...s, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "phase", id: `p${s.seq}`, text: e.text ?? "" }] };
     case "compaction_started":
-      return { ...s, seq: s.seq + 1, items: [...s.items, { kind: "compaction", id: `c${s.seq}`, pending: true, trigger: e.compaction?.trigger ?? "", messages: 0, summary: "", archive: "" }] };
+      return { ...s, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "compaction", id: `c${s.seq}`, pending: true, trigger: e.compaction?.trigger ?? "", messages: 0, summary: "", archive: "" }] };
     case "compaction_done": {
       const c = e.compaction;
       const idx = [...s.items].reverse().findIndex((it) => it.kind === "compaction" && it.pending);
@@ -437,8 +474,9 @@ function applyEvent(s: State, e: WireEvent): State {
         if (it.kind === "tool" && it.status === "running") return { ...it, status: "stopped" as const };
         return it;
       });
-      const items: Item[] = e.err ? [...finalized, { kind: "notice", id: `e${s.seq}`, level: "warn", text: e.err }] : finalized;
-      return { ...s, items, live: undefined, running: false, turnActive: false, currentAssistant: undefined, approval: undefined, ask: undefined, seq: s.seq + 1 };
+      const withError: Item[] = e.err ? [...finalized, { kind: "notice", id: `e${s.seq}`, level: "warn", text: e.err }] : finalized;
+      const stats = appendTurnStats(s, withError);
+      return { ...s, items: stats.items, live: undefined, running: false, turnActive: false, currentAssistant: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     default: return s;
   }
@@ -454,7 +492,9 @@ export function reducer(s: State, a: Action): State {
         items: [...s.items, { kind: "user", id: `u${seq}`, text: a.text }],
         running: true,
         turnStartAt: Date.now(),
+        turnProcessStartAt: 0,
         turnTokens: 0,
+        turnUsageTokens: 0,
         pendingUser: a.text,
         discardTurn: false,
       };
@@ -480,7 +520,8 @@ export function reducer(s: State, a: Action): State {
         if (it.kind === "tool" && it.status === "running") return { ...it, status: "stopped" as const };
         return it;
       });
-      return { ...s, items: finalized, running: false, turnActive: false, live: undefined, currentAssistant: undefined, approval: undefined, ask: undefined };
+      const stats = appendTurnStats(s, finalized);
+      return { ...s, items: stats.items, running: false, turnActive: false, live: undefined, currentAssistant: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     case "meta": return sameMeta(s.meta, a.meta) ? s : { ...s, meta: a.meta };
     case "context": {

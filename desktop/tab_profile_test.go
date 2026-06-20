@@ -255,6 +255,7 @@ func TestSaveTabsPersistsV2WorkflowAndEnhancedMode(t *testing.T) {
 	tab := testTab("a", t.TempDir())
 	tab.askWorkflow = true
 	tab.stepThinking = true
+	tab.promptMode = promptModeEnhanced
 	tab.enhancedMode = true
 	app.tabs = map[string]*WorkspaceTab{tab.ID: tab}
 	app.tabOrder = []string{tab.ID}
@@ -268,8 +269,15 @@ func TestSaveTabsPersistsV2WorkflowAndEnhancedMode(t *testing.T) {
 	if len(got.Tabs) != 1 {
 		t.Fatalf("tabs len = %d, want 1", len(got.Tabs))
 	}
-	if !got.Tabs[0].AskWorkflow || !got.Tabs[0].StepThinking || !got.Tabs[0].EnhancedMode {
-		t.Fatalf("saved V2 flags = ask:%v step:%v enhanced:%v, want all true", got.Tabs[0].AskWorkflow, got.Tabs[0].StepThinking, got.Tabs[0].EnhancedMode)
+	if !got.Tabs[0].AskWorkflow || !got.Tabs[0].StepThinking || got.Tabs[0].PromptMode != promptModeEnhanced || !got.Tabs[0].EnhancedMode {
+		t.Fatalf("saved V2 flags = ask:%v step:%v prompt:%q enhanced:%v, want all true/enhanced", got.Tabs[0].AskWorkflow, got.Tabs[0].StepThinking, got.Tabs[0].PromptMode, got.Tabs[0].EnhancedMode)
+	}
+}
+
+func TestLegacyEnhancedModeRestoresPromptMode(t *testing.T) {
+	entry := desktopTabEntry{EnhancedMode: true}
+	if got := normalizePromptMode(entry.PromptMode, entry.EnhancedMode); got != promptModeEnhanced {
+		t.Fatalf("legacy prompt mode = %q, want enhanced", got)
 	}
 }
 
@@ -284,7 +292,8 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	effort := "max"
 	tab.effort = &effort
 	tab.toolApprovalMode = control.ToolApprovalAuto
-	tab.enhancedMode = true
+	tab.promptMode = promptModeAssistant
+	tab.enhancedMode = false
 	tab.askWorkflow = true
 	tab.stepThinking = true
 	tab.mode = "plan"
@@ -304,8 +313,8 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	if err := app.NewSession(); err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || !app.recentPrefs.EnhancedMode {
-		t.Fatalf("recent prefs = %+v, want model/effort/auto/enhanced", app.recentPrefs)
+	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || app.recentPrefs.PromptMode != promptModeAssistant {
+		t.Fatalf("recent prefs = %+v, want model/effort/auto/assistant", app.recentPrefs)
 	}
 	if tab.askWorkflow || tab.stepThinking || tab.mode != "normal" || tab.goal != "" {
 		t.Fatalf("temporary modes after NewSession = ask:%v step:%v mode:%q goal:%q, want reset", tab.askWorkflow, tab.stepThinking, tab.mode, tab.goal)
@@ -318,8 +327,8 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	app.mu.Lock()
 	app.applyRecentPrefsToNewTabLocked(next)
 	app.mu.Unlock()
-	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || !next.enhancedMode {
-		t.Fatalf("new tab prefs = model:%q effort:%v approval:%q enhanced:%v", next.model, next.effort, next.toolApprovalMode, next.enhancedMode)
+	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || currentTabPromptMode(next) != promptModeAssistant {
+		t.Fatalf("new tab prefs = model:%q effort:%v approval:%q prompt:%q", next.model, next.effort, next.toolApprovalMode, currentTabPromptMode(next))
 	}
 	if next.askWorkflow || next.stepThinking || next.mode != "normal" || next.goal != "" {
 		t.Fatalf("new tab temporary modes = ask:%v step:%v mode:%q goal:%q, want reset", next.askWorkflow, next.stepThinking, next.mode, next.goal)

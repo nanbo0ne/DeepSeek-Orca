@@ -3269,6 +3269,30 @@ a[href] {
   white-space: pre-wrap;
 }
 
+.turn-process-summary {
+  margin-block: 2px;
+}
+
+.turn-process-summary .process-card__kind {
+  color: var(--fg-muted);
+  font-weight: 650;
+}
+
+.turn-process-summary__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.turn-process-summary__body > .process-card {
+  margin: 0;
+}
+
+.background-jobs-card .process-card__name {
+  color: var(--accent);
+}
+
 /* live bubble while the answer streams — markdown renders in real time */
 .msg__stream {
   display: flex;
@@ -3824,14 +3848,15 @@ a[href] {
   grid-area: actions;
   position: relative;
   z-index: var(--z-local-base);
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, auto);
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   justify-self: end;
-  width: min(100%, 390px);
+  width: max-content;
   min-width: 0;
-  max-width: 390px;
+  max-width: min(100%, 560px);
   padding: 5px 10px 6px 0;
   pointer-events: auto;
 }
@@ -4114,19 +4139,21 @@ a[href] {
   transition: color 0.24s ease, background 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease, opacity 0.24s ease;
 }
 .composer-enhanced__button:hover:not(:disabled),
-.composer-enhanced__button:focus-visible {
+.composer-enhanced__button:focus-visible,
+.composer-enhanced__button--open {
   color: var(--fg);
   border-color: var(--fg-faint);
   background: var(--bg);
   outline: none;
 }
-.composer-enhanced__button--on {
+.composer-enhanced__button--enhanced {
   color: var(--control-primary-fg);
   border-color: color-mix(in srgb, var(--control-primary-bg) 72%, var(--border));
   background: var(--control-primary-bg);
 }
-.composer-enhanced__button--on:hover:not(:disabled),
-.composer-enhanced__button--on:focus-visible {
+.composer-enhanced__button--enhanced:hover:not(:disabled),
+.composer-enhanced__button--enhanced:focus-visible,
+.composer-enhanced__button--enhanced.composer-enhanced__button--open {
   color: var(--control-primary-fg);
   background: color-mix(in srgb, var(--control-primary-bg) 88%, #000);
 }
@@ -4161,6 +4188,57 @@ a[href] {
   color: var(--fg);
   background: var(--bg);
   outline: none;
+}
+.composer-prompt-mode-menu {
+  min-width: 220px;
+}
+.composer-prompt-mode-menu__items {
+  display: grid;
+  gap: 4px;
+}
+.composer-prompt-mode-menu__item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+.composer-prompt-mode-menu__item:hover:not(:disabled),
+.composer-prompt-mode-menu__item:focus-visible {
+  background: var(--bg);
+  border-color: var(--border);
+  outline: none;
+}
+.composer-prompt-mode-menu__item--active {
+  background: color-mix(in srgb, var(--control-primary-bg) 10%, var(--bg-elev));
+  border-color: color-mix(in srgb, var(--control-primary-bg) 26%, var(--border));
+  color: var(--control-primary-bg);
+}
+.composer-prompt-mode-menu__copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.composer-prompt-mode-menu__copy span,
+.composer-prompt-mode-menu__copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-prompt-mode-menu__copy span {
+  font-size: 12px;
+  font-weight: 700;
+}
+.composer-prompt-mode-menu__copy small {
+  color: var(--fg-muted);
+  font-size: 11px;
 }
 .composer-meta {
   grid-area: meta;
@@ -12095,9 +12173,9 @@ a[href] {
 
 .composer-runstatus {
   --wails-draggable: no-drag;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 230px;
+  max-width: 390px;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -12125,7 +12203,7 @@ a[href] {
 .composer-runstatus__text {
   flex: 1 1 auto;
   min-width: 0;
-  max-width: 112px;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -12211,13 +12289,13 @@ a[href] {
 
 @container (max-width: 720px) {
   .composer-card__actions {
-    width: min(100%, 324px);
-    max-width: 324px;
+    width: min(100%, 292px);
+    max-width: 292px;
     gap: 6px;
   }
 
   .composer-runstatus {
-    max-width: 188px;
+    max-width: 172px;
     gap: 6px;
     padding-left: 8px;
   }
@@ -12240,10 +12318,35 @@ a[href] {
   .composer-card__actions {
     width: min(100%, 152px);
     max-width: 152px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .composer-card--running .composer-card__actions {
+    width: min(100%, 118px);
+    max-width: 118px;
+    grid-template-columns: 32px 72px;
+  }
+
+  .composer-card--running .composer-enhanced {
+    width: 32px;
+    min-width: 32px;
+  }
+
+  .composer-card--running .composer-enhanced__button {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    padding: 0;
+  }
+
+  .composer-card--running .composer-enhanced__button span,
+  .composer-card--running .composer-enhanced__help {
+    display: none;
   }
 
   .composer-runstatus {
-    max-width: 76px;
+    max-width: 72px;
     gap: 4px;
     padding: 0 4px;
   }

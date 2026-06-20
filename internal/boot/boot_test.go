@@ -21,6 +21,7 @@ import (
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/netclient"
 	"deepseek-orca/internal/plugin"
 	"deepseek-orca/internal/provider"
@@ -135,7 +136,100 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 			if strings.Contains(sys, "任务跟踪规则") {
 				t.Fatalf("%s prompt should use the English task tracking policy, got:\n%s", tc.name, sys)
 			}
+			for _, forbidden := range []string{"ToolSearch", "Google Search", "TaskCreate", "CronCreate", "PushNotification"} {
+				if strings.Contains(sys, forbidden) {
+					t.Fatalf("%s prompt should not contain unavailable tool %q:\n%s", tc.name, forbidden, sys)
+				}
+			}
 		})
+	}
+}
+
+func TestBuildAssistantPromptModeUsesOrcaPromptProfile(t *testing.T) {
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	writeFile(t, dir, "deepseek-orca.toml", `
+default_model = "test-model"
+
+[codegraph]
+enabled = false
+
+[agent]
+system_prompt = "BASE SYSTEM PROMPT"
+
+[[providers]]
+name = "test-model"
+kind = "openai"
+base_url = "https://example.invalid"
+model = "x"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
+`)
+
+	ctrl, err := Build(context.Background(), Options{PromptMode: PromptModeAssistant})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer ctrl.Close()
+
+	sys := systemMessage(ctrl.History())
+	for _, want := range []string{"You are Orca", "<tone_and_formatting>", config.TaskTrackingPolicy, config.ActiveToolRoutingPolicy, config.ActiveLanguagePolicy} {
+		if !strings.Contains(sys, want) {
+			t.Fatalf("assistant prompt missing %q:\n%s", want, sys)
+		}
+	}
+	for _, forbidden := range []string{"Claude", "Anthropic", "OpenAI", "Codex", "ToolSearch", "Google Search", "TaskCreate", "CronCreate", "PushNotification"} {
+		if strings.Contains(sys, forbidden) {
+			t.Fatalf("assistant prompt should not contain %q:\n%s", forbidden, sys)
+		}
+	}
+}
+
+func TestBuildMemoryProfilesByPromptMode(t *testing.T) {
+	isolateConfigHome(t)
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	writeFile(t, dir, "deepseek-orca.toml", `
+default_model = "test-model"
+
+[codegraph]
+enabled = false
+
+[[providers]]
+name = "test-model"
+kind = "openai"
+base_url = "https://example.invalid"
+model = "x"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
+`)
+	userDir := config.MemoryUserDir()
+	if _, err := memory.StoreFor(userDir, dir).Save(memory.Memory{Name: "shared-fact", Description: "shared detail", Body: "shared body"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := memory.AssistantStoreFor(userDir, dir).Save(memory.Memory{Name: "assistant-fact", Description: "assistant detail", Body: "assistant body"}); err != nil {
+		t.Fatal(err)
+	}
+
+	assistantCtrl, err := Build(context.Background(), Options{PromptMode: PromptModeAssistant})
+	if err != nil {
+		t.Fatalf("Build assistant: %v", err)
+	}
+	defer assistantCtrl.Close()
+	assistantMem := assistantCtrl.Memory()
+	if assistantMem.Profile != memory.ProfileAssistant || !strings.Contains(assistantMem.Index, "assistant-fact.md") || strings.Contains(assistantMem.Index, "shared-fact.md") {
+		t.Fatalf("assistant memory profile = %q index=%q, want assistant only", assistantMem.Profile, assistantMem.Index)
+	}
+
+	normalCtrl, err := Build(context.Background(), Options{PromptMode: PromptModeNormal})
+	if err != nil {
+		t.Fatalf("Build normal: %v", err)
+	}
+	defer normalCtrl.Close()
+	normalMem := normalCtrl.Memory()
+	if normalMem.Profile != memory.ProfileAll || !strings.Contains(normalMem.Index, "assistant-fact.md") || !strings.Contains(normalMem.Index, "shared-fact.md") {
+		t.Fatalf("normal memory profile = %q index=%q, want all memories", normalMem.Profile, normalMem.Index)
+	}
+	if normalMem.Store.Dir != normalMem.SharedStore.Dir {
+		t.Fatalf("normal writable store = %q, want shared %q", normalMem.Store.Dir, normalMem.SharedStore.Dir)
 	}
 }
 

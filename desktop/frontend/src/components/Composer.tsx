@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Brain, Check, CircleHelp, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowUp, Brain, Check, ChevronDown, CircleHelp, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -8,7 +8,7 @@ import { app, onFilesDropped } from "../lib/bridge";
 import { SPINNER_WORDS, useI18n } from "../lib/i18n";
 import { clearLayoutSize, loadOptionalLayoutSize, saveLayoutSize } from "../lib/layoutPreferences";
 import { useToast } from "../lib/toast";
-import { type CollaborationMode, type CommandInfo, type ComposerInsertRequest, type DirEntry, type EffortInfo, type HistoryMessage, type Mode, type SessionMeta, type SessionReference, type SlashArgItem, type SlashArgsResult, type ToolApprovalMode } from "../lib/types";
+import { type CollaborationMode, type CommandInfo, type ComposerInsertRequest, type DirEntry, type EffortInfo, type HistoryMessage, type Mode, type PromptMode, type SessionMeta, type SessionReference, type SlashArgItem, type SlashArgsResult, type ToolApprovalMode } from "../lib/types";
 import {
   formatWorkspaceReference,
   parseWorkspaceReference,
@@ -54,6 +54,22 @@ type PastedBlock = {
   label: string;
   text: string;
 };
+
+const PROMPT_MODE_OPTIONS: PromptMode[] = ["assistant", "normal", "enhanced"];
+type PromptModeLabelKey = "composer.promptMode.assistant" | "composer.promptMode.normal" | "composer.promptMode.enhanced";
+type PromptModeHelpKey = "composer.promptMode.assistant.help" | "composer.promptMode.normal.help" | "composer.promptMode.enhanced.help";
+
+function promptModeLabelKey(mode: PromptMode): PromptModeLabelKey {
+  if (mode === "assistant") return "composer.promptMode.assistant";
+  if (mode === "enhanced") return "composer.promptMode.enhanced";
+  return "composer.promptMode.normal";
+}
+
+function promptModeHelpKey(mode: PromptMode): PromptModeHelpKey {
+  if (mode === "assistant") return "composer.promptMode.assistant.help";
+  if (mode === "enhanced") return "composer.promptMode.enhanced.help";
+  return "composer.promptMode.normal.help";
+}
 
 type WebkitFileEntry = {
   isDirectory?: boolean;
@@ -324,8 +340,8 @@ export function Composer({
   toolApprovalMode,
   askWorkflowEnabled,
   stepThinkingEnabled,
-  enhancedModeEnabled,
-  enhancedModeSwitching = false,
+  promptMode,
+  promptModeSwitching = false,
   paused = false,
   goal,
   cwd,
@@ -341,7 +357,7 @@ export function Composer({
   onSetToolApprovalMode,
   onSetAskWorkflow,
   onSetStepThinking,
-  onSetEnhancedMode,
+  onSetPromptMode,
   onTogglePause,
   onToggleYoloApprovalMode,
   onSetGoal,
@@ -362,8 +378,8 @@ export function Composer({
   toolApprovalMode: ToolApprovalMode;
   askWorkflowEnabled: boolean;
   stepThinkingEnabled: boolean;
-  enhancedModeEnabled: boolean;
-  enhancedModeSwitching?: boolean;
+  promptMode: PromptMode;
+  promptModeSwitching?: boolean;
   paused?: boolean;
   goal?: string;
   cwd?: string;
@@ -381,7 +397,7 @@ export function Composer({
   onSetToolApprovalMode: (mode: ToolApprovalMode) => void;
   onSetAskWorkflow: (enabled: boolean) => void;
   onSetStepThinking: (enabled: boolean) => void;
-  onSetEnhancedMode: (enabled: boolean) => void;
+  onSetPromptMode: (mode: PromptMode) => void;
   onTogglePause?: () => void;
   onToggleYoloApprovalMode: () => void;
   onSetGoal: (goal: string) => void;
@@ -423,6 +439,8 @@ export function Composer({
   const [intentMenuClosing, setIntentMenuClosing] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [moreMenuClosing, setMoreMenuClosing] = useState(false);
+  const [promptModeMenuOpen, setPromptModeMenuOpen] = useState(false);
+  const [promptModeMenuClosing, setPromptModeMenuClosing] = useState(false);
   const [showPastChats, setShowPastChats] = useState(false);
   const [pastChats, setPastChats] = useState<SessionMeta[]>([]);
   const [pastChatQuery, setPastChatQuery] = useState("");
@@ -434,10 +452,12 @@ export function Composer({
   const composerCardRef = useRef<HTMLDivElement>(null);
   const intentMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const moreMenuAnchorRef = useRef<HTMLButtonElement>(null);
+  const promptModeMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const intentCloseTimerRef = useRef<number | null>(null);
   const moreCloseTimerRef = useRef<number | null>(null);
+  const promptModeCloseTimerRef = useRef<number | null>(null);
   const wasRunning = useRef(running);
   const composingRef = useRef(false);
   const lastCompositionEndAt = useRef(0);
@@ -833,6 +853,32 @@ export function Composer({
   }, [clearMoreCloseTimer]);
 
   useEffect(() => () => clearMoreCloseTimer(), [clearMoreCloseTimer]);
+
+  const clearPromptModeCloseTimer = useCallback(() => {
+    if (promptModeCloseTimerRef.current === null) return;
+    window.clearTimeout(promptModeCloseTimerRef.current);
+    promptModeCloseTimerRef.current = null;
+  }, []);
+
+  const openPromptModeMenu = useCallback(() => {
+    clearPromptModeCloseTimer();
+    setPromptModeMenuClosing(false);
+    setPromptModeMenuOpen(true);
+  }, [clearPromptModeCloseTimer]);
+
+  const closePromptModeMenu = useCallback((afterClose?: () => void) => {
+    clearPromptModeCloseTimer();
+    setPromptModeMenuClosing(true);
+    window.requestAnimationFrame(() => setPromptModeMenuOpen(false));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    promptModeCloseTimerRef.current = window.setTimeout(() => {
+      promptModeCloseTimerRef.current = null;
+      setPromptModeMenuClosing(false);
+      afterClose?.();
+    }, reduceMotion ? 0 : ANCHORED_POPOVER_CLOSE_MS);
+  }, [clearPromptModeCloseTimer]);
+
+  useEffect(() => () => clearPromptModeCloseTimer(), [clearPromptModeCloseTimer]);
 
   const fileDedupKey = async (file: File): Promise<AttachmentDedupKey> => ({
     hash: await sha256(file),
@@ -1537,6 +1583,14 @@ export function Composer({
   const effortLevels = asArray(effort?.levels);
   const currentEffort = effort?.current || "auto";
   const hasEffort = Boolean(effort?.supported && effortLevels.length > 0);
+  const promptModeLabel = t(promptModeLabelKey(promptMode));
+  const promptModeHelp = t(promptModeHelpKey(promptMode));
+  const choosePromptMode = (mode: PromptMode) => {
+    closePromptModeMenu(() => {
+      if (mode !== promptMode) onSetPromptMode(mode);
+      requestAnimationFrame(() => taRef.current?.focus());
+    });
+  };
   const chooseEffortLevel = (level: string) => {
     closeMoreMenu(() => {
       if (level !== currentEffort) onSetEffort(level);
@@ -1732,6 +1786,39 @@ export function Composer({
             </div>
           </div>
         )}
+      </AnchoredPopover>
+      <AnchoredPopover
+        open={promptModeMenuOpen && !disabled}
+        closing={promptModeMenuClosing}
+        anchorRef={promptModeMenuAnchorRef}
+        onClose={() => closePromptModeMenu()}
+        className="composer-access-menu composer-prompt-mode-menu"
+        align="end"
+      >
+        <div className="composer-access-menu__section">
+          <div className="composer-access-menu__label">{t("composer.promptMode.title")}</div>
+          <div className="composer-prompt-mode-menu__items" role="listbox" aria-label={t("composer.promptMode.title")}>
+            {PROMPT_MODE_OPTIONS.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="option"
+                aria-selected={mode === promptMode}
+                className={`composer-prompt-mode-menu__item${mode === promptMode ? " composer-prompt-mode-menu__item--active" : ""}`}
+                onClick={() => choosePromptMode(mode)}
+                disabled={disabled}
+                title={t(promptModeHelpKey(mode))}
+              >
+                <Sparkles size={14} />
+                <span className="composer-prompt-mode-menu__copy">
+                  <span>{t(promptModeLabelKey(mode))}</span>
+                  <small>{t(promptModeHelpKey(mode))}</small>
+                </span>
+                {mode === promptMode && <Check size={13} />}
+              </button>
+            ))}
+          </div>
+        </div>
       </AnchoredPopover>
       {menuMode === "slash" && (
         <SlashMenu items={slashMatches} activeIndex={active} onPick={pickCommand} onHover={setActive} />
@@ -2185,22 +2272,25 @@ export function Composer({
         <div className="composer-card__actions">
           <div className="composer-enhanced">
             <button
+              ref={promptModeMenuAnchorRef}
               type="button"
-              className={`composer-enhanced__button${enhancedModeEnabled ? " composer-enhanced__button--on" : ""}${enhancedModeSwitching ? " composer-enhanced__button--switching" : ""}`}
-              onClick={() => onSetEnhancedMode(!enhancedModeEnabled)}
-              disabled={disabled || enhancedModeSwitching}
-              aria-pressed={enhancedModeEnabled}
-              aria-busy={enhancedModeSwitching}
-              aria-label={t("composer.enhancedMode")}
+              className={`composer-enhanced__button composer-enhanced__button--${promptMode}${promptModeMenuOpen || promptModeMenuClosing ? " composer-enhanced__button--open" : ""}${promptModeSwitching ? " composer-enhanced__button--switching" : ""}`}
+              onClick={() => (promptModeMenuOpen || promptModeMenuClosing ? closePromptModeMenu() : openPromptModeMenu())}
+              disabled={disabled}
+              aria-haspopup="listbox"
+              aria-expanded={promptModeMenuOpen && !promptModeMenuClosing}
+              aria-busy={promptModeSwitching}
+              aria-label={t("composer.promptMode.title")}
             >
               <Sparkles size={14} />
-              <span>{t("composer.enhancedMode")}</span>
+              <span>{promptModeLabel}</span>
+              <ChevronDown size={13} />
             </button>
-            <Tooltip label={t("composer.enhancedModeHelp")}>
+            <Tooltip label={promptModeHelp}>
               <button
                 type="button"
                 className="composer-enhanced__help"
-                aria-label={t("composer.enhancedModeHelp")}
+                aria-label={promptModeHelp}
               >
                 <CircleHelp size={14} />
               </button>

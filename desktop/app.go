@@ -413,7 +413,8 @@ func (a *App) restoreOrBuildTabs() {
 			}
 			tab.askWorkflow = entry.AskWorkflow
 			tab.stepThinking = entry.StepThinking
-			tab.enhancedMode = entry.EnhancedMode
+			tab.promptMode = normalizePromptMode(entry.PromptMode, entry.EnhancedMode)
+			tab.enhancedMode = tab.promptMode == promptModeEnhanced
 			tab.SessionPath = strings.TrimSpace(entry.SessionPath)
 			tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
 			a.mu.Lock()
@@ -497,7 +498,8 @@ func (a *App) applyRecentPrefsToNewTabLocked(tab *WorkspaceTab) {
 	if approval := persistedToolApprovalMode(prefs.ToolApprovalMode); approval != "" {
 		tab.toolApprovalMode = approval
 	}
-	tab.enhancedMode = prefs.EnhancedMode
+	tab.promptMode = normalizePromptMode(prefs.PromptMode, prefs.EnhancedMode)
+	tab.enhancedMode = tab.promptMode == promptModeEnhanced
 	tab.mode = "normal"
 	tab.goal = ""
 	tab.askWorkflow = false
@@ -512,7 +514,8 @@ func (a *App) rememberConversationPrefsLocked(tab *WorkspaceTab) {
 		Model:            strings.TrimSpace(tab.model),
 		Effort:           cloneStringPtr(tab.effort),
 		ToolApprovalMode: persistedToolApprovalMode(currentTabToolApprovalMode(tab)),
-		EnhancedMode:     tab.enhancedMode,
+		PromptMode:       currentTabPromptMode(tab),
+		EnhancedMode:     tabPromptModeIsEnhanced(tab),
 	}
 }
 
@@ -2064,6 +2067,7 @@ type Meta struct {
 	ToolApprovalMode string `json:"toolApprovalMode"`
 	AskWorkflow      bool   `json:"askWorkflowEnabled"`
 	StepThinking     bool   `json:"stepThinkingEnabled"`
+	PromptMode       string `json:"promptMode"`
 	EnhancedMode     bool   `json:"enhancedModeEnabled"`
 	Paused           bool   `json:"paused"`
 	Goal             string `json:"goal,omitempty"`
@@ -2101,7 +2105,8 @@ func (a *App) MetaForTab(tabID string) Meta {
 		ToolApprovalMode: toolApprovalMode,
 		AskWorkflow:      tab.askWorkflow,
 		StepThinking:     tab.stepThinking,
-		EnhancedMode:     tab.enhancedMode,
+		PromptMode:       currentTabPromptMode(tab),
+		EnhancedMode:     tabPromptModeIsEnhanced(tab),
 		Paused:           tab.Ctrl != nil && tab.Ctrl.Paused(),
 		Goal:             goal,
 		GoalStatus:       goalStatus,
@@ -2246,16 +2251,25 @@ func (a *App) SetStepThinkingForTab(tabID string, enabled bool) error {
 }
 
 func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
+	if enabled {
+		return a.SetPromptModeForTab(tabID, promptModeEnhanced)
+	}
+	return a.SetPromptModeForTab(tabID, promptModeNormal)
+}
+
+func (a *App) SetPromptModeForTab(tabID string, mode string) error {
+	mode = normalizePromptMode(mode, false)
 	tab := a.tabByID(tabID)
 	if tab == nil {
 		return nil
 	}
-	if tab.enhancedMode == enabled {
+	if currentTabPromptMode(tab) == mode {
 		return nil
 	}
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
 		a.mu.Lock()
-		tab.enhancedMode = enabled
+		tab.promptMode = mode
+		tab.enhancedMode = mode == promptModeEnhanced
 		a.rememberConversationPrefsLocked(tab)
 		a.saveTabsLocked()
 		a.mu.Unlock()
@@ -2276,7 +2290,8 @@ func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
 		WorkspaceRoot:  tab.WorkspaceRoot,
 		SessionDir:     tabSessionDir(tab),
 		EffortOverride: cloneStringPtr(tab.effort),
-		EnhancedMode:   enabled,
+		PromptMode:     mode,
+		EnhancedMode:   mode == promptModeEnhanced,
 	})
 	if err != nil {
 		return err
@@ -2284,7 +2299,8 @@ func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
 	a.bindControllerDisplayRecorder(newCtrl)
 	a.mu.Lock()
 	tab.Ctrl = newCtrl
-	tab.enhancedMode = enabled
+	tab.promptMode = mode
+	tab.enhancedMode = mode == promptModeEnhanced
 	tab.Label = newCtrl.Label()
 	tab.StartupErr = ""
 	tab.Ready = true
@@ -3581,7 +3597,8 @@ func (a *App) SetModelForTab(tabID, name string) error {
 		WorkspaceRoot:  tab.WorkspaceRoot,
 		SessionDir:     tabSessionDir(tab),
 		EffortOverride: cloneStringPtr(effortOverride),
-		EnhancedMode:   tab.enhancedMode,
+		PromptMode:     currentTabPromptMode(tab),
+		EnhancedMode:   tabPromptModeIsEnhanced(tab),
 	})
 	if err != nil {
 		return err
@@ -3679,7 +3696,8 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 		WorkspaceRoot:  tab.WorkspaceRoot,
 		SessionDir:     tabSessionDir(tab),
 		EffortOverride: &effort,
-		EnhancedMode:   tab.enhancedMode,
+		PromptMode:     currentTabPromptMode(tab),
+		EnhancedMode:   tabPromptModeIsEnhanced(tab),
 	})
 	if err != nil {
 		return err
@@ -4422,6 +4440,7 @@ type MemoryFact struct {
 	Description string `json:"description"`
 	Type        string `json:"type"`
 	Body        string `json:"body"`
+	Profile     string `json:"profile"`
 }
 
 // MemoryScope is one writable quick-add target (scope id + the file it writes to).
@@ -4465,9 +4484,10 @@ func (a *App) Memory() MemoryView {
 	for _, d := range set.Docs {
 		view.Docs = append(view.Docs, MemoryDoc{Path: d.Path, Scope: string(d.Scope), Body: d.Body})
 	}
-	for _, f := range set.Store.List() {
+	for _, pf := range set.ListProfiled() {
+		f := pf.Memory
 		view.Facts = append(view.Facts, MemoryFact{
-			Name: f.Name, Title: f.Title, Description: f.Description, Type: string(f.Type), Body: f.Body,
+			Name: f.Name, Title: f.Title, Description: f.Description, Type: string(f.Type), Body: f.Body, Profile: pf.Profile,
 		})
 	}
 	for _, sc := range writableScopes {

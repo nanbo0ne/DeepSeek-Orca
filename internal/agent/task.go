@@ -125,7 +125,7 @@ func (t *TaskTool) WithTranscriptIdentityResolver(resolve func(modelRef, effort 
 func (t *TaskTool) Name() string { return "task" }
 
 func (t *TaskTool) Description() string {
-	return "Spawn a sub-agent for a focused sub-task. The sub-agent runs in its own session with the same provider and a filtered tool list (defaults to every parent tool except subagent/skill meta-tools, so delegation stays one layer deep). Only its final answer is returned. Use this to (a) keep long exploration sequences out of the parent's context budget, or (b) delegate self-contained work like 'find every place that calls X and summarise the patterns'."
+	return "Spawn a sub-agent for a focused sub-task. The sub-agent runs in its own session with the same provider and a filtered tool list (defaults to every parent tool except subagent/skill meta-tools, so delegation stays one layer deep). Only its final answer is returned. Use this to (a) keep long exploration sequences out of the parent's context budget, or (b) delegate self-contained work like 'find every place that calls X and summarise the patterns'. If the current user-facing answer depends on the sub-agent's research, run it in the foreground or call wait before giving the final answer; do not start a background task and then treat the turn as complete."
 }
 
 func (t *TaskTool) Schema() json.RawMessage {
@@ -136,7 +136,7 @@ func (t *TaskTool) Schema() json.RawMessage {
   "description":{"type":"string","description":"Short label for the sub-task (3-7 words). Surfaced in the dispatch line so the user sees what's running."},
   "tools":{"type":"array","items":{"type":"string"},"description":"Optional tool whitelist. Subagent/skill meta-tools are still excluded so delegation stays one layer deep."},
   "max_steps":{"type":"integer","description":"Optional cap on tool-call rounds. Defaults to half the parent's cap (min 5).","minimum":1},
-  "run_in_background":{"type":"boolean","description":"Run the sub-agent asynchronously: returns a job id immediately and keeps working across turns. Collect its final answer with wait, and you'll be notified when it finishes. Use for long, independent sub-tasks you don't need to block on right now."},
+  "run_in_background":{"type":"boolean","description":"Run the sub-agent asynchronously: returns a job id immediately and keeps working across turns. Use only when the user explicitly wants background work or when the sub-task is independent of the current answer. If the current answer needs this research, do not final-answer after starting it; call wait first to collect the result. You'll be notified when it finishes."},
   "model":{"type":"string","description":"Optional model override for the sub-agent (a configured provider/model name)."},
   "effort":{"type":"string","description":"Optional reasoning effort for the sub-agent (e.g. high, max)."},
   "continue_from":{"type":"string","description":"Optional subagent transcript reference to continue in place. The current kind, prompt persona, tools, model, effort, and workspace must match the saved transcript."},
@@ -261,9 +261,9 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 			return FormatSubagentResult(answer, run.Ref, false), nil
 		})
 		if run != nil && run.Ref != "" {
-			return fmt.Sprintf("Started background task %q (%s).\nSubagent reference: %s\nIt runs across turns; collect its final answer with wait (or wait will return it once done), and you'll be notified when it finishes.", job.ID, label, run.Ref), nil
+			return fmt.Sprintf("Started background task %q (%s).\nSubagent reference: %s\nIt runs across turns; collect its final answer with wait (or wait will return it once done), and you'll be notified when it finishes. If this task is needed for the current user request, call wait before giving the final answer.", job.ID, label, run.Ref), nil
 		}
-		return fmt.Sprintf("Started background task %q (%s). It runs across turns; collect its final answer with wait (or wait will return it once done), and you'll be notified when it finishes.", job.ID, label), nil
+		return fmt.Sprintf("Started background task %q (%s). It runs across turns; collect its final answer with wait (or wait will return it once done), and you'll be notified when it finishes. If this task is needed for the current user request, call wait before giving the final answer.", job.ID, label), nil
 	}
 
 	// Foreground: run synchronously, nesting events under this call.

@@ -1,4 +1,4 @@
-﻿# DeepSeek-Orca V2.0.19
+﻿# DeepSeek-Orca V2.0.20
 
 DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编程 Agent。它保留核心 Agent 循环、工具调用、MCP、Skill、记忆、权限控制、会话恢复、检查点、上下文压缩和回滚能力，并围绕 DeepSeek / OpenAI-compatible provider 做了桌面端体验增强。
 
@@ -6,7 +6,21 @@ DeepSeek-Orca 是基于 Reasonix fork 改造的 Windows 桌面端与 CLI AI 编�
 
 Windows 安装包：
 
-[DeepSeek-Orca-Setup-2.0.19-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.19/DeepSeek-Orca-Setup-2.0.19-windows-amd64.exe)
+[DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.20/DeepSeek-Orca-Setup-2.0.20-windows-amd64.exe)
+
+## V2.0.20 新功能
+
+### 三模式提示词与记忆分区
+
+V2.0.20 将右下角模式体系升级为 `助手模式 / 普通模式 / 增强模式` 三套 prompt profile：
+
+- 助手模式以 `Orca` 身份运行，面向通用问答和轻量协作。
+- 普通模式以 `DeepSeek-Orca` 身份运行，面向日常工程协作。
+- 增强模式以 `DeepSeek-Orca` 身份运行，面向更强的 agentic coding、计划执行和复杂上下文任务。
+
+三套提示词参考用户提供的 Claude / GPT / Claude Code 风格文档改写，保留英文 AI 可见提示结构，并将品牌名、工具名、联网搜索和桌面端行为适配为 DeepSeek-Orca 的真实能力。
+
+记忆系统新增分区：助手模式只读取和写入助手记忆；普通模式和增强模式会读取所有记忆，但写入普通/增强共享记忆。记忆管理面板也增加了 `全部分区 / 助手模式 / 普通/增强` 筛选，方便查看和清理不同模式的记忆。
 
 ## V2.0.19 修复
 
@@ -167,4 +181,3 @@ go test ./...
 桌面端 Windows 安装包使用仓库脚本构建。
 
 License: MIT.
-

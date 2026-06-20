@@ -65,6 +65,16 @@ func StoreFor(userDir, cwd string) Store {
 	return Store{Dir: filepath.Join(userDir, "projects", slugify(absOf(cwd)), "memory")}
 }
 
+// AssistantStoreFor resolves the separate assistant-mode memory directory. It is
+// intentionally parallel to StoreFor so normal/enhanced sessions can read both
+// profiles while assistant sessions only read/write this one.
+func AssistantStoreFor(userDir, cwd string) Store {
+	if userDir == "" {
+		return Store{}
+	}
+	return Store{Dir: filepath.Join(userDir, "projects", slugify(absOf(cwd)), "assistant-memory")}
+}
+
 // indexFile is the human-readable index of saved memories.
 const indexFile = "MEMORY.md"
 
@@ -92,6 +102,15 @@ func (s Store) Index() string {
 // Path returns the absolute file path a memory with the given name lives at.
 func (s Store) Path(name string) string {
 	return filepath.Join(s.Dir, slug(name)+".md")
+}
+
+// Exists reports whether a memory file exists in this store.
+func (s Store) Exists(name string) bool {
+	if s.Dir == "" {
+		return false
+	}
+	_, err := os.Stat(s.Path(name))
+	return err == nil
 }
 
 // Save writes (or overwrites) a memory file and refreshes its MEMORY.md index

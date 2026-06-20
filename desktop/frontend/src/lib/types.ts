@@ -138,6 +138,7 @@ export interface TabMeta {
   toolApprovalMode?: ToolApprovalMode;
   askWorkflowEnabled?: boolean;
   stepThinkingEnabled?: boolean;
+  promptMode?: PromptMode;
   enhancedModeEnabled?: boolean;
   paused?: boolean;
   goal?: string;
@@ -328,6 +329,7 @@ export interface Meta {
   toolApprovalMode?: ToolApprovalMode;
   askWorkflowEnabled?: boolean;
   stepThinkingEnabled?: boolean;
+  promptMode?: PromptMode;
   enhancedModeEnabled?: boolean;
   paused?: boolean;
   goal?: string;
@@ -336,6 +338,7 @@ export interface Meta {
 
 export type CollaborationMode = "normal" | "plan" | "goal";
 export type ToolApprovalMode = "ask" | "auto" | "yolo";
+export type PromptMode = "assistant" | "normal" | "enhanced";
 export type GoalStatus = "running" | "complete" | "blocked" | "stopped";
 
 export function normalizeCollaborationMode(mode?: string, goal?: string, legacyMode?: Mode): CollaborationMode {
@@ -582,6 +585,7 @@ export interface MemoryFact {
   description: string;
   type: string; // "user" | "feedback" | "project" | "reference"
   body: string;
+  profile?: string; // "assistant" | "shared-agent"
 }
 
 export interface MemoryScope {
