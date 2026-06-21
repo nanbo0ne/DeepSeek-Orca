@@ -3,6 +3,9 @@
 ## V2.0.23 - 2026-06-21
 
 - Added Assistant mode proactive profile memory.
+- Assistant memory generation now uses the same model selected for the source conversation, falling back to the default model only for legacy pending items.
+- Assistant memory update failures now use bounded retry state and become ignored after 5 failed attempts unless new conversation messages arrive.
+- Added Bot prompt mode selection under the Bot model setting, with Assistant, Normal, and Enhanced modes wired through the desktop and CLI bot gateway.
 - Assistant mode now silently marks conversations for memory updates when switching, opening, creating, or closing conversations.
 - Assistant memory generation runs as a separate lightweight provider call and does not write into the main transcript, title generation, compression, or token accounting.
 - Failed assistant memory generation is recorded as pending/failed state and retried later without blocking the main conversation or app shutdown.

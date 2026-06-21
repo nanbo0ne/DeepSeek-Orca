@@ -796,6 +796,8 @@ export const zh: Record<DictKey, string> = {
   "settings.botModel": "机器人模型",
   "settings.botModelHint": "留空时使用默认模型。",
   "settings.botModelDefault": "使用默认模型",
+  "settings.botPromptMode": "机器人模式",
+  "settings.botPromptModeHint": "控制机器人对话使用助手、普通或增强提示词。",
   "settings.botRuntime": "运行限制",
   "settings.botMaxSteps": "最大步数",
   "settings.botDebounceMs": "合并窗口 ms",

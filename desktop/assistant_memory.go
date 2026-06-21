@@ -33,8 +33,13 @@ type assistantMemoryPendingItem struct {
 	SessionPath           string `json:"sessionPath"`
 	TopicID               string `json:"topicID"`
 	WorkspaceRoot         string `json:"workspaceRoot"`
+	Model                 string `json:"model,omitempty"`
 	LastProcessedMessages int    `json:"lastProcessedMessages"`
+	LastQueuedMessages    int    `json:"lastQueuedMessages,omitempty"`
 	MarkedAt              int64  `json:"markedAt"`
+	LastAttemptAt         int64  `json:"lastAttemptAt,omitempty"`
+	LastErrorAt           int64  `json:"lastErrorAt,omitempty"`
+	RetryCount            int    `json:"retryCount,omitempty"`
 	Status                string `json:"status"`
 	Error                 string `json:"error,omitempty"`
 }
@@ -44,6 +49,7 @@ type assistantMemoryCandidate struct {
 	TopicID       string
 	WorkspaceRoot string
 	PromptMode    string
+	Model         string
 }
 
 type assistantMemoryUpdate struct {
@@ -166,6 +172,7 @@ func (a *App) assistantMemoryCandidateForTabLocked(tab *WorkspaceTab) assistantM
 		TopicID:       strings.TrimSpace(tab.TopicID),
 		WorkspaceRoot: strings.TrimSpace(tab.WorkspaceRoot),
 		PromptMode:    currentTabPromptMode(tab),
+		Model:         strings.TrimSpace(tab.model),
 	}
 }
 
@@ -177,6 +184,7 @@ func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate,
 	if err != nil || !cfg.DesktopAssistantAutoMemoryEnabled() {
 		return
 	}
+	_, totalMessages, _ := assistantMemoryMessagesSince(c.SessionPath, 0)
 	a.assistantMemoryMu.Lock()
 	f := loadAssistantMemoryPendingFile()
 	key := canonicalTabSessionPath(c.SessionPath)
@@ -184,11 +192,26 @@ func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate,
 	if item.LastProcessedMessages < 0 {
 		item.LastProcessedMessages = 0
 	}
+	if (item.Status == "failed" || item.Status == "ignored") && totalMessages <= item.LastQueuedMessages {
+		status := item.Status
+		f.Items[key] = item
+		_ = saveAssistantMemoryPendingFile(f)
+		a.assistantMemoryMu.Unlock()
+		if runNow && status == "failed" {
+			go a.processPendingAssistantMemories()
+		}
+		return
+	}
 	item.SessionPath = key
 	item.TopicID = c.TopicID
 	item.WorkspaceRoot = c.WorkspaceRoot
+	item.Model = strings.TrimSpace(c.Model)
+	item.LastQueuedMessages = totalMessages
 	item.MarkedAt = time.Now().UnixMilli()
 	item.Status = "pending"
+	item.LastAttemptAt = 0
+	item.LastErrorAt = 0
+	item.RetryCount = 0
 	item.Error = ""
 	f.Items[key] = item
 	_ = saveAssistantMemoryPendingFile(f)
@@ -220,11 +243,16 @@ func (a *App) claimNextAssistantMemoryPending() (string, assistantMemoryPendingI
 	a.assistantMemoryMu.Lock()
 	defer a.assistantMemoryMu.Unlock()
 	f := loadAssistantMemoryPendingFile()
+	now := time.Now()
 	for key, item := range f.Items {
 		if item.Status != "pending" && item.Status != "failed" {
 			continue
 		}
+		if item.Status == "failed" && !assistantMemoryShouldRetry(item, now) {
+			continue
+		}
 		item.Status = "running"
+		item.LastAttemptAt = now.UnixMilli()
 		item.Error = ""
 		f.Items[key] = item
 		_ = saveAssistantMemoryPendingFile(f)
@@ -251,12 +279,48 @@ func (a *App) finishAssistantMemoryPending(key string, item assistantMemoryPendi
 	if err != nil {
 		item.Status = "failed"
 		item.Error = err.Error()
+		item.RetryCount++
+		item.LastErrorAt = time.Now().UnixMilli()
+		if item.RetryCount >= assistantMemoryMaxRetries {
+			item.Status = "ignored"
+		}
 	} else {
 		item.Status = "done"
 		item.Error = ""
+		item.RetryCount = 0
+		item.LastErrorAt = 0
 	}
 	f.Items[key] = item
 	_ = saveAssistantMemoryPendingFile(f)
+}
+
+const assistantMemoryMaxRetries = 5
+
+func assistantMemoryRetryDelay(retryCount int) time.Duration {
+	if retryCount <= 0 {
+		return 0
+	}
+	delays := []time.Duration{
+		10 * time.Minute,
+		time.Hour,
+		6 * time.Hour,
+		24 * time.Hour,
+		24 * time.Hour,
+	}
+	if retryCount > len(delays) {
+		return delays[len(delays)-1]
+	}
+	return delays[retryCount-1]
+}
+
+func assistantMemoryShouldRetry(item assistantMemoryPendingItem, now time.Time) bool {
+	if item.RetryCount >= assistantMemoryMaxRetries {
+		return false
+	}
+	if item.LastErrorAt <= 0 {
+		return true
+	}
+	return now.UnixMilli()-item.LastErrorAt >= assistantMemoryRetryDelay(item.RetryCount).Milliseconds()
 }
 
 func (a *App) processAssistantMemoryItem(item *assistantMemoryPendingItem) error {
@@ -368,7 +432,7 @@ func assistantMemoryRealMessage(m provider.Message) bool {
 }
 
 func (a *App) generateAssistantMemoryUpdates(item assistantMemoryPendingItem, msgs []provider.Message) ([]assistantMemoryUpdate, error) {
-	entry, err := a.providerEntryForWorkspace(item.WorkspaceRoot)
+	entry, err := a.providerEntryForWorkspace(item.WorkspaceRoot, item.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -407,12 +471,15 @@ func (a *App) generateAssistantMemoryUpdates(item assistantMemoryPendingItem, ms
 	return parseAssistantMemoryUpdates(b.String())
 }
 
-func (a *App) providerEntryForWorkspace(workspaceRoot string) (*config.ProviderEntry, error) {
+func (a *App) providerEntryForWorkspace(workspaceRoot string, modelRef string) (*config.ProviderEntry, error) {
 	cfg, err := config.LoadForRoot(workspaceRoot)
 	if err != nil {
 		return nil, err
 	}
-	ref := cfg.DefaultModel
+	ref := strings.TrimSpace(modelRef)
+	if ref == "" {
+		ref = cfg.DefaultModel
+	}
 	resolved, _, ok := cfg.ResolveModelWithFallback(ref)
 	if !ok {
 		return nil, fmt.Errorf("unknown model %q", ref)

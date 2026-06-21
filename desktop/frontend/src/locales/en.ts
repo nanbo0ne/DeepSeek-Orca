@@ -794,6 +794,8 @@ export const en = {
   "settings.botModel": "Bot model",
   "settings.botModelHint": "Leave empty to use the default model.",
   "settings.botModelDefault": "Use default model",
+  "settings.botPromptMode": "Bot mode",
+  "settings.botPromptModeHint": "Choose whether bot conversations use Assistant, Normal, or Enhanced prompts.",
   "settings.botRuntime": "Runtime limits",
   "settings.botMaxSteps": "Max steps",
   "settings.botDebounceMs": "Debounce ms",

@@ -156,6 +156,28 @@ func TestSetAgentParamsPersistsStepLimitsToUserConfig(t *testing.T) {
 	}
 }
 
+func TestSetBotSettingsPersistsPromptMode(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	app := NewApp()
+	view := app.Settings()
+	bot := view.Bot
+	bot.Model = "deepseek/deepseek-v4-flash"
+	bot.PromptMode = promptModeEnhanced
+	if err := app.SetBotSettings(bot); err != nil {
+		t.Fatalf("SetBotSettings: %v", err)
+	}
+
+	got := app.Settings().Bot
+	if got.PromptMode != promptModeEnhanced {
+		t.Fatalf("Settings().Bot.PromptMode = %q, want %q", got.PromptMode, promptModeEnhanced)
+	}
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	if cfg.Bot.PromptMode != promptModeEnhanced {
+		t.Fatalf("saved bot.prompt_mode = %q, want %q", cfg.Bot.PromptMode, promptModeEnhanced)
+	}
+}
+
 func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 

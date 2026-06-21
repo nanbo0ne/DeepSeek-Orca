@@ -573,6 +573,7 @@ func (a *App) shutdown(context.Context) {
 				TopicID:       strings.TrimSpace(t.TopicID),
 				WorkspaceRoot: strings.TrimSpace(t.WorkspaceRoot),
 				PromptMode:    promptModeAssistant,
+				Model:         strings.TrimSpace(t.model),
 			}, false)
 		}
 		if t.Ctrl != nil {

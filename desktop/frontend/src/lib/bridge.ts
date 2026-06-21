@@ -678,6 +678,7 @@ function makeMockApp(): AppBindings {
     bot: {
       enabled: false,
       model: "",
+      promptMode: "normal",
       workspaceRoot: "~/.config/deepseek-orca/bot-workspace",
       maxSteps: 25,
       debounceMs: 1500,

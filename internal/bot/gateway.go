@@ -20,6 +20,7 @@ import (
 // GatewayConfig configures the multi-channel IM bot gateway.
 type GatewayConfig struct {
 	Model         string
+	PromptMode    string
 	MaxSteps      int
 	WorkspaceRoot string
 	Allowlist     AllowlistConfig
@@ -128,6 +129,7 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 		cfg.BuildSession = func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
 			return boot.Build(ctx, boot.Options{
 				Model:         cfg.Model,
+				PromptMode:    cfg.PromptMode,
 				MaxSteps:      cfg.MaxSteps,
 				RequireKey:    true,
 				Sink:          sink,

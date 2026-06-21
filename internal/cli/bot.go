@@ -137,6 +137,7 @@ func botStart(args []string, version string) int {
 	// Build gateway config.
 	gwCfg := bot.GatewayConfig{
 		Model:         modelName,
+		PromptMode:    cfg.Bot.PromptMode,
 		MaxSteps:      cfg.Bot.MaxSteps,
 		WorkspaceRoot: workspaceRoot,
 		Enabled:       enabledPlatforms,

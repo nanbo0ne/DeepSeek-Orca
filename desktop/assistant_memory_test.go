@@ -76,3 +76,48 @@ func TestFinishAssistantMemoryPendingPreservesNewerPendingAndAdvancesCursor(t *t
 		t.Fatalf("cursor should advance to avoid duplicate processing, got %+v", got)
 	}
 }
+
+func TestAssistantMemoryFailedRetryBackoffAndLimit(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	key := "session.jsonl"
+	now := time.Now()
+	item := assistantMemoryPendingItem{
+		SessionPath:   key,
+		Status:        "failed",
+		RetryCount:    1,
+		LastErrorAt:   now.UnixMilli(),
+		LastAttemptAt: now.Add(-time.Minute).UnixMilli(),
+	}
+	if err := saveAssistantMemoryPendingFile(assistantMemoryPendingFile{Items: map[string]assistantMemoryPendingItem{key: item}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := app.claimNextAssistantMemoryPending(); ok {
+		t.Fatal("failed item should not be claimed before retry delay")
+	}
+	item.LastErrorAt = now.Add(-11 * time.Minute).UnixMilli()
+	if err := saveAssistantMemoryPendingFile(assistantMemoryPendingFile{Items: map[string]assistantMemoryPendingItem{key: item}}); err != nil {
+		t.Fatal(err)
+	}
+	_, claimed, ok := app.claimNextAssistantMemoryPending()
+	if !ok || claimed.Status != "running" {
+		t.Fatalf("failed item should be claimed after retry delay, got ok=%v item=%+v", ok, claimed)
+	}
+	app.finishAssistantMemoryPending(key, claimed, assertErr("still broken"))
+	got := loadAssistantMemoryPendingFile().Items[key]
+	if got.Status != "failed" || got.RetryCount != 2 || got.LastErrorAt == 0 {
+		t.Fatalf("failed retry state = %+v, want failed retryCount=2 with lastErrorAt", got)
+	}
+
+	got.RetryCount = assistantMemoryMaxRetries - 1
+	got.Status = "running"
+	app.finishAssistantMemoryPending(key, got, assertErr("final failure"))
+	final := loadAssistantMemoryPendingFile().Items[key]
+	if final.Status != "ignored" || final.RetryCount != assistantMemoryMaxRetries {
+		t.Fatalf("final retry state = %+v, want ignored after max retries", final)
+	}
+}
+
+type assertErr string
+
+func (e assertErr) Error() string { return string(e) }

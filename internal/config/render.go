@@ -373,6 +373,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		} else {
 			b.WriteString("# model = \"\"   # empty = default_model\n")
 		}
+		if strings.TrimSpace(c.Bot.PromptMode) != "" {
+			fmt.Fprintf(&b, "prompt_mode = %q   # assistant|normal|enhanced\n", c.Bot.PromptMode)
+		} else {
+			b.WriteString("# prompt_mode = \"normal\"   # assistant|normal|enhanced\n")
+		}
 		if c.Bot.WorkspaceRoot != "" {
 			fmt.Fprintf(&b, "workspace_root = %q\n", c.Bot.WorkspaceRoot)
 		} else {

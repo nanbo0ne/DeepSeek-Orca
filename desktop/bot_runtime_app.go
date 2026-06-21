@@ -81,6 +81,7 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	gw := bot.NewGateway(bot.GatewayConfig{
 		Model:         modelName,
+		PromptMode:    normalizePromptMode(cfg.Bot.PromptMode, false),
 		MaxSteps:      cfg.Bot.MaxSteps,
 		WorkspaceRoot: workspaceRoot,
 		Enabled:       enabled,

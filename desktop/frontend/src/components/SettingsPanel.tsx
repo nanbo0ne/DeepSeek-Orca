@@ -7,7 +7,7 @@ import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from ".
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
-import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProviderView, SettingsTab, SettingsView } from "../lib/types";
+import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
@@ -368,6 +368,7 @@ const REASONING_PROTOCOLS: readonly string[] = ["", "deepseek", "openai", "none"
 const PROXY_TYPES = ["http", "https", "socks5", "socks5h"] as const;
 const LANGUAGE_PREFS: LangPref[] = ["", "zh", "en"];
 const AUTO_PLAN_MODES = ["off", "on"] as const;
+const PROMPT_MODES: PromptMode[] = ["assistant", "normal", "enhanced"];
 
 type ProxyMode = (typeof PROXY_MODES)[number];
 type AutoPlanMode = (typeof AUTO_PLAN_MODES)[number];
@@ -391,6 +392,11 @@ function normalizeAutoPlan(mode: string | undefined): AutoPlanMode {
   return mode === "ask" || mode === "on" ? "on" : "off";
 }
 
+function normalizePromptModeValue(mode: string | undefined): PromptMode {
+  if (mode === "assistant" || mode === "enhanced") return mode;
+  return "normal";
+}
+
 function normalizeReasoningProtocol(protocol: string | undefined): string {
   return REASONING_PROTOCOLS.includes(protocol ?? "") ? protocol ?? "" : "";
 }
@@ -399,6 +405,7 @@ function defaultBotSettings(): BotSettingsView {
   return {
     enabled: true,
     model: "",
+    promptMode: "normal",
     workspaceRoot: "",
     maxSteps: 0,
     debounceMs: 1500,
@@ -442,6 +449,7 @@ function normalizeBotSettings(bot: BotSettingsView | null | undefined): BotSetti
   return {
     ...fallback,
     ...bot,
+    promptMode: normalizePromptModeValue(bot?.promptMode),
     workspaceRoot: String(bot?.workspaceRoot ?? fallback.workspaceRoot).trim(),
     maxSteps: Math.max(0, Number(bot?.maxSteps ?? fallback.maxSteps) || 0),
     debounceMs: Number(bot?.debounceMs) || fallback.debounceMs,
@@ -1072,6 +1080,20 @@ function BotsSection({ s, busy, apply }: SectionProps) {
                 onPick={(model) => setDraft((prev) => ({ ...prev, model }))}
               />
             </SettingsField>
+            <SettingsField label={t("settings.botPromptMode")} hint={t("settings.botPromptModeHint")}>
+              <select
+                className="mem-select set-grow"
+                value={normalizePromptModeValue(draft.promptMode)}
+                disabled={busy}
+                onChange={(e) => setDraft((prev) => ({ ...prev, promptMode: normalizePromptModeValue(e.target.value) }))}
+              >
+                {PROMPT_MODES.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {t(`composer.promptMode.${mode}` as DictKey)}
+                  </option>
+                ))}
+              </select>
+            </SettingsField>
             <SettingsField label={t("settings.botRuntime")}>
               <div className="settings-inline-controls">
                 <label className="set-label">{t("settings.botMaxSteps")}</label>
@@ -1557,6 +1579,7 @@ function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
     ...bot,
     enabled: true,
     model: bot.model.trim(),
+    promptMode: normalizePromptModeValue(bot.promptMode),
     workspaceRoot: bot.workspaceRoot.trim(),
     maxSteps: Math.max(0, Math.floor(bot.maxSteps || 0)),
     debounceMs: Math.max(0, Math.floor(bot.debounceMs || 0)),

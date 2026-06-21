@@ -265,7 +265,8 @@ func (c CodegraphConfig) ResolvedTier() string {
 // BotConfig controls the multi-channel IM bot gateway.
 type BotConfig struct {
 	Enabled       bool                  `toml:"enabled"`
-	Model         string                `toml:"model"` // empty = default_model
+	Model         string                `toml:"model"`       // empty = default_model
+	PromptMode    string                `toml:"prompt_mode"` // assistant|normal|enhanced; empty = normal
 	WorkspaceRoot string                `toml:"workspace_root"`
 	MaxSteps      int                   `toml:"max_steps"`
 	DebounceMs    int                   `toml:"debounce_ms"`

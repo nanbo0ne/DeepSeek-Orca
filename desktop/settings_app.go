@@ -125,6 +125,7 @@ type WeixinBotView struct {
 type BotSettingsView struct {
 	Enabled       bool                `json:"enabled"`
 	Model         string              `json:"model"`
+	PromptMode    string              `json:"promptMode"`
 	WorkspaceRoot string              `json:"workspaceRoot"`
 	MaxSteps      int                 `json:"maxSteps"`
 	DebounceMs    int                 `json:"debounceMs"`
@@ -400,6 +401,7 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 	return BotSettingsView{
 		Enabled:       true,
 		Model:         b.Model,
+		PromptMode:    normalizePromptMode(b.PromptMode, false),
 		WorkspaceRoot: orDefault(strings.TrimSpace(b.WorkspaceRoot), config.BotWorkspaceDir()),
 		MaxSteps:      b.MaxSteps,
 		DebounceMs:    b.DebounceMs,
@@ -1228,6 +1230,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 	err := a.applyConfigOnly(func(c *config.Config) error {
 		c.Bot.Enabled = true
 		c.Bot.Model = strings.TrimSpace(b.Model)
+		c.Bot.PromptMode = normalizePromptMode(b.PromptMode, false)
 		c.Bot.WorkspaceRoot = strings.TrimSpace(b.WorkspaceRoot)
 		c.Bot.MaxSteps = b.MaxSteps
 		c.Bot.DebounceMs = b.DebounceMs
