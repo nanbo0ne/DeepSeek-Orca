@@ -659,13 +659,18 @@ func (a *App) OpenProjectTab(workspaceRoot, topicID string) (TabMeta, error) {
 	_ = addProject(workspaceRoot, "")
 
 	a.mu.Lock()
+	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
 	// If already open, just activate.
 	for _, tab := range a.tabs {
 		if tab.Scope == "project" && tab.WorkspaceRoot == workspaceRoot && tab.TopicID == topicID {
+			if a.activeTabID == tab.ID {
+				leave = assistantMemoryCandidate{}
+			}
 			a.activeTabID = tab.ID
 			meta := a.tabMeta(tab, true)
 			a.saveTabsLocked()
 			a.mu.Unlock()
+			a.markAssistantMemoryPendingForCandidate(leave, true)
 			return meta, nil
 		}
 	}
@@ -691,6 +696,7 @@ func (a *App) OpenProjectTab(workspaceRoot, topicID string) (TabMeta, error) {
 	a.saveTabsLocked()
 	a.mu.Unlock()
 
+	a.markAssistantMemoryPendingForCandidate(leave, true)
 	a.startTabControllerBuild(tab)
 	a.emitProjectTreeChanged()
 	return a.tabMeta(tab, true), nil
@@ -709,8 +715,12 @@ func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	}
 
 	a.mu.Lock()
+	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
 	for _, tab := range a.tabs {
 		if tab.Scope == "global" && tab.TopicID == topicID {
+			if a.activeTabID == tab.ID {
+				leave = assistantMemoryCandidate{}
+			}
 			if tab.WorkspaceRoot != globalRoot {
 				tab.WorkspaceRoot = globalRoot
 				if strings.TrimSpace(tab.TopicTitle) == "" {
@@ -721,6 +731,7 @@ func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 			meta := a.tabMeta(tab, true)
 			a.saveTabsLocked()
 			a.mu.Unlock()
+			a.markAssistantMemoryPendingForCandidate(leave, true)
 			return meta, nil
 		}
 	}
@@ -746,6 +757,7 @@ func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	a.saveTabsLocked()
 	a.mu.Unlock()
 
+	a.markAssistantMemoryPendingForCandidate(leave, true)
 	a.startTabControllerBuild(tab)
 	return a.tabMeta(tab, true), nil
 }
@@ -775,13 +787,18 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 
 	var created *WorkspaceTab
 	a.mu.Lock()
+	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
 	for _, id := range a.orderedTabIDsLocked() {
 		tab := a.tabs[id]
 		if a.blankTabMatchesTargetLocked(tab, scope, workspaceRoot) {
+			if a.activeTabID == tab.ID {
+				leave = assistantMemoryCandidate{}
+			}
 			a.activeTabID = tab.ID
 			meta := a.tabMeta(tab, true)
 			a.saveTabsLocked()
 			a.mu.Unlock()
+			a.markAssistantMemoryPendingForCandidate(leave, true)
 			return meta, nil
 		}
 	}
@@ -846,6 +863,7 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 	meta := a.tabMeta(created, true)
 	a.mu.Unlock()
 
+	a.markAssistantMemoryPendingForCandidate(leave, true)
 	a.startTabControllerBuild(created)
 	a.emitProjectTreeChanged()
 	return meta, nil
@@ -923,15 +941,19 @@ func (a *App) indexedBlankTopicIDLocked(scope, workspaceRoot string) string {
 // already active or unknown.
 func (a *App) SetActiveTab(tabID string) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	if _, ok := a.tabs[tabID]; !ok {
+		a.mu.Unlock()
 		return fmt.Errorf("tab %q not found", tabID)
 	}
 	if a.activeTabID == tabID {
+		a.mu.Unlock()
 		return nil
 	}
+	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
 	a.activeTabID = tabID
 	a.saveTabsLocked()
+	a.mu.Unlock()
+	a.markAssistantMemoryPendingForCandidate(leave, true)
 	return nil
 }
 
@@ -974,6 +996,7 @@ func (a *App) CloseTab(tabID string) error {
 		a.mu.Unlock()
 		return fmt.Errorf("cannot close the last tab")
 	}
+	leave := a.assistantMemoryCandidateForTabLocked(tab)
 	ordered := a.orderedTabIDsLocked()
 	closedIndex := -1
 	for i, id := range ordered {
@@ -1001,6 +1024,7 @@ func (a *App) CloseTab(tabID string) error {
 	a.saveTabsLocked()
 	a.mu.Unlock()
 
+	a.markAssistantMemoryPendingForCandidate(leave, true)
 	// Tear down outside the lock.
 	if tab.Ctrl != nil {
 		tab.Ctrl.Cancel()

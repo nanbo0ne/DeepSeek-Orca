@@ -74,13 +74,15 @@ type UIConfig struct {
 // separate from top-level language and [ui] so desktop choices do not affect CLI
 // language, terminal colours, or provider-visible prompt/request data.
 type DesktopConfig struct {
-	Language       string   `toml:"language"`        // auto|en|zh; empty/auto = browser/OS auto-detect
-	Theme          string   `toml:"theme"`           // desktop is fixed to light; legacy values are ignored
-	ThemeStyle     string   `toml:"theme_style"`     // desktop is fixed to slate; legacy values are ignored
-	CloseBehavior  string   `toml:"close_behavior"`  // quit|background; desktop window close behavior
-	CheckUpdates   *bool    `toml:"check_updates"`   // startup update checks; nil keeps the default enabled
-	ProviderAccess []string `toml:"provider_access"` // desktop-only list of provider entries shown in Settings > Model > Access
-	ExpandThinking bool     `toml:"expand_thinking"` // true = show reasoning text expanded by default; false = collapsed
+	Language              string   `toml:"language"`                        // auto|en|zh; empty/auto = browser/OS auto-detect
+	Theme                 string   `toml:"theme"`                           // desktop is fixed to light; legacy values are ignored
+	ThemeStyle            string   `toml:"theme_style"`                     // desktop is fixed to slate; legacy values are ignored
+	CloseBehavior         string   `toml:"close_behavior"`                  // quit|background; desktop window close behavior
+	CheckUpdates          *bool    `toml:"check_updates"`                   // startup update checks; nil keeps the default enabled
+	ProviderAccess        []string `toml:"provider_access"`                 // desktop-only list of provider entries shown in Settings > Model > Access
+	ExpandThinking        bool     `toml:"expand_thinking"`                 // true = show reasoning text expanded by default; false = collapsed
+	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
+	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"` // inject assistant memories before assistant-mode turns; nil = enabled
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
@@ -187,6 +189,20 @@ func (c *Config) DesktopCheckUpdates() bool {
 		return false
 	}
 	return *c.Desktop.CheckUpdates
+}
+
+func (c *Config) DesktopAssistantAutoMemoryEnabled() bool {
+	if c == nil || c.Desktop.AssistantAutoMemory == nil {
+		return true
+	}
+	return *c.Desktop.AssistantAutoMemory
+}
+
+func (c *Config) DesktopAssistantMemoryRecallEnabled() bool {
+	if c == nil || c.Desktop.AssistantMemoryRecall == nil {
+		return true
+	}
+	return *c.Desktop.AssistantMemoryRecall
 }
 
 // LSPConfig governs the optional Language Server Protocol tools (lsp_definition,

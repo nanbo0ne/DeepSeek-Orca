@@ -20,6 +20,7 @@ import type {
   BotSettingsView,
   CapabilitiesView,
   AutomationView,
+  AssistantMemorySettings,
   CheckpointMeta,
   CommandInfo,
   ContextInfo,
@@ -199,6 +200,9 @@ export interface AppBindings {
   Remember(scope: string, note: string): Promise<string>;
   Forget(name: string): Promise<void>;
   SaveDoc(path: string, body: string): Promise<string>;
+  GetAssistantMemorySettings(): Promise<AssistantMemorySettings>;
+  SetAssistantMemorySettings(settings: AssistantMemorySettings): Promise<void>;
+  ClearAssistantMemories(): Promise<void>;
   Settings(): Promise<SettingsView>;
   SetDefaultModel(ref: string): Promise<void>;
   SetPlannerModel(ref: string): Promise<void>;
@@ -488,6 +492,10 @@ function makeMockApp(): AppBindings {
     hostSystemToolsEnabled: true,
     conversationSearchEnabled: true,
     proactiveToolUseEnabled: true,
+  };
+  let mockAssistantMemorySettings: AssistantMemorySettings = {
+    assistantAutoMemoryEnabled: true,
+    assistantMemoryRecallEnabled: true,
   };
   const mockSideChats: Record<string, SideChatMessage[]> = {};
   // Mutable so MCP add/remove/retry are observable in browser dev.
@@ -1928,6 +1936,15 @@ function makeMockApp(): AppBindings {
             body: "Indent with tabs.",
             profile: "shared-agent",
           },
+          {
+            name: "prefers-warm-chat",
+            description: "User likes a warmer assistant style in assistant mode",
+            type: "feedback",
+            body: "Use a warm, natural tone when it fits.",
+            profile: "assistant",
+            source: "auto",
+            confidence: 0.86,
+          },
         ],
         scopes: [
           { scope: "user", path: "~/.config/deepseek-orca/DEEPSEEK_ORCA.md" },
@@ -1946,6 +1963,15 @@ function makeMockApp(): AppBindings {
     async SaveDoc(path: string, _body: string) {
       emit({ kind: "notice", level: "info", text: `saved → ${path}` });
       return path;
+    },
+    async GetAssistantMemorySettings() {
+      return { ...mockAssistantMemorySettings };
+    },
+    async SetAssistantMemorySettings(settings: AssistantMemorySettings) {
+      mockAssistantMemorySettings = { ...settings };
+    },
+    async ClearAssistantMemories() {
+      emit({ kind: "notice", level: "info", text: "cleared assistant memories" });
     },
     async Settings() {
       return JSON.parse(JSON.stringify(settings)) as SettingsView;

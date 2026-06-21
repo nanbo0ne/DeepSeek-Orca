@@ -87,6 +87,8 @@ type App struct {
 
 	sideChatMu      sync.Mutex
 	sideChatCancels map[string]sideChatCancel
+
+	assistantMemoryMu sync.Mutex
 }
 
 // mediaTokenEntry holds metadata for a workspace media file served via temporary URL.
@@ -285,12 +287,14 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) beforeClose(ctx context.Context) bool {
 	if a.forceQuit.Swap(false) || consumeSystemQuitRequested() {
+		a.markActiveAssistantMemoryPending(false)
 		return false
 	}
 	cfg, _, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
 		cfg = config.LoadForEdit(config.UserConfigPath())
 	}
+	a.markActiveAssistantMemoryPending(false)
 	if cfg.DesktopCloseBehavior() == "background" {
 		a.backgroundMaximised.Store(runtime.WindowIsMaximised(ctx))
 		a.saveWindowStateSync()
@@ -366,6 +370,7 @@ func backgroundRestoreShouldMaximise(goos string, wasMaximised bool) bool {
 func (a *App) restoreOrBuildTabs() {
 	ctx := a.ctx
 	ensureWorkspace()
+	defer func() { go a.processPendingAssistantMemories() }()
 
 	// Load i18n from the first available config.
 	// Prefer DesktopLanguage (desktop UI setting) over Language (CLI setting),
@@ -558,6 +563,18 @@ func (a *App) shutdown(context.Context) {
 	}
 	a.mu.RUnlock()
 	for _, t := range tabs {
+		if currentTabPromptMode(t) == promptModeAssistant {
+			sessionPath := strings.TrimSpace(t.SessionPath)
+			if sessionPath == "" && t.Ctrl != nil {
+				sessionPath = strings.TrimSpace(t.Ctrl.SessionPath())
+			}
+			a.markAssistantMemoryPendingForCandidate(assistantMemoryCandidate{
+				SessionPath:   sessionPath,
+				TopicID:       strings.TrimSpace(t.TopicID),
+				WorkspaceRoot: strings.TrimSpace(t.WorkspaceRoot),
+				PromptMode:    promptModeAssistant,
+			}, false)
+		}
 		if t.Ctrl != nil {
 			_ = t.Ctrl.Snapshot()
 			t.Ctrl.Close()
@@ -4435,12 +4452,17 @@ type MemoryDoc struct {
 
 // MemoryFact is one saved auto-memory, surfaced read-only in the panel.
 type MemoryFact struct {
-	Name        string `json:"name"`
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Body        string `json:"body"`
-	Profile     string `json:"profile"`
+	Name           string  `json:"name"`
+	Title          string  `json:"title,omitempty"`
+	Description    string  `json:"description"`
+	Type           string  `json:"type"`
+	Body           string  `json:"body"`
+	Profile        string  `json:"profile"`
+	Source         string  `json:"source,omitempty"`
+	CreatedAt      string  `json:"createdAt,omitempty"`
+	UpdatedAt      string  `json:"updatedAt,omitempty"`
+	Confidence     float64 `json:"confidence,omitempty"`
+	LastEvidenceAt string  `json:"lastEvidenceAt,omitempty"`
 }
 
 // MemoryScope is one writable quick-add target (scope id + the file it writes to).
@@ -4488,6 +4510,7 @@ func (a *App) Memory() MemoryView {
 		f := pf.Memory
 		view.Facts = append(view.Facts, MemoryFact{
 			Name: f.Name, Title: f.Title, Description: f.Description, Type: string(f.Type), Body: f.Body, Profile: pf.Profile,
+			Source: f.Source, CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt, Confidence: f.Confidence, LastEvidenceAt: f.LastEvidenceAt,
 		})
 	}
 	for _, sc := range writableScopes {

@@ -779,7 +779,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Hooks:          hookRunner,
 		Memory:         mem,
 		EnhancedMode:   enhancedMode,
-		MemoryReminder: enhancedMode || assistantMode,
+		MemoryReminder: enhancedMode || (assistantMode && cfg.DesktopAssistantMemoryRecallEnabled()),
 		Cleanup:        cleanup,
 		BalanceURL:     entry.BalanceURL,
 		BalanceKey:     entry.APIKey(),

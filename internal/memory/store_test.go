@@ -99,6 +99,31 @@ func TestStoreSaveTitleInIndexAndFrontmatter(t *testing.T) {
 	}
 }
 
+func TestStoreRoundTripsAssistantMemoryMetadata(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	if _, err := s.Save(Memory{
+		Name:           "reply-style",
+		Title:          "Reply style",
+		Description:    "User likes concise warm replies",
+		Type:           TypeFeedback,
+		Body:           "Keep replies warm and concise.",
+		Source:         "auto",
+		CreatedAt:      "2026-06-21T01:02:03Z",
+		UpdatedAt:      "2026-06-21T02:03:04Z",
+		Confidence:     0.875,
+		LastEvidenceAt: "2026-06-21T02:00:00Z",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := s.List()[0]
+	if got.Source != "auto" || got.CreatedAt == "" || got.UpdatedAt == "" || got.LastEvidenceAt == "" {
+		t.Fatalf("metadata not round-tripped: %+v", got)
+	}
+	if got.Confidence < 0.874 || got.Confidence > 0.876 {
+		t.Fatalf("confidence = %v, want about 0.875", got.Confidence)
+	}
+}
+
 // TestStoreIndexLabelFallsBackToDeKebabbedName checks a title-less memory still
 // gets a readable label instead of a bare slug.
 func TestStoreIndexLabelFallsBackToDeKebabbedName(t *testing.T) {
@@ -211,6 +236,26 @@ func TestLoadProfilesPartitionAssistantAndSharedMemory(t *testing.T) {
 	}
 	if all.Store.Dir != all.SharedStore.Dir {
 		t.Fatalf("all writable store = %q, want shared %q", all.Store.Dir, all.SharedStore.Dir)
+	}
+}
+
+func TestClearAssistantStoresLeavesSharedMemory(t *testing.T) {
+	userDir := t.TempDir()
+	cwd := t.TempDir()
+	if _, err := StoreFor(userDir, cwd).Save(Memory{Name: "shared-fact", Description: "shared", Body: "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AssistantStoreFor(userDir, cwd).Save(Memory{Name: "assistant-fact", Description: "assistant", Body: "assistant"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ClearAssistantStores(userDir); err != nil {
+		t.Fatal(err)
+	}
+	if got := StoreFor(userDir, cwd).List(); len(got) != 1 || got[0].Name != "shared-fact" {
+		t.Fatalf("shared memory should remain, got %+v", got)
+	}
+	if got := AssistantStoreFor(userDir, cwd).List(); len(got) != 0 {
+		t.Fatalf("assistant memory should be cleared, got %+v", got)
 	}
 }
 

@@ -1,5 +1,16 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.23 - 2026-06-21
+
+- Added Assistant mode proactive profile memory.
+- Assistant mode now silently marks conversations for memory updates when switching, opening, creating, or closing conversations.
+- Assistant memory generation runs as a separate lightweight provider call and does not write into the main transcript, title generation, compression, or token accounting.
+- Failed assistant memory generation is recorded as pending/failed state and retried later without blocking the main conversation or app shutdown.
+- Assistant mode can inject assistant memories before a turn for relevant recall, with a safe size budget for memory bodies.
+- Added settings for Assistant auto memory, proactive assistant memory recall, and clearing only the Assistant memory profile.
+- Memory entries now carry optional source, timestamp, confidence, and evidence metadata; the UI can show auto-generated memories.
+- Normal and Enhanced modes keep the existing tool-based memory behavior.
+
 ## V2.0.22 - 2026-06-21
 
 - Fixed the composer textarea alignment after manual resize so the caret and placeholder stay pinned to the top of the expanded input area.

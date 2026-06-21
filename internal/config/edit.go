@@ -196,6 +196,16 @@ func (c *Config) SetExpandThinking(on bool) error {
 	return nil
 }
 
+func (c *Config) SetDesktopAssistantAutoMemory(enabled bool) error {
+	c.Desktop.AssistantAutoMemory = &enabled
+	return nil
+}
+
+func (c *Config) SetDesktopAssistantMemoryRecall(enabled bool) error {
+	c.Desktop.AssistantMemoryRecall = &enabled
+	return nil
+}
+
 // SetShowReasoning sets the CLI's default verbose-reasoning preference. When
 // true, thinking text is shown in the chat TUI on startup; when false (the
 // default), it stays collapsed until the user toggles it with Ctrl+O or

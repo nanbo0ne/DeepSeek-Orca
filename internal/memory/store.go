@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"deepseek-orca/internal/frontmatter"
 )
@@ -47,11 +49,16 @@ func NormalizeType(s string) Type {
 
 // Memory is one stored fact.
 type Memory struct {
-	Name        string // kebab-case slug; also the file stem (<name>.md)
-	Title       string // human-readable index label; falls back to a de-kebabed Name
-	Description string // one-line summary used for the index and recall
-	Type        Type
-	Body        string // the fact itself (Markdown)
+	Name           string // kebab-case slug; also the file stem (<name>.md)
+	Title          string // human-readable index label; falls back to a de-kebabed Name
+	Description    string // one-line summary used for the index and recall
+	Type           Type
+	Body           string // the fact itself (Markdown)
+	Source         string // manual|tool|auto; empty means legacy/unspecified
+	CreatedAt      string // RFC3339 timestamp when known
+	UpdatedAt      string // RFC3339 timestamp when known
+	Confidence     float64
+	LastEvidenceAt string // RFC3339 timestamp of the conversation evidence
 }
 
 // StoreFor resolves the auto-memory directory for a project working dir under
@@ -73,6 +80,32 @@ func AssistantStoreFor(userDir, cwd string) Store {
 		return Store{}
 	}
 	return Store{Dir: filepath.Join(userDir, "projects", slugify(absOf(cwd)), "assistant-memory")}
+}
+
+// ClearAssistantStores removes every assistant-mode memory store under userDir
+// while leaving shared-agent memory untouched.
+func ClearAssistantStores(userDir string) error {
+	if strings.TrimSpace(userDir) == "" {
+		return nil
+	}
+	projectsDir := filepath.Join(userDir, "projects")
+	entries, err := os.ReadDir(projectsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := filepath.Join(projectsDir, e.Name(), "assistant-memory")
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // indexFile is the human-readable index of saved memories.
@@ -195,6 +228,21 @@ func render(m Memory, name string) string {
 		b.WriteString("title: " + t + "\n")
 	}
 	b.WriteString("description: " + oneLine(m.Description) + "\n")
+	if source := normalizeSource(m.Source); source != "" {
+		b.WriteString("source: " + source + "\n")
+	}
+	if ts := oneLine(m.CreatedAt); ts != "" {
+		b.WriteString("created_at: " + ts + "\n")
+	}
+	if ts := oneLine(m.UpdatedAt); ts != "" {
+		b.WriteString("updated_at: " + ts + "\n")
+	}
+	if m.Confidence > 0 {
+		b.WriteString("confidence: " + strconv.FormatFloat(m.Confidence, 'f', 3, 64) + "\n")
+	}
+	if ts := oneLine(m.LastEvidenceAt); ts != "" {
+		b.WriteString("last_evidence_at: " + ts + "\n")
+	}
 	b.WriteString("metadata:\n")
 	b.WriteString("  type: " + string(NormalizeType(string(m.Type))) + "\n")
 	b.WriteString("---\n\n")
@@ -281,16 +329,36 @@ func loadMemory(path string) (Memory, bool) {
 	}
 	fm, body := splitFrontmatter(string(b))
 	m := Memory{
-		Name:        fm["name"],
-		Title:       fm["title"],
-		Description: fm["description"],
-		Type:        NormalizeType(fm["type"]),
-		Body:        strings.TrimSpace(body),
+		Name:           fm["name"],
+		Title:          fm["title"],
+		Description:    fm["description"],
+		Type:           NormalizeType(fm["type"]),
+		Body:           strings.TrimSpace(body),
+		Source:         normalizeSource(fm["source"]),
+		CreatedAt:      fm["created_at"],
+		UpdatedAt:      fm["updated_at"],
+		LastEvidenceAt: fm["last_evidence_at"],
+	}
+	if confidence, err := strconv.ParseFloat(strings.TrimSpace(fm["confidence"]), 64); err == nil {
+		m.Confidence = confidence
 	}
 	if m.Name == "" {
 		m.Name = strings.TrimSuffix(filepath.Base(path), ".md")
 	}
 	return m, true
+}
+
+func normalizeSource(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "manual", "tool", "auto":
+		return strings.ToLower(strings.TrimSpace(source))
+	default:
+		return ""
+	}
+}
+
+func NowRFC3339() string {
+	return time.Now().UTC().Format(time.RFC3339)
 }
 
 // splitFrontmatter is a thin wrapper; the real parser lives in

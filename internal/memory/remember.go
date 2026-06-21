@@ -75,6 +75,9 @@ func (t rememberTool) Execute(ctx context.Context, args json.RawMessage) (string
 		Description: in.Description,
 		Type:        NormalizeType(in.Type),
 		Body:        in.Body,
+		Source:      "tool",
+		CreatedAt:   NowRFC3339(),
+		UpdatedAt:   NowRFC3339(),
 	})
 	if err != nil {
 		return "", err

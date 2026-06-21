@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, FileText, Search, Trash2 } from "lucide-reac
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { app } from "../lib/bridge";
 import { useT } from "../lib/i18n";
-import type { MemoryFact, MemoryView } from "../lib/types";
+import type { AssistantMemorySettings, MemoryFact, MemoryView } from "../lib/types";
 import { ResizableDrawer } from "./ResizableDrawer";
 import { Tooltip } from "./Tooltip";
 import { ModalCloseButton } from "./ModalCloseButton";
@@ -83,6 +83,19 @@ function memoryDocPreview(body: string): string {
 
 function memoryProfileLabel(profile: string | undefined, t: ReturnType<typeof useT>): string {
   return profile === "assistant" ? t("memory.profile.assistant") : t("memory.profile.sharedAgent");
+}
+
+function memorySourceLabel(source: string | undefined, t: ReturnType<typeof useT>): string {
+  switch (source) {
+    case "auto":
+      return t("memory.source.auto");
+    case "tool":
+      return t("memory.source.tool");
+    case "manual":
+      return t("memory.source.manual");
+    default:
+      return "";
+  }
 }
 
 function errorMessage(err: unknown): string {
@@ -386,6 +399,7 @@ export function MemoryPanel({
                             <span className="mem-fact__meta">
                               {f.type && <span className="mem-fact__type" data-mem-type={f.type}>{f.type}</span>}
                               <span className="mem-fact__type">{memoryProfileLabel(f.profile, t)}</span>
+                              {memorySourceLabel(f.source, t) && <span className="mem-fact__type">{memorySourceLabel(f.source, t)}</span>}
                               <span className="mem-fact__slug">{f.name}</span>
                             </span>
                             <span className="mem-fact__desc">{f.description}</span>
@@ -611,6 +625,10 @@ export function MemoryPanel({
 export function MemorySettingsPage() {
 	const t = useT();
 	const [view, setView] = useState<MemoryView | null>(null);
+	const [assistantSettings, setAssistantSettings] = useState<AssistantMemorySettings>({
+		assistantAutoMemoryEnabled: true,
+		assistantMemoryRecallEnabled: true,
+	});
 	const [note, setNote] = useState("");
 	const [scope, setScope] = useState("");
 	const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -632,6 +650,43 @@ export function MemorySettingsPage() {
 		setView(await app.Memory().catch(() => null));
 	}, []);
 	useEffect(() => { void reload(); }, [reload]);
+	useEffect(() => {
+		void app.GetAssistantMemorySettings().then(setAssistantSettings).catch(() => undefined);
+	}, []);
+
+	const updateAssistantSettings = useCallback(async (patch: Partial<AssistantMemorySettings>) => {
+		const next = { ...assistantSettings, ...patch };
+		setAssistantSettings(next);
+		try {
+			await app.SetAssistantMemorySettings(next);
+		} catch (err) {
+			setError(errorMessage(err));
+			void app.GetAssistantMemorySettings().then(setAssistantSettings).catch(() => undefined);
+		}
+	}, [assistantSettings]);
+
+	const clearAssistantMemories = useCallback(async () => {
+		if (busy) return;
+		const ok = await app.ConfirmAction({
+			title: t("memory.clearAssistant.title"),
+			message: t("memory.clearAssistant.message"),
+			detail: t("memory.clearAssistant.detail"),
+			confirmLabel: t("memory.clearAssistant.confirm"),
+			cancelLabel: t("common.cancel"),
+			destructive: true,
+		}).catch(() => false);
+		if (!ok) return;
+		setBusy(true);
+		setError(null);
+		try {
+			await app.ClearAssistantMemories();
+			await reload();
+		} catch (err) {
+			setError(errorMessage(err));
+		} finally {
+			setBusy(false);
+		}
+	}, [busy, reload, t]);
 
 	const facts = view?.facts ?? [];
 	const factNames = useMemo(() => new Set(facts.map((f) => f.name)), [facts]);
@@ -766,6 +821,40 @@ export function MemorySettingsPage() {
 
 	return (
 		<>
+			<section className="mem-section mem-section--settings">
+				<div className="mem-section__head">
+					<div>
+						<div className="mem-section__title">{t("memory.assistantPersonalization")}</div>
+						<div className="mem-note">{t("memory.assistantPersonalizationHint")}</div>
+					</div>
+					<button className="btn btn--small mem-danger" type="button" disabled={busy} onClick={() => void clearAssistantMemories()}>
+						{t("memory.clearAssistant.button")}
+					</button>
+				</div>
+				<label className="settings-toggle-row">
+					<span>
+						<strong>{t("memory.assistantAutoMemory")}</strong>
+						<small>{t("memory.assistantAutoMemoryHint")}</small>
+					</span>
+					<input
+						type="checkbox"
+						checked={assistantSettings.assistantAutoMemoryEnabled}
+						onChange={(e) => void updateAssistantSettings({ assistantAutoMemoryEnabled: e.target.checked })}
+					/>
+				</label>
+				<label className="settings-toggle-row">
+					<span>
+						<strong>{t("memory.assistantMemoryRecall")}</strong>
+						<small>{t("memory.assistantMemoryRecallHint")}</small>
+					</span>
+					<input
+						type="checkbox"
+						checked={assistantSettings.assistantMemoryRecallEnabled}
+						onChange={(e) => void updateAssistantSettings({ assistantMemoryRecallEnabled: e.target.checked })}
+					/>
+				</label>
+			</section>
+
 			<div className="settings-subtabs" role="tablist" aria-label={t("settings.tab.memory")}>
 				<button
 					className={"settings-subtab" + (tab === "memories" ? " settings-subtab--active" : "")}
@@ -939,6 +1028,7 @@ export function MemorySettingsPage() {
 											<span className="mem-fact__meta">
 												{f.type && <span className="mem-fact__type" data-mem-type={f.type}>{f.type}</span>}
 												<span className="mem-fact__type">{memoryProfileLabel(f.profile, t)}</span>
+												{memorySourceLabel(f.source, t) && <span className="mem-fact__type">{memorySourceLabel(f.source, t)}</span>}
 												<span className="mem-fact__slug">{f.name}</span>
 											</span>
 											<span className="mem-fact__desc">{f.description}</span>

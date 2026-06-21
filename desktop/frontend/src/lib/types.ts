@@ -586,6 +586,11 @@ export interface MemoryFact {
   type: string; // "user" | "feedback" | "project" | "reference"
   body: string;
   profile?: string; // "assistant" | "shared-agent"
+  source?: string; // "manual" | "tool" | "auto"
+  createdAt?: string;
+  updatedAt?: string;
+  confidence?: number;
+  lastEvidenceAt?: string;
 }
 
 export interface MemoryScope {
@@ -599,6 +604,11 @@ export interface MemoryView {
   scopes: MemoryScope[];
   storeDir: string;
   available: boolean;
+}
+
+export interface AssistantMemorySettings {
+  assistantAutoMemoryEnabled: boolean;
+  assistantMemoryRecallEnabled: boolean;
 }
 
 // SettingsTab is the top-level navigation item in the Settings Centre modal.

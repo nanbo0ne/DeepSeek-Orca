@@ -175,6 +175,9 @@ func MemoryReminder(mem *memory.Set) string {
 	}
 	fresh := memory.Load(memory.Options{CWD: mem.CWD, UserDir: mem.UserDir, Profile: mem.Profile})
 	block := strings.TrimSpace(fresh.Block())
+	if mem.Profile == memory.ProfileAssistant {
+		block = strings.TrimSpace(fresh.AssistantRecallBlock(14000))
+	}
 	if block == "" {
 		return ""
 	}

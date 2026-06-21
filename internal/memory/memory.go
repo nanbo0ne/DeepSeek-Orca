@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -205,6 +206,87 @@ func (s *Set) Block() string {
 		fmt.Fprintf(&b, "\n\n(stored under %s)\n", s.Store.Dir)
 	}
 	return b.String()
+}
+
+// AssistantRecallBlock renders assistant-mode memories for per-turn recall. It
+// includes the full index and then as many memory bodies as fit in bodyCharBudget
+// so assistant mode can make relevance decisions without forcing the user to ask
+// for a specific memory file.
+func (s *Set) AssistantRecallBlock(bodyCharBudget int) string {
+	if s == nil || s.Profile != ProfileAssistant {
+		return ""
+	}
+	index := strings.TrimSpace(s.AssistantStore.Index())
+	memories := s.AssistantStore.List()
+	if index == "" && len(memories) == 0 {
+		return ""
+	}
+	if bodyCharBudget <= 0 {
+		bodyCharBudget = 12000
+	}
+	var b strings.Builder
+	b.WriteString("# Assistant Memories\n\n")
+	b.WriteString("Persistent assistant-mode memory from prior Orca conversations. Use only the parts relevant to the user's current request. Do not mention the memory system unless the user asks why you know something.\n")
+	if index != "" {
+		b.WriteString("\n## Complete index\n\n")
+		b.WriteString(index)
+		b.WriteString("\n")
+	}
+	if len(memories) == 0 {
+		return b.String()
+	}
+	sort.SliceStable(memories, func(i, j int) bool {
+		ai := memories[i].UpdatedAt
+		if ai == "" {
+			ai = memories[i].CreatedAt
+		}
+		aj := memories[j].UpdatedAt
+		if aj == "" {
+			aj = memories[j].CreatedAt
+		}
+		if ai != aj {
+			return ai > aj
+		}
+		if memories[i].Confidence != memories[j].Confidence {
+			return memories[i].Confidence > memories[j].Confidence
+		}
+		return memories[i].Name < memories[j].Name
+	})
+	b.WriteString("\n## Memory details\n\n")
+	used := 0
+	omitted := 0
+	for _, m := range memories {
+		body := strings.TrimSpace(m.Body)
+		if body == "" {
+			continue
+		}
+		var item strings.Builder
+		title := displayTitle(m.Title, m.Name)
+		fmt.Fprintf(&item, "### %s (%s)\n", title, m.Name)
+		if desc := oneLine(m.Description); desc != "" {
+			fmt.Fprintf(&item, "Description: %s\n", desc)
+		}
+		if m.Type != "" {
+			fmt.Fprintf(&item, "Type: %s\n", NormalizeType(string(m.Type)))
+		}
+		if m.Confidence > 0 {
+			fmt.Fprintf(&item, "Confidence: %.2f\n", m.Confidence)
+		}
+		item.WriteString("\n")
+		item.WriteString(body)
+		item.WriteString("\n\n")
+		text := item.String()
+		if used+len(text) > bodyCharBudget {
+			omitted++
+			continue
+		}
+		b.WriteString(text)
+		used += len(text)
+	}
+	if omitted > 0 {
+		fmt.Fprintf(&b, "_%d memory detail(s) omitted because the recall block hit its size budget; use the complete index above as compact background._\n", omitted)
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // ListProfiled returns saved auto-memories from every local memory profile so

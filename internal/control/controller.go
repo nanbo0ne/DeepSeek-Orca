@@ -1361,6 +1361,12 @@ func (c *Controller) StepThinking() bool {
 	return c.stepThinking
 }
 
+func (c *Controller) SetMemoryReminder(v bool) {
+	c.mu.Lock()
+	c.memoryReminder = v
+	c.mu.Unlock()
+}
+
 func (c *Controller) EnhancedMode() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -2633,6 +2639,12 @@ func (c *Controller) Memory() *memory.Set {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.mem
+}
+
+func (c *Controller) RefreshMemory() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.refreshMemoryLocked()
 }
 
 // refreshMemoryLocked re-discovers memory from disk so a later Memory() reflects
