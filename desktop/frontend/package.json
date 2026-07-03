@@ -15,10 +15,10 @@
     "test:all": "tsc --noEmit -p tsconfig.test.json && tsx src/__tests__/math-golden.test.ts && tsx src/__tests__/text-size.test.ts && tsx src/__tests__/provider-model-refresh.test.ts && tsx src/__tests__/context-panel-usage.test.ts && tsx src/__tests__/goal-draft-mode.test.ts && tsx src/__tests__/workspace-layout.test.ts && tsx src/__tests__/tool-approval-mode.test.ts && tsx src/__tests__/send-failed.test.ts && tsx src/__tests__/message-selection-copy.test.ts && tsx src/__tests__/attachment-display.test.ts && tsx src/__tests__/command-palette-css.test.ts"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.14.2",
+    "@tanstack/react-virtual": "^3.14.5",
     "highlight.js": "^11.10.0",
     "katex": "^0.17.0",
-    "lucide-react": "^1.17.0",
+    "lucide-react": "^1.23.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
@@ -32,7 +32,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "terser": "^5.48.0",
-    "tsx": "^4.22.4",
+    "tsx": "^4.22.5",
     "typescript": "^6.0.3",
     "vite": "^6.0.7"
   },
