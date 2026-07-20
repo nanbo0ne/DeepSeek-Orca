@@ -254,6 +254,7 @@ export function WorkspacePanel({
   const dismissedChangeListRequestIdRef = useRef<number | null>(null);
   const recentAnchorRef = useRef<HTMLButtonElement>(null);
   const openDirsRef = useRef(openDirs);
+  const gitHistoryRequestRef = useRef(0);
 
   useEffect(() => {
     openDirsRef.current = openDirs;
@@ -265,14 +266,16 @@ export function WorkspacePanel({
   }, []);
 
   const loadGitHistory = useCallback(async () => {
+    const requestId = gitHistoryRequestRef.current + 1;
+    gitHistoryRequestRef.current = requestId;
     setLoadingHistory(true);
     try {
       const result = await app.WorkspaceGitHistory(selectedPath || "");
-      setGitHistory(result || []);
+      if (gitHistoryRequestRef.current === requestId) setGitHistory(result || []);
     } catch (err) {
-      setGitHistory([]);
+      if (gitHistoryRequestRef.current === requestId) setGitHistory([]);
     } finally {
-      setLoadingHistory(false);
+      if (gitHistoryRequestRef.current === requestId) setLoadingHistory(false);
     }
   }, [selectedPath]);
 

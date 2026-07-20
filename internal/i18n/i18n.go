@@ -354,6 +354,7 @@ type Messages struct {
 	ProviderErrRateLimited         string // 429
 	ProviderErrServer              string // 500
 	ProviderErrServerBusy          string // 503
+	ProviderErrVisionUnsupported   string // image/multimodal request rejected
 
 	// selection menus
 	SelectOneHint      string // "(↑/↓ · Enter · q to cancel)"

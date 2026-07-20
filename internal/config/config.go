@@ -81,8 +81,35 @@ type DesktopConfig struct {
 	CheckUpdates          *bool    `toml:"check_updates"`                   // startup update checks; nil keeps the default enabled
 	ProviderAccess        []string `toml:"provider_access"`                 // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking        bool     `toml:"expand_thinking"`                 // true = show reasoning text expanded by default; false = collapsed
+	ProcessDisplayMode    string   `toml:"process_display_mode"`            // compact|standard|detailed; empty migrates from expand_thinking
+	VisionEnabled         bool     `toml:"vision_enabled"`                  // send attached image bytes to the selected model
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
 	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"` // inject assistant memories before assistant-mode turns; nil = enabled
+}
+
+const (
+	ProcessDisplayCompact  = "compact"
+	ProcessDisplayStandard = "standard"
+	ProcessDisplayDetailed = "detailed"
+)
+
+// DesktopProcessDisplayMode normalizes the three-state desktop process view.
+// Older configs only carry expand_thinking, which maps losslessly to standard
+// or detailed without opting existing users into the new compact view.
+func (c *Config) DesktopProcessDisplayMode() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.ProcessDisplayMode)) {
+	case ProcessDisplayCompact:
+		return ProcessDisplayCompact
+	case ProcessDisplayDetailed:
+		return ProcessDisplayDetailed
+	case ProcessDisplayStandard:
+		return ProcessDisplayStandard
+	default:
+		if c.Desktop.ExpandThinking {
+			return ProcessDisplayDetailed
+		}
+		return ProcessDisplayStandard
+	}
 }
 
 // NotificationsConfig controls optional system notifications for CLI chat/run.
@@ -972,6 +999,13 @@ const LanguagePolicy = `请使用用户最新消息所使用的语言回复：�
 // by current prompt builders. It intentionally stays in English to avoid
 // corrupting model-visible tool context.
 var ActiveToolRoutingPolicy = BuildActiveToolRoutingPolicy(DefaultToolLibrarySettings())
+
+func BuildVisionPolicy(enabled bool) string {
+	if enabled {
+		return "Native image input is enabled. When the user message includes attached images, inspect the image content directly and use visual evidence in the response. Do not claim that you cannot see an image that is present in the message."
+	}
+	return "Native image input is disabled. Image references provide paths and metadata only; do not claim to have inspected their pixels. Use an available OCR or vision tool when visual understanding is required."
+}
 
 func BuildActiveToolRoutingPolicy(settings ToolLibraryConfig) string {
 	settings = NormalizeToolLibrarySettings(settings)

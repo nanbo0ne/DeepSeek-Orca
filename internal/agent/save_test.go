@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/provider"
 )
 
@@ -62,6 +64,56 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		if len(loaded.Messages[i].ToolCalls) != len(m.ToolCalls) {
 			t.Errorf("message %d tool_calls count mismatch", i)
 		}
+	}
+}
+
+func TestSessionImageReferenceDoesNotPersistBase64(t *testing.T) {
+	s := NewSession("")
+	s.Add(provider.Message{Role: provider.RoleUser, Content: "look", Images: []provider.ImageContent{{Path: ".deepseek-orca/attachments/a.png", MediaType: "image/png", Data: "SECRET_BASE64"}}})
+	path := filepath.Join(t.TempDir(), "vision.jsonl")
+	if err := s.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "SECRET_BASE64") {
+		t.Fatalf("session persisted image data: %s", raw)
+	}
+	loaded, err := LoadSession(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := loaded.Messages[0].Images; len(got) != 1 || got[0].Path == "" || got[0].Data != "" {
+		t.Fatalf("loaded images = %+v", got)
+	}
+}
+
+func TestMissingHistoricalImageAddsProviderPlaceholder(t *testing.T) {
+	a := &Agent{
+		imageLoader: func(context.Context, provider.ImageContent) (provider.ImageContent, error) {
+			return provider.ImageContent{}, os.ErrNotExist
+		},
+		missingImages: map[string]bool{},
+		imageCache:    map[string]provider.ImageContent{},
+		sink:          event.Discard,
+	}
+	messages := []provider.Message{{
+		Role:    provider.RoleUser,
+		Content: "Please inspect the attached image.",
+		Images:  []provider.ImageContent{{Path: ".deepseek-orca/attachments/missing.png", MediaType: "image/png"}},
+	}}
+
+	got := a.hydrateImageMessages(context.Background(), messages)
+	if len(got[0].Images) != 0 {
+		t.Fatalf("missing image should be omitted from provider request: %+v", got[0].Images)
+	}
+	if !strings.Contains(got[0].Content, "[Historical image unavailable: .deepseek-orca/attachments/missing.png]") {
+		t.Fatalf("missing image placeholder not added: %q", got[0].Content)
+	}
+	if strings.Contains(messages[0].Content, "Historical image unavailable") {
+		t.Fatal("placeholder must not mutate persisted session content")
 	}
 }
 

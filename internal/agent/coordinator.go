@@ -17,6 +17,15 @@ type Runner interface {
 	Run(ctx context.Context, input string) error
 }
 
+type RichInput struct {
+	Text   string
+	Images []provider.ImageContent
+}
+
+type RichRunner interface {
+	RunRich(ctx context.Context, input RichInput) error
+}
+
 // DefaultPlannerPrompt steers the planner toward concise plans, not execution.
 const DefaultPlannerPrompt = `You are the planner in a dual-model coding agent.
 When you receive a task, produce a concise, ordered plan that an executor model can carry out.
@@ -86,18 +95,23 @@ func NewCoordinator(planner provider.Provider, plannerSession *Session, plannerP
 
 // Run plans with the planner model, then hands the plan to the executor.
 func (c *Coordinator) Run(ctx context.Context, input string) error {
+	return c.RunRich(ctx, RichInput{Text: input})
+}
+
+func (c *Coordinator) RunRich(ctx context.Context, input RichInput) error {
 	c.sink.Emit(event.Event{Kind: event.TurnStarted})
-	if c.shouldPlan != nil && !c.shouldPlan(input) {
+	if c.shouldPlan != nil && !c.shouldPlan(input.Text) {
 		c.sink.Emit(event.Event{Kind: event.Phase, Text: c.executor.prov.Name() + " · executing"})
-		return c.executor.Run(ctx, input)
+		return c.executor.RunRich(ctx, input)
 	}
 	c.sink.Emit(event.Event{Kind: event.Phase, Text: c.planner.Name() + " · planning"})
-	plan, err := c.plan(ctx, input)
+	plan, err := c.plan(ctx, input.Text)
 	if err != nil {
 		return fmt.Errorf("planner: %w", err)
 	}
 	c.sink.Emit(event.Event{Kind: event.Phase, Text: c.executor.prov.Name() + " · executing"})
-	return c.executor.Run(ctx, formatHandoff(input, plan))
+	input.Text = formatHandoff(input.Text, plan)
+	return c.executor.RunRich(ctx, input)
 }
 
 // plan streams a plan from the planner and appends it to the planner session, so

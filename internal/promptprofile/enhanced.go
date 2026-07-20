@@ -141,19 +141,19 @@ IMPORTANT: Assist with authorized security testing, defensive security, CTF chal
 - When work is complete, state what changed and what verification ran.`
 
 // EnhancedSystemPrompt returns the stable system prefix for V2 enhanced mode.
-func EnhancedSystemPrompt(outputStyle, taskTrackingPolicy, toolRoutingPolicy, languagePolicy string) string {
-	return joinPromptParts(enhancedCorePrompt, outputStyle, taskTrackingPolicy, toolRoutingPolicy, languagePolicy)
+func EnhancedSystemPrompt(outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy string) string {
+	return joinPromptParts(enhancedCorePrompt, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy)
 }
 
-func NormalSystemPrompt(base, outputStyle, taskTrackingPolicy, toolRoutingPolicy, languagePolicy string) string {
+func NormalSystemPrompt(base, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy string) string {
 	if strings.TrimSpace(base) == "" {
 		base = normalCorePrompt
 	}
-	return joinPromptParts(base, outputStyle, taskTrackingPolicy, toolRoutingPolicy, languagePolicy)
+	return joinPromptParts(base, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy)
 }
 
-func AssistantSystemPrompt(outputStyle, taskTrackingPolicy, toolRoutingPolicy, languagePolicy string) string {
-	return joinPromptParts(assistantCorePrompt, outputStyle, taskTrackingPolicy, toolRoutingPolicy, languagePolicy)
+func AssistantSystemPrompt(outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy string) string {
+	return joinPromptParts(assistantCorePrompt, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy)
 }
 
 func joinPromptParts(parts ...string) string {

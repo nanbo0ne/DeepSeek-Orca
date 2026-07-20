@@ -76,6 +76,20 @@ func TestBuildRequest(t *testing.T) {
 	}
 }
 
+func TestBuildRequestSerializesImageBlock(t *testing.T) {
+	c := &client{name: "anthropic", model: "claude"}
+	r := c.buildRequest(provider.Request{Messages: []provider.Message{{
+		Role: provider.RoleUser, Content: "inspect", Images: []provider.ImageContent{{MediaType: "image/png", Data: "cG5n"}},
+	}}})
+	if len(r.Messages) != 1 || len(r.Messages[0].Content) != 2 {
+		t.Fatalf("messages = %+v", r.Messages)
+	}
+	image := r.Messages[0].Content[1]
+	if image.Type != "image" || image.Source == nil || image.Source.MediaType != "image/png" || image.Source.Data != "cG5n" {
+		t.Fatalf("image block = %+v", image)
+	}
+}
+
 // TestBuildRequestNoSystem checks the breakpoint falls back to the last tool when
 // there is no system message.
 func TestBuildRequestNoSystem(t *testing.T) {

@@ -251,9 +251,24 @@ func (c *client) buildRequest(req provider.Request) chatRequest {
 			wire.Function.Arguments = tc.Arguments
 			cm.ToolCalls = append(cm.ToolCalls, wire)
 		}
-		if m.Role != provider.RoleAssistant || len(cm.ToolCalls) == 0 || m.Content != "" {
-			content := m.Content
-			cm.Content = &content
+		if m.Role == provider.RoleUser && len(m.Images) > 0 {
+			parts := make([]chatContentPart, 0, len(m.Images)+1)
+			if m.Content != "" {
+				parts = append(parts, chatContentPart{Type: "text", Text: m.Content})
+			}
+			for _, image := range m.Images {
+				if image.Data == "" || image.MediaType == "" {
+					continue
+				}
+				parts = append(parts, chatContentPart{Type: "image_url", ImageURL: &chatImageURL{URL: "data:" + image.MediaType + ";base64," + image.Data}})
+			}
+			if len(parts) > 0 {
+				cm.Content = parts
+			} else {
+				cm.Content = m.Content
+			}
+		} else if m.Role != provider.RoleAssistant || len(cm.ToolCalls) == 0 || m.Content != "" {
+			cm.Content = m.Content
 		}
 		msgs[i] = cm
 	}
@@ -523,12 +538,22 @@ type chatMessage struct {
 	// serializes as null (OpenAI-spec, and what strict clones expect); every
 	// other role/message serializes as a string, empty included - null is
 	// rejected by some backends for a tool message.
-	Content          *string        `json:"content"`
+	Content          any            `json:"content"`
 	ToolCalls        []chatToolCall `json:"tool_calls,omitempty"`
 	ToolCallID       string         `json:"tool_call_id,omitempty"`
 	Name             string         `json:"name,omitempty"`
 	ReasoningContent string         `json:"reasoning_content,omitempty"`
 	// DeepSeek thinking mode requires assistant reasoning_content to be round-tripped.
+}
+
+type chatContentPart struct {
+	Type     string        `json:"type"`
+	Text     string        `json:"text,omitempty"`
+	ImageURL *chatImageURL `json:"image_url,omitempty"`
+}
+
+type chatImageURL struct {
+	URL string `json:"url"`
 }
 
 type chatTool struct {

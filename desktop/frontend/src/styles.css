@@ -3290,6 +3290,52 @@ a[href] {
   margin: 0;
 }
 
+.compact-process-activity {
+  width: 100%;
+  margin: 3px 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.compact-process-activity__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.compact-process-activity__summary:hover,
+.compact-process-activity__summary:focus-visible {
+  color: var(--fg);
+  outline: none;
+}
+
+.compact-process-activity__summary svg {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.compact-process-activity--open .compact-process-activity__summary svg {
+  transform: rotate(90deg);
+}
+
+.compact-process-activity__details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.compact-process-activity__details > .process-card,
+.compact-process-activity__details > .msg {
+  margin-block: 0;
+}
+
 .background-jobs-card .process-card__name {
   color: var(--accent);
 }
@@ -4000,6 +4046,7 @@ a[href] {
 }
 .composer {
   grid-area: input;
+  align-self: stretch;
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -5128,7 +5175,7 @@ a[href] {
   align-items: center;
   gap: 0;
   min-width: 0;
-  flex-shrink: 0;
+  flex-shrink: 1;
 }
 .statusbar__group + .statusbar__group {
   margin-left: 18px;
@@ -5151,7 +5198,8 @@ a[href] {
   flex-shrink: 0;
 }
 .statusbar .modelsw {
-  flex-shrink: 1;
+  flex-shrink: 0;
+  flex-grow: 1;
   min-width: 0;
 }
 /* design-spec stat: a "label + bold value" pair separated by the bar's gap. */
@@ -5191,18 +5239,19 @@ a[href] {
   }
 }
 .stat--model {
-  flex: 0 0 124px;
-  width: 124px;
-  max-width: 124px;
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 260px;
   min-width: 0;
 }
 .statusbar__model {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--fg-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
 }
 .statusbar__cache b {
   color: var(--accent-strong);
@@ -17692,6 +17741,18 @@ a[href] {
   .statusbar__group + .statusbar__group {
     margin-left: 14px;
     padding-left: 14px;
+  }
+}
+
+@media (min-width: 1181px) {
+  .statusbar__group--model {
+    flex: 0 0 auto;
+  }
+
+  .statusbar__group--primary,
+  .statusbar__group--context,
+  .statusbar__group--account {
+    min-width: 0;
   }
 }
 

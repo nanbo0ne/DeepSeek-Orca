@@ -37,6 +37,25 @@ func TestSetDefaultModel(t *testing.T) {
 	}
 }
 
+func TestDesktopProcessDisplayAndVisionSettings(t *testing.T) {
+	var c Config
+	if got := c.DesktopProcessDisplayMode(); got != ProcessDisplayStandard {
+		t.Fatalf("default mode = %q", got)
+	}
+	if err := c.SetProcessDisplayMode(ProcessDisplayCompact); err != nil {
+		t.Fatal(err)
+	}
+	if c.DesktopProcessDisplayMode() != ProcessDisplayCompact || c.Desktop.ExpandThinking {
+		t.Fatalf("compact config = %+v", c.Desktop)
+	}
+	if err := c.SetProcessDisplayMode("invalid"); err == nil {
+		t.Fatal("invalid process display mode should fail")
+	}
+	if err := c.SetVisionEnabled(true); err != nil || !c.Desktop.VisionEnabled {
+		t.Fatalf("vision setting = %+v, err=%v", c.Desktop, err)
+	}
+}
+
 func TestUIThemeNormalizes(t *testing.T) {
 	c := Default()
 	for _, tt := range []struct {

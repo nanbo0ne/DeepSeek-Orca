@@ -887,6 +887,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	// The language policy is always appended at boot; strip it so this assertion
 	// is purely about whether project/ancestor memory leaked into the base.
 	base = stripLanguagePolicy(base)
+	base = strings.TrimSpace(strings.TrimSuffix(base, config.BuildVisionPolicy(false)))
 	base = stripToolRoutingPolicy(base)
 	base = stripTaskTrackingPolicy(base)
 	if base != "JUST THE BASE" {

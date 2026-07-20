@@ -2910,7 +2910,7 @@ func (a *App) findTopicLocation(topicID string) (string, string, bool) {
 	}
 	a.mu.RUnlock()
 
-	infos, err := agent.ListSessions(config.SessionDir())
+	infos, err := a.cachedSessionInfos(config.SessionDir())
 	if err != nil {
 		return "", "", false
 	}
@@ -2948,7 +2948,7 @@ func (a *App) updateTopicSessionTitles(topicID, title string) {
 		return
 	}
 	for _, dir := range a.knownSessionDirs() {
-		infos, err := agent.ListSessions(dir)
+		infos, err := a.cachedSessionInfos(dir)
 		if err != nil {
 			continue
 		}
@@ -2982,6 +2982,7 @@ func (a *App) setTabActivityStatus(tabID, status string) bool {
 }
 
 func (a *App) emitProjectTreeChanged() {
+	a.invalidateSessionInfoCache()
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, "project-tree:changed")
 	}
@@ -3113,7 +3114,7 @@ func (a *App) TrashTopic(topicID string) error {
 	}
 
 	for _, dir := range a.knownSessionDirs() {
-		infos, err := agent.ListSessions(dir)
+		infos, err := a.cachedSessionInfos(dir)
 		if err != nil {
 			return err
 		}
@@ -3167,7 +3168,7 @@ func (a *App) ListProjectTree() []ProjectNode {
 	}
 	topicSummaries := map[string]topicSummary{}
 	for _, dir := range a.knownSessionDirs() {
-		infos, err := agent.ListSessions(dir)
+		infos, err := a.cachedSessionInfos(dir)
 		if err != nil {
 			continue
 		}
@@ -3419,7 +3420,7 @@ func (a *App) SetTopicPinned(topicID string, pinned bool) error {
 	a.mu.RUnlock()
 
 	for _, dir := range a.knownSessionDirs() {
-		infos, err := agent.ListSessions(dir)
+		infos, err := a.cachedSessionInfos(dir)
 		if err != nil {
 			continue
 		}

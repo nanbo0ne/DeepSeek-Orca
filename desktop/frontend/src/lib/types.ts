@@ -611,6 +611,8 @@ export interface AssistantMemorySettings {
   assistantMemoryRecallEnabled: boolean;
 }
 
+export type ProcessDisplayMode = "compact" | "standard" | "detailed";
+
 // SettingsTab is the top-level navigation item in the Settings Centre modal.
 export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "permissions" | "sandbox" | "network" | "appearance";
 
@@ -640,6 +642,7 @@ export interface BalanceInfo {
   available: boolean;
   display: string;
   err?: string;
+  loading?: boolean;
 }
 
 // JobView is one running background job (desktop/app.go Jobs) for the status bar.
@@ -826,6 +829,8 @@ export interface SettingsView {
   closeBehavior: string; // "background" | "quit"
   checkUpdates: boolean;
   expandThinking: boolean; // show reasoning text expanded by default
+  processDisplayMode: ProcessDisplayMode;
+  visionEnabled: boolean;
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

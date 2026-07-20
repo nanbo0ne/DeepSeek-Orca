@@ -35,10 +35,22 @@ type Message struct {
 	// replayed on the next turn when a tool call followed thinking; providers
 	// without signed reasoning (e.g. the openai-compatible ones) leave it empty.
 	// Round-tripped alongside ReasoningContent.
-	ReasoningSignature string     `json:"reasoning_signature,omitempty"`
-	ToolCalls          []ToolCall `json:"tool_calls,omitempty"`   // set by assistant
-	ToolCallID         string     `json:"tool_call_id,omitempty"` // links a tool result to its call
-	Name               string     `json:"name,omitempty"`         // tool message: tool name
+	ReasoningSignature string         `json:"reasoning_signature,omitempty"`
+	ToolCalls          []ToolCall     `json:"tool_calls,omitempty"`   // set by assistant
+	ToolCallID         string         `json:"tool_call_id,omitempty"` // links a tool result to its call
+	Name               string         `json:"name,omitempty"`         // tool message: tool name
+	Images             []ImageContent `json:"images,omitempty"`       // user message image references; data is hydrated only for requests
+}
+
+// ImageContent is a persisted local image reference. Data is deliberately not
+// serialized into session JSONL; the agent hydrates it immediately before a
+// provider request so histories remain small and locally inspectable.
+type ImageContent struct {
+	Path      string `json:"path"`
+	Name      string `json:"name,omitempty"`
+	MediaType string `json:"media_type"`
+	Size      int64  `json:"size,omitempty"`
+	Data      string `json:"-"`
 }
 
 // ToolCall is a tool invocation requested by the model. Arguments is raw JSON.

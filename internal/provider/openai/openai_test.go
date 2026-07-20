@@ -166,6 +166,21 @@ func TestBuildRequestAlwaysSerializesContent(t *testing.T) {
 	}
 }
 
+func TestBuildRequestSerializesMultimodalUserContent(t *testing.T) {
+	c := &client{model: "vision-model"}
+	req := c.buildRequest(provider.Request{Messages: []provider.Message{{
+		Role: provider.RoleUser, Content: "describe this", Images: []provider.ImageContent{{MediaType: "image/png", Data: "cG5n"}},
+	}}})
+	b, err := json.Marshal(req.Messages[0].Content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(b)
+	if !strings.Contains(got, `"type":"text"`) || !strings.Contains(got, `"type":"image_url"`) || !strings.Contains(got, `data:image/png;base64,cG5n`) {
+		t.Fatalf("multimodal content = %s", got)
+	}
+}
+
 // TestStreamRepairsDanglingToolCalls reproduces and guards the DeepSeek 400
 // "An assistant message with 'tool_calls' must be followed by tool messages
 // responding to each 'tool_call_id'". A resumed/interrupted session can carry an
@@ -578,7 +593,9 @@ func TestBuildRequestPreservesEmptyIDToolResults(t *testing.T) {
 	var toolContents []string
 	for _, m := range req.Messages {
 		if m.Role == string(provider.RoleTool) && m.Content != nil {
-			toolContents = append(toolContents, *m.Content)
+			if content, ok := m.Content.(string); ok {
+				toolContents = append(toolContents, content)
+			}
 		}
 	}
 	if len(toolContents) != 2 {

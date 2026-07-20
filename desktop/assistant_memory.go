@@ -198,7 +198,7 @@ func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate,
 		_ = saveAssistantMemoryPendingFile(f)
 		a.assistantMemoryMu.Unlock()
 		if runNow && status == "failed" {
-			go a.processPendingAssistantMemories()
+			a.schedulePendingAssistantMemories()
 		}
 		return
 	}
@@ -217,7 +217,7 @@ func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate,
 	_ = saveAssistantMemoryPendingFile(f)
 	a.assistantMemoryMu.Unlock()
 	if runNow {
-		go a.processPendingAssistantMemories()
+		a.schedulePendingAssistantMemories()
 	}
 }
 
@@ -228,11 +228,78 @@ func (a *App) markActiveAssistantMemoryPending(runNow bool) {
 	a.markAssistantMemoryPendingForCandidate(c, runNow)
 }
 
-func (a *App) processPendingAssistantMemories() {
+const assistantMemoryIdleDelay = 8 * time.Second
+
+func (a *App) schedulePendingAssistantMemories() {
+	a.assistantMemoryMu.Lock()
+	if a.assistantMemoryTimer != nil {
+		a.assistantMemoryTimer.Stop()
+	}
+	a.assistantMemoryTimer = time.AfterFunc(assistantMemoryIdleDelay, func() {
+		a.startPendingAssistantMemoriesIfIdle()
+	})
+	a.assistantMemoryMu.Unlock()
+}
+
+func (a *App) startPendingAssistantMemoriesIfIdle() {
+	a.assistantMemoryMu.Lock()
+	if a.assistantMemoryWorkerRunning {
+		a.assistantMemoryMu.Unlock()
+		return
+	}
+	if a.anyTabRunning() {
+		a.assistantMemoryMu.Unlock()
+		a.schedulePendingAssistantMemories()
+		return
+	}
+	a.assistantMemoryWorkerRunning = true
+	a.assistantMemoryMu.Unlock()
+	go func() {
+		shouldReschedule := false
+		defer func() {
+			a.assistantMemoryMu.Lock()
+			a.assistantMemoryWorkerRunning = false
+			a.assistantMemoryMu.Unlock()
+			if shouldReschedule || a.hasRunnableAssistantMemoryPending() {
+				a.schedulePendingAssistantMemories()
+			}
+		}()
+		shouldReschedule = a.processPendingAssistantMemories()
+	}()
+}
+
+func (a *App) anyTabRunning() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, tab := range a.tabs {
+		if tab != nil && tab.Ctrl != nil && tab.Ctrl.Running() {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) hasRunnableAssistantMemoryPending() bool {
+	a.assistantMemoryMu.Lock()
+	defer a.assistantMemoryMu.Unlock()
+	f := loadAssistantMemoryPendingFile()
+	now := time.Now()
+	for _, item := range f.Items {
+		if item.Status == "pending" || (item.Status == "failed" && assistantMemoryShouldRetry(item, now)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) processPendingAssistantMemories() bool {
 	for {
+		if a.anyTabRunning() {
+			return true
+		}
 		key, item, ok := a.claimNextAssistantMemoryPending()
 		if !ok {
-			return
+			return false
 		}
 		err := a.processAssistantMemoryItem(&item)
 		a.finishAssistantMemoryPending(key, item, err)

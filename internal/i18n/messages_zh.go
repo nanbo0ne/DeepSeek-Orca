@@ -315,6 +315,7 @@ var Chinese = Messages{
 	ProviderErrRateLimited:         "请求速率达到上限 (HTTP 429)：请求过于频繁 (TPM/RPM)。已退避重试，请放慢速率或稍后再试。",
 	ProviderErrServer:              "服务器故障 (HTTP 500)：服务端内部错误。已退避重试；若持续失败请稍后再试。",
 	ProviderErrServerBusy:          "服务器繁忙 (HTTP 503)：服务端负载过高。已退避重试，请稍后再试。",
+	ProviderErrVisionUnsupported:   "当前模型可能不支持图片输入。请在设置中关闭“多模态识图”，或切换到支持视觉的模型。",
 
 	SelectOneHint:  "(↑/↓ · Enter · q 取消；/ 搜索)",
 	SelectManyHint: "(↑/↓ · Space · Enter · q；/ 搜索)",

@@ -88,7 +88,24 @@ type App struct {
 	sideChatMu      sync.Mutex
 	sideChatCancels map[string]sideChatCancel
 
-	assistantMemoryMu sync.Mutex
+	assistantMemoryMu            sync.Mutex
+	assistantMemoryWorkerRunning bool
+	assistantMemoryTimer         *time.Timer
+	balanceMu                    sync.Mutex
+	balanceCache                 map[string]balanceCacheEntry
+	balanceInflight              map[string]chan struct{}
+	sessionInfoMu                sync.Mutex
+	sessionInfoCache             map[string]sessionInfoCacheEntry
+}
+
+type balanceCacheEntry struct {
+	info      BalanceInfo
+	expiresAt time.Time
+}
+
+type sessionInfoCacheEntry struct {
+	infos     []agent.SessionInfo
+	expiresAt time.Time
 }
 
 // mediaTokenEntry holds metadata for a workspace media file served via temporary URL.
@@ -257,7 +274,15 @@ func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 // NewApp constructs the bound object. Tabs are restored in startup from the
 // last session's desktop-tabs.json.
 func NewApp() *App {
-	return &App{tabs: map[string]*WorkspaceTab{}, mediaTokens: newMediaTokenStore(), botInstalls: map[string]*botInstallSession{}, sideChatCancels: map[string]sideChatCancel{}}
+	return &App{
+		tabs:             map[string]*WorkspaceTab{},
+		mediaTokens:      newMediaTokenStore(),
+		botInstalls:      map[string]*botInstallSession{},
+		sideChatCancels:  map[string]sideChatCancel{},
+		balanceCache:     map[string]balanceCacheEntry{},
+		balanceInflight:  map[string]chan struct{}{},
+		sessionInfoCache: map[string]sessionInfoCacheEntry{},
+	}
 }
 
 func (a *App) bootContext() context.Context {
@@ -370,7 +395,7 @@ func backgroundRestoreShouldMaximise(goos string, wasMaximised bool) bool {
 func (a *App) restoreOrBuildTabs() {
 	ctx := a.ctx
 	ensureWorkspace()
-	defer func() { go a.processPendingAssistantMemories() }()
+	defer func() { a.schedulePendingAssistantMemories() }()
 
 	// Load i18n from the first available config.
 	// Prefer DesktopLanguage (desktop UI setting) over Language (CLI setting),
@@ -1131,6 +1156,7 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	}
 	scope := sourceTab.Scope
 	workspaceRoot := sourceTab.WorkspaceRoot
+	sourceWorkspaceRoot := sourceTab.WorkspaceRoot
 	sourceTitle := sourceTab.TopicTitle
 	model := sourceTab.model
 	effort := cloneStringPtr(sourceTab.effort)
@@ -1153,7 +1179,7 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 		} else {
 			workspaceRoot = independentWorkspaceRoot(topicID)
 		}
-		if migratedPath, err := migrateForkSessionToWorkspace(newPath, workspaceRoot); err == nil {
+		if migratedPath, err := migrateForkSessionToWorkspace(newPath, sourceWorkspaceRoot, workspaceRoot); err == nil {
 			newPath = migratedPath
 		} else {
 			return TabMeta{}, err
@@ -1199,7 +1225,7 @@ func (a *App) Fork(turn int) (TabMeta, error) {
 	return meta, nil
 }
 
-func migrateForkSessionToWorkspace(sessionPath, workspaceRoot string) (string, error) {
+func migrateForkSessionToWorkspace(sessionPath, sourceWorkspaceRoot, workspaceRoot string) (string, error) {
 	sessionPath = strings.TrimSpace(sessionPath)
 	workspaceRoot = strings.TrimSpace(workspaceRoot)
 	if sessionPath == "" || workspaceRoot == "" {
@@ -1212,6 +1238,26 @@ func migrateForkSessionToWorkspace(sessionPath, workspaceRoot string) (string, e
 	loaded, err := agent.LoadSession(sessionPath)
 	if err != nil {
 		return "", err
+	}
+	copied := map[string]string{}
+	for mi := range loaded.Messages {
+		for ii := range loaded.Messages[mi].Images {
+			image := &loaded.Messages[mi].Images[ii]
+			if next, ok := copied[image.Path]; ok {
+				image.Path = next
+				continue
+			}
+			source := image.Path
+			if sourceWorkspaceRoot != "" && !filepath.IsAbs(source) {
+				source = filepath.Join(sourceWorkspaceRoot, filepath.FromSlash(source))
+			}
+			next, err := control.SnapshotImageFile(source, workspaceRoot)
+			if err != nil {
+				continue
+			}
+			copied[image.Path] = next
+			image.Path = next
+		}
 	}
 	targetPath := filepath.Join(targetDir, filepath.Base(sessionPath))
 	if _, err := os.Stat(targetPath); err == nil {
@@ -1311,7 +1357,7 @@ func (a *App) activeSessionDir() string {
 // user-chosen titles.
 func (a *App) ListSessions() []SessionMeta {
 	dir := a.activeSessionDir()
-	infos, err := agent.ListSessions(dir)
+	infos, err := a.cachedSessionInfos(dir)
 	if err != nil {
 		return []SessionMeta{}
 	}
@@ -2014,6 +2060,7 @@ type BalanceInfo struct {
 	Available bool   `json:"available"`
 	Display   string `json:"display"`
 	Err       string `json:"err,omitempty"`
+	Loading   bool   `json:"loading,omitempty"`
 }
 
 // Balance queries the active provider's wallet balance (a network call). It
@@ -2024,12 +2071,99 @@ func (a *App) Balance() BalanceInfo {
 	return a.BalanceForTab("")
 }
 
+const (
+	balanceCacheTTL      = 60 * time.Second
+	balanceErrorCacheTTL = 15 * time.Second
+	sessionInfoCacheTTL  = 3 * time.Second
+)
+
+func (a *App) cachedSessionInfos(dir string) ([]agent.SessionInfo, error) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return nil, nil
+	}
+	now := time.Now()
+	a.sessionInfoMu.Lock()
+	if a.sessionInfoCache == nil {
+		a.sessionInfoCache = map[string]sessionInfoCacheEntry{}
+	}
+	if cached, ok := a.sessionInfoCache[dir]; ok && now.Before(cached.expiresAt) {
+		out := append([]agent.SessionInfo(nil), cached.infos...)
+		a.sessionInfoMu.Unlock()
+		return out, nil
+	}
+	a.sessionInfoMu.Unlock()
+
+	infos, err := agent.ListSessions(dir)
+	if err != nil {
+		return nil, err
+	}
+	copied := append([]agent.SessionInfo(nil), infos...)
+	a.sessionInfoMu.Lock()
+	a.sessionInfoCache[dir] = sessionInfoCacheEntry{infos: copied, expiresAt: time.Now().Add(sessionInfoCacheTTL)}
+	a.sessionInfoMu.Unlock()
+	return append([]agent.SessionInfo(nil), copied...), nil
+}
+
+func (a *App) invalidateSessionInfoCache() {
+	a.sessionInfoMu.Lock()
+	a.sessionInfoCache = map[string]sessionInfoCacheEntry{}
+	a.sessionInfoMu.Unlock()
+}
+
 func (a *App) BalanceForTab(tabID string) BalanceInfo {
-	ctrl := a.ctrlByTabID(tabID)
+	key, ctrl := a.balanceTarget(tabID)
 	if ctrl == nil {
 		return BalanceInfo{}
 	}
-	b, err := ctrl.Balance(a.ctx)
+	if key == "" {
+		key = tabID
+	}
+	if key == "" {
+		key = "active"
+	}
+	for {
+		now := time.Now()
+		a.balanceMu.Lock()
+		if a.balanceCache == nil {
+			a.balanceCache = map[string]balanceCacheEntry{}
+		}
+		if a.balanceInflight == nil {
+			a.balanceInflight = map[string]chan struct{}{}
+		}
+		if cached, ok := a.balanceCache[key]; ok && now.Before(cached.expiresAt) {
+			a.balanceMu.Unlock()
+			return cached.info
+		}
+		if wait := a.balanceInflight[key]; wait != nil {
+			a.balanceMu.Unlock()
+			select {
+			case <-wait:
+				continue
+			case <-a.bootContext().Done():
+				return BalanceInfo{}
+			}
+		}
+		wait := make(chan struct{})
+		a.balanceInflight[key] = wait
+		a.balanceMu.Unlock()
+
+		info := fetchBalanceInfo(a.bootContext(), ctrl)
+		ttl := balanceCacheTTL
+		if info.Err != "" {
+			ttl = balanceErrorCacheTTL
+		}
+		a.balanceMu.Lock()
+		a.balanceCache[key] = balanceCacheEntry{info: info, expiresAt: time.Now().Add(ttl)}
+		delete(a.balanceInflight, key)
+		close(wait)
+		a.balanceMu.Unlock()
+		return info
+	}
+}
+
+func fetchBalanceInfo(ctx context.Context, ctrl *control.Controller) BalanceInfo {
+	b, err := ctrl.Balance(ctx)
 	if err != nil {
 		return BalanceInfo{Err: err.Error()}
 	}
@@ -2037,6 +2171,28 @@ func (a *App) BalanceForTab(tabID string) BalanceInfo {
 		return BalanceInfo{} // provider declares no balance endpoint
 	}
 	return BalanceInfo{Available: true, Display: b.Display()}
+}
+
+func (a *App) balanceTarget(tabID string) (string, *control.Controller) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	var tab *WorkspaceTab
+	if strings.TrimSpace(tabID) != "" {
+		tab = a.tabs[tabID]
+	} else {
+		tab = a.activeTabLocked()
+	}
+	if tab == nil || tab.Ctrl == nil {
+		return "", nil
+	}
+	key := strings.TrimSpace(tab.model)
+	if key == "" {
+		key = strings.TrimSpace(tab.Label)
+	}
+	if key == "" {
+		key = tab.ID
+	}
+	return key, tab.Ctrl
 }
 
 // JobView is one running background job (bash/task started with

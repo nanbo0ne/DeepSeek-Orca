@@ -94,7 +94,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		if len(c.Desktop.ProviderAccess) > 0 {
 			fmt.Fprintf(&b, "provider_access = %s   # desktop settings: providers shown on Settings > Model > Access\n", renderStringArray(c.Desktop.ProviderAccess))
 		}
-		fmt.Fprintf(&b, "expand_thinking = %v   # desktop: show reasoning text expanded by default; false = collapsed\n", c.Desktop.ExpandThinking)
+		fmt.Fprintf(&b, "process_display_mode = %q   # desktop: compact|standard|detailed process presentation\n", c.DesktopProcessDisplayMode())
+		fmt.Fprintf(&b, "expand_thinking = %v   # legacy compatibility; detailed mode sets this true\n", c.DesktopProcessDisplayMode() == ProcessDisplayDetailed)
+		fmt.Fprintf(&b, "vision_enabled = %v   # desktop: send attached images to the selected model\n", c.Desktop.VisionEnabled)
 		fmt.Fprintf(&b, "assistant_auto_memory_enabled = %v   # desktop: assistant mode silently updates profile memories when leaving a conversation\n", c.DesktopAssistantAutoMemoryEnabled())
 		fmt.Fprintf(&b, "assistant_memory_recall_enabled = %v   # desktop: assistant mode injects assistant memories before each turn\n", c.DesktopAssistantMemoryRecallEnabled())
 		b.WriteString("\n")

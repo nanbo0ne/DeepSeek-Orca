@@ -46,6 +46,9 @@ func TestGoalCommandAutoContinuesUntilComplete(t *testing.T) {
 	if strings.HasPrefix(first, PlanModeMarker) {
 		t.Fatalf("goal mode should not enter plan mode, got %q", first)
 	}
+	if got := lastAssistantText(ag.Session().Messages); strings.Contains(got, "[goal:") {
+		t.Fatalf("goal marker should be stripped from stored history, got %q", got)
+	}
 }
 
 func TestGoalModeSkipsAutoPlanApproval(t *testing.T) {

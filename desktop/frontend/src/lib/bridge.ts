@@ -235,6 +235,8 @@ export interface AppBindings {
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
+  SetProcessDisplayMode(mode: string): Promise<void>;
+  SetVisionEnabled(enabled: boolean): Promise<void>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
   SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, softCompactRatio: number, compactRatio: number, compactForceRatio: number, systemPrompt: string): Promise<void>;
   SetTrayLocale(locale: "en" | "zh"): Promise<void>;
@@ -719,6 +721,8 @@ function makeMockApp(): AppBindings {
     closeBehavior: "background",
     checkUpdates: false,
     expandThinking: false,
+    processDisplayMode: "standard",
+    visionEnabled: false,
     configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
@@ -1050,10 +1054,9 @@ function makeMockApp(): AppBindings {
         emit({ kind: "notice", level: "info", text: `goal set: ${arg}` });
         await delay(350);
         if (cancelled) return;
-        const reply = `Autonomous goal run started for: **${arg}**\n\nMock run completed.\n\n[goal:complete]`;
+        const reply = `Autonomous goal run started for: **${arg}**\n\nMock run completed.`;
         emit({ kind: "message", text: reply });
         mockTabs = mockTabs.map((tab) => (tab.active ? { ...tab, goal: "", goalStatus: "complete", collaborationMode: "normal" } : tab));
-        emit({ kind: "notice", level: "info", text: "goal complete" });
         emitMockTurnDone();
         return;
       }
@@ -2181,6 +2184,14 @@ function makeMockApp(): AppBindings {
         },
         async SetExpandThinking(on: boolean) {
           settings.expandThinking = on;
+          settings.processDisplayMode = on ? "detailed" : "standard";
+        },
+        async SetProcessDisplayMode(mode: string) {
+          settings.processDisplayMode = mode === "compact" || mode === "detailed" ? mode : "standard";
+          settings.expandThinking = settings.processDisplayMode === "detailed";
+        },
+        async SetVisionEnabled(enabled: boolean) {
+          settings.visionEnabled = enabled;
         },
         async MigrateDesktopPreferences(language: string, theme: string, style: string) {
           if (!settings.desktopLanguage) settings.desktopLanguage = language === "en" || language === "zh" ? language : "";

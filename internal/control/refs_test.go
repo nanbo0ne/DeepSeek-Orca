@@ -2,12 +2,42 @@ package control
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestResolveRefsVisionToggleAndWorkspaceSnapshot(t *testing.T) {
+	root := t.TempDir()
+	raw, err := base64.StdEncoding.DecodeString(tinyPNG)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "screen.png")
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	disabled := &Controller{cpRoot: root}
+	_, images, _, err := disabled.resolveRefsWithImages(context.Background(), "inspect @screen.png", false)
+	if err != nil || len(images) != 0 {
+		t.Fatalf("disabled images=%+v err=%v", images, err)
+	}
+	enabled := &Controller{cpRoot: root, visionEnabled: true}
+	block, images, errs, err := enabled.resolveRefsWithImages(context.Background(), "inspect @screen.png", true)
+	if err != nil || len(errs) != 0 || len(images) != 1 {
+		t.Fatalf("enabled block=%q images=%+v errs=%v err=%v", block, images, errs, err)
+	}
+	if !strings.HasPrefix(images[0].Path, ".deepseek-orca/attachments/") {
+		t.Fatalf("workspace image was not snapshotted: %+v", images[0])
+	}
+	hydrated, err := LoadImageContent(context.Background(), root, images[0])
+	if err != nil || hydrated.Data == "" || hydrated.MediaType != "image/png" {
+		t.Fatalf("hydrated=%+v err=%v", hydrated, err)
+	}
+}
 
 func TestFileRefLine(t *testing.T) {
 	dir := t.TempDir()

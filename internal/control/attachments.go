@@ -156,6 +156,62 @@ func SaveImageFile(path string) (string, error) {
 	return SaveImageBytes("", raw)
 }
 
+// SnapshotImageFile copies a workspace image into that workspace's attachment
+// directory without depending on the process cwd.
+func SnapshotImageFile(path, workspaceRoot string) (string, error) {
+	raw, mime, err := readImageFile(path)
+	if err != nil {
+		return "", err
+	}
+	root := strings.TrimSpace(workspaceRoot)
+	if root == "" {
+		root = "."
+	}
+	rel := attachmentPath(imageExt(mime))
+	abs := filepath.Join(root, rel)
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(abs, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return "", err
+	}
+	if _, err := f.Write(raw); err != nil {
+		_ = f.Close()
+		_ = os.Remove(abs)
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(abs)
+		return "", err
+	}
+	return filepath.ToSlash(rel), nil
+}
+
+func readImageFile(path string) ([]byte, string, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || info.IsDir() || info.Size() <= 0 || info.Size() > maxImageAttachmentBytes {
+		return nil, "", fmt.Errorf("image must be a regular file between 1 byte and 10 MB")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, "", err
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(io.LimitReader(f, maxImageAttachmentBytes+1))
+	if err != nil {
+		return nil, "", err
+	}
+	mime := detectedImageMime(raw)
+	if mime == "" {
+		return nil, "", fmt.Errorf("unsupported image type")
+	}
+	return raw, mime, nil
+}
+
 func SaveAttachmentFile(path string) (string, error) {
 	info, err := os.Lstat(path)
 	if err != nil {

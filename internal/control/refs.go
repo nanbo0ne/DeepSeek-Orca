@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"deepseek-orca/internal/proc"
+	"deepseek-orca/internal/provider"
 )
 
 // maxFileRefBytes caps how much of an @-referenced file is injected into a
@@ -85,9 +87,20 @@ func classifyRef(token string, known map[string]bool, exists func(string) bool) 
 		return ref{kind: refFile, path: token, raw: token}, true
 	}
 	if exists(token) {
+		if isNativeImageRef(token) {
+			return ref{kind: refImage, path: token, raw: token}, true
+		}
 		return ref{kind: refFile, path: token, raw: token}, true
 	}
 	return ref{}, false
+}
+
+func isNativeImageRef(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp":
+		return true
+	}
+	return false
 }
 
 func isAttachmentRef(token string) bool {
@@ -286,6 +299,14 @@ func fileRefExists(path, baseDir string) bool {
 // strings for any that failed. An empty block means no references resolved.
 // Safe to call off a frontend's event loop; honours ctx for the resource reads.
 func (c *Controller) ResolveRefs(ctx context.Context, line string) (block string, errs []string) {
+	block, _, errs, _ = c.resolveRefsWithImages(ctx, line, false)
+	return block, errs
+}
+
+const maxVisionImagesPerTurn = 8
+const maxVisionImageBytesPerTurn = 20 * 1024 * 1024
+
+func (c *Controller) resolveRefsWithImages(ctx context.Context, line string, visionEnabled bool) (block string, images []provider.ImageContent, errs []string, imageErr error) {
 	refs := c.detectRefs(line)
 	refs = resolveBareNames(refs, c.cpRoot)
 	var b strings.Builder
@@ -310,10 +331,76 @@ func (c *Controller) ResolveRefs(ctx context.Context, line string) (block string
 			}
 			appendRefBlock(&b, tag, `path="`+r.path+`"`, text)
 		case refImage:
-			appendRefBlock(&b, "image", `path="`+r.path+`"`, "[image attachment available at @"+r.path+"; use an image/OCR/vision MCP tool if visual understanding is needed]")
+			if !visionEnabled {
+				appendRefBlock(&b, "image", `path="`+r.path+`"`, "[image attachment available at @"+r.path+"; native image input is disabled]")
+				continue
+			}
+			image, err := c.prepareVisionImage(r.path)
+			if err != nil {
+				return b.String(), images, errs, fmt.Errorf("image @%s: %w", r.raw, err)
+			}
+			images = append(images, image)
+			if len(images) > maxVisionImagesPerTurn {
+				return b.String(), nil, errs, fmt.Errorf("a turn can include at most %d images", maxVisionImagesPerTurn)
+			}
+			var total int64
+			for _, item := range images {
+				total += item.Size
+			}
+			if total > maxVisionImageBytesPerTurn {
+				return b.String(), nil, errs, fmt.Errorf("images in one turn must total no more than 20 MB")
+			}
+			appendRefBlock(&b, "image", `path="`+image.Path+`"`, "[image content attached to this user message]")
 		}
 	}
-	return b.String(), errs
+	return b.String(), images, errs, nil
+}
+
+func (c *Controller) prepareVisionImage(path string) (provider.ImageContent, error) {
+	absPath := path
+	if c.cpRoot != "" {
+		resolved, _, ok := resolveAbsRef(path, c.cpRoot)
+		if !ok {
+			return provider.ImageContent{}, fmt.Errorf("path is outside the workspace")
+		}
+		absPath = resolved
+	}
+	storedPath := filepath.ToSlash(path)
+	if !isAttachmentRef(path) {
+		var err error
+		storedPath, err = SnapshotImageFile(absPath, c.cpRoot)
+		if err != nil {
+			return provider.ImageContent{}, err
+		}
+		absPath = filepath.Join(c.cpRoot, filepath.FromSlash(storedPath))
+	}
+	raw, mime, err := readImageFile(absPath)
+	if err != nil {
+		return provider.ImageContent{}, err
+	}
+	return provider.ImageContent{Path: storedPath, Name: filepath.Base(path), MediaType: mime, Size: int64(len(raw))}, nil
+}
+
+func LoadImageContent(ctx context.Context, workspaceRoot string, image provider.ImageContent) (provider.ImageContent, error) {
+	if err := ctx.Err(); err != nil {
+		return provider.ImageContent{}, err
+	}
+	path := image.Path
+	if workspaceRoot != "" {
+		resolved, _, ok := resolveAbsRef(path, workspaceRoot)
+		if !ok {
+			return provider.ImageContent{}, fmt.Errorf("path is outside the workspace")
+		}
+		path = resolved
+	}
+	raw, mime, err := readImageFile(path)
+	if err != nil {
+		return provider.ImageContent{}, err
+	}
+	image.MediaType = mime
+	image.Size = int64(len(raw))
+	image.Data = base64.StdEncoding.EncodeToString(raw)
+	return image, nil
 }
 
 func appendRefBlock(b *strings.Builder, tag, attr, body string) {

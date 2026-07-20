@@ -214,8 +214,12 @@ type Agent struct {
 
 	// projectChecks are structured project instructions that complete_step can
 	// verify against same-turn bash receipts after a write-backed completion.
-	projectChecks []instruction.VerifyCheck
-	pauseWait     func(context.Context) error
+	projectChecks   []instruction.VerifyCheck
+	pauseWait       func(context.Context) error
+	imageLoader     func(context.Context, provider.ImageContent) (provider.ImageContent, error)
+	missingImages   map[string]bool
+	imageCache      map[string]provider.ImageContent
+	imageCacheBytes int
 
 	// memQueue, when non-nil, lets the remember/forget tools fold a turn-tail note
 	// about a just-made memory change into the next turn, so it applies this
@@ -422,6 +426,7 @@ type Options struct {
 	// ProjectChecks are host-observable structured checks extracted during boot.
 	ProjectChecks []instruction.VerifyCheck
 	PauseWait     func(context.Context) error
+	ImageLoader   func(context.Context, provider.ImageContent) (provider.ImageContent, error)
 }
 
 // New constructs an Agent. MaxSteps <= 0 means no cap — the run loop continues
@@ -477,6 +482,9 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		recentKeep:        opts.RecentKeep,
 		archiveDir:        opts.ArchiveDir,
 		pauseWait:         opts.PauseWait,
+		imageLoader:       opts.ImageLoader,
+		missingImages:     map[string]bool{},
+		imageCache:        map[string]provider.ImageContent{},
 	}
 }
 
@@ -487,6 +495,10 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 // a round count. A positive maxSteps imposes an optional hard guard, surfaced as
 // a resumable notice when hit.
 func (a *Agent) Run(ctx context.Context, input string) error {
+	return a.RunRich(ctx, RichInput{Text: input})
+}
+
+func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 	defer a.clearSteerQueue()
 	a.steerMu.Lock()
 	a.steerConsumed = false
@@ -496,14 +508,14 @@ func (a *Agent) Run(ctx context.Context, input string) error {
 	}
 	a.repeatSuccessCounts = nil
 	a.sink.Emit(event.Event{Kind: event.TurnStarted})
-	a.session.Add(provider.Message{Role: provider.RoleUser, Content: input})
+	a.session.Add(provider.Message{Role: provider.RoleUser, Content: input.Text, Images: append([]provider.ImageContent(nil), input.Images...)})
 
 	finalReadinessBlocks := 0
 	emptyFinalBlocks := 0
 	handoffNudges := 0
 	usedAnyTool := false
 	streamRecoveries := 0
-	executorHandoff := a.executorHandoffGuard && strings.Contains(input, executorHandoffMarker)
+	executorHandoff := a.executorHandoffGuard && strings.Contains(input.Text, executorHandoffMarker)
 	for step := 0; a.maxSteps <= 0 || step < a.maxSteps; step++ {
 		if a.pauseWait != nil {
 			if err := a.pauseWait(ctx); err != nil {
@@ -769,7 +781,7 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 		a.sink.Emit(event.Event{Kind: event.Retrying, RetryAttempt: info.Attempt, RetryMax: info.Max})
 	})
 	ch, err := a.prov.Stream(ctx, provider.Request{
-		Messages:    a.session.Messages,
+		Messages:    a.hydrateImageMessages(ctx, a.session.Messages),
 		Tools:       a.tools.Schemas(),
 		Temperature: a.temperature,
 	})
@@ -860,6 +872,58 @@ func (a *Agent) stream(ctx context.Context, turn int) (string, string, string, [
 		a.sink.Emit(event.Event{Kind: event.Message, Text: text.String(), Reasoning: display})
 	}
 	return text.String(), stored, signature, calls, usage, false, false, nil
+}
+
+func (a *Agent) hydrateImageMessages(ctx context.Context, messages []provider.Message) []provider.Message {
+	if a.imageLoader == nil {
+		return messages
+	}
+	out := append([]provider.Message(nil), messages...)
+	for i := range out {
+		if len(out[i].Images) == 0 {
+			continue
+		}
+		images := make([]provider.ImageContent, 0, len(out[i].Images))
+		for _, image := range out[i].Images {
+			if cached, ok := a.imageCache[image.Path]; ok {
+				images = append(images, cached)
+				continue
+			}
+			hydrated, err := a.imageLoader(ctx, image)
+			if err != nil {
+				if !a.missingImages[image.Path] {
+					a.missingImages[image.Path] = true
+					a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "image attachment is unavailable and was omitted: " + image.Path})
+				}
+				out[i].Content = appendMissingImagePlaceholder(out[i].Content, image.Path)
+				continue
+			}
+			const maxImageCacheBytes = 24 * 1024 * 1024
+			encodedBytes := len(hydrated.Data)
+			if encodedBytes <= maxImageCacheBytes {
+				if a.imageCacheBytes+encodedBytes > maxImageCacheBytes {
+					a.imageCache = map[string]provider.ImageContent{}
+					a.imageCacheBytes = 0
+				}
+				a.imageCache[image.Path] = hydrated
+				a.imageCacheBytes += encodedBytes
+			}
+			images = append(images, hydrated)
+		}
+		out[i].Images = images
+	}
+	return out
+}
+
+func appendMissingImagePlaceholder(content, path string) string {
+	placeholder := "[Historical image unavailable: " + strings.TrimSpace(path) + "]"
+	if strings.Contains(content, placeholder) {
+		return content
+	}
+	if strings.TrimSpace(content) == "" {
+		return placeholder
+	}
+	return strings.TrimRight(content, "\n") + "\n\n" + placeholder
 }
 
 func (a *Agent) capturePrefixShape(schemas []provider.ToolSchema) PrefixShape {

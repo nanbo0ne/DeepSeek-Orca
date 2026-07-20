@@ -1,5 +1,16 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.24 - 2026-07-20
+
+- Added an opt-in multimodal vision setting for PNG, JPEG, WebP, and GIF images attached from the composer or referenced from the workspace.
+- Added OpenAI-compatible and Anthropic-native image request serialization while keeping image base64 out of session JSONL, memory, compaction, and conversation search.
+- Added image count and size limits, workspace image snapshots, independent attachment copies for global forks, and clear handling for missing or unsupported images.
+- Added Compact, Standard, and Detailed process display modes. Compact mode keeps live reasoning and tool activity on one low-emphasis expandable line without changing final answer length.
+- Preserved prompt mode, approval mode, ask workflow, step thinking, and goal state when settings rebuild the active controller.
+- Decoupled balance requests from conversation loading, reduced high-frequency polling, and lowered streaming Markdown and transcript rendering overhead.
+- Deferred Assistant memory generation to idle time so background profile updates do not compete with active conversations.
+- Fixed the slash skill list subagent label and cleaned overlapping process/composer presentation rules.
+
 ## V2.0.23 - 2026-06-21
 
 - Added Assistant mode proactive profile memory.

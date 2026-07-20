@@ -193,6 +193,27 @@ func (c *Config) SetUICloseBehavior(mode string) error {
 // provider-visible request data.
 func (c *Config) SetExpandThinking(on bool) error {
 	c.Desktop.ExpandThinking = on
+	if on {
+		c.Desktop.ProcessDisplayMode = ProcessDisplayDetailed
+	} else {
+		c.Desktop.ProcessDisplayMode = ProcessDisplayStandard
+	}
+	return nil
+}
+
+func (c *Config) SetProcessDisplayMode(mode string) error {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case ProcessDisplayCompact, ProcessDisplayStandard, ProcessDisplayDetailed:
+		c.Desktop.ProcessDisplayMode = strings.ToLower(strings.TrimSpace(mode))
+		c.Desktop.ExpandThinking = c.Desktop.ProcessDisplayMode == ProcessDisplayDetailed
+		return nil
+	default:
+		return fmt.Errorf("process display mode %q: must be compact|standard|detailed", mode)
+	}
+}
+
+func (c *Config) SetVisionEnabled(enabled bool) error {
+	c.Desktop.VisionEnabled = enabled
 	return nil
 }
 

@@ -68,6 +68,14 @@ export type Item =
       profile?: { model?: string; effort?: string }; // subagent model/effort from tool event
     };
 
+const LEADING_REASONING_BLOCK_RE = /^\s*(?:\ufeff\s*)?<(think|thinking|reasoning)>\s*([\s\S]*?)\s*<\/\1>\s*/i;
+
+function splitLeadingReasoningBlock(text: string): { reasoning: string; text: string } | null {
+  const match = text.match(LEADING_REASONING_BLOCK_RE);
+  if (!match) return null;
+  return { reasoning: match[2] ?? "", text: text.slice(match[0].length) };
+}
+
 interface State {
   items: Item[];
   running: boolean;
@@ -233,9 +241,18 @@ export function historyMessagesToItems(messages: HistoryMessage[], idPrefix: str
       continue;
     }
     if (m.role === "assistant") {
-      const hasText = m.content.trim() !== "" || (m.reasoning ?? "").trim() !== "";
+      let content = m.content;
+      let reasoning = m.reasoning ?? "";
+      if (reasoning.trim() === "") {
+        const split = splitLeadingReasoningBlock(content);
+        if (split) {
+          content = split.text;
+          reasoning = split.reasoning;
+        }
+      }
+      const hasText = content.trim() !== "" || reasoning.trim() !== "";
       if (hasText) {
-        items.push({ kind: "assistant", id: `${idPrefix}${seq}`, text: m.content, reasoning: m.reasoning ?? "", streaming: false });
+        items.push({ kind: "assistant", id: `${idPrefix}${seq}`, text: content, reasoning, streaming: false });
         seq++;
       }
       for (const tc of m.toolCalls ?? []) {
@@ -565,7 +582,7 @@ export function reducer(s: State, a: Action): State {
 
 type TabStates = Map<string, State>;
 
-const CONTEXT_REFRESH_INTERVAL_MS = 1000;
+const CONTEXT_REFRESH_INTERVAL_MS = 4000;
 
 export function nextContextRefreshDelay(now: number, lastRefreshAt: number | undefined, intervalMs = CONTEXT_REFRESH_INTERVAL_MS): number {
   if (!lastRefreshAt || lastRefreshAt <= 0) return 0;
@@ -671,6 +688,16 @@ export function useController() {
     dispatchTo(tabId, { type: "context", context });
   }, [dispatchTo]);
 
+  const refreshBalanceForTab = useCallback((tabId: string) => {
+    dispatchTo(tabId, { type: "balance", balance: { available: false, display: "", loading: true } });
+    app.BalanceForTab(tabId)
+      .then((balance) => dispatchTo(tabId, { type: "balance", balance }))
+      .catch((err) => dispatchTo(tabId, {
+        type: "balance",
+        balance: { available: false, display: "", err: err instanceof Error ? err.message : String(err) },
+      }));
+  }, [dispatchTo]);
+
   const requestContextRefresh = useCallback((tabId: string, minDelay = 0) => {
     const now = Date.now();
     const wait = Math.max(minDelay, nextContextRefreshDelay(now, lastContextRefreshAt.current.get(tabId)));
@@ -701,11 +728,10 @@ export function useController() {
   const loadSessionDataForTab = useCallback(async (tabId: string, reset = false) => {
     const seq = bumpSessionLoadSeq(tabId);
     const safe = <T,>(p: Promise<T>): Promise<T | undefined> => p.catch(() => undefined);
-    const [meta, context, effort, balance, jobs, checkpoints, history] = await Promise.all([
+    const [meta, context, effort, jobs, checkpoints, history] = await Promise.all([
       safe(app.MetaForTab(tabId)),
       safe(app.ContextUsageForTab(tabId)),
       safe(app.EffortForTab(tabId)),
-      safe(app.BalanceForTab(tabId)),
       safe(app.JobsForTab(tabId)),
       safe(app.CheckpointsForTab(tabId)),
       safe(app.HistoryForTab(tabId)),
@@ -715,13 +741,13 @@ export function useController() {
     if (meta) dispatchTo(tabId, { type: "meta", meta });
     if (context) dispatchTo(tabId, { type: "context", context });
     if (effort) dispatchTo(tabId, { type: "effort", effort });
-    if (balance) dispatchTo(tabId, { type: "balance", balance });
     if (jobs) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
     if (checkpoints) dispatchTo(tabId, { type: "checkpoints", checkpoints: asArray(checkpoints) });
     const messages = asArray(history);
     if (messages.length) dispatchTo(tabId, { type: "history", messages });
+    refreshBalanceForTab(tabId);
     await refreshContextForTab(tabId);
-  }, [bumpSessionLoadSeq, dispatchTo, refreshContextForTab, sessionLoadCurrent]);
+  }, [bumpSessionLoadSeq, dispatchTo, refreshBalanceForTab, refreshContextForTab, sessionLoadCurrent]);
 
   const activeTabFromBackend = useCallback(async (): Promise<TabMeta | undefined> => {
     const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
@@ -757,16 +783,15 @@ export function useController() {
       await loadSessionDataForTab(tabId, missedTurnDone);
       return;
     }
-    const [jobs, effort, balance] = await Promise.all([
+    const [jobs, effort] = await Promise.all([
       app.JobsForTab(tabId).catch(() => undefined),
       app.EffortForTab(tabId).catch(() => undefined),
-      app.BalanceForTab(tabId).catch(() => undefined),
     ]);
     void refreshContextForTab(tabId);
     if (jobs) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
     if (effort) dispatchTo(tabId, { type: "effort", effort });
-    if (balance) dispatchTo(tabId, { type: "balance", balance });
-  }, [dispatchTo, loadSessionDataForTab, refreshContextForTab]);
+    refreshBalanceForTab(tabId);
+  }, [dispatchTo, loadSessionDataForTab, refreshBalanceForTab, refreshContextForTab]);
 
   useEffect(() => {
     const textBatch = createRafBatch<{ tabId: string; e: WireEvent }>((batch) => {
@@ -792,15 +817,13 @@ export function useController() {
         textBatch.drain();
         dispatchTo(targetTabId, { type: "event", e });
       }
-      if (e.kind === "turn_started" || e.kind === "usage" || e.kind === "message" || e.kind === "tool_result" || e.kind === "compaction_done") {
+      if (e.kind === "turn_started" || e.kind === "usage" || e.kind === "message" || e.kind === "tool_result" || e.kind === "turn_done" || e.kind === "compaction_done") {
         requestContextRefresh(targetTabId, e.kind === "turn_started" ? 150 : 0);
-      } else if (e.kind === "text" || e.kind === "reasoning" || e.kind === "tool_progress") {
-        requestContextRefresh(targetTabId);
       }
       if (e.kind === "turn_done") {
         void refreshMetaForTab(targetTabId, dispatchTo);
         requestContextRefresh(targetTabId);
-        app.BalanceForTab(targetTabId).then((balance) => dispatchTo(targetTabId, { type: "balance", balance })).catch(() => {});
+        refreshBalanceForTab(targetTabId);
         app.EffortForTab(targetTabId).then((effort) => dispatchTo(targetTabId, { type: "effort", effort })).catch(() => {});
         void refreshCheckpoints(targetTabId);
       }
@@ -829,7 +852,7 @@ export function useController() {
     void app.ReplayPendingPrompts().catch(() => {});
 
     return () => { textBatch.drain(); off(); offReady(); };
-  }, [dispatchTo, loadSessionDataForTab, refreshCheckpoints, requestContextRefresh, syncActiveTabFromBackend]);
+  }, [dispatchTo, loadSessionDataForTab, refreshBalanceForTab, refreshCheckpoints, requestContextRefresh, syncActiveTabFromBackend]);
 
   useEffect(() => {
     if (!activeTabId) return;

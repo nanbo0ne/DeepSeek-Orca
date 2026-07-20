@@ -45,6 +45,30 @@ func TestThinkSplitter(t *testing.T) {
 			text:      "answer",
 		},
 		{
+			name:      "leading bom before think is dropped",
+			deltas:    []string{"\ufeff<think>r</think>answer"},
+			reasoning: "r",
+			text:      "answer",
+		},
+		{
+			name:      "thinking tag is supported",
+			deltas:    []string{"<thinking>assistant mode reasoning</thinking>answer"},
+			reasoning: "assistant mode reasoning",
+			text:      "answer",
+		},
+		{
+			name:      "reasoning tag is supported",
+			deltas:    []string{"<reasoning>assistant mode reasoning</reasoning>answer"},
+			reasoning: "assistant mode reasoning",
+			text:      "answer",
+		},
+		{
+			name:      "uppercase tags are supported",
+			deltas:    []string{"<THINK>reasoning</THINK>answer"},
+			reasoning: "reasoning",
+			text:      "answer",
+		},
+		{
 			name:      "no think tag passes through as text",
 			deltas:    []string{"just a normal ", "answer"},
 			reasoning: "",

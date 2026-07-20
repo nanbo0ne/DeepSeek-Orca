@@ -13,6 +13,13 @@ import type { CheckpointMeta } from "../lib/types";
 type AssistantItem = Extract<Item, { kind: "assistant" }>;
 export type TurnActionMenu = "summary" | "rewind";
 
+function stripGoalStatusText(text: string): string {
+  return text
+    .replace(/\n?\s*\[goal:(?:complete|continue)\]\s*$/i, "")
+    .replace(/\n?\s*\[goal:blocked:[^\]]+\]\s*$/i, "")
+    .trimEnd();
+}
+
 function attachmentIcon(kind: "image" | "file" | "folder") {
   if (kind === "image") return <Image size={15} />;
   if (kind === "folder") return <Folder size={15} />;
@@ -285,6 +292,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   defaultExpanded?: boolean;
 }) {
   const t = useT();
+  const displayText = stripGoalStatusText(item.text);
   const hasText = item.streaming || item.text.trim() !== "";
   const processOnly = Boolean(item.reasoning) && !hasText;
   const processWithText = Boolean(item.reasoning) && hasText;
@@ -311,7 +319,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       )}
       {hasText && (
         <div className="msg__body">
-          <Markdown text={item.text} showCursor={item.streaming} />
+          <Markdown text={displayText} showCursor={item.streaming} />
         </div>
       )}
     </div>

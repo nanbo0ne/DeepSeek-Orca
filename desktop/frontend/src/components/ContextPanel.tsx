@@ -1,6 +1,6 @@
 // ContextPanel shows the active tab's context gauge, token usage, read files,
 // and workspace changes. All visible text is routed through the i18n dictionary.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText } from "lucide-react";
 import { asArray } from "../lib/array";
 import { app } from "../lib/bridge";
@@ -111,18 +111,24 @@ export function ContextPanel({
 }: ContextPanelProps) {
   const t = useT();
   const [info, setInfo] = useState<ContextPanelInfo | null>(null);
+  const infoSignatureRef = useRef("");
 
   const refresh = useCallback(async () => {
     if (!tabId) return;
     try {
-      setInfo(await app.ContextPanel(tabId));
+      const next = await app.ContextPanel(tabId);
+      const signature = JSON.stringify(next);
+      if (signature !== infoSignatureRef.current) {
+        infoSignatureRef.current = signature;
+        setInfo(next);
+      }
     } catch {
       /* bridge unavailable */
     }
   }, [tabId]);
 
   useEffect(() => {
-    const id = window.setInterval(() => void refresh(), 2000);
+    const id = window.setInterval(() => void refresh(), 6000);
     return () => window.clearInterval(id);
   }, [refresh]);
 

@@ -314,6 +314,7 @@ var English = Messages{
 	ProviderErrRateLimited:         "Rate limit reached (HTTP 429): too many requests (TPM/RPM). Retried with backoff — slow down or try again shortly.",
 	ProviderErrServer:              "Server error (HTTP 500): the provider hit an internal fault. Retried with backoff; if it keeps failing, try again later.",
 	ProviderErrServerBusy:          "Server busy (HTTP 503): the provider is overloaded. Retried with backoff; please try again shortly.",
+	ProviderErrVisionUnsupported:   "The current model may not support image input. Disable Multimodal vision in Settings or switch to a vision-capable model.",
 
 	SelectOneHint:  "(↑/↓ · Enter · q to cancel; / to search)",
 	SelectManyHint: "(↑/↓ · Space · Enter · q; / to search)",

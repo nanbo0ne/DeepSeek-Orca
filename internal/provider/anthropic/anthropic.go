@@ -190,9 +190,17 @@ func (c *client) buildRequest(req provider.Request) anthRequest {
 				system = append(system, textBlock{Type: "text", Text: m.Content})
 			}
 		case provider.RoleUser:
+			var blocks []contentBlock
 			if m.Content != "" {
-				appendBlocks("user", contentBlock{Type: "text", Text: m.Content})
+				blocks = append(blocks, contentBlock{Type: "text", Text: m.Content})
 			}
+			for _, image := range m.Images {
+				if image.Data == "" || image.MediaType == "" {
+					continue
+				}
+				blocks = append(blocks, contentBlock{Type: "image", Source: &imageSource{Type: "base64", MediaType: image.MediaType, Data: image.Data}})
+			}
+			appendBlocks("user", blocks...)
 		case provider.RoleTool:
 			content := m.Content
 			if content == "" {
@@ -496,6 +504,13 @@ type contentBlock struct {
 	ToolUseID    string          `json:"tool_use_id,omitempty"` // tool_result
 	Content      string          `json:"content,omitempty"`     // tool_result
 	CacheControl *cacheControl   `json:"cache_control,omitempty"`
+	Source       *imageSource    `json:"source,omitempty"` // image
+}
+
+type imageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
 }
 
 type anthTool struct {

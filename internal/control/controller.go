@@ -76,6 +76,7 @@ type Controller struct {
 	memoryReminder bool
 	askWorkflow    bool
 	stepThinking   bool
+	visionEnabled  bool
 	cleanup        func()
 	autoPlan       string
 	classifier     autoPlanClassifier
@@ -293,6 +294,7 @@ type Options struct {
 	MemoryReminder bool
 	AskWorkflow    bool
 	StepThinking   bool
+	VisionEnabled  bool
 	Cleanup        func()
 	// BalanceURL/BalanceKey wire the active provider's optional wallet-balance
 	// endpoint and bearer key; empty when the provider declares no balance_url.
@@ -351,6 +353,7 @@ func New(opts Options) *Controller {
 		memoryReminder:   opts.MemoryReminder,
 		askWorkflow:      opts.AskWorkflow,
 		stepThinking:     opts.StepThinking,
+		visionEnabled:    opts.VisionEnabled,
 		cleanup:          opts.Cleanup,
 		autoPlan:         normalizeAutoPlan(opts.AutoPlan),
 		classifier:       classifier,
@@ -570,7 +573,11 @@ func (c *Controller) runGoalLoopWithRaw(ctx context.Context, input, raw string) 
 }
 
 func (c *Controller) runGoalLoopWithRawDisplay(ctx context.Context, input, raw, display string) error {
-	if err := c.runTurnWithRawDisplay(ctx, input, raw, display); err != nil {
+	return c.runGoalLoopWithRichDisplay(ctx, agent.RichInput{Text: input}, raw, display)
+}
+
+func (c *Controller) runGoalLoopWithRichDisplay(ctx context.Context, input agent.RichInput, raw, display string) error {
+	if err := c.runTurnWithRichDisplay(ctx, input, raw, display); err != nil {
 		if ctx.Err() != nil {
 			c.stopGoal(GoalStatusStopped)
 		}
@@ -580,6 +587,11 @@ func (c *Controller) runGoalLoopWithRawDisplay(ctx context.Context, input, raw, 
 }
 
 func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, display string) error {
+	return c.runTurnWithRichDisplay(ctx, agent.RichInput{Text: input}, raw, display)
+}
+
+func (c *Controller) runTurnWithRichDisplay(ctx context.Context, rich agent.RichInput, raw, display string) error {
+	input := rich.Text
 	c.maybeSessionStart(ctx)
 	c.maybeAutoPlan(ctx, raw)
 	ctx = agent.WithParentSession(ctx, c.parentSessionID())
@@ -603,8 +615,15 @@ func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, disp
 		}
 		defer func() { c.hooks.Stop(ctx, lastAssistantText(c.History()), turn) }()
 	}
-	if err := c.runner.Run(ctx, input); err != nil {
-		return err
+	rich.Text = input
+	var runErr error
+	if runner, ok := c.runner.(agent.RichRunner); ok && len(rich.Images) > 0 {
+		runErr = runner.RunRich(ctx, rich)
+	} else {
+		runErr = c.runner.Run(ctx, input)
+	}
+	if runErr != nil {
+		return runErr
 	}
 	c.mu.Lock()
 	plan := c.planMode
@@ -662,8 +681,7 @@ func (c *Controller) continueGoal(ctx context.Context) error {
 }
 
 func (c *Controller) advanceGoalAfterTurn() bool {
-	reply := lastAssistantText(c.History())
-	status, reason, _ := parseGoalStatusMarker(reply)
+	clean, status, reason, ok := stripGoalStatusMarker(lastAssistantText(c.History()))
 	var notice string
 	c.mu.Lock()
 	if strings.TrimSpace(c.goal) == "" || c.goalStatus != GoalStatusRunning {
@@ -671,14 +689,19 @@ func (c *Controller) advanceGoalAfterTurn() bool {
 		return false
 	}
 	c.goalTurns++
-	switch status {
-	case GoalStatusComplete:
+	switch {
+	case ok && status == GoalStatusComplete:
 		c.goal = ""
 		c.goalStatus = GoalStatusComplete
 		c.goalBlocks = 0
 		c.goalBlock = ""
-		notice = "goal complete"
-	case GoalStatusBlocked:
+		c.mu.Unlock()
+		c.replaceLastAssistantText(clean)
+		if notice != "" {
+			c.notice(notice)
+		}
+		return false
+	case ok && status == GoalStatusBlocked:
 		reason = cleanGoalBlockReason(reason)
 		if reason == "" {
 			reason = "blocked"
@@ -710,8 +733,12 @@ func (c *Controller) advanceGoalAfterTurn() bool {
 	return cont
 }
 
-func parseGoalStatusMarker(text string) (status, reason string, ok bool) {
+func stripGoalStatusMarker(text string) (clean, status, reason string, ok bool) {
 	lines := strings.Split(text, "\n")
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return text, "", "", false
+	}
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := strings.TrimSpace(lines[i])
 		if line == "" {
@@ -720,17 +747,41 @@ func parseGoalStatusMarker(text string) (status, reason string, ok bool) {
 		lower := strings.ToLower(line)
 		switch lower {
 		case "[goal:complete]":
-			return GoalStatusComplete, "", true
+			return strings.TrimSpace(strings.Join(lines[:i], "\n")), GoalStatusComplete, "", true
 		case "[goal:continue]":
-			return GoalStatusRunning, "", true
+			return strings.TrimSpace(strings.Join(lines[:i], "\n")), GoalStatusRunning, "", true
 		}
 		const blockedPrefix = "[goal:blocked:"
 		if strings.HasPrefix(lower, blockedPrefix) && strings.HasSuffix(line, "]") {
-			return GoalStatusBlocked, strings.TrimSpace(line[len(blockedPrefix) : len(line)-1]), true
+			return strings.TrimSpace(strings.Join(lines[:i], "\n")), GoalStatusBlocked, strings.TrimSpace(line[len(blockedPrefix) : len(line)-1]), true
 		}
-		return "", "", false
+		return text, "", "", false
 	}
-	return "", "", false
+	return text, "", "", false
+}
+
+func parseGoalStatusMarker(text string) (status, reason string, ok bool) {
+	_, status, reason, ok = stripGoalStatusMarker(text)
+	return status, reason, ok
+}
+
+func (c *Controller) replaceLastAssistantText(text string) {
+	if c.executor == nil {
+		return
+	}
+	sess := c.executor.Session()
+	if sess == nil {
+		return
+	}
+	msgs := sess.Snapshot()
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role != provider.RoleAssistant {
+			continue
+		}
+		msgs[i].Content = text
+		sess.Replace(msgs)
+		return
+	}
 }
 
 func sameGoalBlock(a, b string) bool {
@@ -1088,15 +1139,18 @@ func (c *Controller) runRefTurn(input, display string) {
 // "/path/File.kt:12: error" attach @/path/File.kt without rewriting the error.
 func (c *Controller) runRefTurnWithRefs(input, refLine, display string) {
 	c.runGuarded(func(ctx context.Context) error {
-		block, errs := c.ResolveRefs(ctx, refLine)
+		block, images, errs, imageErr := c.resolveRefsWithImages(ctx, refLine, c.visionEnabled)
 		for _, e := range errs {
 			c.notice(e)
+		}
+		if imageErr != nil {
+			return imageErr
 		}
 		sent := input
 		if block != "" {
 			sent = "Referenced context:\n\n" + block + "\n\n" + input
 		}
-		return c.runGoalLoopWithRawDisplay(ctx, sent, input, display)
+		return c.runGoalLoopWithRichDisplay(ctx, agent.RichInput{Text: sent, Images: images}, input, display)
 	})
 }
 
@@ -2087,7 +2141,7 @@ func (c *Controller) Balance(ctx context.Context) (*billing.Balance, error) {
 	if strings.TrimSpace(c.balanceURL) == "" {
 		return nil, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 	return billing.FetchWithClient(ctx, c.balanceClient, c.balanceURL, c.balanceKey)
 }

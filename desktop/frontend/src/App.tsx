@@ -57,6 +57,7 @@ import {
   type ComposerInsertRequest,
   type Mode,
   type PromptMode,
+  type ProcessDisplayMode,
   type SessionMeta,
   type SettingsTab,
   type SettingsView,
@@ -552,7 +553,7 @@ export default function App() {
   const [composerInsertRequest, setComposerInsertRequest] = useState<ComposerInsertRequest | null>(null);
   const [transientOverlayDismissSignal, setTransientOverlayDismissSignal] = useState(0);
   const [desktopPlatform, setDesktopPlatform] = useState<DesktopPlatform>(detectBrowserPlatform);
-  const [expandThinking, setExpandThinking] = useState(false);
+  const [processDisplayMode, setProcessDisplayMode] = useState<ProcessDisplayMode>("standard");
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
   const [topicTitleDraft, setTopicTitleDraft] = useState("");
   const [topicExportOpen, setTopicExportOpen] = useState(false);
@@ -569,6 +570,7 @@ export default function App() {
   const topicRenameCommitHandledRef = useRef(false);
   const nextQueuedPromptIdRef = useRef(1);
   const queuedPromptDispatchingRef = useRef(false);
+  const tabMetasSignatureRef = useRef("");
   const promptModeSwitchingRef = useRef<Record<string, boolean>>({});
   const promptModeSwitchTimersRef = useRef<Record<string, number>>({});
   const pendingModelSwitchRef = useRef<Record<string, Promise<void>>>({});
@@ -661,11 +663,14 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage">) => {
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking">) => {
       void settings.desktopTheme;
       void settings.desktopThemeStyle;
       applyTheme("light", "slate", { persist: false });
       setLocalePref(normalizeLangPref(settings.desktopLanguage));
+      setProcessDisplayMode(settings.processDisplayMode === "compact" || settings.processDisplayMode === "detailed"
+        ? settings.processDisplayMode
+        : settings.expandThinking ? "detailed" : "standard");
     },
     [setLocalePref],
   );
@@ -685,7 +690,6 @@ export default function App() {
       const settings = await app.Settings();
       if (cancelled) return;
       applyDesktopPreferences(settings);
-      setExpandThinking(settings.expandThinking);
     };
     void syncDesktopPreferences().catch((e) => {
       console.warn("desktop preferences sync failed", e);
@@ -1546,7 +1550,25 @@ export default function App() {
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
     const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
-    setTabMetas(tabs);
+    const signature = JSON.stringify(tabs.map((tab) => [
+      tab.id,
+      tab.active,
+      tab.running,
+      tab.ready,
+      tab.startupErr,
+      tab.label,
+      tab.topicTitle,
+      tab.mode,
+      tab.collaborationMode,
+      tab.toolApprovalMode,
+      tab.promptMode,
+      tab.workspaceRoot,
+      tab.topicId,
+    ]));
+    if (signature !== tabMetasSignatureRef.current) {
+      tabMetasSignatureRef.current = signature;
+      setTabMetas(tabs);
+    }
     return tabs;
   }, []);
 
@@ -1558,15 +1580,24 @@ export default function App() {
 
   useEffect(() => {
     void refreshTabMetas();
-    const id = window.setInterval(() => void refreshTabMetas(), 2000);
+    const id = window.setInterval(() => void refreshTabMetas(), 12000);
     return () => window.clearInterval(id);
   }, [refreshTabMetas]);
 
   useEffect(() => {
-    return onProjectTreeChanged(() => {
-      setProjectRevision((value) => value + 1);
-      void refreshTabMetas();
+    let timer: number | null = null;
+    const off = onProjectTreeChanged(() => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        setProjectRevision((value) => value + 1);
+        void refreshTabMetas();
+      }, 350);
     });
+    return () => {
+      off();
+      if (timer !== null) window.clearTimeout(timer);
+    };
   }, [refreshTabMetas]);
 
   useEffect(() => {
@@ -2577,7 +2608,7 @@ export default function App() {
                 checkpoints={state.checkpoints}
                 actionPending={state.messageAction != null}
                 rewindDisabled={state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
-                defaultExpandThinking={expandThinking}
+                processDisplayMode={processDisplayMode}
                 jobs={state.jobs}
               />
             )}

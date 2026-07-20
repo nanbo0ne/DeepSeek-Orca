@@ -568,6 +568,8 @@ export function Composer({
   const [searchEntries, setSearchEntries] = useState<DirEntry[]>([]);
   const dirCache = useRef<Record<string, DirEntry[]>>({});
   const searchCache = useRef<Record<string, DirEntry[]>>({});
+  const searchRequestRef = useRef(0);
+  const searchTimerRef = useRef<number | null>(null);
 
   // When the workspace/project changes (cwd prop), invalidate all @ mention
   // state so the picker reloads candidates for the new project. Without this,
@@ -612,26 +614,38 @@ export function Composer({
   }, [atRaw === null, atDir, cwd]);
   useEffect(() => {
     if (atRaw === null || atDir !== "" || atFrag === "") {
+      searchRequestRef.current += 1;
       setSearchEntries([]);
       return;
     }
     const cached = searchCache.current[atFrag];
     if (cached) {
+      searchRequestRef.current += 1;
       setSearchEntries(cached);
       return;
     }
     setSearchEntries([]);
-    let live = true;
-    app
-      .SearchFileRefs(atFrag)
-      .then((es) => {
-        const list = es ?? [];
-        searchCache.current[atFrag] = list;
-        if (live) setSearchEntries(list);
-      })
-      .catch(() => {});
+    const requestId = searchRequestRef.current + 1;
+    searchRequestRef.current = requestId;
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+    }
+    searchTimerRef.current = window.setTimeout(() => {
+      searchTimerRef.current = null;
+      app
+        .SearchFileRefs(atFrag)
+        .then((es) => {
+          const list = es ?? [];
+          searchCache.current[atFrag] = list;
+          if (searchRequestRef.current === requestId) setSearchEntries(list);
+        })
+        .catch(() => {});
+    }, 250);
     return () => {
-      live = false;
+      if (searchTimerRef.current !== null) {
+        window.clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
     };
   }, [atRaw === null, atDir, atFrag, cwd]);
   const atMatches = useMemo(

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"deepseek-orca/internal/i18n"
 	"deepseek-orca/internal/provider"
@@ -23,6 +24,9 @@ func explainError(err error) error {
 			return err
 		}
 		if reason := requestErrorReason(apiErr); reason != "" {
+			if looksLikeVisionError(reason) {
+				return fmt.Errorf("%s\n%s\n%s", msg, reason, i18n.M.ProviderErrVisionUnsupported)
+			}
 			return fmt.Errorf("%s\n%s", msg, reason)
 		}
 		return errors.New(msg)
@@ -39,6 +43,16 @@ func explainError(err error) error {
 		return errors.New(msg)
 	}
 	return err
+}
+
+func looksLikeVisionError(reason string) bool {
+	lower := strings.ToLower(reason)
+	for _, marker := range []string{"image_url", "image input", "image content", "vision", "multimodal", "media_type"} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // requestErrorReason returns the provider's verbatim reason for request-shaped

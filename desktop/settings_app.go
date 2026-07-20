@@ -138,25 +138,27 @@ type BotSettingsView struct {
 
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
-	DefaultModel      string          `json:"defaultModel"`
-	PlannerModel      string          `json:"plannerModel"`
-	SubagentModel     string          `json:"subagentModel"`
-	SubagentEffort    string          `json:"subagentEffort"`
-	AutoPlan          string          `json:"autoPlan"`
-	Providers         []ProviderView  `json:"providers"`
-	OfficialProviders []ProviderView  `json:"officialProviders"`
-	Permissions       PermissionsView `json:"permissions"`
-	Sandbox           SandboxView     `json:"sandbox"`
-	Network           NetworkView     `json:"network"`
-	Agent             AgentView       `json:"agent"`
-	Bot               BotSettingsView `json:"bot"`
-	DesktopLanguage   string          `json:"desktopLanguage"`
-	DesktopTheme      string          `json:"desktopTheme"`
-	DesktopThemeStyle string          `json:"desktopThemeStyle"`
-	CloseBehavior     string          `json:"closeBehavior"`
-	CheckUpdates      bool            `json:"checkUpdates"`
-	ExpandThinking    bool            `json:"expandThinking"`
-	ConfigPath        string          `json:"configPath"`
+	DefaultModel       string          `json:"defaultModel"`
+	PlannerModel       string          `json:"plannerModel"`
+	SubagentModel      string          `json:"subagentModel"`
+	SubagentEffort     string          `json:"subagentEffort"`
+	AutoPlan           string          `json:"autoPlan"`
+	Providers          []ProviderView  `json:"providers"`
+	OfficialProviders  []ProviderView  `json:"officialProviders"`
+	Permissions        PermissionsView `json:"permissions"`
+	Sandbox            SandboxView     `json:"sandbox"`
+	Network            NetworkView     `json:"network"`
+	Agent              AgentView       `json:"agent"`
+	Bot                BotSettingsView `json:"bot"`
+	DesktopLanguage    string          `json:"desktopLanguage"`
+	DesktopTheme       string          `json:"desktopTheme"`
+	DesktopThemeStyle  string          `json:"desktopThemeStyle"`
+	CloseBehavior      string          `json:"closeBehavior"`
+	CheckUpdates       bool            `json:"checkUpdates"`
+	ExpandThinking     bool            `json:"expandThinking"`
+	ProcessDisplayMode string          `json:"processDisplayMode"`
+	VisionEnabled      bool            `json:"visionEnabled"`
+	ConfigPath         string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
 	// kinds that resolve — selecting an unregistered one would fail the rebuild.
@@ -325,15 +327,17 @@ func (a *App) Settings() SettingsView {
 				Ask:   []string{},
 				Deny:  []string{},
 			},
-			Sandbox:           SandboxView{Bash: "enforce", AllowWrite: []string{}},
-			Agent:             AgentView{PlannerMaxSteps: 12, SoftCompactRatio: 0.5, CompactRatio: 0.8, CompactForceRatio: 0.9},
-			Bot:               botSettingsView(config.BotConfig{}),
-			AutoPlan:          "off",
-			DesktopTheme:      "light",
-			DesktopThemeStyle: "slate",
-			CloseBehavior:     "background",
-			CheckUpdates:      true,
-			ExpandThinking:    false,
+			Sandbox:            SandboxView{Bash: "enforce", AllowWrite: []string{}},
+			Agent:              AgentView{PlannerMaxSteps: 12, SoftCompactRatio: 0.5, CompactRatio: 0.8, CompactForceRatio: 0.9},
+			Bot:                botSettingsView(config.BotConfig{}),
+			AutoPlan:           "off",
+			DesktopTheme:       "light",
+			DesktopThemeStyle:  "slate",
+			CloseBehavior:      "background",
+			CheckUpdates:       true,
+			ExpandThinking:     false,
+			ProcessDisplayMode: config.ProcessDisplayStandard,
+			VisionEnabled:      false,
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -371,18 +375,20 @@ func (a *App) Settings() SettingsView {
 				Password: cfg.Network.Proxy.Password,
 			},
 		},
-		Agent:             AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, SoftCompactRatio: compactRatioOrDefault(cfg.Agent.SoftCompactRatio, 0.5), CompactRatio: compactRatioOrDefault(cfg.Agent.CompactRatio, 0.8), CompactForceRatio: compactRatioOrDefault(cfg.Agent.CompactForceRatio, 0.9)},
-		Bot:               botSettingsView(cfg.Bot),
-		DesktopLanguage:   cfg.DesktopLanguage(),
-		DesktopTheme:      "light",
-		DesktopThemeStyle: "slate",
-		CloseBehavior:     cfg.DesktopCloseBehavior(),
-		CheckUpdates:      cfg.DesktopCheckUpdates(),
-		ExpandThinking:    cfg.Desktop.ExpandThinking,
-		ConfigPath:        cfgPath,
-		ProviderKinds:     nonNil(provider.Kinds()),
-		AutoApproveTools:  ctrl != nil && ctrl.AutoApproveTools(),
-		Bypass:            ctrl != nil && ctrl.AutoApproveTools(),
+		Agent:              AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, SoftCompactRatio: compactRatioOrDefault(cfg.Agent.SoftCompactRatio, 0.5), CompactRatio: compactRatioOrDefault(cfg.Agent.CompactRatio, 0.8), CompactForceRatio: compactRatioOrDefault(cfg.Agent.CompactForceRatio, 0.9)},
+		Bot:                botSettingsView(cfg.Bot),
+		DesktopLanguage:    cfg.DesktopLanguage(),
+		DesktopTheme:       "light",
+		DesktopThemeStyle:  "slate",
+		CloseBehavior:      cfg.DesktopCloseBehavior(),
+		CheckUpdates:       cfg.DesktopCheckUpdates(),
+		ExpandThinking:     cfg.DesktopProcessDisplayMode() == config.ProcessDisplayDetailed,
+		ProcessDisplayMode: cfg.DesktopProcessDisplayMode(),
+		VisionEnabled:      cfg.Desktop.VisionEnabled,
+		ConfigPath:         cfgPath,
+		ProviderKinds:      nonNil(provider.Kinds()),
+		AutoApproveTools:   ctrl != nil && ctrl.AutoApproveTools(),
+		Bypass:             ctrl != nil && ctrl.AutoApproveTools(),
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	v.OfficialProviders = officialProviderViews(officialProviderAddedSet(cfg))
@@ -617,6 +623,8 @@ func (a *App) rebuild() error {
 		WorkspaceRoot:  tab.WorkspaceRoot,
 		SessionDir:     tabSessionDir(tab),
 		EffortOverride: cloneStringPtr(tab.effort),
+		PromptMode:     currentTabPromptMode(tab),
+		EnhancedMode:   tabPromptModeIsEnhanced(tab),
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -638,6 +646,10 @@ func (a *App) rebuild() error {
 	a.emitReady(a.ctx)
 	ctrl.EnableInteractiveApproval()
 	applyTabModeToController(ctrl, tab.mode)
+	applyTabToolApprovalModeToController(ctrl, tab.toolApprovalMode)
+	ctrl.SetAskWorkflow(tab.askWorkflow)
+	ctrl.SetStepThinking(tab.stepThinking)
+	ctrl.SetGoal(tab.goal)
 	path := agent.ContinueSessionPath(prevPath, ctrl.SessionDir(), ctrl.Label())
 	if len(carried) > 0 {
 		carried = withFreshSystemPrompt(carried, systemPromptFrom(ctrl.History()))
@@ -1336,6 +1348,53 @@ func (a *App) SetDesktopCheckUpdates(enabled bool) error {
 // the desktop. It is desktop-only and does not rebuild the controller.
 func (a *App) SetExpandThinking(on bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetExpandThinking(on) })
+}
+
+// SetProcessDisplayMode updates the desktop-only process presentation without
+// rebuilding the model controller.
+func (a *App) SetProcessDisplayMode(mode string) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetProcessDisplayMode(mode) })
+}
+
+// SetVisionEnabled rebuilds controllers because the setting changes both the
+// provider-visible policy and whether image parts are attached to new turns.
+func (a *App) SetVisionEnabled(enabled bool) error {
+	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetVisionEnabled(enabled) }); err != nil {
+		return err
+	}
+	tab := a.activeTab()
+	if tab == nil || tab.Ctrl == nil || !tab.Ctrl.Running() {
+		return a.rebuild()
+	}
+	ctrl := tab.Ctrl
+	var appDone <-chan struct{}
+	if a.ctx != nil {
+		appDone = a.ctx.Done()
+	}
+	go func() {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if ctrl.Running() {
+					continue
+				}
+				a.mu.RLock()
+				stillActive := a.activeTabLocked() == tab && tab.Ctrl == ctrl
+				a.mu.RUnlock()
+				if stillActive {
+					if err := a.rebuild(); err != nil {
+						a.noticeForTab(tab.ID, "多模态识图设置已保存，但应用到当前对话失败："+err.Error())
+					}
+				}
+				return
+			case <-appDone:
+				return
+			}
+		}
+	}()
+	return nil
 }
 
 // MigrateDesktopPreferences imports old browser-local desktop preferences into

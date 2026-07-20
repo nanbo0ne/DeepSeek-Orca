@@ -1,6 +1,6 @@
 ﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
-import type { CheckpointMeta, JobView } from "../lib/types";
+import type { CheckpointMeta, JobView, ProcessDisplayMode } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
 import { AssistantMessage, TurnActions, UserMessage } from "./Message";
@@ -24,6 +24,14 @@ const LiveAssistantMessage = memo(function LiveAssistantMessage({ item, defaultE
   return <AssistantMessage item={shown} defaultExpanded={defaultExpanded} />;
 });
 
+const LiveReasoningMessage = memo(function LiveReasoningMessage({ item }: { item: AssistantItem }) {
+  const live = useContext(LiveStreamContext);
+  const shown = live && live.id === item.id
+    ? { ...item, text: "", reasoning: live.reasoning, streaming: true }
+    : { ...item, text: "" };
+  return <AssistantMessage item={shown} defaultExpanded />;
+});
+
 function renderProcessItem(
   item: Item,
   subcalls: ReadonlyMap<string, ToolItem[]>,
@@ -33,6 +41,7 @@ function renderProcessItem(
   switch (item.kind) {
     case "assistant":
       if (!item.reasoning) return null;
+      if (item.streaming) return <LiveReasoningMessage key={item.id} item={item} />;
       return <AssistantMessage key={item.id} item={{ ...item, text: "" }} defaultExpanded={defaultExpandThinking} />;
     case "tool":
       if (item.parentId || item.name === "todo_write" || item.name === "exit_plan_mode") return null;
@@ -54,14 +63,17 @@ function TurnProcessSummary({
   subcalls,
   liveToolID,
   defaultExpandThinking,
+  defaultOpen,
 }: {
   stats: TurnStatsItem;
   items: Item[];
   subcalls: ReadonlyMap<string, ToolItem[]>;
   liveToolID: string;
   defaultExpandThinking: boolean;
+  defaultOpen: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => setOpen(defaultOpen), [defaultOpen]);
   const visibleItems = items.filter(isProcessItem);
   if (visibleItems.length === 0) return null;
   return (
@@ -125,19 +137,63 @@ function compactQuestionText(text: string): string {
 }
 
 function scrollVersion(items: Item[]): string {
-  return items
-    .map((it) => {
-      switch (it.kind) {
-        case "assistant":
-          return `${it.id}:a:${it.text?.length ?? 0}:${it.reasoning?.length ?? 0}:${it.streaming ? 1 : 0}`;
-        case "tool":
-          return `${it.id}:t:${it.name}:${it.status}:${it.args?.length ?? 0}:${it.output?.length ?? 0}:${it.error?.length ?? 0}:${it.truncated ? 1 : 0}`;
-        default:
-          return `${it.id}:${it.kind}`;
-      }
-    })
-    .join("|");
+  const last = items[items.length - 1];
+  if (!last) return "empty";
+  switch (last.kind) {
+    case "assistant":
+      return `${items.length}:${last.id}:a:${last.text?.length ?? 0}:${last.reasoning?.length ?? 0}:${last.streaming ? 1 : 0}`;
+    case "tool":
+      return `${items.length}:${last.id}:t:${last.name}:${last.status}:${last.args?.length ?? 0}:${last.output?.length ?? 0}:${last.error?.length ?? 0}:${last.truncated ? 1 : 0}`;
+    case "turn_stats":
+      return `${items.length}:${last.id}:s:${last.elapsedMs}:${last.tokens ?? 0}`;
+    case "compaction":
+      return `${items.length}:${last.id}:c:${last.pending ? 1 : 0}:${last.summary.length}`;
+    default:
+      return `${items.length}:${last.id}:${last.kind}`;
+  }
 }
+
+function CompactProcessActivity({
+  items,
+  subcalls,
+  liveToolID,
+}: {
+  items: Item[];
+  subcalls: ReadonlyMap<string, ToolItem[]>;
+  liveToolID: string;
+}) {
+  const t = useT();
+  const live = useContext(LiveStreamContext);
+  const [open, setOpen] = useState(false);
+  const visible = items.filter(isProcessItem);
+  if (visible.length === 0) return null;
+  let label = t("process.compact.thinking");
+  const runningTool = [...visible].reverse().find((item): item is ToolItem => item.kind === "tool" && item.status === "running");
+  if (runningTool) label = runningTool.readOnly ? t("process.compact.reading") : t("process.compact.tool");
+  else if (visible.some((item) => item.kind === "compaction" && item.pending)) label = t("process.compact.compacting");
+  else if (live?.text?.trim()) label = t("process.compact.answering");
+  return (
+    <div className={`compact-process-activity${open ? " compact-process-activity--open" : ""}`}>
+      <button type="button" className="compact-process-activity__summary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span className="composer-runstatus__dot" />
+        <span>{label}</span>
+        <ChevronRight size={12} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="compact-process-activity__details">
+          {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const LiveAssistantText = memo(function LiveAssistantText({ item }: { item: AssistantItem }) {
+  const live = useContext(LiveStreamContext);
+  const shown = live && live.id === item.id ? { ...item, text: live.text, reasoning: "", streaming: true } : { ...item, reasoning: "" };
+  if (!shown.text) return null;
+  return <AssistantMessage item={shown} />;
+});
 
 function repinIfWasPinned(
   el: HTMLDivElement,
@@ -272,7 +328,7 @@ export function Transcript({
   actionPending = false,
   rewindDisabled = false,
   questionNavigator = true,
-  defaultExpandThinking = false,
+  processDisplayMode = "standard",
   followButton = true,
   jobs = [],
 }: {
@@ -286,7 +342,7 @@ export function Transcript({
   actionPending?: boolean;
   rewindDisabled?: boolean;
   questionNavigator?: boolean;
-  defaultExpandThinking?: boolean;
+  processDisplayMode?: ProcessDisplayMode;
   followButton?: boolean;
   jobs?: JobView[];
 }) {
@@ -296,6 +352,8 @@ export function Transcript({
   const [showFollowButton, setShowFollowButton] = useState(false);
   const [activeJumpTurn, setActiveJumpTurn] = useState<number | null>(null);
   const t = useT();
+  const defaultExpandThinking = processDisplayMode === "detailed";
+  const compactProcess = processDisplayMode === "compact";
 
   const questions = useMemo<QuestionAnchor[]>(() => {
     const anchors: QuestionAnchor[] = [];
@@ -519,6 +577,11 @@ export function Transcript({
     let pendingProcessItems: Item[] = [];
     let pendingAnswerNodes: ReactNode[] = [];
     const flushProcessItems = () => {
+      if (compactProcess && pendingProcessItems.length > 0) {
+        out.push(<CompactProcessActivity key={`compact-${pendingProcessItems[0]?.id ?? out.length}`} items={pendingProcessItems} subcalls={subcallsByParent} liveToolID={liveToolID} />);
+        pendingProcessItems = [];
+        return;
+      }
       for (const item of pendingProcessItems) {
         const rendered = renderProcessItem(item, subcallsByParent, liveToolID, defaultExpandThinking);
         if (rendered) out.push(rendered);
@@ -569,9 +632,16 @@ export function Transcript({
         }
         case "assistant":
           if (it.streaming) {
-            flushProcessItems();
-            flushPendingAnswers();
-            out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
+            if (compactProcess) {
+              pendingProcessItems.push(it);
+              flushProcessItems();
+              flushPendingAnswers();
+              out.push(<LiveAssistantText key={`${it.id}-text`} item={it as AssistantItem} />);
+            } else {
+              flushProcessItems();
+              flushPendingAnswers();
+              out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
+            }
           } else if (it.reasoning) {
             pendingProcessItems.push(it);
             if (it.text.trim() !== "") {
@@ -597,8 +667,11 @@ export function Transcript({
           if (it.name === "todo_write") break;
           if (it.name === "exit_plan_mode") break;
           if (isProcessItemRunning(it)) {
-            flushProcessItems();
-            out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} livePulse={it.id === liveToolID} />);
+            if (compactProcess) pendingProcessItems.push(it);
+            else {
+              flushProcessItems();
+              out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} livePulse={it.id === liveToolID} />);
+            }
           } else {
             pendingProcessItems.push(it);
           }
@@ -607,8 +680,11 @@ export function Transcript({
         case "notice":
         case "compaction":
           if (isProcessItemRunning(it)) {
-            flushProcessItems();
-            out.push(renderProcessItem(it, subcallsByParent, liveToolID, defaultExpandThinking));
+            if (compactProcess) pendingProcessItems.push(it);
+            else {
+              flushProcessItems();
+              out.push(renderProcessItem(it, subcallsByParent, liveToolID, defaultExpandThinking));
+            }
           } else {
             pendingProcessItems.push(it);
           }
@@ -624,6 +700,7 @@ export function Transcript({
               subcalls={subcallsByParent}
               liveToolID={liveToolID}
               defaultExpandThinking={defaultExpandThinking}
+              defaultOpen={processDisplayMode === "detailed"}
             />,
           );
           flushPendingAnswers();
@@ -633,7 +710,7 @@ export function Transcript({
     }
     pushTurnActions();
     return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID, defaultExpandThinking]);
+  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID, defaultExpandThinking, compactProcess, processDisplayMode]);
   // Assemble rendered output
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
   // don't rebuild it. The hot zone uses LiveAssistantMessage (reads live from

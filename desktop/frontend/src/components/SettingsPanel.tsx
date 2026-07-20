@@ -7,7 +7,7 @@ import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from ".
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
-import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
+import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
@@ -547,6 +547,10 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     desktopThemeStyle: "slate",
     closeBehavior: normalizeCloseBehavior(view.closeBehavior),
     checkUpdates: view.checkUpdates !== false,
+    processDisplayMode: view.processDisplayMode === "compact" || view.processDisplayMode === "detailed"
+      ? view.processDisplayMode
+      : view.expandThinking ? "detailed" : "standard",
+    visionEnabled: Boolean(view.visionEnabled),
   };
 }
 
@@ -627,16 +631,16 @@ function GeneralSection({ s, busy, apply }: SectionProps) {
           ))}
         </div>
       </SettingsField>
-      <SettingsField label={t("settings.expandThinking")}>
+      <SettingsField label={t("settings.processDisplay")} hint={t("settings.processDisplayHint")}>
         <div className="set-seg">
-          {([false, true] as const).map((val) => (
+          {(["compact", "standard", "detailed"] as ProcessDisplayMode[]).map((mode) => (
             <button
-              key={val ? "on" : "off"}
-              className={`set-seg__btn${s.expandThinking === val ? " set-seg__btn--on" : ""}`}
+              key={mode}
+              className={`set-seg__btn${s.processDisplayMode === mode ? " set-seg__btn--on" : ""}`}
               disabled={busy}
-              onClick={() => void apply(() => app.SetExpandThinking(val))}
+              onClick={() => void apply(() => app.SetProcessDisplayMode(mode))}
             >
-              {val ? t("settings.expandThinking.expanded") : t("settings.expandThinking.collapsed")}
+              {t(`settings.processDisplay.${mode}`)}
             </button>
           ))}
         </div>
@@ -1754,6 +1758,21 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
                   </option>
                 ))}
               </select>
+            </SettingsField>
+
+            <SettingsField label={t("settings.visionEnabled")} hint={t("settings.visionEnabledHint")}>
+              <div className="set-seg">
+                {([false, true] as const).map((enabled) => (
+                  <button
+                    key={enabled ? "on" : "off"}
+                    className={`set-seg__btn${s.visionEnabled === enabled ? " set-seg__btn--on" : ""}`}
+                    disabled={busy}
+                    onClick={() => void apply(() => app.SetVisionEnabled(enabled))}
+                  >
+                    {enabled ? t("settings.autoPlan.on") : t("settings.autoPlan.off")}
+                  </button>
+                ))}
+              </div>
             </SettingsField>
 
             <div className="settings-model-current" aria-label={t("settings.modelCurrentStatus")}>

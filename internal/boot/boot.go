@@ -205,11 +205,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		}
 	}
 	if assistantMode {
-		sysPrompt = promptprofile.AssistantSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.AssistantSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionPolicy(cfg.Desktop.VisionEnabled), config.ActiveLanguagePolicy)
 	} else if enhancedMode {
-		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionPolicy(cfg.Desktop.VisionEnabled), config.ActiveLanguagePolicy)
 	} else {
-		sysPrompt = promptprofile.NormalSystemPrompt(sysPrompt, "", config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.NormalSystemPrompt(sysPrompt, "", config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionPolicy(cfg.Desktop.VisionEnabled), config.ActiveLanguagePolicy)
 	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
@@ -666,6 +666,12 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 
 	execSess := agent.NewSession(sysPrompt)
+	var imageLoader func(context.Context, provider.ImageContent) (provider.ImageContent, error)
+	if cfg.Desktop.VisionEnabled {
+		imageLoader = func(ctx context.Context, image provider.ImageContent) (provider.ImageContent, error) {
+			return control.LoadImageContent(ctx, root, image)
+		}
+	}
 	executor := agent.New(execProv, reg, execSess, agent.Options{
 		MaxSteps:          maxSteps,
 		Temperature:       cfg.Agent.Temperature,
@@ -680,6 +686,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		CompactForceRatio: cfg.Agent.CompactForceRatio,
 		ArchiveDir:        config.ArchiveDir(),
 		PauseWait:         opts.PauseWait,
+		ImageLoader:       imageLoader,
 	}, sink)
 
 	// Custom slash commands (.deepseek-orca/commands + user dir). Best-effort: a malformed
@@ -788,6 +795,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Registry:       reg,
 		PluginCtx:      ctx,
 		WorkspaceRoot:  root,
+		VisionEnabled:  cfg.Desktop.VisionEnabled,
 		AutoPlan:       cfg.Agent.AutoPlan,
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)

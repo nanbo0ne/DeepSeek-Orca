@@ -141,7 +141,7 @@ export function StatusBar({
   const jobsList = jobs ?? [];
   const costLabel = formatMoney(cost, currency);
   const tokenLabel = formatTokenCount(sessionTokens);
-  const balanceLabel = balance?.available && balance.display ? balance.display : "-";
+  const balanceLabel = balance?.loading ? t("status.balanceLoading") : balance?.available && balance.display ? balance.display : "-";
   const planMode = collaborationMode === "plan";
   const goalMode = collaborationMode === "goal";
 

@@ -478,7 +478,7 @@ func (c *Controller) skillListText() string {
 	for _, s := range c.skills {
 		tag := ""
 		if s.RunAs == "subagent" {
-			tag = " 馃К"
+			tag = " [subagent]"
 		}
 		fmt.Fprintf(&b, "  /%s%s — %s\n", s.Name, tag, s.Description)
 	}
