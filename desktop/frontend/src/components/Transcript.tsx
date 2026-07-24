@@ -1,10 +1,12 @@
 ﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
 import type { CheckpointMeta, JobView, ProcessDisplayMode } from "../lib/types";
+import { buildTimelineSegments, type TimelineProcessItem } from "../lib/transcriptTimeline";
+import { useLayoutEffect } from "react";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
 import { AssistantMessage, TurnActions, UserMessage } from "./Message";
-import { ProcessBrainIcon, ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon } from "./ProcessCard";
+import { ProcessBrainIcon, ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon, ProcessToolIcon } from "./ProcessCard";
 import { ToolCard } from "./ToolCard";
 import { ArrowDown, ChevronRight } from "lucide-react";
 import { Welcome } from "./Welcome";
@@ -17,12 +19,6 @@ type QuestionAnchor = { id: string; text: string; turn: number };
 
 const QUESTION_NAV_MIN_COUNT = 2;
 const LiveStreamContext = createContext<LiveStream | undefined>(undefined);
-
-const LiveAssistantMessage = memo(function LiveAssistantMessage({ item, defaultExpanded = false }: { item: AssistantItem; defaultExpanded?: boolean }) {
-  const live = useContext(LiveStreamContext);
-  const shown = live && live.id === item.id ? { ...item, text: live.text, reasoning: live.reasoning, streaming: true } : item;
-  return <AssistantMessage item={shown} defaultExpanded={defaultExpanded} />;
-});
 
 const LiveReasoningMessage = memo(function LiveReasoningMessage({ item }: { item: AssistantItem }) {
   const live = useContext(LiveStreamContext);
@@ -57,51 +53,16 @@ function renderProcessItem(
   }
 }
 
-function TurnProcessSummary({
-  stats,
-  items,
-  subcalls,
-  liveToolID,
-  defaultExpandThinking,
-  defaultOpen,
-}: {
-  stats: TurnStatsItem;
-  items: Item[];
-  subcalls: ReadonlyMap<string, ToolItem[]>;
-  liveToolID: string;
-  defaultExpandThinking: boolean;
-  defaultOpen: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => setOpen(defaultOpen), [defaultOpen]);
-  const visibleItems = items.filter(isProcessItem);
-  if (visibleItems.length === 0) return null;
-  return (
-    <ProcessCard
-      tone="violet"
-      icon={<ProcessBrainIcon size={12} />}
-      kind={turnStatsCollapsedLabel(stats)}
-      open={open}
-      onOpenChange={setOpen}
-      className="turn-process-summary"
-    >
-      <div className="turn-process-summary__body">
-        <div className="turn-process-summary__stats">{turnStatsTokenLabel(stats)}</div>
-        {visibleItems.map((item) => renderProcessItem(item, subcalls, liveToolID, defaultExpandThinking))}
-      </div>
-    </ProcessCard>
-  );
-}
-
 function BackgroundJobsCard({ jobs }: { jobs: JobView[] }) {
-  const label = jobs.length === 1 ? jobs[0].label || jobs[0].id : `${jobs.length} tasks`;
+  const t = useT();
+  const label = jobs.length === 1 ? jobs[0].label || jobs[0].id : t("process.timeline.backgroundCount", { n: jobs.length });
   return (
     <ProcessCard
       tone="accent"
       icon={<ProcessPhaseIcon size={12} />}
-      kind="research"
-      name={`后台研究仍在运行：${label}`}
-      meta={<ProcessStatusIcon state="running" label="后台研究仍在运行" />}
+      kind={t("process.timeline.background")}
+      name={t("process.timeline.backgroundRunning", { label })}
+      meta={<ProcessStatusIcon state="running" label={t("process.timeline.backgroundRunning", { label })} />}
       className="background-jobs-card"
     />
   );
@@ -153,38 +114,60 @@ function scrollVersion(items: Item[]): string {
   }
 }
 
-function CompactProcessActivity({
+function TimelineProcessGroup({
   items,
   subcalls,
   liveToolID,
+  mode,
+  completed,
 }: {
-  items: Item[];
+  items: TimelineProcessItem[];
   subcalls: ReadonlyMap<string, ToolItem[]>;
   liveToolID: string;
+  mode: ProcessDisplayMode;
+  completed: boolean;
 }) {
   const t = useT();
   const live = useContext(LiveStreamContext);
-  const [open, setOpen] = useState(false);
+  const defaultOpen = mode === "detailed";
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => setOpen(defaultOpen), [defaultOpen]);
   const visible = items.filter(isProcessItem);
   if (visible.length === 0) return null;
+
+  if (!completed && mode !== "compact") {
+    return (
+      <div className="timeline-process-live">
+        {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, mode === "detailed"))}
+      </div>
+    );
+  }
+
   let label = t("process.compact.thinking");
   const runningTool = [...visible].reverse().find((item): item is ToolItem => item.kind === "tool" && item.status === "running");
-  if (runningTool) label = runningTool.readOnly ? t("process.compact.reading") : t("process.compact.tool");
-  else if (visible.some((item) => item.kind === "compaction" && item.pending)) label = t("process.compact.compacting");
-  else if (live?.text?.trim()) label = t("process.compact.answering");
+  const toolCount = visible.filter((item) => item.kind === "tool").length;
+  if (!completed && runningTool) label = runningTool.readOnly ? t("process.compact.reading") : t("process.compact.tool");
+  else if (!completed && visible.some((item) => item.kind === "compaction" && item.pending)) label = t("process.compact.compacting");
+  else if (!completed && live?.text?.trim()) label = t("process.compact.answering");
+  else if (toolCount === 1) label = t("process.timeline.oneTool");
+  else if (toolCount > 1) label = t("process.timeline.tools", { n: toolCount });
+  else if (visible.some((item) => item.kind === "compaction")) label = t("process.timeline.compaction");
+  const running = visible.some(isProcessItemRunning);
+
   return (
-    <div className={`compact-process-activity${open ? " compact-process-activity--open" : ""}`}>
-      <button type="button" className="compact-process-activity__summary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <span className="composer-runstatus__dot" />
-        <span>{label}</span>
-        <ChevronRight size={12} aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="compact-process-activity__details">
-          {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
-        </div>
-      )}
-    </div>
+    <ProcessCard
+      tone="default"
+      icon={toolCount > 0 ? <ProcessToolIcon size={12} /> : <ProcessBrainIcon size={12} />}
+      kind={label}
+      meta={running ? <ProcessStatusIcon state="running" label={label} /> : undefined}
+      open={open}
+      onOpenChange={setOpen}
+      className={`timeline-process-group${mode === "compact" ? " timeline-process-group--compact" : ""}`}
+    >
+      <div className="timeline-process-group__details">
+        {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
+      </div>
+    </ProcessCard>
   );
 }
 
@@ -248,15 +231,21 @@ function formatTurnElapsed(ms: number): string {
   return `${seconds}s`;
 }
 
-function turnStatsCollapsedLabel(item: TurnStatsItem): string {
-  return `已思考 ${formatTurnElapsed(item.elapsedMs)}`;
-}
-
-function turnStatsTokenLabel(item: TurnStatsItem): string {
-  if (typeof item.tokens === "number" && item.tokens > 0) {
-    return `本轮 token：${item.tokens.toLocaleString()}`;
-  }
-  return "token 消耗待统计";
+function TurnStatsRow({ item }: { item: TurnStatsItem }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const tokenLabel = typeof item.tokens === "number" && item.tokens > 0
+    ? t("process.timeline.tokens", { n: item.tokens.toLocaleString() })
+    : t("process.timeline.tokensPending");
+  return (
+    <div className={`turn-stats-row${open ? " turn-stats-row--open" : ""}`}>
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span>{t("process.timeline.elapsed", { elapsed: formatTurnElapsed(item.elapsedMs) })}</span>
+        <ChevronRight size={12} aria-hidden="true" />
+      </button>
+      {open && <div className="turn-stats-row__tokens">{tokenLabel}</div>}
+    </div>
+  );
 }
 
 // Summarise a warm turn for its compact card.
@@ -315,11 +304,133 @@ function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[
   return groups;
 }
 
+function TimelineItems({
+  items,
+  running,
+  processDisplayMode,
+  subcalls,
+  liveToolID,
+  userTurnMap,
+  checkpoints,
+  openAction,
+  actionPending,
+  rewindDisabled,
+  onRewind,
+  onEditUserMessage,
+  setOpenAction,
+}: {
+  items: readonly Item[];
+  running: boolean;
+  processDisplayMode: ProcessDisplayMode;
+  subcalls: ReadonlyMap<string, ToolItem[]>;
+  liveToolID: string;
+  userTurnMap: ReadonlyMap<string, number>;
+  checkpoints: ReadonlyMap<number, CheckpointMeta>;
+  openAction: OpenTurnAction | null;
+  actionPending: boolean;
+  rewindDisabled: boolean;
+  onRewind: ((turn: number, scope: string) => void) | undefined;
+  onEditUserMessage?: (text: string) => void;
+  setOpenAction: (action: OpenTurnAction | null) => void;
+}) {
+  const segments = useMemo(() => buildTimelineSegments(items, running), [items, running]);
+  const nodes: ReactNode[] = [];
+  let activeTurn: number | undefined;
+  let actionText = "";
+
+  const pushTurnActions = (completed: boolean) => {
+    if (!completed || activeTurn == null || actionText.trim() === "") return;
+    const turn = activeTurn;
+    const openMenu = openAction && openAction.turn === turn ? openAction.menu : null;
+    nodes.push(
+      <div className="timeline-entry timeline-entry--actions" data-transcript-anchor={`actions-${turn}`} key={`ta-${turn}`}>
+        <TurnActions
+          text={actionText}
+          turn={turn}
+          openMenu={openMenu}
+          onOpenMenu={(menu) => setOpenAction(menu ? { turn, menu } : null)}
+          checkpoint={checkpoints.get(turn)}
+          actionPending={actionPending}
+          rewindDisabled={rewindDisabled}
+          onRewind={(targetTurn, scope) => {
+            onRewind?.(targetTurn, scope);
+            setOpenAction(null);
+          }}
+        />
+      </div>,
+    );
+    actionText = "";
+  };
+
+  for (const segment of segments) {
+    switch (segment.kind) {
+      case "user": {
+        pushTurnActions(true);
+        const turn = userTurnMap.get(segment.item.id);
+        activeTurn = turn;
+        actionText = "";
+        nodes.push(
+          <div className="timeline-entry timeline-entry--user" data-transcript-anchor={segment.item.id} key={segment.item.id}>
+            <UserMessage
+              text={segment.item.text}
+              failed={segment.item.failed}
+              turn={turn}
+              anchorId={questionAnchorId(segment.item.id)}
+              onEdit={onEditUserMessage}
+            />
+          </div>,
+        );
+        break;
+      }
+      case "stats":
+        nodes.push(
+          <div className="timeline-entry timeline-entry--stats" data-transcript-anchor={segment.item.id} key={segment.item.id}>
+            <TurnStatsRow item={segment.item} />
+          </div>,
+        );
+        break;
+      case "assistant":
+        if (!segment.item.streaming && segment.item.text.trim() !== "") actionText = segment.item.text;
+        nodes.push(
+          <div className="timeline-entry timeline-entry--assistant" data-transcript-anchor={`${segment.item.id}-text`} key={`${segment.item.id}-text`}>
+            {segment.item.streaming
+              ? <LiveAssistantText item={segment.item} />
+              : <AssistantMessage item={segment.item} defaultExpanded={processDisplayMode === "detailed"} />}
+          </div>,
+        );
+        break;
+      case "process":
+        nodes.push(
+          <div className="timeline-entry timeline-entry--process" data-transcript-anchor={segment.id} key={segment.id}>
+            <TimelineProcessGroup
+              items={segment.items}
+              subcalls={subcalls}
+              liveToolID={liveToolID}
+              mode={processDisplayMode}
+              completed={segment.completed}
+            />
+          </div>,
+        );
+        break;
+      case "steer":
+        nodes.push(
+          <div className="timeline-entry timeline-entry--steer" data-transcript-anchor={segment.item.id} key={segment.item.id}>
+            <SteerCard text={segment.item.text} />
+          </div>,
+        );
+        break;
+    }
+  }
+  pushTurnActions(!running);
+  return nodes;
+}
+
 // Transcript component
 
 export function Transcript({
   items,
   live,
+  running = false,
   footerHeight = 0,
   onPrompt,
   onEditUserMessage,
@@ -334,6 +445,7 @@ export function Transcript({
 }: {
   items: Item[];
   live?: LiveStream;
+  running?: boolean;
   footerHeight?: number;
   onPrompt: (text: string) => void;
   onEditUserMessage?: (text: string) => void;
@@ -347,13 +459,41 @@ export function Transcript({
   jobs?: JobView[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stick = useRef(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
   const resizeFrame = useRef<number | null>(null);
+  const viewportAnchor = useRef<{ id: string; top: number } | null>(null);
   const [showFollowButton, setShowFollowButton] = useState(false);
   const [activeJumpTurn, setActiveJumpTurn] = useState<number | null>(null);
   const t = useT();
-  const defaultExpandThinking = processDisplayMode === "detailed";
-  const compactProcess = processDisplayMode === "compact";
+  const captureViewportAnchor = useCallback((el: HTMLDivElement | null) => {
+    const content = contentRef.current;
+    if (!el || !content || stick.current) return;
+    const scrollerTop = el.getBoundingClientRect().top;
+    const nodes = content.querySelectorAll<HTMLElement>("[data-transcript-anchor]");
+    for (const node of nodes) {
+      const rect = node.getBoundingClientRect();
+      if (rect.bottom < scrollerTop + 1) continue;
+      const id = node.dataset.transcriptAnchor;
+      if (id) viewportAnchor.current = { id, top: rect.top };
+      return;
+    }
+  }, []);
+
+  const restoreViewportAnchor = useCallback((el: HTMLDivElement | null) => {
+    if (!el || stick.current) return;
+    const saved = viewportAnchor.current;
+    if (!saved) {
+      captureViewportAnchor(el);
+      return;
+    }
+    const node = contentRef.current?.querySelector<HTMLElement>(`[data-transcript-anchor="${CSS.escape(saved.id)}"]`);
+    if (node) {
+      const delta = node.getBoundingClientRect().top - saved.top;
+      if (Math.abs(delta) >= 0.5) el.scrollTop += delta;
+    }
+    captureViewportAnchor(el);
+  }, [captureViewportAnchor]);
 
   const questions = useMemo<QuestionAnchor[]>(() => {
     const anchors: QuestionAnchor[] = [];
@@ -400,6 +540,7 @@ export function Transcript({
     }
     requestAnimationFrame(() => {
       scrollElementToBottom(el);
+      viewportAnchor.current = null;
       setShowFollowButton(false);
     });
   }, []);
@@ -407,24 +548,32 @@ export function Transcript({
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    if (stick.current && !isAtBottom(el)) stick.current = false;
+    if (!stick.current) captureViewportAnchor(el);
     updateFollowButton(el);
     updateActiveJumpTurn(el);
+  };
+
+  const leaveFollowMode = () => {
+    const el = scrollRef.current;
+    if (!el || !stick.current) return;
+    stick.current = false;
+    captureViewportAnchor(el);
+    updateFollowButton(el);
   };
 
   // Track question count so we can detect when the user sends a new message.
   const prevQuestionsLen = useRef(0);
 
-  // When the user submits a new message, reveal it once. Do not keep the
-  // viewport locked while the model streams; the user can freely scroll until
-  // they explicitly press the follow button.
+  // A newly submitted message follows the live turn. Explicit user scrolling
+  // disables follow mode until the jump-to-latest button is pressed.
   useEffect(() => {
     if (questions.length > prevQuestionsLen.current) {
       const el = scrollRef.current;
       if (el) {
         requestAnimationFrame(() => {
+          stick.current = true;
           scrollElementToBottom(el);
-          stick.current = false;
+          viewportAnchor.current = null;
           updateFollowButton(el);
           updateActiveJumpTurn(el);
         });
@@ -434,33 +583,31 @@ export function Transcript({
   }, [questions, updateActiveJumpTurn, updateFollowButton]);
 
   const contentVersion = useMemo(() => scrollVersion(items), [items]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (!stick.current) {
-      const id = requestAnimationFrame(() => {
-        updateFollowButton(el);
-        updateActiveJumpTurn(el);
-      });
-      return () => cancelAnimationFrame(id);
-    }
-    const id = requestAnimationFrame(() => {
-      scrollElementToBottom(el);
-      setShowFollowButton(false);
+      restoreViewportAnchor(el);
+      updateFollowButton(el);
       updateActiveJumpTurn(el);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [contentVersion, live?.text?.length ?? 0, live?.reasoning?.length ?? 0, updateActiveJumpTurn, updateFollowButton]);
+      return;
+    }
+    scrollElementToBottom(el);
+    setShowFollowButton(false);
+    updateActiveJumpTurn(el);
+  }, [contentVersion, live?.text?.length ?? 0, live?.reasoning?.length ?? 0, restoreViewportAnchor, updateActiveJumpTurn, updateFollowButton]);
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    const content = contentRef.current;
+    if (!el || !content || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      repinIfWasPinned(el, stick, resizeFrame);
+      if (stick.current) repinIfWasPinned(el, stick, resizeFrame);
+      else restoreViewportAnchor(el);
       updateFollowButton(el);
       updateActiveJumpTurn(el);
     });
-    observer.observe(el);
+    observer.observe(content);
     return () => {
       observer.disconnect();
       if (resizeFrame.current !== null) {
@@ -468,7 +615,7 @@ export function Transcript({
         resizeFrame.current = null;
       }
     };
-  }, [updateActiveJumpTurn, updateFollowButton]);
+  }, [restoreViewportAnchor, updateActiveJumpTurn, updateFollowButton]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -498,7 +645,7 @@ export function Transcript({
     return m;
   }, [items]);
   const liveToolID = useMemo(() => lastRunningToolID(items), [items]);
-  const backgroundTaskJobs = useMemo(() => jobs.filter((job) => job.kind === "task" && job.status === "running"), [jobs]);
+  const backgroundJobs = useMemo(() => jobs.filter((job) => job.status === "running"), [jobs]);
   // Layer state
   const [expandedWarmTurns, setExpandedWarmTurns] = useState<Set<number>>(new Set());
   const [coldPage, setColdPage] = useState(0);
@@ -569,148 +716,7 @@ export function Transcript({
   // the warm/cold zone JSX trees. Uses LiveStreamContext for streaming data
   // (added by upstream PR #3423) instead of per-call renderSegments.
   const empty = items.length === 0;
-  const hotZoneNodes = useMemo<ReactNode[]>(() => {
-    const out: ReactNode[] = [];
-    let actionText = "";
-    let actionReady = false;
-    let activeTurn: number | undefined;
-    let pendingProcessItems: Item[] = [];
-    let pendingAnswerNodes: ReactNode[] = [];
-    const flushProcessItems = () => {
-      if (compactProcess && pendingProcessItems.length > 0) {
-        out.push(<CompactProcessActivity key={`compact-${pendingProcessItems[0]?.id ?? out.length}`} items={pendingProcessItems} subcalls={subcallsByParent} liveToolID={liveToolID} />);
-        pendingProcessItems = [];
-        return;
-      }
-      for (const item of pendingProcessItems) {
-        const rendered = renderProcessItem(item, subcallsByParent, liveToolID, defaultExpandThinking);
-        if (rendered) out.push(rendered);
-      }
-      pendingProcessItems = [];
-    };
-    const flushPendingAnswers = () => {
-      out.push(...pendingAnswerNodes);
-      pendingAnswerNodes = [];
-    };
-    const pushTurnActions = () => {
-      flushProcessItems();
-      flushPendingAnswers();
-      if (activeTurn == null || !actionReady || actionText.trim() === "") return;
-      const turn = activeTurn;
-      const openMenu = openAction && openAction.turn === turn ? openAction.menu : null;
-      out.push(
-        <TurnActions
-          key={`ta-${turn}`}
-          text={actionText}
-          turn={turn}
-          openMenu={openMenu}
-          onOpenMenu={(menu) => setOpenAction(menu ? { turn, menu } : null)}
-          checkpoint={checkpointsByTurn.get(turn)}
-          actionPending={actionPending}
-          rewindDisabled={rewindDisabled}
-          onRewind={(targetTurn, scope) => {
-            onRewind?.(targetTurn, scope);
-            setOpenAction(null);
-          }}
-        />,
-      );
-      actionText = "";
-      actionReady = false;
-    };
-
-    for (let i = hotStartIdx; i < items.length; i++) {
-      const it = items[i];
-      switch (it.kind) {
-        case "user": {
-          pushTurnActions();
-          const tn = userTurn.get(it.id);
-          activeTurn = tn;
-          out.push(
-            <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} onEdit={onEditUserMessage} />,
-          );
-          break;
-        }
-        case "assistant":
-          if (it.streaming) {
-            if (compactProcess) {
-              pendingProcessItems.push(it);
-              flushProcessItems();
-              flushPendingAnswers();
-              out.push(<LiveAssistantText key={`${it.id}-text`} item={it as AssistantItem} />);
-            } else {
-              flushProcessItems();
-              flushPendingAnswers();
-              out.push(<LiveAssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
-            }
-          } else if (it.reasoning) {
-            pendingProcessItems.push(it);
-            if (it.text.trim() !== "") {
-              pendingAnswerNodes.push(<AssistantMessage key={`${it.id}-text`} item={{ ...it, reasoning: "" }} defaultExpanded={defaultExpandThinking} />);
-            }
-          } else {
-            flushProcessItems();
-            flushPendingAnswers();
-            out.push(<AssistantMessage key={it.id} item={it as AssistantItem} defaultExpanded={defaultExpandThinking} />);
-          }
-          if (!it.streaming && it.text.trim() !== "") {
-            actionText = it.text;
-            actionReady = true;
-          }
-          break;
-        case "steer":
-          flushProcessItems();
-          flushPendingAnswers();
-          out.push(<SteerCard key={it.id} text={it.text} />);
-          break;
-        case "tool":
-          if (it.parentId) break;
-          if (it.name === "todo_write") break;
-          if (it.name === "exit_plan_mode") break;
-          if (isProcessItemRunning(it)) {
-            if (compactProcess) pendingProcessItems.push(it);
-            else {
-              flushProcessItems();
-              out.push(<ToolCard key={it.id} item={it} subcalls={subcallsByParent.get(it.id)} livePulse={it.id === liveToolID} />);
-            }
-          } else {
-            pendingProcessItems.push(it);
-          }
-          break;
-        case "phase":
-        case "notice":
-        case "compaction":
-          if (isProcessItemRunning(it)) {
-            if (compactProcess) pendingProcessItems.push(it);
-            else {
-              flushProcessItems();
-              out.push(renderProcessItem(it, subcallsByParent, liveToolID, defaultExpandThinking));
-            }
-          } else {
-            pendingProcessItems.push(it);
-          }
-          break;
-        case "turn_stats": {
-          const processItems = pendingProcessItems;
-          pendingProcessItems = [];
-          out.push(
-            <TurnProcessSummary
-              key={it.id}
-              stats={it}
-              items={processItems}
-              subcalls={subcallsByParent}
-              liveToolID={liveToolID}
-              defaultExpandThinking={defaultExpandThinking}
-              defaultOpen={processDisplayMode === "detailed"}
-            />,
-          );
-          flushPendingAnswers();
-          break;
-        }
-      }
-    }
-    pushTurnActions();
-    return out;
-  }, [hotStartIdx, items, openAction, actionPending, rewindDisabled, onRewind, subcallsByParent, userTurn, checkpointsByTurn, liveToolID, defaultExpandThinking, compactProcess, processDisplayMode]);
+  const hotItems = useMemo(() => items.slice(hotStartIdx), [hotStartIdx, items]);
   // Assemble rendered output
   // Warm/cold zone is a separate memo'd WarmZone component so streaming tokens
   // don't rebuild it. The hot zone uses LiveAssistantMessage (reads live from
@@ -721,46 +727,69 @@ export function Transcript({
         className={`transcript${empty ? " transcript--empty" : ""}`}
         ref={scrollRef}
         onScroll={onScroll}
+        onWheel={(event) => { if (event.deltaY < 0 || !isAtBottom(event.currentTarget)) leaveFollowMode(); }}
+        onPointerDown={leaveFollowMode}
+        onTouchStart={leaveFollowMode}
+        onKeyDown={(event) => {
+          if (["ArrowUp", "PageUp", "Home"].includes(event.key)) leaveFollowMode();
+        }}
+        tabIndex={0}
       >
-        {empty && <Welcome onPrompt={onPrompt} />}
+        <div className="transcript-content" ref={contentRef}>
+          {empty && <Welcome onPrompt={onPrompt} />}
 
-        {!empty && showQuestionNav && (
-          <QuestionJumpBar questions={questions} activeTurn={activeJumpTurn} onJump={handleJumpToQuestion} />
-        )}
-
-        <LiveStreamContext.Provider value={live}>
-          {turnGroups.length > HOT_TURNS && (
-            <WarmZone
-              turnGroups={turnGroups}
-              expandedWarmTurns={expandedWarmTurns}
-              shownWarmStart={shownWarmStart}
-              coldTurnCount={coldTurnCount}
-              scrollRef={scrollRef}
-              warmItems={items}
-              warmSubcalls={subcallsByParent}
-              warmUserTurn={userTurn}
-              warmCheckpoints={checkpointsByTurn}
-              warmOpenAction={openAction}
-              warmActionPending={actionPending}
-              warmRewindDisabled={rewindDisabled}
-              warmOnRewind={onRewind}
-              warmOnEditUserMessage={onEditUserMessage}
-              warmSetOpenAction={setOpenAction}
-              defaultExpandThinking={defaultExpandThinking}
-              liveToolID={liveToolID}
-              onToggleColdPage={() => setColdPage((p) => p + 1)}
-              onToggleWarmTurn={(g, expand) => {
-                setExpandedWarmTurns((prev) => {
-                  const next = new Set(prev);
-                  if (expand) next.add(g); else next.delete(g);
-                  return next;
-                });
-              }}
-            />
+          {!empty && showQuestionNav && (
+            <QuestionJumpBar questions={questions} activeTurn={activeJumpTurn} onJump={handleJumpToQuestion} />
           )}
-          {hotZoneNodes}
-          {backgroundTaskJobs.length > 0 && <BackgroundJobsCard jobs={backgroundTaskJobs} />}
-        </LiveStreamContext.Provider>
+
+          <LiveStreamContext.Provider value={live}>
+            {turnGroups.length > HOT_TURNS && (
+              <WarmZone
+                turnGroups={turnGroups}
+                expandedWarmTurns={expandedWarmTurns}
+                shownWarmStart={shownWarmStart}
+                coldTurnCount={coldTurnCount}
+                scrollRef={scrollRef}
+                warmItems={items}
+                warmSubcalls={subcallsByParent}
+                warmUserTurn={userTurn}
+                warmCheckpoints={checkpointsByTurn}
+                warmOpenAction={openAction}
+                warmActionPending={actionPending}
+                warmRewindDisabled={rewindDisabled}
+                warmOnRewind={onRewind}
+                warmOnEditUserMessage={onEditUserMessage}
+                warmSetOpenAction={setOpenAction}
+                processDisplayMode={processDisplayMode}
+                liveToolID={liveToolID}
+                onToggleColdPage={() => setColdPage((p) => p + 1)}
+                onToggleWarmTurn={(g, expand) => {
+                  setExpandedWarmTurns((prev) => {
+                    const next = new Set(prev);
+                    if (expand) next.add(g); else next.delete(g);
+                    return next;
+                  });
+                }}
+              />
+            )}
+            <TimelineItems
+              items={hotItems}
+              running={running}
+              processDisplayMode={processDisplayMode}
+              subcalls={subcallsByParent}
+              liveToolID={liveToolID}
+              userTurnMap={userTurn}
+              checkpoints={checkpointsByTurn}
+              openAction={openAction}
+              actionPending={actionPending}
+              rewindDisabled={rewindDisabled}
+              onRewind={onRewind}
+              onEditUserMessage={onEditUserMessage}
+              setOpenAction={setOpenAction}
+            />
+            {backgroundJobs.length > 0 && <BackgroundJobsCard jobs={backgroundJobs} />}
+          </LiveStreamContext.Provider>
+        </div>
       </div>
 
       {!empty && followButton && showFollowButton && (
@@ -798,7 +827,7 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind,
   warmOnEditUserMessage,
   warmSetOpenAction,
-  defaultExpandThinking = false,
+  processDisplayMode = "standard",
   liveToolID = "",
   onToggleColdPage,
   onToggleWarmTurn,
@@ -818,7 +847,7 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind: ((turn: number, scope: string) => void) | undefined;
   warmOnEditUserMessage?: (text: string) => void;
   warmSetOpenAction: (action: OpenTurnAction | null) => void;
-  defaultExpandThinking?: boolean;
+  processDisplayMode?: ProcessDisplayMode;
   liveToolID?: string;
   onToggleColdPage: () => void;
   onToggleWarmTurn: (g: number, expand: boolean) => void;
@@ -875,7 +904,7 @@ const WarmZone = memo(function WarmZone({
               onRewind={warmOnRewind}
               onEditUserMessage={warmOnEditUserMessage}
               setOpenAction={warmSetOpenAction}
-              defaultExpandThinking={defaultExpandThinking}
+              processDisplayMode={processDisplayMode}
               liveToolID={liveToolID}
             />
           </WarmTurnCard>,
@@ -921,7 +950,7 @@ function WarmTurnItems({
   onRewind,
   onEditUserMessage,
   setOpenAction,
-  defaultExpandThinking = false,
+  processDisplayMode = "standard",
   liveToolID = "",
 }: {
   startIdx: number;
@@ -936,73 +965,27 @@ function WarmTurnItems({
   onRewind: ((turn: number, scope: string) => void) | undefined;
   onEditUserMessage?: (text: string) => void;
   setOpenAction: (action: OpenTurnAction | null) => void;
-  defaultExpandThinking?: boolean;
+  processDisplayMode?: ProcessDisplayMode;
   liveToolID?: string;
 }) {
-  const nodes: React.ReactNode[] = [];
-  let actionText = "";
-  let actionReady = false;
-  let activeTurn: number | undefined;
-  const pushTurnActions = () => {
-    if (activeTurn == null || !actionReady || actionText.trim() === "") return;
-    const turn = activeTurn;
-    const openMenu = openAction && openAction.turn === turn ? openAction.menu : null;
-    nodes.push(
-      <TurnActions
-        key={`ta-${turn}`}
-        text={actionText}
-        turn={turn}
-        openMenu={openMenu}
-        onOpenMenu={(menu) => setOpenAction(menu ? { turn, menu } : null)}
-        checkpoint={checkpoints.get(turn)}
-        actionPending={actionPending}
-        rewindDisabled={rewindDisabled}
-        onRewind={(targetTurn, scope) => {
-          onRewind?.(targetTurn, scope);
-          setOpenAction(null);
-        }}
-      />,
-    );
-    actionText = "";
-    actionReady = false;
-  };
-
-  for (let i = startIdx; i < endIdx && i < items.length; i++) {
-    const it = items[i];
-    switch (it.kind) {
-      case "user": {
-        pushTurnActions();
-        const tn = userTurnMap.get(it.id);
-        activeTurn = tn;
-        nodes.push(
-          <UserMessage key={it.id} text={it.text} failed={it.failed} turn={tn} anchorId={questionAnchorId(it.id)} onEdit={onEditUserMessage} />,
-        );
-        break;
-      }
-      case "assistant": {
-        nodes.push(<AssistantMessage key={it.id} item={it} defaultExpanded={defaultExpandThinking} />);
-        if (!it.streaming && it.text.trim() !== "") {
-          actionText = it.text;
-          actionReady = true;
-        }
-        break;
-      }
-      case "tool": {
-        if (it.parentId) break;
-        if (it.name === "todo_write") break;
-        if (it.name === "exit_plan_mode") break;
-        nodes.push(<ToolCard key={it.id} item={it} subcalls={subcalls.get(it.id)} livePulse={it.id === liveToolID} />);
-        break;
-      }
-      case "phase": nodes.push(<PhaseCard key={it.id} text={it.text} />); break;
-      case "steer": nodes.push(<SteerCard key={it.id} text={it.text} />); break;
-      case "notice": nodes.push(<NoticeCard key={it.id} level={it.level} text={it.text} />); break;
-      case "compaction": nodes.push(<CompactionCard key={it.id} item={it} />); break;
-      case "turn_stats": break;
-    }
-  }
-  pushTurnActions();
-  return nodes;
+  const turnItems = items.slice(startIdx, Math.min(endIdx, items.length));
+  return (
+    <TimelineItems
+      items={turnItems}
+      running={false}
+      processDisplayMode={processDisplayMode}
+      subcalls={subcalls}
+      liveToolID={liveToolID}
+      userTurnMap={userTurnMap}
+      checkpoints={checkpoints}
+      openAction={openAction}
+      actionPending={actionPending}
+      rewindDisabled={rewindDisabled}
+      onRewind={onRewind}
+      onEditUserMessage={onEditUserMessage}
+      setOpenAction={setOpenAction}
+    />
+  );
 }
 
 // Warm turn summary card

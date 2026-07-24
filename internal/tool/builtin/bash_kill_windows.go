@@ -1,8 +1,10 @@
 package builtin
 
 import (
+	"context"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"deepseek-orca/internal/proc"
 )
@@ -17,7 +19,9 @@ func setKillTree(cmd *exec.Cmd) {
 		if cmd.Process == nil {
 			return nil
 		}
-		kill := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
+		killCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		kill := exec.CommandContext(killCtx, "taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
 		proc.HideWindow(kill)
 		_ = kill.Run()
 		return cmd.Process.Kill()

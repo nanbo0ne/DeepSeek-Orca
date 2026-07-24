@@ -1204,10 +1204,11 @@ function makeMockApp(): AppBindings {
         await delay(6);
       }
       emit({ kind: "message", text: reply });
+      const toolID = `mock-edit-${Date.now()}`;
       emit({
         kind: "tool_dispatch",
         tool: {
-          id: "t1",
+          id: toolID,
           name: "edit_file",
           args: '{"path":"main.go","old_string":"println(\\"hi\\")","new_string":"println(\\"hello\\")"}',
           readOnly: false,
@@ -1216,7 +1217,7 @@ function makeMockApp(): AppBindings {
       await delay(350);
       emit({
         kind: "tool_result",
-        tool: { id: "t1", name: "edit_file", output: "edited main.go", readOnly: false, durationMs: 350 },
+        tool: { id: toolID, name: "edit_file", output: "edited main.go", readOnly: false, durationMs: 350 },
       });
       emit({
         kind: "usage",

@@ -24,6 +24,9 @@ func TestBackgroundBashWaitAndOutput(t *testing.T) {
 	if !strings.Contains(start, "Started background job") {
 		t.Fatalf("unexpected start message: %q", start)
 	}
+	if !strings.Contains(start, "do not give the final answer yet") || !strings.Contains(start, "call wait first") {
+		t.Fatalf("background start guidance must require wait for dependent work: %q", start)
+	}
 
 	// The job is registered and running synchronously before Execute returns.
 	running := m.Running()

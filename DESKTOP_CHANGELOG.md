@@ -1,5 +1,15 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.25 - 2026-07-24
+
+- Rebuilt the transcript as a chronological event timeline so assistant text, reasoning, tools, notices, image reads, and compaction stay at their real positions.
+- Added stable viewport anchoring while streaming, loading images, and growing tool output, with explicit follow-latest behavior.
+- Restored Compact process display to single-line collapsed white rows and kept Standard/Detailed process behavior chronological.
+- Delayed completed-turn actions until `TurnDone` and moved elapsed/token statistics to a lightweight turn header.
+- Unified queued prompts, Todo, approval/plan, questions, and context confirmation into a non-overlapping footer shelf layout.
+- Strengthened background bash and subagent guidance so dependent work must be collected with `wait`; background completion no longer implies a new model turn.
+- Rewrote current-product README documentation in Chinese and English and updated release links for V2.0.25.
+
 ## V2.0.24 - 2026-07-20
 
 - Added an opt-in multimodal vision setting for PNG, JPEG, WebP, and GIF images attached from the composer or referenced from the workspace.

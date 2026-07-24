@@ -2601,6 +2601,7 @@ export default function App() {
               <Transcript
                 items={state.items}
                 live={state.live}
+                running={state.running}
                 footerHeight={footerHeight}
                 onPrompt={send}
                 onEditUserMessage={replaceComposerText}
@@ -2615,8 +2616,9 @@ export default function App() {
           </main>
 
           <footer className="footer" ref={footerRef}>
-            {activeQueuedPrompts.length > 0 && (
-              <div className="queued-prompts" aria-label={t("queuedPrompts.title")}>
+            <div className="footer-shelves">
+              {activeQueuedPrompts.length > 0 && (
+                <div className="queued-prompts" aria-label={t("queuedPrompts.title")}>
                 <div className="queued-prompts__head">
                   <span>{t("queuedPrompts.title")}</span>
                   <strong>{activeQueuedPrompts.length}</strong>
@@ -2636,11 +2638,11 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoItem!.id)} />}
-            {state.approval && (
-              <ApprovalModal
+                </div>
+              )}
+              {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoItem!.id)} />}
+              {state.approval && (
+                <ApprovalModal
                 approval={state.approval}
                 onAnswer={(allow, session, persist) => {
                   // Approving an exit_plan_mode plan leaves plan mode; sync the
@@ -2656,23 +2658,24 @@ export default function App() {
                   applyCollaborationMode("normal");
                   approve(state.approval!.id, false, false, false);
                 }}
-              />
-            )}
-            {state.ask && (
-              <AskCard
+                />
+              )}
+              {state.ask && (
+                <AskCard
                 ask={state.ask}
                 onAnswer={answerQuestion}
                 onDismiss={() => answerQuestion(state.ask!.id, [])}
-              />
-            )}
-            {clearContextPending && (
-              <ClearContextCard
+                />
+              )}
+              {clearContextPending && (
+                <ClearContextCard
                 onCancel={cancelClearContext}
                 onConfirm={() => {
                   void confirmClearContext();
                 }}
-              />
-            )}
+                />
+              )}
+            </div>
             <Composer
               running={state.running}
               collaborationMode={collaborationMode}

@@ -2338,10 +2338,66 @@ a[href] {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
-.transcript > * {
+.transcript > *,
+.transcript-content > * {
   max-width: var(--maxw);
   margin-left: auto;
   margin-right: auto;
+}
+.transcript-content {
+  min-height: 100%;
+}
+.timeline-entry {
+  max-width: var(--maxw);
+  margin-inline: auto;
+  overflow-anchor: none;
+}
+.timeline-process-live,
+.timeline-process-group__details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.timeline-process-group {
+  margin-block: 8px;
+}
+.timeline-process-group--compact {
+  border-color: var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  box-shadow: none;
+}
+.timeline-process-group--compact .process-card__head {
+  min-height: 34px;
+  padding-block: 6px;
+  color: var(--fg-dim);
+}
+.turn-stats-row {
+  margin: 4px 0 8px;
+  color: var(--fg-faint);
+  font-size: 11.5px;
+}
+.turn-stats-row > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.turn-stats-row > button svg {
+  transition: transform 0.14s ease;
+}
+.turn-stats-row--open > button svg {
+  transform: rotate(90deg);
+}
+.turn-stats-row__tokens {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--fg-faint);
 }
 .transcript-follow {
   position: absolute;
@@ -2384,6 +2440,15 @@ a[href] {
   padding: 16px 32px;
 }
 .transcript--empty > * {
+  max-width: none;
+  margin: 0;
+}
+.transcript--empty .transcript-content {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+.transcript--empty .transcript-content > * {
   max-width: none;
   margin: 0;
 }
@@ -2483,7 +2548,8 @@ a[href] {
   margin-right: auto;
 }
 
-.transcript > .jump-bar {
+.transcript > .jump-bar,
+.transcript-content > .jump-bar {
   max-width: none;
   margin-left: auto;
   margin-right: -48px;
@@ -3869,6 +3935,27 @@ a[href] {
   background: var(--chat-bg);
   padding: 12px 32px 10px;
 }
+.footer-shelves {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 auto 8px;
+}
+.footer-shelves:empty {
+  display: none;
+  margin: 0;
+}
+.footer-shelves > .prompt-shelf {
+  width: min(100%, 820px);
+  max-width: 820px;
+  margin: 0;
+}
+.footer-shelves > .queued-prompts,
+.footer-shelves > .todobar {
+  flex: 0 0 auto;
+}
 .composer-wrap {
   position: relative;
   max-width: var(--maxw);
@@ -4722,7 +4809,7 @@ a[href] {
 
   .composer-meta {
     gap: 8px;
-    padding: 5px 120px 6px 10px;
+    padding: 5px 10px 6px;
   }
 
   .composer-meta__control--model {
@@ -4845,11 +4932,11 @@ a[href] {
   .composer-meta {
     min-height: 38px;
     gap: 4px;
-    padding: 4px 82px 5px 6px;
+    padding: 4px 6px 5px;
   }
 
   .composer-card--running .composer-meta {
-    padding-right: 48px;
+    padding-right: 6px;
   }
 
   .composer-meta__params {
@@ -5834,6 +5921,8 @@ a[href] {
   background: var(--bg-elev);
   box-shadow: 0 7px 18px rgba(0, 0, 0, 0.1);
   padding: 10px;
+  max-height: min(46vh, 420px);
+  overflow: auto;
 }
 .plan-proposal-card {
   border: 1px solid var(--border);
@@ -11978,10 +12067,7 @@ a[href] {
 
 /* ── live task list, pinned above the composer ─────────────────────────────── */
 .queued-prompts {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 8px);
-  z-index: var(--z-floating-menu);
+  position: relative;
   width: fit-content;
   min-width: min(320px, 100%);
   max-width: min(560px, calc(100% - 32px));
@@ -11990,8 +12076,7 @@ a[href] {
   border-radius: 9px;
   background: color-mix(in srgb, var(--accent) 5%, var(--bg-soft));
   overflow: hidden;
-  transform: translateX(-50%);
-  animation: todobar-float-in var(--dur-base) var(--ease-out) both;
+  animation: todobar-in var(--dur-base) var(--ease-out) both;
 }
 
 .queued-prompts__head {
@@ -12092,10 +12177,7 @@ a[href] {
 }
 
 .todobar {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 8px);
-  z-index: var(--z-floating-menu);
+  position: relative;
   width: fit-content;
   min-width: min(320px, 100%);
   max-width: min(520px, calc(100% - 32px));
@@ -12104,19 +12186,12 @@ a[href] {
   border-radius: 9px;
   background: var(--bg-soft);
   overflow: hidden;
-  transform: translateX(-50%);
-  animation: todobar-float-in var(--dur-base) var(--ease-out) both;
+  animation: todobar-in var(--dur-base) var(--ease-out) both;
 }
 @keyframes todobar-in {
   from {
     opacity: 0;
     transform: translateY(var(--motion-rise));
-  }
-}
-@keyframes todobar-float-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(var(--motion-rise));
   }
 }
 .todobar__head {
@@ -16868,11 +16943,11 @@ a[href] {
 
 .composer-meta {
   min-height: 42px;
-  padding: 5px 58px 10px 30px;
+  padding: 5px 12px 10px;
 }
 
 .composer-card--running .composer-meta {
-  padding-right: min(224px, 38%);
+  padding-right: 8px;
 }
 
 .composer-toolbar {
@@ -18505,7 +18580,7 @@ a[href] {
 
 :root[data-theme-style] .composer-meta {
   min-height: 42px;
-  padding: 5px 58px 10px 12px;
+  padding: 5px 12px 10px;
   color: var(--fg-dim);
 }
 

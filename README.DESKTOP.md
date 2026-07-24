@@ -1,107 +1,101 @@
-# DeepSeek-Orca Desktop V2.0.24
+# DeepSeek-Orca Desktop
 
-DeepSeek-Orca Desktop is the primary Windows experience for DeepSeek-Orca. It brings project conversations, file changes, rollback, context statistics, model settings, MCP, skills, memory, and bot connections into one desktop workspace.
+[中文](README.zh-CN.md) | [Desktop changelog](DESKTOP_CHANGELOG.md)
 
-Release notes are no longer kept in README files. They are stored in [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md).
+DeepSeek-Orca is a local desktop AI assistant and engineering agent. It combines multi-provider models, project workspaces, tools, MCP, skills, CodeGraph, long-term memory, planning, and automation while keeping execution inspectable, pausable, and reversible.
 
-## Install
+## Downloads
 
-Download the Windows installer:
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-Setup-2.0.25-windows-amd64.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.25)
 
-[DeepSeek-Orca-Setup-2.0.24-windows-amd64.exe](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.24/DeepSeek-Orca-Setup-2.0.24-windows-amd64.exe)
-
-## What It Is For
-
-DeepSeek-Orca Desktop is designed for local development, long-running AI collaboration, and desktop-first agent workflows:
-
-- Read, edit, test, and roll back code in a project workspace.
-- Manage conversations by project, independent workspace, pinned topic, history, and trash.
-- Extend the agent through MCP, skills, memory files, CodeGraph, and slash commands.
-- Control tool permissions through approval modes.
-- Use host tools for web search, local commands, process management, runtime checks, and document extraction.
-- Recover older intent after context compression through long-term conversation search.
+Configure an API key, endpoint, and model under Settings > Models after first launch. Multimodal vision is opt-in; images are uploaded to the configured provider only when it is enabled.
 
 ## Prompt Modes
 
-The composer mode menu provides three prompt profiles:
+- **Assistant** runs as `Orca` for everyday questions, light tasks, and personalized assistance. It can maintain a private Assistant memory profile and recall relevant preferences.
+- **Normal** runs as `DeepSeek-Orca` for general conversation, research, writing, analysis, and ordinary development.
+- **Enhanced** runs as `DeepSeek-Orca` for complex coding, architecture, long tasks, reviews, and more agentic engineering work.
 
-- Assistant mode: general help, daily questions, light explanation, and casual support. It runs as `Orca` and reads assistant memory only.
-- Normal mode: regular conversations, search, ordinary development work, and lighter engineering collaboration. It runs as `DeepSeek-Orca`.
-- Enhanced mode: complex coding, long tasks, higher-quality reasoning, architecture work, review, and agentic coding. It runs as `DeepSeek-Orca` and may use more tokens.
+Prompt mode is stored per conversation. Switching modes rebuilds that controller without dropping history, model, effort, approval, plan, or goal state.
 
-Normal and Enhanced modes read all memory but write to the shared agent memory profile. Assistant mode reads and writes only assistant memory.
+## Models And Providers
+
+DeepSeek-Orca supports DeepSeek, OpenAI-compatible providers, and Anthropic-native providers. The main executor and optional planner can use different providers and models. Model choice, context window, reasoning effort, and pricing metadata are configurable. Balance lookup is asynchronous and does not block conversation loading.
 
 ## Workspaces And Conversations
 
-DeepSeek-Orca supports both project workspaces and independent workspaces:
+- Project workspaces bind conversations to real directories for persistent repository work.
+- Independent workspaces isolate files, attachments, configuration, memory scope, tool cwd, and session data per topic.
+- Conversations support pinning, renaming, previews, restore, forks, trash, checkpoints, and rollback.
+- Automatic compaction protects long sessions; conversation search can locate and read older local context on demand.
 
-- Project workspaces are bound to real code folders and are best for long-lived repository work.
-- Independent workspaces are useful for temporary chats, experiments, and tasks that should not touch a project folder.
-- Each independent conversation gets its own small workspace root, so files, attachments, config, memory, tool cwd, and session data do not leak across independent conversations.
-- New conversations inherit the last active conversation's model, thinking effort, approval level, and prompt mode. Temporary collaboration options reset by default.
+## Multimodal Vision
 
-## Host Tool Library
+When enabled, the composer accepts pasted or dropped PNG, JPEG, WebP, and GIF files as well as workspace image references. A turn can contain up to 8 images, 20 MB total, with a 10 MB per-image limit. Session JSONL stores paths, names, and MIME types rather than base64. Unsupported models report an explicit error. Screenshot understanding and full computer-use are not included yet.
 
-The host tool library is enabled by default and can be managed from the Tool Library panel. Disabled tool groups are removed from both the registered tool schema and the model-visible routing policy.
+## Tool Library
 
-Main tool groups include:
+The Tool Library controls groups for web search, host/system operations, Node and Python REPLs, document inspection, local thread management, and long-term conversation search. Disabled groups disappear from both the tool registry and model-visible routing policy. `bash` remains the fallback for builds, tests, Git, and package managers.
 
-- System and host tools: native commands, system information, process listing, process termination, app launch, clipboard, and notifications.
-- Web search: `web_search` for unknown URLs and `web_fetch` for known URLs.
-- Node / Python runtimes: script validation, data processing, dependency checks, and structured output.
-- Document tools: basic inspection and text extraction for Word, PowerPoint, Excel, and PDF files.
-- Thread management: local DeepSeek-Orca session and topic inspection.
-- Long-term conversation search: search older local conversations after compaction, then read fuller nearby context by locator.
+## MCP, Skills, And CodeGraph
 
-Screenshot recognition, OCR, coordinate clicking, keyboard input, and visual desktop automation are intentionally not included yet.
+- MCP management covers servers, authorization, connection status, retries, and tool enablement.
+- Agent skills load specialized workflows only when needed.
+- CodeGraph exposes real `mcp__codegraph__...` tools for symbols, call relationships, and architectural context.
+- The slash menu combines built-in commands, skills, and MCP prompts.
 
-## Approval Modes
+## Memory
 
-DeepSeek-Orca uses approval modes to control tool behavior:
+Assistant mode reads and writes the Assistant profile. Normal and Enhanced modes read all memories and write shared-agent memory. Assistant auto-memory runs silently when leaving a conversation, never blocks the main turn or app exit, and gives up after five failed retries for the same batch. Users can disable auto-memory or recall and can delete individual or all Assistant memories.
 
-- Ask: risky or confirmation-worthy tool operations ask first.
-- Auto approve: ordinary tool permission prompts are approved automatically.
-- Full access: tool operations can run without extra approval gates.
+## Plan, Todo, Goal, And Process Display
 
-Use full access only when the task boundary, workspace, and risk are clear.
+Plan mode presents a complete proposal before execution. Todo tracks multi-step work. Goal mode can continue autonomously and stops when its internal complete or blocked marker is received.
 
-## Planning, Todo, And Side Chat
+Process display has three modes:
 
-- Complex tasks can use automatic Todo tracking to split work into visible steps and update status as execution progresses.
-- Plan mode presents a dedicated plan proposal card. You can approve the plan or request a complete replacement plan before execution.
-- Side chat is a read-only right-dock conversation that can reference the main transcript, with recent turns prioritized. It does not write to the main history or participate in main token statistics, compaction, or title generation.
+- **Compact** keeps each process span in a collapsed, single-line white rounded row.
+- **Standard** shows live process cards in chronological order and folds completed spans in place.
+- **Detailed** preserves chronology and opens process details by default.
 
-## Automation
+Assistant text, reasoning, tools, image reads, and compaction are interleaved by event order. Completion actions appear only after `TurnDone`. Scroll anchoring keeps the user's historical reading position stable while output grows above it.
 
-Automation is reserved for clearly recurring, continuous, or background-monitoring tasks, such as periodic build checks, daily reminders, or log monitoring.
+## Automation, Bots, And Side Chat
 
-One-off timer-style requests are not persisted as automations. Automation records are stored locally and can be viewed, paused, resumed, cancelled, or cleared after completion.
+Automation is intended for recurring jobs, monitors, and reminders. Bot channels can choose a model and prompt mode. Side Chat can reference the main transcript without writing to main history or affecting its tokens, compaction, or title.
 
-## Getting Started
+Background bash and subagent jobs remain visible while running. If the current answer depends on a background result, the model must call `wait`; job completion only updates job state and does not create a new model turn.
 
-1. Run the Windows installer.
-2. Start DeepSeek-Orca Desktop.
-3. Add a DeepSeek API key or OpenAI-compatible provider in Settings.
-4. Create a new conversation from the left sidebar.
-5. Choose a project folder or an independent workspace.
-6. Select Assistant, Normal, or Enhanced mode based on the task.
+## Permissions And Privacy
 
-## Installed Files
+Tool approval modes are Ask, Auto approve, and Full access. File and host operations remain subject to workspace, sandbox, and permission rules. Conversations, memories, indexes, settings, and workspace metadata are local by default. Model requests and opt-in images are sent to the provider configured by the user.
 
-Typical install location:
+## Troubleshooting
 
-```text
-C:\Users\<your-user>\AppData\Local\Programs\DeepSeek-Orca
+- Vision errors: enable vision and verify that the current model/provider accepts image messages.
+- Missing tools: check Tool Library groups, MCP connections, enabled skills, and prompt mode.
+- A completed background job does not resume the model automatically: use `wait` when the active answer depends on it.
+- Slow Git views in large repositories: open Files/Changes only when needed and reduce unrelated untracked files.
+
+## Development
+
+Go, Node.js, npm, Wails v2, and NSIS for Windows installers are required.
+
+```powershell
+git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
+cd DeepSeek-Orca
+npm install --prefix desktop/frontend
+npm run test:all --prefix desktop/frontend
+npm run build --prefix desktop/frontend
+go test ./...
+cd desktop
+wails build
 ```
 
-Main files:
-
-- `deepseek-orca-desktop.exe`: desktop executable.
-- `uninstall.exe`: generated uninstaller.
-- `uninstall.bat`: fallback uninstall script.
-- `node.exe`: bundled Node runtime.
-- `dist/`: frontend assets.
-- `.deepseek-orca/`: config, skill, MCP, and cache data.
-- `data/`: conversations, history, indexes, workspace metadata, and telemetry.
+Desktop configuration lives in `desktop/wails.json`; release automation lives in `.github/workflows/release-desktop.yml`.
 
 License: MIT.

@@ -80,8 +80,9 @@ eq(persistedTotals.context.sessionTokens, 10000, "context session total stays on
 eq(persistedTotals.sessionCost, 0.02, "usage does not temporarily duplicate persisted session cost");
 
 eq(nextContextRefreshDelay(10_000, undefined), 0, "context refresh runs immediately when never refreshed");
-eq(nextContextRefreshDelay(10_000, 9_500), 500, "context refresh throttles recent backend snapshots");
-eq(nextContextRefreshDelay(10_000, 8_000), 0, "context refresh runs after the refresh interval");
+eq(nextContextRefreshDelay(10_000, 9_500), 3500, "context refresh throttles recent backend snapshots");
+eq(nextContextRefreshDelay(10_000, 8_000), 2000, "context refresh preserves the four-second interval");
+eq(nextContextRefreshDelay(10_000, 6_000), 0, "context refresh runs after the refresh interval");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

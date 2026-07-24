@@ -115,7 +115,7 @@ func (b bash) resolved() sandbox.Shell {
 }
 
 func (bash) Schema() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"run_in_background":{"type":"boolean","description":"Run detached: returns a job id immediately and keeps running across turns (no foreground timeout). Read new output with bash_output, wait for it with wait, stop it with kill_shell. Use for long-running commands like servers, watchers, or builds you don't need to block on."}},"required":["command"]}`)
+	return json.RawMessage(`{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"run_in_background":{"type":"boolean","description":"Run detached: returns a job id immediately and keeps running across turns (no foreground timeout). Use for servers, watchers, or work independent of the current answer. Read new output with bash_output, wait for it with wait, stop it with kill_shell. If the current answer depends on this command, do not finalize after starting it; call wait first."}},"required":["command"]}`)
 }
 
 // ReadOnly is false: bash's effect cannot be inferred from args (rm, curl,
@@ -167,7 +167,7 @@ func (b bash) Execute(ctx context.Context, args json.RawMessage) (string, error)
 			reapTree(cmd) // reap process-group stragglers the job left running (#3702)
 			return "", runErr
 		})
-		return fmt.Sprintf("Started background job %q. It keeps running across turns; read new output with bash_output(job_id=%q), wait for it with wait, or stop it with kill_shell(job_id=%q).", job.ID, job.ID, job.ID), nil
+		return fmt.Sprintf("Started background job %q. It keeps running across turns; read new output with bash_output(job_id=%q), wait for it with wait, or stop it with kill_shell(job_id=%q). If the current answer depends on this command, do not give the final answer yet; call wait first.", job.ID, job.ID, job.ID), nil
 	}
 
 	runCtx := ctx

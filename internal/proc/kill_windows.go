@@ -3,9 +3,11 @@
 package proc
 
 import (
+	"context"
 	"os/exec"
 	"strconv"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -25,7 +27,9 @@ func KillTree(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
-	kill := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
+	killCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	kill := exec.CommandContext(killCtx, "taskkill", "/F", "/T", "/PID", strconv.Itoa(cmd.Process.Pid))
 	HideWindow(kill)
 	_ = kill.Run()
 	_ = cmd.Process.Kill()
@@ -107,13 +111,18 @@ func resumeProcess(pid uint32) {
 	}
 }
 
-// KillTracked terminates cmd's whole process tree. When job (from StartTracked)
-// is non-zero, terminating it kills even detached descendants; the KillTree pass
-// then catches anything spawned in the gap before the job was assigned.
+// KillTracked terminates cmd's whole process tree. StartTracked creates the
+// process suspended and assigns it before resuming, so a non-zero Job Object
+// already contains every descendant and does not need a second taskkill pass.
+// If job creation failed, fall back to the bounded KillTree path.
 func KillTracked(cmd *exec.Cmd, job uintptr) {
 	if job != 0 {
 		_ = windows.TerminateJobObject(windows.Handle(job), 1)
 		_ = windows.CloseHandle(windows.Handle(job))
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		return
 	}
 	KillTree(cmd)
 }
