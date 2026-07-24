@@ -180,6 +180,9 @@ func (c *Config) SetDesktopCloseBehavior(mode string) error {
 // startup. Manual checks remain available in Settings regardless of this value.
 func (c *Config) SetDesktopCheckUpdates(enabled bool) error {
 	c.Desktop.CheckUpdates = &enabled
+	if c.ConfigVersion < 3 {
+		c.ConfigVersion = 3
+	}
 	return nil
 }
 

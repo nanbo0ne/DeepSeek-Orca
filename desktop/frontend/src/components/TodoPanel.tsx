@@ -1,73 +1,128 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Circle, CircleDot, X } from "lucide-react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
+import { Check, ChevronUp, Circle, CircleDot, Pin, X } from "lucide-react";
 import { useT } from "../lib/i18n";
+import { createTodoPanelState, isTodoPanelOpen, reduceTodoPanelState } from "../lib/todoPanelState";
 import type { Todo } from "../lib/tools";
+import { AnchoredPopover } from "./AnchoredPopover";
 import { Tooltip } from "./Tooltip";
 
-// TodoPanel is the live task list pinned just above the composer — the kernel's
-// latest todo_write call drives it, and it updates in place as the agent flips
-// items to in_progress / completed, so the user watches the plan get worked
-// through one item at a time. Collapsed, it still
-// shows the current item so the footer stays compact during a long run. The ✕
-// dismisses it (onDismiss) when the user abandons the task; a fresh todo_write
-// brings it back.
-export function TodoPanel({ todos, onDismiss }: { todos: Todo[]; onDismiss: () => void }) {
-  const t = useT();
-  const [open, setOpen] = useState(true);
-  const currentRef = useRef<HTMLLIElement | null>(null);
+const CLOSE_DELAY_MS = 180;
 
-  const done = todos.filter((t) => t.status === "completed").length;
-  const current = todos.find((t) => t.status === "in_progress");
+export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos: Todo[]; onDismiss: () => void }) {
+  const t = useT();
+  const [panel, dispatch] = useReducer(reduceTodoPanelState, todoId, createTodoPanelState);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const currentRef = useRef<HTMLLIElement | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const open = isTodoPanelOpen(panel);
+
+  const done = todos.filter((todo) => todo.status === "completed").length;
+  const current = todos.find((todo) => todo.status === "in_progress");
+  const runningIndex = todos.findIndex((todo) => todo.status === "in_progress");
+  const pendingIndex = todos.findIndex((todo) => todo.status !== "completed");
+  const activeIndex = runningIndex >= 0 ? runningIndex + 1 : pendingIndex >= 0 ? pendingIndex + 1 : todos.length;
+
+  const cancelClose = useCallback(() => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }, []);
+
+  const scheduleTransientClose = useCallback(() => {
+    cancelClose();
+    closeTimerRef.current = window.setTimeout(() => {
+      dispatch({ type: "hover", value: false });
+      dispatch({ type: "focus", value: false });
+    }, CLOSE_DELAY_MS);
+  }, [cancelClose]);
 
   useEffect(() => {
-    if (!open) return;
-    currentRef.current?.scrollIntoView({ block: "nearest" });
+    dispatch({ type: "list", listId: todoId });
+  }, [todoId]);
+
+  useEffect(() => () => cancelClose(), [cancelClose]);
+
+  useEffect(() => {
+    if (open) currentRef.current?.scrollIntoView({ block: "nearest" });
   }, [open, current?.content, current?.activeForm]);
 
   if (todos.length === 0) return null;
 
   return (
-    <div className="todobar">
-      <div className="todobar__head">
-        <button className="todobar__toggle" onClick={() => setOpen((v) => !v)}>
-          {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-          <span className="todobar__title">{t("todo.title")}</span>
-          <span className="todobar__count">
-            {done}/{todos.length}
-          </span>
-          {!open && current && (
-            <span className="todobar__current">{current.activeForm || current.content}</span>
-          )}
-        </button>
-        <Tooltip label={t("todo.dismiss")}>
-          <button className="todobar__close" onClick={onDismiss}>
-            <X size={13} />
-          </button>
-        </Tooltip>
-      </div>
+    <div
+      className="todobar"
+      onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
+      onMouseLeave={scheduleTransientClose}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`todobar__trigger${panel.pinned ? " todobar__trigger--pinned" : ""}`}
+        aria-expanded={open}
+        aria-controls="todo-popover"
+        onClick={() => dispatch({ type: "toggle-pin" })}
+        onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
+        onBlur={scheduleTransientClose}
+      >
+        <span className="todobar__progress-track" aria-hidden="true">
+          <span className="todobar__progress-fill" style={{ width: `${Math.round((done / todos.length) * 100)}%` }} />
+        </span>
+        <span className="todobar__progress-label">{t("todo.progress", { current: activeIndex, total: todos.length })}</span>
+        <ChevronUp size={13} aria-hidden="true" />
+      </button>
 
-      {open && (
-        <ul className="todobar__list">
-          {todos.map((t, i) => (
-            <li
-              key={i}
-              ref={t.status === "in_progress" ? currentRef : undefined}
-              className={`todobar__item todobar__item--${t.status}${t.level ? " todobar__item--sub" : ""}`}
-            >
-              {t.status === "completed" ? (
-                <Check size={14} className="todobar__ico todobar__ico--done" />
-              ) : t.status === "in_progress" ? (
-                <CircleDot size={14} className="todobar__ico todobar__ico--active" />
-              ) : (
-                <Circle size={14} className="todobar__ico" />
-              )}
-              <span className="todobar__text">
-                {t.status === "in_progress" && t.activeForm ? t.activeForm : t.content}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <AnchoredPopover
+        open={open}
+        anchorRef={triggerRef}
+        onClose={() => dispatch({ type: "close" })}
+        className="todobar__popover"
+        align="start"
+        offset={6}
+      >
+        <section
+          id="todo-popover"
+          className="todobar__panel"
+          aria-label={t("todo.title")}
+          onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
+          onMouseLeave={scheduleTransientClose}
+          onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
+          onBlur={scheduleTransientClose}
+        >
+          <header className="todobar__head">
+            <div className="todobar__heading">
+              <span className="todobar__title">{t("todo.title")}</span>
+              <span className="todobar__count">{done}/{todos.length}</span>
+            </div>
+            <div className="todobar__actions">
+              {panel.pinned && <Pin size={12} className="todobar__pin" aria-label={t("todo.pinned")} />}
+              <Tooltip label={t("todo.dismiss")}>
+                <button type="button" className="todobar__close" onClick={onDismiss}>
+                  <X size={13} />
+                </button>
+              </Tooltip>
+            </div>
+          </header>
+          <ul className="todobar__list">
+            {todos.map((todo, index) => (
+              <li
+                key={`${todo.content}-${index}`}
+                ref={todo.status === "in_progress" ? currentRef : undefined}
+                className={`todobar__item todobar__item--${todo.status}${todo.level ? " todobar__item--sub" : ""}`}
+              >
+                {todo.status === "completed" ? (
+                  <Check size={14} className="todobar__ico todobar__ico--done" />
+                ) : todo.status === "in_progress" ? (
+                  <CircleDot size={14} className="todobar__ico todobar__ico--active" />
+                ) : (
+                  <Circle size={14} className="todobar__ico" />
+                )}
+                <span className="todobar__text">
+                  {todo.status === "in_progress" && todo.activeForm ? todo.activeForm : todo.content}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </AnchoredPopover>
     </div>
   );
 }

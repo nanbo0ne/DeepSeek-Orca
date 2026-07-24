@@ -90,37 +90,37 @@ export function AppChrome({
       <div className="app-chrome__drag-surface" aria-hidden="true" />
       <nav className="app-chrome__actions" aria-label={t("topbar.actions")}>
         <Tooltip label={t("topbar.openProject")}>
-          <button type="button" className="app-chrome__action" onClick={onOpenProject} aria-label={t("topbar.openProject")}>
+          <button type="button" className="app-chrome__action app-chrome__action--core" onClick={onOpenProject} aria-label={t("topbar.openProject")}>
             <FolderOpen size={14} />
             <span>{t("topbar.openProject")}</span>
           </button>
         </Tooltip>
         <Tooltip label={t("topbar.view")}>
-          <button type="button" className="app-chrome__action" onClick={onOpenView} aria-label={t("topbar.view")}>
+          <button type="button" className="app-chrome__action app-chrome__action--core" onClick={onOpenView} aria-label={t("topbar.view")}>
             <Square size={14} />
             <span>{t("topbar.view")}</span>
           </button>
         </Tooltip>
         <Tooltip label={t("topbar.skills")}>
-          <button type="button" className="app-chrome__action" onClick={onOpenSkills} aria-label={t("topbar.skills")}>
+          <button type="button" className="app-chrome__action app-chrome__action--secondary" onClick={onOpenSkills} aria-label={t("topbar.skills")}>
             <Sparkles size={14} />
             <span>{t("topbar.skills")}</span>
           </button>
         </Tooltip>
         <Tooltip label={t("topbar.botStatus")}>
-          <button type="button" className="app-chrome__action" onClick={onOpenBots} aria-label={t("topbar.botStatus")}>
+          <button type="button" className="app-chrome__action app-chrome__action--secondary" onClick={onOpenBots} aria-label={t("topbar.botStatus")}>
             <Bot size={14} />
             <span>{t("topbar.bot")}</span>
           </button>
         </Tooltip>
         <Tooltip label={t("topbar.automationStatus")}>
-          <button type="button" className="app-chrome__action" onClick={onOpenAutomations} aria-label={t("topbar.automationStatus")}>
+          <button type="button" className="app-chrome__action app-chrome__action--tertiary" onClick={onOpenAutomations} aria-label={t("topbar.automationStatus")}>
             <CalendarClock size={14} />
             <span>{t("topbar.automation")}</span>
           </button>
         </Tooltip>
         <Tooltip label={t("topbar.toolLibraryStatus")}>
-          <button type="button" className="app-chrome__action" onClick={onOpenToolLibrary} aria-label={t("topbar.toolLibraryStatus")}>
+          <button type="button" className="app-chrome__action app-chrome__action--tertiary" onClick={onOpenToolLibrary} aria-label={t("topbar.toolLibraryStatus")}>
             <Library size={14} />
             <span>{t("topbar.toolLibrary")}</span>
           </button>

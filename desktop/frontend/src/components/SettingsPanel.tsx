@@ -7,6 +7,7 @@ import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from ".
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
+import { checkDesktopUpdate } from "../lib/updateCheck";
 import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
@@ -594,12 +595,24 @@ function reasoningProtocolLabel(protocol: string, t: ReturnType<typeof useT>): s
 
 function GeneralSection({ s, busy, apply }: SectionProps) {
   const { t, setPref } = useI18n();
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const closeBehavior = normalizeCloseBehavior(s.closeBehavior);
   const autoPlan = normalizeAutoPlan(s.autoPlan);
   const languagePref = normalizeLangPref(s.desktopLanguage);
   const setLanguage = (next: LangPref) => {
     setPref(next);
     void apply(() => app.SetDesktopLanguage(next));
+  };
+  const checkNow = async () => {
+    setUpdateStatus(t("settings.updateChecking"));
+    try {
+      const currentVersion = await app.Version();
+      const update = await checkDesktopUpdate(currentVersion, true);
+      if (update?.err) throw new Error(update.err);
+      setUpdateStatus(update?.available ? t("settings.updateAvailable", { version: update.latest }) : t("settings.updateCurrent"));
+    } catch {
+      setUpdateStatus(t("settings.updateFailed"));
+    }
   };
   return (
     <SettingsSection title={t("settings.tab.general")}>
@@ -629,6 +642,21 @@ function GeneralSection({ s, busy, apply }: SectionProps) {
               {closeBehaviorLabel(mode, t)}
             </button>
           ))}
+        </div>
+      </SettingsField>
+      <SettingsField label={t("settings.autoCheckUpdates")} hint={t("settings.autoCheckUpdatesHint")}>
+        <ToggleSegment
+          value={s.checkUpdates}
+          disabled={busy}
+          onChange={(enabled) => void apply(() => app.SetDesktopCheckUpdates(enabled))}
+        />
+      </SettingsField>
+      <SettingsField label={t("settings.checkUpdatesNow")} hint={t("settings.checkUpdatesNowHint")}>
+        <div className="settings-update-control">
+          <button type="button" className="btn btn--small" disabled={busy} onClick={() => void checkNow()}>
+            {t("settings.checkUpdatesNow")}
+          </button>
+          {updateStatus && <span className="settings-update-control__status" role="status">{updateStatus}</span>}
         </div>
       </SettingsField>
       <SettingsField label={t("settings.processDisplay")} hint={t("settings.processDisplayHint")}>

@@ -1,5 +1,14 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.26 - 2026-07-24
+
+- Replaced the always-open Todo list with a compact progress bar that expands upward on hover or keyboard focus and can be pinned without changing footer height.
+- Added systematic narrow-window priorities for the app chrome, topic actions, composer controls, status bar, and bottom panels at the 760px minimum window width.
+- Restored safe update detection against official GitHub Releases, filtered to stable `desktop-v*` tags, with a 24-hour cache and notification-only download entry.
+- Added General settings for automatic update checks and manual checks; in-app downloading, installation, and forced updates remain disabled.
+- Added Windows installer choices for desktop shortcut creation and launch-after-install, including upgrade-state preservation and silent-install behavior.
+- Migrated configuration to version 3 so update checks default on once while preserving a user's later explicit opt-out.
+
 ## V2.0.25 - 2026-07-24
 
 - Rebuilt the transcript as a chronological event timeline so assistant text, reasoning, tools, notices, image reads, and compaction stay at their real positions.

@@ -13,6 +13,7 @@ import {
   GitBranch,
   History,
   MessageSquareText,
+  MoreHorizontal,
   Settings as SettingsIcon,
   Pencil,
   Trash2,
@@ -21,7 +22,7 @@ import { useToast } from "./lib/toast";
 import { asArray } from "./lib/array";
 import { clearLegacyLangPref, normalizeLangPref, readLegacyLangPref, useI18n, useT } from "./lib/i18n";
 import { useController, type Item, type LiveStream } from "./lib/useController";
-import { app, onProjectTreeChanged } from "./lib/bridge";
+import { app, onProjectTreeChanged, openExternal } from "./lib/bridge";
 import { Transcript } from "./components/Transcript";
 import { Composer } from "./components/Composer";
 import { TodoPanel } from "./components/TodoPanel";
@@ -63,7 +64,9 @@ import {
   type SettingsView,
   type TabMeta,
   type ToolApprovalMode,
+  type UpdateInfo,
 } from "./lib/types";
+import { checkDesktopUpdate, UPDATE_AVAILABLE_EVENT, UPDATE_CHECK_INTERVAL_MS } from "./lib/updateCheck";
 import {
   controllerCollaborationMode,
   displayedCollaborationMode,
@@ -525,6 +528,8 @@ export default function App() {
   // clearing the key mid-session is the Settings panel's job, not the gate's.
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
+  const [checkUpdatesEnabled, setCheckUpdatesEnabled] = useState<boolean | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [automationPanelOpen, setAutomationPanelOpen] = useState(false);
   const [toolLibraryPanelOpen, setToolLibraryPanelOpen] = useState(false);
   const [histView, setHistView] = useState<HistoryViewState | null>(null);
@@ -557,6 +562,7 @@ export default function App() {
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
   const [topicTitleDraft, setTopicTitleDraft] = useState("");
   const [topicExportOpen, setTopicExportOpen] = useState(false);
+  const [topicOverflowOpen, setTopicOverflowOpen] = useState(false);
   const [sidebarTogglePressed, setSidebarTogglePressed] = useState(false);
   const [workspaceTogglePressed, setWorkspaceTogglePressed] = useState(false);
   const [clearContextPending, setClearContextPending] = useState(false);
@@ -663,7 +669,7 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking">) => {
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking" | "checkUpdates">) => {
       void settings.desktopTheme;
       void settings.desktopThemeStyle;
       applyTheme("light", "slate", { persist: false });
@@ -671,6 +677,7 @@ export default function App() {
       setProcessDisplayMode(settings.processDisplayMode === "compact" || settings.processDisplayMode === "detailed"
         ? settings.processDisplayMode
         : settings.expandThinking ? "detailed" : "standard");
+      setCheckUpdatesEnabled(settings.checkUpdates !== false);
     },
     [setLocalePref],
   );
@@ -698,6 +705,47 @@ export default function App() {
       cancelled = true;
     };
   }, [applyDesktopPreferences]);
+
+  useEffect(() => {
+    const onUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<UpdateInfo>).detail;
+      if (detail?.available) setUpdateInfo(detail);
+    };
+    window.addEventListener(UPDATE_AVAILABLE_EVENT, onUpdate);
+    return () => window.removeEventListener(UPDATE_AVAILABLE_EVENT, onUpdate);
+  }, []);
+
+  useEffect(() => {
+    if (!checkUpdatesEnabled) {
+      setUpdateInfo(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const currentVersion = await app.Version();
+        const info = await checkDesktopUpdate(currentVersion);
+        if (!cancelled && info?.available) setUpdateInfo(info);
+      } catch {
+        // Automatic checks are intentionally silent.
+      }
+    };
+    const initialTimer = window.setTimeout(() => void check(), 10_000);
+    const interval = window.setInterval(() => void check(), UPDATE_CHECK_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, [checkUpdatesEnabled]);
+
+  const openUpdatePage = useCallback(() => {
+    if (updateInfo?.downloadUrl) {
+      openExternal(updateInfo.downloadUrl);
+      return;
+    }
+    void app.OpenDownloadPage();
+  }, [updateInfo]);
 
   // Open settings when the native menu item (CmdOrCtrl+,) is activated.
   useEffect(() => {
@@ -1398,6 +1446,15 @@ export default function App() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [topicExportOpen]);
+  useEffect(() => {
+    if (!topicOverflowOpen) return;
+    const onDown = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (!target?.closest(".topicbar__overflow")) setTopicOverflowOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [topicOverflowOpen]);
 
   const exportSession = useCallback(
     async (format: "markdown" | "json" | "pdf" | "image") => {
@@ -2455,6 +2512,13 @@ export default function App() {
                 <span>{t("topbar.settings")}</span>
               </button>
             </Tooltip>
+            {updateInfo?.available && !responsiveSidebarCollapsed && (
+              <Tooltip label={t("update.download", { version: updateInfo.latest })} fill side="right">
+                <button className="sidebar__update" type="button" onClick={openUpdatePage} aria-label={t("update.download", { version: updateInfo.latest })}>
+                  <Download size={15} />
+                </button>
+              </Tooltip>
+            )}
           </nav>
 
         </aside>
@@ -2524,9 +2588,9 @@ export default function App() {
                 getText={getSessionMarkdown}
                 label={t("topicBar.copyAll")}
                 showLabel={false}
-                className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
+                className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility topicbar__action--direct-utility"
               />
-              <div className={`topicbar__export${topicExportOpen ? " topicbar__export--open" : ""}`}>
+              <div className={`topicbar__export topicbar__action--direct-utility${topicExportOpen ? " topicbar__export--open" : ""}`}>
                 <Tooltip label={t("topicBar.export")}>
                   <button
                     className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
@@ -2563,7 +2627,7 @@ export default function App() {
               </div>
               <Tooltip label={t("workspace.changedTab")}>
                 <button
-                  className="topicbar__action-btn topicbar__action-btn--label"
+                  className="topicbar__action-btn topicbar__action-btn--label topicbar__action--changed"
                   type="button"
                   aria-label={t("workspace.changedTab")}
                   aria-pressed={workspacePanelRenderable && rightDockMode === "changed"}
@@ -2573,6 +2637,33 @@ export default function App() {
                   <span>{t("workspace.changedTab")}</span>
                 </button>
               </Tooltip>
+              <div className={`topicbar__overflow${topicOverflowOpen ? " topicbar__overflow--open" : ""}`}>
+                <Tooltip label={t("topicBar.more")}>
+                  <button
+                    className="topicbar__action-btn topicbar__action-btn--icon topicbar__action-btn--utility"
+                    type="button"
+                    aria-label={t("topicBar.more")}
+                    aria-haspopup="menu"
+                    aria-expanded={topicOverflowOpen}
+                    onClick={() => setTopicOverflowOpen((open) => !open)}
+                  >
+                    <MoreHorizontal size={15} />
+                  </button>
+                </Tooltip>
+                {topicOverflowOpen && (
+                  <div className="topicbar__overflow-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => { void navigator.clipboard?.writeText(getSessionMarkdown()); setTopicOverflowOpen(false); }}>
+                      <FileText size={13} /><span>{t("topicBar.copyAll")}</span>
+                    </button>
+                    <button type="button" role="menuitem" disabled={!sessionHasContent} onClick={() => { void exportSession("markdown"); setTopicOverflowOpen(false); }}>
+                      <Download size={13} /><span>{t("topicBar.exportMarkdown")}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => { openRightDockMode("changed"); setTopicOverflowOpen(false); }}>
+                      <GitBranch size={13} /><span>{t("workspace.changedTab")}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
               <Tooltip label={t("topicBar.command")}>
                 <button
                   className="topicbar__action-btn topicbar__action-btn--label topicbar__action-btn--accent"
@@ -2640,7 +2731,7 @@ export default function App() {
                 </div>
                 </div>
               )}
-              {showTodos && <TodoPanel todos={todos} onDismiss={() => setDismissedTodo(todoItem!.id)} />}
+              {showTodos && <TodoPanel todoId={todoItem!.id} todos={todos} onDismiss={() => setDismissedTodo(todoItem!.id)} />}
               {state.approval && (
                 <ApprovalModal
                 approval={state.approval}
@@ -2729,6 +2820,8 @@ export default function App() {
               cost={state.sessionCost}
               currency={state.sessionCurrency}
               modelLabel={displayedStatusModelLabel}
+              updateInfo={responsiveSidebarCollapsed ? updateInfo : null}
+              onOpenUpdate={openUpdatePage}
             />
           </footer>
           </>

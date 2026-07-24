@@ -96,6 +96,8 @@ type App struct {
 	balanceInflight              map[string]chan struct{}
 	sessionInfoMu                sync.Mutex
 	sessionInfoCache             map[string]sessionInfoCacheEntry
+	updateMu                     sync.RWMutex
+	updateURL                    string
 }
 
 type balanceCacheEntry struct {

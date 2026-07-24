@@ -182,8 +182,8 @@ func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
-	if app.Settings().CheckUpdates {
-		t.Fatal("Settings().CheckUpdates default = true, want false")
+	if !app.Settings().CheckUpdates {
+		t.Fatal("Settings().CheckUpdates default = false, want true")
 	}
 	if err := app.SetDesktopCheckUpdates(false); err != nil {
 		t.Fatalf("SetDesktopCheckUpdates: %v", err)

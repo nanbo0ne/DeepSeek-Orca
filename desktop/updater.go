@@ -37,8 +37,83 @@ import (
 const (
 	r2Base         = "https://dl.deepseek-orca.io"
 	ghReleasesBase = "https://github.com/nanbo0ne/DeepSeek-Orca/releases"
+	ghReleasesAPI  = "https://api.github.com/repos/nanbo0ne/DeepSeek-Orca/releases?per_page=20"
 	httpTimeout    = 15 * time.Second
 )
+
+type githubRelease struct {
+	TagName    string `json:"tag_name"`
+	Name       string `json:"name"`
+	Body       string `json:"body"`
+	HTMLURL    string `json:"html_url"`
+	Draft      bool   `json:"draft"`
+	Prerelease bool   `json:"prerelease"`
+}
+
+func desktopReleaseVersion(tag string) (string, bool) {
+	const prefix = "desktop-v"
+	if !strings.HasPrefix(tag, prefix) {
+		return "", false
+	}
+	return normalizeVersion(strings.TrimPrefix(tag, "desktop-"))
+}
+
+func selectLatestDesktopRelease(releases []githubRelease) (githubRelease, bool) {
+	var selected githubRelease
+	var selectedVersion string
+	for _, release := range releases {
+		if release.Draft || release.Prerelease {
+			continue
+		}
+		candidate, ok := desktopReleaseVersion(release.TagName)
+		if !ok || (selectedVersion != "" && semver.Compare(candidate, selectedVersion) <= 0) {
+			continue
+		}
+		selected = release
+		selectedVersion = candidate
+	}
+	return selected, selectedVersion != ""
+}
+
+func fetchLatestDesktopRelease(ctx context.Context, c *http.Client) (githubRelease, error) {
+	return fetchLatestDesktopReleaseAt(ctx, c, ghReleasesAPI)
+}
+
+func fetchLatestDesktopReleaseAt(ctx context.Context, c *http.Client, url string) (githubRelease, error) {
+	body, err := fetchBytes(ctx, c, url)
+	if err != nil {
+		return githubRelease{}, err
+	}
+	var releases []githubRelease
+	if err := json.Unmarshal(body, &releases); err != nil {
+		return githubRelease{}, fmt.Errorf("decode GitHub releases: %w", err)
+	}
+	release, ok := selectLatestDesktopRelease(releases)
+	if !ok {
+		return githubRelease{}, fmt.Errorf("no stable desktop release found")
+	}
+	return release, nil
+}
+
+func evaluateGitHubRelease(current string, release githubRelease) UpdateInfo {
+	latest, validLatest := desktopReleaseVersion(release.TagName)
+	info := UpdateInfo{
+		Current:       current,
+		Latest:        strings.TrimPrefix(latest, "v"),
+		Notes:         release.Body,
+		CanSelfUpdate: false,
+		DownloadURL:   release.HTMLURL,
+	}
+	currentVersion, validCurrent := normalizeVersion(current)
+	if !validLatest {
+		info.Err = "release has no valid desktop version"
+		return info
+	}
+	if validCurrent && semver.Compare(latest, currentVersion) > 0 {
+		info.Available = true
+	}
+	return info
+}
 
 // manifestEndpoints returns the primary (R2) then fallback (GitHub) manifest URLs
 // for the running build's channel.

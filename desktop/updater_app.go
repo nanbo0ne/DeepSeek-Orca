@@ -2,28 +2,48 @@ package main
 
 import (
 	"context"
+	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"deepseek-orca/desktop/internal/update"
 )
 
-// updater_app.go keeps the former updater command surface for compatibility.
-// DeepSeek-Orca disables update checks and update application in the product UI.
+// updater_app.go exposes update detection while keeping in-app installation off.
 
 // Version returns the build version injected via -ldflags (see main.go).
 func (a *App) Version() string { return version }
 
-// CheckUpdate is disabled in DeepSeek-Orca builds; the product no longer performs
-// automatic or manual update checks.
 func (a *App) CheckUpdate() (*UpdateInfo, error) {
-	return nil, nil
+	client, err := httpClient()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(a.reqCtx(), 10*time.Second)
+	defer cancel()
+	release, err := fetchLatestDesktopRelease(ctx, client)
+	if err != nil {
+		return &UpdateInfo{Current: version, CanSelfUpdate: false, DownloadURL: ghReleasesBase, Err: err.Error()}, nil
+	}
+	info := evaluateGitHubRelease(version, release)
+	if info.DownloadURL == "" {
+		info.DownloadURL = ghReleasesBase
+	}
+	a.updateMu.Lock()
+	a.updateURL = info.DownloadURL
+	a.updateMu.Unlock()
+	return &info, nil
 }
 
-// OpenDownloadPage is retained for API compatibility.
 func (a *App) OpenDownloadPage() {
 	if a.ctx != nil {
-		wruntime.BrowserOpenURL(a.ctx, "https://github.com/nanbo0ne/DeepSeek-Orca")
+		a.updateMu.RLock()
+		url := a.updateURL
+		a.updateMu.RUnlock()
+		if url == "" {
+			url = ghReleasesBase
+		}
+		wruntime.BrowserOpenURL(a.ctx, url)
 	}
 }
 

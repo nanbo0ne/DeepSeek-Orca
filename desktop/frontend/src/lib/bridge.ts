@@ -49,6 +49,7 @@ import type {
   TabMeta,
   ToolLibrarySettings,
   TopicMeta,
+  UpdateInfo,
   WireEvent,
   WorkspaceChangesView,
   GitCommitView,
@@ -245,7 +246,7 @@ export interface AppBindings {
   // Runtime-only.
   SetBypass(on: boolean): Promise<void>;
   Version(): Promise<string>;
-  CheckUpdate(): Promise<unknown | null>;
+  CheckUpdate(): Promise<UpdateInfo | null>;
   ApplyUpdate(): Promise<void>;
   OpenDownloadPage(): Promise<void>;
   NeedsOnboarding(): Promise<boolean>;
@@ -719,7 +720,7 @@ function makeMockApp(): AppBindings {
     desktopTheme: "light",
     desktopThemeStyle: "slate",
     closeBehavior: "background",
-    checkUpdates: false,
+    checkUpdates: true,
     expandThinking: false,
     processDisplayMode: "standard",
     visionEnabled: false,

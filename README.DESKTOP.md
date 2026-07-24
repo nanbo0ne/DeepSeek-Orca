@@ -1,16 +1,16 @@
 # DeepSeek-Orca Desktop
 
-[中文](README.zh-CN.md) | [Desktop changelog](DESKTOP_CHANGELOG.md)
+[中文](README.zh-CN.md)
 
 DeepSeek-Orca is a local desktop AI assistant and engineering agent. It combines multi-provider models, project workspaces, tools, MCP, skills, CodeGraph, long-term memory, planning, and automation while keeping execution inspectable, pausable, and reversible.
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.25)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.26)
 
 Configure an API key, endpoint, and model under Settings > Models after first launch. Multimodal vision is opt-in; images are uploaded to the configured provider only when it is enabled.
 
@@ -54,7 +54,13 @@ Assistant mode reads and writes the Assistant profile. Normal and Enhanced modes
 
 ## Plan, Todo, Goal, And Process Display
 
-Plan mode presents a complete proposal before execution. Todo tracks multi-step work. Goal mode can continue autonomously and stops when its internal complete or blocked marker is received.
+Plan mode presents a complete proposal before execution. Todo stays as a compact progress bar, expands upward on hover or keyboard focus, and can be pinned open without moving the composer. Goal mode can continue autonomously and stops when its internal complete or blocked marker is received.
+
+## Updates And Installation
+
+The app checks official GitHub Releases after startup and every 24 hours by default. When a newer stable `desktop-v*` release exists, a low-profile download icon opens that exact release in the browser. DeepSeek-Orca never downloads, installs, or forces an update automatically. Settings provides an opt-out and a manual check action.
+
+The Windows installer lets users choose whether to create a desktop shortcut and whether to launch DeepSeek-Orca on completion. Upgrade installs preserve the existing desktop shortcut choice, and silent installs never launch the app.
 
 Process display has three modes:
 

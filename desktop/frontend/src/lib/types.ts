@@ -837,3 +837,14 @@ export interface SettingsView {
   bypass: boolean; // legacy JSON key for live YOLO/full-access tool auto-approval
 }
 
+export interface UpdateInfo {
+  available: boolean;
+  current: string;
+  latest: string;
+  notes: string;
+  canSelfUpdate: boolean;
+  downloadUrl: string;
+  assetSize: number;
+  err?: string;
+}
+

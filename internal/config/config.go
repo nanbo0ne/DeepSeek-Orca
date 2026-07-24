@@ -209,11 +209,10 @@ func (c *Config) UICloseBehavior() string {
 	return c.DesktopCloseBehavior()
 }
 
-// DesktopCheckUpdates reports whether the desktop should check for updates on
-// startup. DeepSeek-Orca builds ship with update checks disabled.
+// DesktopCheckUpdates reports whether the desktop should check for updates.
 func (c *Config) DesktopCheckUpdates() bool {
 	if c == nil || c.Desktop.CheckUpdates == nil {
-		return false
+		return true
 	}
 	return *c.Desktop.CheckUpdates
 }
@@ -1087,10 +1086,10 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 2,
+		ConfigVersion: 3,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
-		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(false)},
+		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true)},
 		Notifications: NotificationsConfig{
 			Enabled:         false,
 			TurnDone:        true,
@@ -1218,6 +1217,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeLegacyMCPTiers(cfg)
 	normalizeLegacyProviderModels(cfg)
 	normalizeDesktopOfficialProviderAccess(cfg)
+	normalizeDesktopUpdatePreference(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1330,8 +1330,20 @@ func LoadForEdit(path string) *Config {
 	normalizeLegacyMCPTiers(cfg)
 	normalizeLegacyProviderModels(cfg)
 	normalizeDesktopOfficialProviderAccess(cfg)
+	normalizeDesktopUpdatePreference(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
+}
+
+// V2 shipped check_updates=false without exposing a setting. V3 enables the
+// feature once, then preserves an explicit V3 opt-out.
+func normalizeDesktopUpdatePreference(c *Config) {
+	if c == nil || c.ConfigVersion >= 3 {
+		return
+	}
+	enabled := true
+	c.Desktop.CheckUpdates = &enabled
+	c.ConfigVersion = 3
 }
 
 // mergeFile decodes a TOML file onto cfg if it exists. An absent file is not an error.

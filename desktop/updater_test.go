@@ -4,6 +4,9 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"runtime"
 	"strings"
 	"testing"
@@ -30,6 +33,60 @@ func TestNormalizeVersion(t *testing.T) {
 		if got != c.want || ok != c.ok {
 			t.Errorf("normalizeVersion(%q) = (%q,%v), want (%q,%v)", c.in, got, ok, c.want, c.ok)
 		}
+	}
+}
+
+func TestSelectLatestDesktopRelease(t *testing.T) {
+	releases := []githubRelease{
+		{TagName: "v9.0.0", HTMLURL: "https://example.invalid/cli"},
+		{TagName: "npm-v8.0.0", HTMLURL: "https://example.invalid/npm"},
+		{TagName: "desktop-v2.0.25", HTMLURL: "https://example.invalid/25"},
+		{TagName: "desktop-v2.0.27", HTMLURL: "https://example.invalid/draft", Draft: true},
+		{TagName: "desktop-v2.0.28", HTMLURL: "https://example.invalid/pre", Prerelease: true},
+		{TagName: "desktop-v2.0.26", HTMLURL: "https://example.invalid/26"},
+	}
+	got, ok := selectLatestDesktopRelease(releases)
+	if !ok || got.TagName != "desktop-v2.0.26" {
+		t.Fatalf("selectLatestDesktopRelease = (%+v,%v), want desktop-v2.0.26", got, ok)
+	}
+}
+
+func TestEvaluateGitHubReleaseIsNotificationOnly(t *testing.T) {
+	info := evaluateGitHubRelease("2.0.25", githubRelease{
+		TagName: "desktop-v2.0.26",
+		HTMLURL: "https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.26",
+		Body:    "notes",
+	})
+	if !info.Available || info.Latest != "2.0.26" {
+		t.Fatalf("evaluateGitHubRelease = %+v", info)
+	}
+	if info.CanSelfUpdate {
+		t.Fatal("desktop update notification must never enable in-app installation")
+	}
+	if !strings.Contains(info.DownloadURL, "desktop-v2.0.26") {
+		t.Fatalf("DownloadURL = %q, want the matching official release", info.DownloadURL)
+	}
+}
+
+func TestFetchLatestDesktopReleaseAtHandlesHTTPResults(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"tag_name":"v9.0.0"},{"tag_name":"desktop-v2.0.26","html_url":"https://example.invalid/26"}]`))
+	}))
+	defer server.Close()
+
+	release, err := fetchLatestDesktopReleaseAt(context.Background(), server.Client(), server.URL)
+	if err != nil || release.TagName != "desktop-v2.0.26" {
+		t.Fatalf("fetchLatestDesktopReleaseAt = (%+v,%v)", release, err)
+	}
+
+	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	failingURL := failing.URL
+	failing.Close()
+	if _, err := fetchLatestDesktopReleaseAt(context.Background(), failing.Client(), failingURL); err == nil {
+		t.Fatal("network failure should be reported")
 	}
 }
 

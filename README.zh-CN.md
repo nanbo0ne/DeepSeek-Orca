@@ -1,16 +1,16 @@
 # DeepSeek-Orca
 
-[中文](README.zh-CN.md) | [English](README.DESKTOP.md) | [桌面端更新记录](DESKTOP_CHANGELOG.md)
+[中文](README.zh-CN.md) | [English](README.DESKTOP.md)
 
 DeepSeek-Orca 是一个面向桌面工作流的本地 AI 助手与工程 Agent。它把多模型接入、项目工作区、工具调用、MCP、Skill、CodeGraph、长期记忆、计划执行和自动化集中在一个应用中，并保留可审查、可暂停、可回滚的交互方式。
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.25)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.26)
 
 首次启动后，在“设置 > 模型”中配置 API Key、服务地址和模型。多模态识图默认关闭，只有主动开启后图片才会上传给当前模型服务商。
 
@@ -50,7 +50,11 @@ MCP 面板管理 Server、授权、连接和工具状态；Agent Skill 按需加
 
 ## 计划、过程与后台任务
 
-计划模式先展示可批准或重写的完整计划；Todo 跟踪多步任务；Goal 可以自动续跑并在内部完成标记后停止。询问、计划、Todo 和待发送内容使用统一底部布局。
+计划模式先展示可批准或重写的完整计划；Todo 默认折叠为紧凑进度条，悬停或聚焦时展开并可点击固定；Goal 可以自动续跑并在内部完成标记后停止。Todo 浮层不会推挤输入框，询问、计划和待发送内容继续使用统一底部布局。
+
+## 更新与安装
+
+应用默认在启动后和每 24 小时检查一次官方 GitHub Release。发现稳定的新桌面版后，仅显示低调的下载入口并在浏览器打开对应发布页，不会自动下载、安装或强制更新。设置页可以关闭自动检查或立即手动检查。Windows 安装器允许选择桌面快捷方式和安装完成后是否运行应用；升级会保留现有快捷方式选择。
 
 - **精简**：单行白色圆角过程栏，默认折叠。
 - **标准**：运行中按顺序显示过程卡，完成后原位折叠。

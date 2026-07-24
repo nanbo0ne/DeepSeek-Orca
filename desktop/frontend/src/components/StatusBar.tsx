@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Download } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import { useI18n } from "../lib/i18n";
-import { type BalanceInfo, type CollaborationMode, type ContextInfo, type JobView, type ToolApprovalMode, type WireUsage } from "../lib/types";
+import { type BalanceInfo, type CollaborationMode, type ContextInfo, type JobView, type ToolApprovalMode, type UpdateInfo, type WireUsage } from "../lib/types";
 
 // JobsChip is the status-bar background-jobs indicator: a count that opens an
 // upward popover listing the running jobs (id · label · status), mirroring the
@@ -116,6 +117,8 @@ export function StatusBar({
   cost,
   currency,
   modelLabel,
+  updateInfo,
+  onOpenUpdate,
 }: {
   context: ContextInfo;
   usage?: WireUsage;
@@ -130,6 +133,8 @@ export function StatusBar({
   cost?: number;
   currency?: string;
   modelLabel?: string;
+  updateInfo?: UpdateInfo | null;
+  onOpenUpdate?: () => void;
 }) {
   const { t } = useI18n();
   const pct = context.window ? Math.min(100, Math.round((context.used / context.window) * 100)) : null;
@@ -232,6 +237,15 @@ export function StatusBar({
       {jobsList.length > 0 && (
         <div className="statusbar__group statusbar__group--jobs">
           <JobsChip jobs={jobsList} />
+        </div>
+      )}
+      {updateInfo?.available && onOpenUpdate && (
+        <div className="statusbar__group statusbar__group--update">
+          <Tooltip label={t("update.download", { version: updateInfo.latest })}>
+            <button type="button" className="statusbar__update" onClick={onOpenUpdate} aria-label={t("update.download", { version: updateInfo.latest })}>
+              <Download size={13} />
+            </button>
+          </Tooltip>
         </div>
       )}
     </div>

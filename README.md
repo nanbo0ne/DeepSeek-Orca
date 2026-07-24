@@ -1,16 +1,16 @@
 # DeepSeek-Orca
 
-[中文](README.zh-CN.md) | [English](README.DESKTOP.md) | [桌面端更新记录](DESKTOP_CHANGELOG.md)
+[中文](README.zh-CN.md) | [English](README.DESKTOP.md)
 
 DeepSeek-Orca 是一个面向桌面工作流的本地 AI 助手与工程 Agent。它把多模型接入、项目工作区、工具调用、MCP、Skill、CodeGraph、长期记忆、计划执行和自动化集中在一个应用中，并保留可审查、可暂停、可回滚的交互方式。
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.25/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.25)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.26/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.26)
 
 首次启动后，在“设置 > 模型”中配置 API Key、服务地址和模型。多模态识图默认关闭，只有主动开启后图片才会上传给当前模型服务商。
 
@@ -83,7 +83,7 @@ DeepSeek-Orca 支持 DeepSeek、OpenAI-compatible 服务和 Anthropic 协议服�
 ## 计划、Todo 与 Goal
 
 - 计划模式先生成完整计划卡，用户批准后再执行，也可以要求整体重写计划。
-- Todo 用于跟踪复杂多步骤任务的当前项和完成状态。
+- Todo 默认显示为紧凑进度条；悬停或键盘聚焦时向上展开，点击可以固定，不会推挤输入框。
 - Goal 模式可自动续跑目标；模型发出内部完成/阻塞标记后会立即停止，不把控制标记显示在正文中。
 - 询问、计划、Todo 和待发送内容使用统一底部布局，不会遮挡“跳到最新”按钮。
 
@@ -103,6 +103,12 @@ DeepSeek-Orca 支持 DeepSeek、OpenAI-compatible 服务和 Anthropic 协议服�
 - 机器人连接支持为渠道选择模型和助手/普通/增强模式。
 - 侧边聊天位于右侧 Dock，可参考主会话内容但不写入主历史，也不参与主会话 token、压缩和标题生成。
 - 后台 bash 和 subagent 会持续显示运行状态；当前回答依赖其结果时，模型必须先调用 `wait`。
+
+## 更新与安装
+
+应用默认在启动后和每 24 小时检查一次官方 GitHub Release。发现稳定的 `desktop-v*` 新版本时，只会在侧栏或状态栏显示一个低调的下载按钮；点击后使用浏览器打开对应发布页，不会自动下载、安装或强制更新。可以在“设置 > 常规”关闭自动检查或立即手动检查。
+
+Windows 安装器允许选择是否创建桌面快捷方式，并在完成页选择是否立即运行 DeepSeek-Orca。升级安装会保留现有桌面快捷方式选择，静默安装不会自动启动应用。
 
 ## 权限与隐私
 

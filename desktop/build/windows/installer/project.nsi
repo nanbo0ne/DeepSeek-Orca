@@ -60,15 +60,20 @@ ManifestDPIAware true
 !define MUI_UNICON "..\icon.ico"
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN_TEXT "运行 ${INFO_PRODUCTNAME}"
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
 !define MUI_LICENSEPAGE_CHECKBOX
 
 Var DeleteSavedDataCheckbox
 Var DeleteSavedData
+Var DesktopShortcutCheckbox
+Var CreateDesktopShortcut
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
 !insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
+Page custom InstallOptionsPage InstallOptionsPageLeave
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
 
@@ -123,6 +128,19 @@ ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+   SetShellVarContext current
+
+   ; First installs create a desktop shortcut by default. Upgrades preserve the
+   ; user's existing choice, including a shortcut they deliberately removed.
+   StrCpy $CreateDesktopShortcut ${BST_CHECKED}
+   ClearErrors
+   ReadRegStr $1 HKCU "${UNINST_KEY}" "DisplayName"
+   IfErrors shortcut_choice_done
+   StrCmp $1 "" shortcut_choice_done
+   IfFileExists "$DESKTOP\${INFO_PRODUCTNAME}.lnk" shortcut_choice_done 0
+   StrCpy $CreateDesktopShortcut ${BST_UNCHECKED}
+
+shortcut_choice_done:
 
    ; InstallDirRegKey leaves $INSTDIR empty when the InstallLocation value is
    ; missing. Older installers still wrote DisplayIcon, so use its parent folder
@@ -138,6 +156,30 @@ Function .onInit
 fallback:
    StrCpy $INSTDIR "${DEEPSEEK_ORCA_DEFAULT_INSTALLDIR}"
 done:
+FunctionEnd
+
+Function InstallOptionsPage
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+        Abort
+    ${EndIf}
+
+    ${NSD_CreateLabel} 0 0 100% 24u "选择安装选项"
+    Pop $0
+    ${NSD_CreateCheckbox} 0 32u 100% 24u "创建桌面快捷方式"
+    Pop $DesktopShortcutCheckbox
+    ${If} $CreateDesktopShortcut == ${BST_CHECKED}
+        ${NSD_Check} $DesktopShortcutCheckbox
+    ${Else}
+        ${NSD_Uncheck} $DesktopShortcutCheckbox
+    ${EndIf}
+
+    nsDialogs::Show
+FunctionEnd
+
+Function InstallOptionsPageLeave
+    ${NSD_GetState} $DesktopShortcutCheckbox $CreateDesktopShortcut
 FunctionEnd
 
 Section
@@ -159,7 +201,11 @@ Section
     SetOutPath "$INSTDIR"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
-    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    ${If} $CreateDesktopShortcut == ${BST_CHECKED}
+        CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    ${Else}
+        Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
+    ${EndIf}
     CreateShortcut "$SMPROGRAMS\Uninstall ${INFO_PRODUCTNAME}.lnk" "$INSTDIR\uninstall.exe"
 
     !insertmacro wails.associateFiles
