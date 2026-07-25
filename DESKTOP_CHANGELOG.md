@@ -1,5 +1,14 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.27 - 2026-07-25
+
+- Added fail-closed SignPath Authenticode signing for the Windows application and final NSIS installer, including trusted timestamp verification before release publication.
+- Added a public Windows code-signing policy and verification instructions for official GitHub downloads.
+- Centered the compact Todo control and made its width follow the active task text while retaining progress, pinning, hover, keyboard, and narrow-window behavior.
+- Reworked automatic topic titles to summarize the complete first user/assistant turn across tool calls instead of stopping at the first assistant fragment.
+- Restored original display text before title generation so `Referenced context`, reminders, handoffs, and attachment payloads cannot become conversation titles.
+- Added lazy repair for legacy auto-generated wrapper titles without overwriting manually renamed conversations.
+
 ## V2.0.26 - 2026-07-24
 
 - Hotfix (2026-07-25): fixed mojibake in the Windows install-options page by compiling the customized NSIS script as BOM-marked UTF-8 Unicode.

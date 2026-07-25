@@ -36,6 +36,7 @@ on:
 
 permissions:
   contents: write # create the release and upload artifacts
+  actions: read   # SignPath verifies the GitHub-hosted build provenance
 
 jobs:
   cache-guard:
@@ -153,6 +154,18 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           RUN_NUMBER: ${{ github.run_number }}
 
+      - name: Require SignPath release signing
+        if: runner.os == 'Windows'
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+        run: |
+          for name in SIGNPATH_API_TOKEN SIGNPATH_ORGANIZATION_ID SIGNPATH_PROJECT_SLUG SIGNPATH_SIGNING_POLICY_SLUG; do
+            [ -n "${!name:-}" ] || { echo "::error::$name is required; unsigned Windows releases are forbidden"; exit 1; }
+          done
+
       - name: Build and package
         env:
           # macOS Developer ID + notarization path turns on only when all five
@@ -163,6 +176,97 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: scripts/desktop-build.sh "${{ matrix.platform }}" "${{ steps.ver.outputs.version }}" "${{ steps.ver.outputs.channel }}"
+
+      - name: Upload unsigned Windows app for SignPath
+        if: runner.os == 'Windows'
+        id: upload-windows-app
+        uses: actions/upload-artifact@v7
+        with:
+          name: signpath-windows-app-${{ github.run_id }}-${{ github.run_attempt }}
+          path: desktop/build/bin/deepseek-orca-desktop.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Windows app with SignPath
+        if: runner.os == 'Windows'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: windows-executable
+          github-artifact-id: ${{ steps.upload-windows-app.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: ${{ runner.temp }}/signed-windows-app
+
+      - name: Repackage Windows installer with signed app
+        if: runner.os == 'Windows'
+        run: |
+          signed_app="$(find "${{ runner.temp }}/signed-windows-app" -type f -iname 'deepseek-orca-desktop.exe' | head -n1)"
+          [ -n "$signed_app" ] || { echo "signed Windows app was not returned by SignPath" >&2; exit 1; }
+          cp "$signed_app" desktop/build/bin/deepseek-orca-desktop.exe
+
+          rm -f desktop/build/bin/DeepSeek-Orca-Setup-*-windows-*.exe
+          app_windows="$(cygpath -w "$PWD/desktop/build/bin/deepseek-orca-desktop.exe")"
+          (cd desktop/build/windows/installer && makensis "-DARG_WAILS_AMD64_BINARY=$app_windows" project.nsi)
+
+          installer="$(find desktop/build/bin -maxdepth 1 -type f -iname '*setup*.exe' | head -n1)"
+          [ -n "$installer" ] || { echo "NSIS did not produce an installer" >&2; exit 1; }
+          rm -f dist/DeepSeek-Orca-windows-amd64-installer.exe dist/DeepSeek-Orca-windows-amd64.zip
+          cp "$installer" dist/DeepSeek-Orca-windows-amd64-installer.exe
+
+          staging="$(mktemp -d)"
+          cp desktop/build/bin/deepseek-orca-desktop.exe "$staging/DeepSeek-Orca.exe"
+          powershell.exe -NoProfile -Command "Compress-Archive -Force -LiteralPath '$(cygpath -w "$staging/DeepSeek-Orca.exe")' -DestinationPath '$(cygpath -w "$PWD/dist/DeepSeek-Orca-windows-amd64.zip")'"
+          rm -rf "$staging"
+
+      - name: Upload unsigned Windows installer for SignPath
+        if: runner.os == 'Windows'
+        id: upload-windows-installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: signpath-windows-installer-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/DeepSeek-Orca-windows-amd64-installer.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign Windows installer with SignPath
+        if: runner.os == 'Windows'
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: windows-executable
+          github-artifact-id: ${{ steps.upload-windows-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: ${{ runner.temp }}/signed-windows-installer
+
+      - name: Verify signed Windows release artifacts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $signedInstaller = Get-ChildItem -Path '${{ runner.temp }}/signed-windows-installer' -Recurse -Filter '*.exe' | Select-Object -First 1
+          if (-not $signedInstaller) { throw 'signed Windows installer was not returned by SignPath' }
+          Copy-Item -Force $signedInstaller.FullName 'dist/DeepSeek-Orca-windows-amd64-installer.exe'
+
+          $artifacts = @(
+            'desktop/build/bin/deepseek-orca-desktop.exe',
+            'dist/DeepSeek-Orca-windows-amd64-installer.exe'
+          )
+          foreach ($artifact in $artifacts) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $artifact
+            if ($signature.Status -ne 'Valid') {
+              throw "$artifact has invalid Authenticode status: $($signature.Status) $($signature.StatusMessage)"
+            }
+            if (-not $signature.SignerCertificate) { throw "$artifact has no signer certificate" }
+            if (-not $signature.TimeStamperCertificate) { throw "$artifact has no trusted timestamp" }
+            Write-Host "$artifact signed by $($signature.SignerCertificate.Subject)"
+          }
 
       - name: Sign artifacts (minisign)
         if: env.HAS_MINISIGN == 'true'

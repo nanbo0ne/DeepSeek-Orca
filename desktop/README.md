@@ -108,10 +108,15 @@ has a manual check. Self-update behavior by platform:
   in-place swap would be blocked by Gatekeeper; the banner links to the download
   page for a manual update instead.
 
-### Unsigned builds — first launch
+### Platform signing and first launch
 
-There are no Apple/Windows code-signing certificates yet, so a downloaded build
-trips the OS gatekeepers on first run:
+Official Windows releases use SignPath Authenticode signing for both the main
+application and the final NSIS installer. The workflow fails closed if either
+signature or its trusted timestamp cannot be verified. See the repository's
+[`SIGNING.md`](../SIGNING.md) policy for provenance and local verification.
+
+macOS builds still do not have an Apple Developer ID certificate, so downloaded
+DMGs may trip Gatekeeper on first run:
 
 - **macOS** — open `DeepSeek-Orca-darwin-universal.dmg` and drag DeepSeek-Orca into
   Applications. Gatekeeper may then report the app "is damaged" or is from an
@@ -119,11 +124,10 @@ trips the OS gatekeepers on first run:
   ```sh
   xattr -dr com.apple.quarantine /Applications/DeepSeek-Orca.app
   ```
-- **Windows** — SmartScreen shows "Windows protected your PC". Click *More info →
-  Run anyway*.
 
-When Developer ID / Authenticode certificates are added, the release workflow's
-`HAS_APPLE_CERT` gate flips to the signed path and these steps go away.
+A correctly signed Windows installer should not report an unknown publisher.
+SmartScreen can nevertheless show a temporary reputation warning for a newly
+released, low-download artifact while Microsoft builds file reputation.
 
 ### Verifying a download
 

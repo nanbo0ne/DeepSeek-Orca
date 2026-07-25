@@ -23,6 +23,11 @@ check(css.includes("@media (max-width: 1100px)") && css.includes("@media (max-wi
 check(app.includes("topicbar__overflow-menu") && css.includes(".topicbar__action--direct-utility"), "topic actions expose a narrow overflow menu");
 check(css.includes(".statusbar {\n    max-width: none;\n    gap: 6px;\n    overflow: hidden"), "narrow status bar cannot wrap or overflow");
 check(
+  css.includes(".footer-shelves > .todobar {\n  flex: 0 0 auto;\n  width: min(520px, 100%);") &&
+    css.includes("min-width: min(300px, 100%);\n  max-width: 100%;\n  margin-inline: auto;"),
+  "Todo stays centered and constrained by the conversation footer",
+);
+check(
   settings.includes('<SettingsField label={t("settings.autoCheckUpdates")}') &&
     settings.includes('<div className="settings-update-control">') &&
     !settings.includes('<SettingsField label={t("settings.checkUpdatesNow")}'),

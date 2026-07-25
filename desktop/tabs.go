@@ -1258,6 +1258,10 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	tab.StartupErr = ""
 	a.mu.Unlock()
 	a.emitReady(wailsCtx)
+	if isBrokenAutoTopicTitle(loadTopicTitle(topicTitleRoot(tab.Scope, tab.WorkspaceRoot), tab.TopicID)) &&
+		loadTopicTitleSource(topicTitleRoot(tab.Scope, tab.WorkspaceRoot), tab.TopicID) == topicTitleSourceAuto {
+		go a.maybeAutoTitleTopic(tab)
+	}
 }
 
 // --- active tab helpers -----------------------------------------------------
@@ -1423,7 +1427,7 @@ func (a *App) maybeAutoTitleTopic(tab *WorkspaceTab) bool {
 		return false
 	}
 	currentTitle := strings.TrimSpace(loadTopicTitle(titleRoot, tab.TopicID))
-	if currentTitle != "" && currentTitle != defaultTopicTitle {
+	if currentTitle != "" && currentTitle != defaultTopicTitle && !isBrokenAutoTopicTitle(currentTitle) {
 		return false
 	}
 	sessionPath := tab.Ctrl.SessionPath()
@@ -1459,7 +1463,7 @@ func autoTitleTopicFromSession(workspaceRoot, topicID, sessionPath string) (stri
 		return "", false
 	}
 	currentTitle := strings.TrimSpace(loadTopicTitle(workspaceRoot, topicID))
-	if currentTitle != "" && currentTitle != defaultTopicTitle {
+	if currentTitle != "" && currentTitle != defaultTopicTitle && !isBrokenAutoTopicTitle(currentTitle) {
 		return "", false
 	}
 	userText, assistantText := topicTitleInputsFromSession(sessionPath)
@@ -1483,38 +1487,91 @@ func topicTitleInputsFromSession(path string) (string, string) {
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
+	resolveDisplay := sessionDisplayResolver(filepath.Dir(path), path)
 	userText := ""
+	assistantParts := make([]string, 0, 2)
 	for {
 		var msg struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		}
 		if err := dec.Decode(&msg); err != nil {
-			return userText, ""
+			return userText, strings.Join(assistantParts, "\n\n")
 		}
 		switch msg.Role {
 		case "user":
-			if userText != "" {
-				continue
-			}
-			content := control.StripComposePrefixes(msg.Content)
+			content := control.StripComposePrefixes(resolveDisplay(msg.Content))
 			if control.IsSyntheticUserMessage(content) {
 				continue
 			}
-			content = strings.TrimSpace(agent.HandoffTask(content))
-			if content != "" {
-				userText = content
+			content = cleanTopicTitleUserText(agent.HandoffTask(content))
+			if content == "" {
+				continue
 			}
+			if userText != "" {
+				return userText, strings.Join(assistantParts, "\n\n")
+			}
+			userText = content
 		case "assistant":
 			if userText == "" {
 				continue
 			}
 			content := strings.TrimSpace(msg.Content)
 			if content != "" {
-				return userText, content
+				assistantParts = append(assistantParts, content)
 			}
 		}
 	}
+}
+
+func cleanTopicTitleUserText(content string) string {
+	content = strings.TrimSpace(content)
+	const referencedContextPrefix = "Referenced context:"
+	if !strings.HasPrefix(content, referencedContextPrefix) {
+		return content
+	}
+
+	rest := strings.TrimSpace(strings.TrimPrefix(content, referencedContextPrefix))
+	for strings.HasPrefix(rest, "<") {
+		lineEnd := strings.IndexByte(rest, '\n')
+		if lineEnd < 0 {
+			break
+		}
+		opening := rest[1:lineEnd]
+		if space := strings.IndexAny(opening, " \t>"); space >= 0 {
+			opening = opening[:space]
+		}
+		switch opening {
+		case "file", "dir", "resource", "image":
+		default:
+			return ""
+		}
+		closeTag := "</" + opening + ">"
+		closeAt := strings.Index(rest[lineEnd+1:], closeTag)
+		if closeAt < 0 {
+			return ""
+		}
+		rest = strings.TrimSpace(rest[lineEnd+1+closeAt+len(closeTag):])
+	}
+	return rest
+}
+
+func isBrokenAutoTopicTitle(title string) bool {
+	title = strings.ToLower(strings.TrimSpace(title))
+	for _, prefix := range []string{
+		"referenced context",
+		"<system-reminder",
+		"<workflow-reminder",
+		"<memory-update",
+		"<background-jobs",
+		"<context-checkpoint",
+		"<compaction-summary",
+	} {
+		if strings.HasPrefix(title, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func topicTitleFromSession(path string) string {

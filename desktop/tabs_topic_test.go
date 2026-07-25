@@ -1072,6 +1072,97 @@ func TestAutoTitleWaitsForAssistantReply(t *testing.T) {
 	}
 }
 
+func TestTopicTitleInputsCollectCompleteFirstTurn(t *testing.T) {
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	data := strings.Join([]string{
+		`{"role":"user","content":"Investigate the auth failure"}`,
+		`{"role":"assistant","content":"I will inspect the login flow.","tool_calls":[{"id":"call-1","name":"read_file","arguments":"{}"}]}`,
+		`{"role":"tool","name":"read_file","tool_call_id":"call-1","content":"large tool output"}`,
+		`{"role":"user","content":"The previous assistant response was interrupted during streaming; continue."}`,
+		`{"role":"assistant","content":"The token refresh path is the cause and the fix is verified."}`,
+		`{"role":"user","content":"Now document it"}`,
+		`{"role":"assistant","content":"This belongs to the second turn."}`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(sessionPath, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	userText, assistantText := topicTitleInputsFromSession(sessionPath)
+	if userText != "Investigate the auth failure" {
+		t.Fatalf("user text = %q", userText)
+	}
+	wantAssistant := "I will inspect the login flow.\n\nThe token refresh path is the cause and the fix is verified."
+	if assistantText != wantAssistant {
+		t.Fatalf("assistant text = %q, want %q", assistantText, wantAssistant)
+	}
+}
+
+func TestTopicTitleInputsUseDisplayTextForReferencedContext(t *testing.T) {
+	dir := t.TempDir()
+	sessionPath := filepath.Join(dir, "session.jsonl")
+	raw := "Referenced context:\n\n<file path=\"auth.go\">\npackage auth\n</file>\n\nFix login failure"
+	data := strings.Join([]string{
+		`{"role":"user","content":` + strconv.Quote(raw) + `}`,
+		`{"role":"assistant","content":"The refresh token is expired."}`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(sessionPath, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+	if err := recordSessionDisplay(dir, sessionPath, raw, "Fix login failure"); err != nil {
+		t.Fatalf("record display: %v", err)
+	}
+
+	userText, _ := topicTitleInputsFromSession(sessionPath)
+	if userText != "Fix login failure" {
+		t.Fatalf("user text = %q", userText)
+	}
+}
+
+func TestTopicTitleInputsStripReferencedContextWithoutDisplaySidecar(t *testing.T) {
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	raw := "Referenced context:\n\n<file path=\"auth.go\">\npackage auth\n</file>\n\nFix login failure"
+	data := `{"role":"user","content":` + strconv.Quote(raw) + `}` + "\n" +
+		`{"role":"assistant","content":"The refresh token is expired."}` + "\n"
+	if err := os.WriteFile(sessionPath, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	userText, _ := topicTitleInputsFromSession(sessionPath)
+	if userText != "Fix login failure" {
+		t.Fatalf("user text = %q", userText)
+	}
+}
+
+func TestAutoTitleRepairsBrokenReferencedContextTitle(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	projectRoot := t.TempDir()
+	topic, err := NewApp().CreateTopic("project", projectRoot, "")
+	if err != nil {
+		t.Fatalf("create topic: %v", err)
+	}
+	if err := setTopicTitleWithSource(projectRoot, topic.ID, "Referenced context...", topicTitleSourceAuto); err != nil {
+		t.Fatalf("set broken auto title: %v", err)
+	}
+	sessionPath := filepath.Join(t.TempDir(), "session.jsonl")
+	raw := "Referenced context:\n\n<file path=\"auth.go\">\npackage auth\n</file>\n\nFix login failure"
+	data := `{"role":"user","content":` + strconv.Quote(raw) + `}` + "\n" +
+		`{"role":"assistant","content":"The refresh token is expired."}` + "\n"
+	if err := os.WriteFile(sessionPath, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+
+	title, updated := autoTitleTopicFromSession(projectRoot, topic.ID, sessionPath)
+	if !updated || title != "Fix login failure" {
+		t.Fatalf("repair result title=%q updated=%v", title, updated)
+	}
+	if isBrokenAutoTopicTitle(title) {
+		t.Fatalf("repaired title is still broken: %q", title)
+	}
+}
+
 func TestTrashTopicMovesRelatedSessionsToTrash(t *testing.T) {
 	isolateDesktopUserDirs(t)
 

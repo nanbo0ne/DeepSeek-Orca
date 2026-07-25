@@ -1,6 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
+import {
+  calculateAnchoredPopoverPosition,
+  type PopoverAlign,
+  type PopoverPlacement,
+} from "../lib/anchoredPopoverPosition";
 
 type PopoverPosition = {
   left: number;
@@ -12,33 +17,8 @@ const EDGE_GAP = 8;
 const DEFAULT_OFFSET = 8;
 export const ANCHORED_POPOVER_CLOSE_MS = 140;
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
 function samePosition(a: PopoverPosition | null, b: PopoverPosition): boolean {
   return !!a && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5;
-}
-
-function calculatePosition(
-  anchor: DOMRect,
-  menu: DOMRect,
-  align: "start" | "end",
-  offset: number,
-  placement: "auto" | "bottom",
-): PopoverPosition {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const preferredTop = anchor.top - menu.height - offset;
-  const fallbackTop = anchor.bottom + offset;
-  const top = placement === "bottom"
-    ? Math.min(fallbackTop, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP))
-    : preferredTop >= EDGE_GAP
-    ? preferredTop
-    : Math.min(fallbackTop, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP));
-  const rawLeft = align === "end" ? anchor.right - menu.width : anchor.left;
-  const left = clamp(rawLeft, EDGE_GAP, Math.max(EDGE_GAP, viewportWidth - menu.width - EDGE_GAP));
-  return { left, top: clamp(top, EDGE_GAP, Math.max(EDGE_GAP, viewportHeight - menu.height - EDGE_GAP)) };
 }
 
 export function AnchoredPopover({
@@ -58,9 +38,9 @@ export function AnchoredPopover({
   onClose: () => void;
   className: string;
   children: ReactNode;
-  align?: "start" | "end";
+  align?: PopoverAlign;
   offset?: number;
-  placement?: "auto" | "bottom";
+  placement?: PopoverPlacement;
   style?: CSSProperties;
   closing?: boolean;
 }) {
@@ -103,7 +83,16 @@ export function AnchoredPopover({
       const anchor = anchorRef.current?.getBoundingClientRect();
       const menu = popoverRef.current?.getBoundingClientRect();
       if (!anchor || !menu) return;
-      const next = calculatePosition(anchor, menu, align, offset, placement);
+      const next = calculateAnchoredPopoverPosition({
+        anchor,
+        menu,
+        align,
+        offset,
+        placement,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        edgeGap: EDGE_GAP,
+      });
       setPosition((current) => (samePosition(current, next) ? current : next));
     };
     const scheduleUpdate = () => {

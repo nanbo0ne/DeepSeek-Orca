@@ -21,6 +21,11 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
   const runningIndex = todos.findIndex((todo) => todo.status === "in_progress");
   const pendingIndex = todos.findIndex((todo) => todo.status !== "completed");
   const activeIndex = runningIndex >= 0 ? runningIndex + 1 : pendingIndex >= 0 ? pendingIndex + 1 : todos.length;
+  const activeTodo = current ?? (pendingIndex >= 0 ? todos[pendingIndex] : todos[todos.length - 1]);
+  const activeText = activeTodo?.status === "in_progress" && activeTodo.activeForm
+    ? activeTodo.activeForm
+    : activeTodo?.content ?? "";
+  const progressText = t("todo.progress", { current: activeIndex, total: todos.length });
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
@@ -59,6 +64,8 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
         className={`todobar__trigger${panel.pinned ? " todobar__trigger--pinned" : ""}`}
         aria-expanded={open}
         aria-controls="todo-popover"
+        aria-label={`${activeText}. ${progressText}`}
+        title={activeText}
         onClick={() => dispatch({ type: "toggle-pin" })}
         onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
         onBlur={scheduleTransientClose}
@@ -66,7 +73,8 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
         <span className="todobar__progress-track" aria-hidden="true">
           <span className="todobar__progress-fill" style={{ width: `${Math.round((done / todos.length) * 100)}%` }} />
         </span>
-        <span className="todobar__progress-label">{t("todo.progress", { current: activeIndex, total: todos.length })}</span>
+        <span className="todobar__active-text">{activeText}</span>
+        <span className="todobar__progress-label" aria-hidden="true">{activeIndex}/{todos.length}</span>
         <ChevronUp size={13} aria-hidden="true" />
       </button>
 
@@ -75,7 +83,7 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
         anchorRef={triggerRef}
         onClose={() => dispatch({ type: "close" })}
         className="todobar__popover"
-        align="start"
+        align="center"
         offset={6}
       >
         <section
