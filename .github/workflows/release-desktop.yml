@@ -33,6 +33,11 @@ on:
         description: "canary: intended next stable version, e.g. 1.5.0"
         required: false
         type: string
+      allow_unsigned_windows:
+        description: "TEMPORARY: allow an explicitly marked unsigned Windows release"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write # create the release and upload artifacts
@@ -68,6 +73,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       HAS_MINISIGN: ${{ secrets.MINISIGN_PRIVATE_KEY != '' && secrets.MINISIGN_PASSWORD != '' }}
+      HAS_SIGNPATH: ${{ secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_PROJECT_SLUG != '' && vars.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
+      ALLOW_UNSIGNED_WINDOWS: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned_windows }}
     defaults:
       run:
         shell: bash # desktop-build.sh is bash; windows runners default to pwsh otherwise
@@ -156,15 +163,16 @@ jobs:
 
       - name: Require SignPath release signing
         if: runner.os == 'Windows'
-        env:
-          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
         run: |
-          for name in SIGNPATH_API_TOKEN SIGNPATH_ORGANIZATION_ID SIGNPATH_PROJECT_SLUG SIGNPATH_SIGNING_POLICY_SLUG; do
-            [ -n "${!name:-}" ] || { echo "::error::$name is required; unsigned Windows releases are forbidden"; exit 1; }
-          done
+          if [ "$HAS_SIGNPATH" = "true" ]; then
+            exit 0
+          fi
+          if [ "$ALLOW_UNSIGNED_WINDOWS" = "true" ]; then
+            echo "::warning::Publishing an explicitly authorized temporary unsigned Windows release"
+            exit 0
+          fi
+          echo "::error::SignPath configuration is required; unsigned Windows releases need an explicit manual override"
+          exit 1
 
       - name: Build and package
         env:
@@ -178,7 +186,7 @@ jobs:
         run: scripts/desktop-build.sh "${{ matrix.platform }}" "${{ steps.ver.outputs.version }}" "${{ steps.ver.outputs.channel }}"
 
       - name: Upload unsigned Windows app for SignPath
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'
         id: upload-windows-app
         uses: actions/upload-artifact@v7
         with:
@@ -188,7 +196,7 @@ jobs:
           retention-days: 1
 
       - name: Sign Windows app with SignPath
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -202,7 +210,7 @@ jobs:
           output-artifact-directory: ${{ runner.temp }}/signed-windows-app
 
       - name: Repackage Windows installer with signed app
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'
         run: |
           signed_app="$(find "${{ runner.temp }}/signed-windows-app" -type f -iname 'deepseek-orca-desktop.exe' | head -n1)"
           [ -n "$signed_app" ] || { echo "signed Windows app was not returned by SignPath" >&2; exit 1; }
@@ -223,7 +231,7 @@ jobs:
           rm -rf "$staging"
 
       - name: Upload unsigned Windows installer for SignPath
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'
         id: upload-windows-installer
         uses: actions/upload-artifact@v7
         with:
@@ -233,7 +241,7 @@ jobs:
           retention-days: 1
 
       - name: Sign Windows installer with SignPath
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -247,7 +255,7 @@ jobs:
           output-artifact-directory: ${{ runner.temp }}/signed-windows-installer
 
       - name: Verify signed Windows release artifacts
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'
         shell: pwsh
         run: |
           $signedInstaller = Get-ChildItem -Path '${{ runner.temp }}/signed-windows-installer' -Recurse -Filter '*.exe' | Select-Object -First 1
@@ -267,6 +275,10 @@ jobs:
             if (-not $signature.TimeStamperCertificate) { throw "$artifact has no trusted timestamp" }
             Write-Host "$artifact signed by $($signature.SignerCertificate.Subject)"
           }
+
+      - name: Mark temporary unsigned Windows artifacts
+        if: runner.os == 'Windows' && env.HAS_SIGNPATH != 'true' && env.ALLOW_UNSIGNED_WINDOWS == 'true'
+        run: echo "::warning::Windows artifacts are unsigned and must be replaced after SignPath enrollment"
 
       - name: Sign artifacts (minisign)
         if: env.HAS_MINISIGN == 'true'

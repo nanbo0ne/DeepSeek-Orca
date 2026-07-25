@@ -12,7 +12,7 @@ DeepSeek-Orca is a local desktop AI assistant and engineering agent. It combines
 - [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-linux-amd64.deb)
 - [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.27)
 
-Official Windows applications and installers are Authenticode-signed through SignPath Foundation. `Get-AuthenticodeSignature` should report `Valid`; see [SIGNING.md](SIGNING.md) for the complete policy. SmartScreen can still show a temporary reputation prompt for a newly released low-download file, but it should no longer identify the publisher as unknown.
+Final Windows applications and installers are Authenticode-signed through SignPath Foundation. `Get-AuthenticodeSignature` should report `Valid`; see [SIGNING.md](SIGNING.md) for the complete policy. During SignPath enrollment, a clearly labelled temporary unsigned build may be available and will still show an unknown publisher; its assets will be replaced in place after signing is ready.
 
 Configure an API key, endpoint, and model under Settings > Models after first launch. Multimodal vision is opt-in; images are uploaded to the configured provider only when it is enabled.
 

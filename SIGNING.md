@@ -17,8 +17,16 @@ maintainers or GitHub Actions runners.
   GitHub Release.
 
 The release workflow signs the application first, packages that signed binary,
-and then signs the completed installer. A Windows release fails closed if
-SignPath is unavailable or either Authenticode signature cannot be validated.
+and then signs the completed installer. Normal tag-triggered Windows releases
+fail closed if SignPath is unavailable or either Authenticode signature cannot
+be validated.
+
+During initial SignPath Foundation enrollment, a maintainer may use the manual
+`allow_unsigned_windows` workflow input for a temporary release. The input is
+off by default, cannot be enabled by pushing a tag, and the corresponding
+Release must state that its Windows files are unsigned. Once signing is
+available, the same release assets are rebuilt and replaced with verified,
+timestamped files.
 
 ## Trusted Build
 

@@ -12,7 +12,7 @@ DeepSeek-Orca 是一个面向桌面工作流的本地 AI 助手与工程 Agent�
 - [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-linux-amd64.deb)
 - [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.27)
 
-官方 Windows 主程序和安装器通过 SignPath Foundation 提供的可信证书签名。下载后可使用 `Get-AuthenticodeSignature` 验证状态为 `Valid`；完整签名策略见 [SIGNING.md](SIGNING.md)。SmartScreen 对首次发布、下载量较低的新文件仍可能短期显示信誉提示，但不应再显示“发布者：未知”。
+正式 Windows 主程序和安装器通过 SignPath Foundation 提供的可信证书签名。下载后可使用 `Get-AuthenticodeSignature` 验证状态为 `Valid`；完整签名策略见 [SIGNING.md](SIGNING.md)。SignPath 审核期间可能提供明确标注的临时未签名版本，此类文件仍会显示未知发布者；签名完成后会原位替换。
 
 首次启动后，在“设置 > 模型”中配置 API Key、服务地址和模型。多模态识图默认关闭，只有主动开启后图片才会上传给当前模型服务商。
 

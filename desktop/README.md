@@ -110,9 +110,11 @@ has a manual check. Self-update behavior by platform:
 
 ### Platform signing and first launch
 
-Official Windows releases use SignPath Authenticode signing for both the main
-application and the final NSIS installer. The workflow fails closed if either
-signature or its trusted timestamp cannot be verified. See the repository's
+Final Windows releases use SignPath Authenticode signing for both the main
+application and the final NSIS installer. Tag-triggered releases fail closed if
+either signature or its trusted timestamp cannot be verified. A temporary
+unsigned release requires an explicit manual workflow override and must be
+clearly labelled until its assets are replaced. See the repository's
 [`SIGNING.md`](../SIGNING.md) policy for provenance and local verification.
 
 macOS builds still do not have an Apple Developer ID certificate, so downloaded

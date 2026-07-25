@@ -13,8 +13,11 @@ func TestWindowsReleaseRequiresTwoStageSignPathSigning(t *testing.T) {
 	}
 	workflow := string(body)
 	for _, want := range []string{
+		"allow_unsigned_windows",
+		"default: false",
 		"Require SignPath release signing",
-		"unsigned Windows releases are forbidden",
+		"unsigned Windows releases need an explicit manual override",
+		"Publishing an explicitly authorized temporary unsigned Windows release",
 		"Upload unsigned Windows app for SignPath",
 		"Repackage Windows installer with signed app",
 		"Upload unsigned Windows installer for SignPath",
@@ -30,6 +33,9 @@ func TestWindowsReleaseRequiresTwoStageSignPathSigning(t *testing.T) {
 	}
 	if got := strings.Count(workflow, "artifact-configuration-slug: windows-executable"); got != 2 {
 		t.Fatalf("SignPath artifact configuration count = %d, want 2", got)
+	}
+	if got := strings.Count(workflow, "if: runner.os == 'Windows' && env.HAS_SIGNPATH == 'true'"); got < 6 {
+		t.Fatalf("SignPath-gated Windows step count = %d, want at least 6", got)
 	}
 }
 
