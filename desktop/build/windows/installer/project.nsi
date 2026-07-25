@@ -1,4 +1,4 @@
-Unicode true
+﻿Unicode true
 
 ####
 ## DeepSeek-Orca per-user NSIS installer.

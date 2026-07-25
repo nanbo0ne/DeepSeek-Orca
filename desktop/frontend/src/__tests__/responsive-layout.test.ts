@@ -6,6 +6,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const css = readFileSync(join(root, "styles.css"), "utf8");
 const chrome = readFileSync(join(root, "components", "AppChrome.tsx"), "utf8");
 const app = readFileSync(join(root, "App.tsx"), "utf8");
+const settings = readFileSync(join(root, "components", "SettingsPanel.tsx"), "utf8");
 
 let passed = 0;
 let failed = 0;
@@ -21,6 +22,12 @@ check(chrome.includes("app-chrome__action--core") && chrome.includes("app-chrome
 check(css.includes("@media (max-width: 1100px)") && css.includes("@media (max-width: 780px)"), "chrome priorities have narrow breakpoints");
 check(app.includes("topicbar__overflow-menu") && css.includes(".topicbar__action--direct-utility"), "topic actions expose a narrow overflow menu");
 check(css.includes(".statusbar {\n    max-width: none;\n    gap: 6px;\n    overflow: hidden"), "narrow status bar cannot wrap or overflow");
+check(
+  settings.includes('<SettingsField label={t("settings.autoCheckUpdates")}') &&
+    settings.includes('<div className="settings-update-control">') &&
+    !settings.includes('<SettingsField label={t("settings.checkUpdatesNow")}'),
+  "manual update check stays beside the automatic update toggle",
+);
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);

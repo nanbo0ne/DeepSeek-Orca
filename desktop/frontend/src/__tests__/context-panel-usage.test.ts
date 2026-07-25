@@ -51,6 +51,40 @@ eq(
 
 eq(
   computeContextPanelUsage({
+    context: { used: 0, window: 1000000, sessionTokens: 28393607 },
+    info: {
+      usedTokens: 0,
+      windowTokens: 1000000,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 28393607,
+      reasoningTokens: 0,
+      cacheHitTokens: 0,
+      cacheMissTokens: 0,
+      sessionPromptTokens: 28330306,
+      sessionCompletionTokens: 63301,
+      sessionReasoningTokens: 18705,
+      requestCount: 247,
+      readFiles: [],
+      changedFiles: [],
+    },
+    usage: {
+      promptTokens: 900000,
+      completionTokens: 50000,
+      totalTokens: 950000,
+      cacheHitTokens: 0,
+      cacheMissTokens: 900000,
+      sessionCacheHitTokens: 0,
+      sessionCacheMissTokens: 28330306,
+    },
+    sessionTokens: 28393607,
+  }).usedTokens,
+  0,
+  "keeps an authoritative zero snapshot after controller rebuild",
+);
+
+eq(
+  computeContextPanelUsage({
     context: { used: 0, window: 1000000, sessionTokens: 19337 },
     info: {
       usedTokens: 0,

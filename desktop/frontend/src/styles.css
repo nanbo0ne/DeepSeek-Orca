@@ -12367,13 +12367,28 @@ a[href] {
 .settings-update-control {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
 }
+.settings-update-control > .btn {
+  flex: 0 0 auto;
+}
 .settings-update-control__status {
+  flex: 1 0 100%;
   min-width: 0;
   color: var(--fg-faint);
   font-size: 12px;
+  text-align: right;
+}
+@media (max-width: 760px) {
+  .settings-update-control {
+    justify-content: flex-start;
+  }
+  .settings-update-control__status {
+    text-align: left;
+  }
 }
 
 .sidebar__nav {

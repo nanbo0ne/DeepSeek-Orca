@@ -2,6 +2,9 @@
 
 ## V2.0.26 - 2026-07-24
 
+- Hotfix (2026-07-25): fixed mojibake in the Windows install-options page by compiling the customized NSIS script as BOM-marked UTF-8 Unicode.
+- Hotfix (2026-07-25): stopped cumulative session usage from being mistaken for a full 1,000K current context after prompt-mode or controller rebuilds.
+- Hotfix (2026-07-25): moved the manual update check beside the automatic update toggle instead of using a separate settings row.
 - Replaced the always-open Todo list with a compact progress bar that expands upward on hover or keyboard focus and can be pinned without changing footer height.
 - Added systematic narrow-window priorities for the app chrome, topic actions, composer controls, status bar, and bottom panels at the 760px minimum window width.
 - Restored safe update detection against official GitHub Releases, filtered to stable `desktop-v*` tags, with a 24-hour cache and notification-only download entry.

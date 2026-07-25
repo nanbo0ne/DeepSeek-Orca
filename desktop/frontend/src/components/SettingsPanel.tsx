@@ -645,14 +645,12 @@ function GeneralSection({ s, busy, apply }: SectionProps) {
         </div>
       </SettingsField>
       <SettingsField label={t("settings.autoCheckUpdates")} hint={t("settings.autoCheckUpdatesHint")}>
-        <ToggleSegment
-          value={s.checkUpdates}
-          disabled={busy}
-          onChange={(enabled) => void apply(() => app.SetDesktopCheckUpdates(enabled))}
-        />
-      </SettingsField>
-      <SettingsField label={t("settings.checkUpdatesNow")} hint={t("settings.checkUpdatesNowHint")}>
         <div className="settings-update-control">
+          <ToggleSegment
+            value={s.checkUpdates}
+            disabled={busy}
+            onChange={(enabled) => void apply(() => app.SetDesktopCheckUpdates(enabled))}
+          />
           <button type="button" className="btn btn--small" disabled={busy} onClick={() => void checkNow()}>
             {t("settings.checkUpdatesNow")}
           </button>

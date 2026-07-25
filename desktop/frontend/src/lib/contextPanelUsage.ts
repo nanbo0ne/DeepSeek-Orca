@@ -77,14 +77,15 @@ export function computeContextPanelUsage({
     positive(usage?.totalTokens) ||
     promptTokens + completionTokens;
 
-  const windowTokens = positive(context?.window) || positive(info?.windowTokens);
-  const knownContextUse = positive(context?.used) || positive(info?.usedTokens);
-  const approximateContextUse =
-    knownContextUse ||
-    (windowTokens > 0 && promptTokens > 0 ? Math.min(promptTokens, windowTokens) : 0);
+  const contextWindow = positive(context?.window);
+  const panelWindow = positive(info?.windowTokens);
+  const windowTokens = contextWindow || panelWindow;
+  // A zero from either backend snapshot is authoritative after a controller
+  // rebuild. Never substitute cumulative session usage for current occupancy.
+  const snapshotUse = positive(context?.used) || positive(info?.usedTokens);
 
   return {
-    usedTokens: approximateContextUse,
+    usedTokens: snapshotUse,
     windowTokens,
     promptTokens,
     completionTokens,
