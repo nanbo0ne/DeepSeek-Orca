@@ -6,6 +6,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const css = readFileSync(join(root, "styles.css"), "utf8");
 const chrome = readFileSync(join(root, "components", "AppChrome.tsx"), "utf8");
 const app = readFileSync(join(root, "App.tsx"), "utf8");
+const composer = readFileSync(join(root, "components", "Composer.tsx"), "utf8");
 const settings = readFileSync(join(root, "components", "SettingsPanel.tsx"), "utf8");
 
 let passed = 0;
@@ -32,6 +33,33 @@ check(
     settings.includes('<div className="settings-update-control">') &&
     !settings.includes('<SettingsField label={t("settings.checkUpdatesNow")}'),
   "manual update check stays beside the automatic update toggle",
+);
+check(
+  app.includes("app.GetProductCapabilities()") &&
+    composer.includes("promptModes.map((mode)") &&
+    !composer.includes("PROMPT_MODE_OPTIONS") &&
+    !composer.includes("CircleHelp") &&
+    !composer.includes("promptModeHelpKey"),
+  "prompt modes come from product capabilities without descriptions or a help button",
+);
+check(
+  settings.includes("promptModes.map((mode)") &&
+    settings.includes("assistantMemoryEnabled={productCapabilities.assistantMemoryEnabled}"),
+  "bot and memory settings follow the product capability boundary",
+);
+const composerContract = css.slice(css.indexOf("/* Composer responsive contract."));
+check(
+  [720, 580, 460, 380, 320].every((width, index, widths) => {
+    const position = composerContract.indexOf(`@container (max-width: ${width}px)`);
+    const previous = index === 0 ? -1 : composerContract.indexOf(`@container (max-width: ${widths[index - 1]}px)`);
+    return position > previous;
+  }),
+  "final Composer breakpoints use one descending 720/580/460/380/320 sequence",
+);
+check(
+  composerContract.includes(".composer-meta__control--model {\n    display: inline-flex;") &&
+    composerContract.includes(".composer-enhanced__button svg:last-child {\n    display: none;"),
+  "narrow Composer retains model access and collapses mode trigger to one icon",
 );
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

@@ -8,7 +8,7 @@ import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandida
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
 import { checkDesktopUpdate } from "../lib/updateCheck";
-import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
+import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
@@ -33,7 +33,7 @@ const SETTINGS_TABS: SettingsTab[] = [
 // SettingsPanel is the desktop settings centre — a centred modal with left
 // navigation and a right content area. It hosts all settings pages plus MCP,
 // Skills, and Memory management, replacing the old per-feature drawers.
-export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () => void; onChanged: () => void; initialTab?: SettingsTab }) {
+export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilities }: { onClose: () => void; onChanged: () => void; initialTab?: SettingsTab; productCapabilities: ProductCapabilities }) {
   const t = useT();
   const [s, setS] = useState<SettingsView | null>(null);
   const [busy, setBusy] = useState(false);
@@ -117,10 +117,10 @@ export function SettingsPanel({ onClose, onChanged, initialTab }: { onClose: () 
               <>
                 {tab === "general" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><GeneralSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "models" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><ModelsSection s={s} busy={busy} apply={apply} backgroundApply={backgroundApply} /></SettingsPageShell>}
-                {BOT_SETTINGS_ENABLED && tab === "bots" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><BotsSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
+                {BOT_SETTINGS_ENABLED && tab === "bots" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><BotsSection s={s} busy={busy} apply={apply} promptModes={productCapabilities.promptModes} /></SettingsPageShell>}
                 {tab === "mcp" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MCPServersSettingsPage /></SettingsPageShell>}
                 {tab === "skills" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><SkillsSettingsPage /></SettingsPageShell>}
-                {tab === "memory" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MemorySettingsPage /></SettingsPageShell>}
+                {tab === "memory" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MemorySettingsPage assistantMemoryEnabled={productCapabilities.assistantMemoryEnabled} /></SettingsPageShell>}
                 {tab === "permissions" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><PermissionsSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "sandbox" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><SandboxSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "network" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><NetworkSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
@@ -369,7 +369,7 @@ const REASONING_PROTOCOLS: readonly string[] = ["", "deepseek", "openai", "none"
 const PROXY_TYPES = ["http", "https", "socks5", "socks5h"] as const;
 const LANGUAGE_PREFS: LangPref[] = ["", "zh", "en"];
 const AUTO_PLAN_MODES = ["off", "on"] as const;
-const PROMPT_MODES: PromptMode[] = ["assistant", "normal", "enhanced"];
+const ENGINEERING_PROMPT_MODES: PromptMode[] = ["normal", "enhanced"];
 
 type ProxyMode = (typeof PROXY_MODES)[number];
 type AutoPlanMode = (typeof AUTO_PLAN_MODES)[number];
@@ -393,9 +393,9 @@ function normalizeAutoPlan(mode: string | undefined): AutoPlanMode {
   return mode === "ask" || mode === "on" ? "on" : "off";
 }
 
-function normalizePromptModeValue(mode: string | undefined): PromptMode {
-  if (mode === "assistant" || mode === "enhanced") return mode;
-  return "normal";
+function normalizePromptModeValue(mode: string | undefined, promptModes: PromptMode[] = ENGINEERING_PROMPT_MODES): PromptMode {
+  if ((mode === "assistant" || mode === "normal" || mode === "enhanced") && promptModes.includes(mode)) return mode;
+  return promptModes[0] ?? "normal";
 }
 
 function normalizeReasoningProtocol(protocol: string | undefined): string {
@@ -443,14 +443,14 @@ function defaultBotSettings(): BotSettingsView {
   };
 }
 
-function normalizeBotSettings(bot: BotSettingsView | null | undefined): BotSettingsView {
+function normalizeBotSettings(bot: BotSettingsView | null | undefined, promptModes: PromptMode[] = ENGINEERING_PROMPT_MODES): BotSettingsView {
   const fallback = defaultBotSettings();
   const allowlist = bot?.allowlist ?? fallback.allowlist;
   const mode = bot?.feishu?.mode === "websocket" ? "websocket" : "webhook";
   return {
     ...fallback,
     ...bot,
-    promptMode: normalizePromptModeValue(bot?.promptMode),
+    promptMode: normalizePromptModeValue(bot?.promptMode, promptModes),
     workspaceRoot: String(bot?.workspaceRoot ?? fallback.workspaceRoot).trim(),
     maxSteps: Math.max(0, Number(bot?.maxSteps ?? fallback.maxSteps) || 0),
     debounceMs: Number(bot?.debounceMs) || fallback.debounceMs,
@@ -931,9 +931,9 @@ type BotInstallState = {
 };
 const BOT_INSTALL_TARGETS: BotInstallTarget[] = ["qq", "weixin", "feishu", "lark"];
 
-function BotsSection({ s, busy, apply }: SectionProps) {
+function BotsSection({ s, busy, apply, promptModes }: SectionProps & { promptModes: PromptMode[] }) {
   const t = useT();
-  const savedBot = normalizeBotSettings(s.bot);
+  const savedBot = normalizeBotSettings(s.bot, promptModes);
   const [draft, setDraft] = useState<BotSettingsView>(savedBot);
   const [secrets, setSecrets] = useState<Record<BotChannelID, string>>({ qq: "", weixin: "" });
   const [install, setInstall] = useState<BotInstallState>({ target: "", result: null, status: "idle", message: "" });
@@ -943,10 +943,10 @@ function BotsSection({ s, busy, apply }: SectionProps) {
   const refs = allRefs(s);
 
   useEffect(() => {
-    setDraft(normalizeBotSettings(s.bot));
+    setDraft(normalizeBotSettings(s.bot, promptModes));
     setSecrets({ qq: "", weixin: "" });
     setTestTargets({});
-  }, [s.bot]);
+  }, [promptModes, s.bot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -958,7 +958,7 @@ function BotsSection({ s, busy, apply }: SectionProps) {
     return () => { cancelled = true; };
   }, [draft.connections.length, install.status]);
 
-  const dirty = JSON.stringify(sanitizeBotDraft(draft)) !== JSON.stringify(sanitizeBotDraft(savedBot));
+  const dirty = JSON.stringify(sanitizeBotDraft(draft, promptModes)) !== JSON.stringify(sanitizeBotDraft(savedBot, promptModes));
   const setQQ = (next: Partial<BotSettingsView["qq"]>) =>
     setDraft((prev) => ({ ...prev, qq: { ...prev.qq, ...next } }));
   const setWeixin = (next: Partial<BotSettingsView["weixin"]>) =>
@@ -967,7 +967,7 @@ function BotsSection({ s, busy, apply }: SectionProps) {
     setDraft((prev) => ({ ...prev, connections: mapper(prev.connections) }));
   const installStep = install.status === "connected" ? 3 : install.status === "starting" || install.status === "showing" ? 2 : 1;
 
-  const saveBot = () => app.SetBotSettings(sanitizeBotDraft(draft));
+  const saveBot = () => app.SetBotSettings(sanitizeBotDraft(draft, promptModes));
   const startInstall = async (target: BotInstallTarget) => {
     if (target === "feishu" || target === "lark") {
       setInstall({ target, result: null, status: "error", message: t("settings.botUnavailable") });
@@ -1113,11 +1113,11 @@ function BotsSection({ s, busy, apply }: SectionProps) {
             <SettingsField label={t("settings.botPromptMode")} hint={t("settings.botPromptModeHint")}>
               <select
                 className="mem-select set-grow"
-                value={normalizePromptModeValue(draft.promptMode)}
+                value={normalizePromptModeValue(draft.promptMode, promptModes)}
                 disabled={busy}
-                onChange={(e) => setDraft((prev) => ({ ...prev, promptMode: normalizePromptModeValue(e.target.value) }))}
+                onChange={(e) => setDraft((prev) => ({ ...prev, promptMode: normalizePromptModeValue(e.target.value, promptModes) }))}
               >
-                {PROMPT_MODES.map((mode) => (
+                {promptModes.map((mode) => (
                   <option key={mode} value={mode}>
                     {t(`composer.promptMode.${mode}` as DictKey)}
                   </option>
@@ -1603,13 +1603,13 @@ function parseNonNegativeInt(value: string): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function sanitizeBotDraft(draft: BotSettingsView): BotSettingsView {
-  const bot = normalizeBotSettings(draft);
+function sanitizeBotDraft(draft: BotSettingsView, promptModes: PromptMode[] = ENGINEERING_PROMPT_MODES): BotSettingsView {
+  const bot = normalizeBotSettings(draft, promptModes);
   return {
     ...bot,
     enabled: true,
     model: bot.model.trim(),
-    promptMode: normalizePromptModeValue(bot.promptMode),
+    promptMode: normalizePromptModeValue(bot.promptMode, promptModes),
     workspaceRoot: bot.workspaceRoot.trim(),
     maxSteps: Math.max(0, Math.floor(bot.maxSteps || 0)),
     debounceMs: Math.max(0, Math.floor(bot.debounceMs || 0)),

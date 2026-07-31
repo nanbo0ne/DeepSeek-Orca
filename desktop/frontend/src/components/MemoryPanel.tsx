@@ -622,7 +622,7 @@ export function MemoryPanel({
 
 // MemorySettingsPage is a self-contained memory management page embedded inside
 // the settings centre. It loads its own data and handles all memory operations.
-export function MemorySettingsPage() {
+export function MemorySettingsPage({ assistantMemoryEnabled = false }: { assistantMemoryEnabled?: boolean }) {
 	const t = useT();
 	const [view, setView] = useState<MemoryView | null>(null);
 	const [assistantSettings, setAssistantSettings] = useState<AssistantMemorySettings>({
@@ -651,8 +651,9 @@ export function MemorySettingsPage() {
 	}, []);
 	useEffect(() => { void reload(); }, [reload]);
 	useEffect(() => {
+		if (!assistantMemoryEnabled) return;
 		void app.GetAssistantMemorySettings().then(setAssistantSettings).catch(() => undefined);
-	}, []);
+	}, [assistantMemoryEnabled]);
 
 	const updateAssistantSettings = useCallback(async (patch: Partial<AssistantMemorySettings>) => {
 		const next = { ...assistantSettings, ...patch };
@@ -688,7 +689,10 @@ export function MemorySettingsPage() {
 		}
 	}, [busy, reload, t]);
 
-	const facts = view?.facts ?? [];
+	const facts = useMemo(
+		() => (view?.facts ?? []).filter((fact) => assistantMemoryEnabled || (fact.profile || "shared-agent") === "shared-agent"),
+		[assistantMemoryEnabled, view?.facts],
+	);
 	const factNames = useMemo(() => new Set(facts.map((f) => f.name)), [facts]);
 	const factTypes = useMemo(
 		() => Array.from(new Set(facts.map((f) => f.type).filter(Boolean))).sort(),
@@ -821,7 +825,7 @@ export function MemorySettingsPage() {
 
 	return (
 		<>
-			<section className="mem-section mem-section--settings">
+			{assistantMemoryEnabled && <section className="mem-section mem-section--settings">
 				<div className="mem-section__head">
 					<div>
 						<div className="mem-section__title">{t("memory.assistantPersonalization")}</div>
@@ -853,7 +857,7 @@ export function MemorySettingsPage() {
 						onChange={(e) => void updateAssistantSettings({ assistantMemoryRecallEnabled: e.target.checked })}
 					/>
 				</label>
-			</section>
+			</section>}
 
 			<div className="settings-subtabs" role="tablist" aria-label={t("settings.tab.memory")}>
 				<button
@@ -895,7 +899,7 @@ export function MemorySettingsPage() {
 							{showAdd ? t("common.collapse") : t("memory.addMemory")}
 						</button>
 					</div>
-					<div className="mem-filter" role="tablist" aria-label={t("memory.profileFilter")}>
+					{assistantMemoryEnabled && <div className="mem-filter" role="tablist" aria-label={t("memory.profileFilter")}>
 						{["all", "assistant", "shared-agent"].map((profile) => (
 							<button
 								className={"mem-filter__item" + (profileFilter === profile ? " mem-filter__item--on" : "")}
@@ -906,7 +910,7 @@ export function MemorySettingsPage() {
 								{profile === "all" ? t("memory.profile.all") : memoryProfileLabel(profile, t)}
 							</button>
 						))}
-					</div>
+					</div>}
 				</div>
 				{showAdd && (
 					<div className="mem-add-card">

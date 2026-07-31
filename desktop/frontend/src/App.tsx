@@ -59,6 +59,7 @@ import {
   type Mode,
   type PromptMode,
   type ProcessDisplayMode,
+  type ProductCapabilities,
   type SessionMeta,
   type SettingsTab,
   type SettingsView,
@@ -124,10 +125,18 @@ type HistoryViewState =
   | { kind: "history"; source: "all"; sessions: SessionMeta[] }
   | { kind: "trash"; sessions: SessionMeta[] };
 
-function normalizePromptMode(mode?: string, enhanced?: boolean): PromptMode {
-  if (mode === "assistant" || mode === "enhanced") return mode;
-  if (mode === "normal") return "normal";
-  return enhanced ? "enhanced" : "normal";
+const ENGINEERING_CAPABILITIES: ProductCapabilities = {
+  edition: "engineering",
+  promptModes: ["normal", "enhanced"],
+  assistantMemoryEnabled: false,
+};
+
+function normalizePromptMode(mode?: string, enhanced?: boolean, supported: PromptMode[] = ENGINEERING_CAPABILITIES.promptModes): PromptMode {
+  const candidate: PromptMode = mode === "assistant" || mode === "enhanced" || mode === "normal"
+    ? mode
+    : enhanced ? "enhanced" : "normal";
+  if (supported.includes(candidate)) return candidate;
+  return supported[0] ?? "normal";
 }
 
 function clampSidebarWidth(width: number): number {
@@ -515,6 +524,7 @@ export default function App() {
   const [askWorkflowsByTab, setAskWorkflowsByTab] = useState<Record<string, boolean>>({});
   const [stepThinkingsByTab, setStepThinkingsByTab] = useState<Record<string, boolean>>({});
   const [promptModesByTab, setPromptModesByTab] = useState<Record<string, PromptMode>>({});
+  const [productCapabilities, setProductCapabilities] = useState<ProductCapabilities>(ENGINEERING_CAPABILITIES);
   const [promptModeSwitchingByTab, setPromptModeSwitchingByTab] = useState<Record<string, boolean>>({});
   const [pendingModelLabelsByTab, setPendingModelLabelsByTab] = useState<Record<string, string>>({});
   const [pendingEffortsByTab, setPendingEffortsByTab] = useState<Record<string, string>>({});
@@ -663,6 +673,25 @@ export default function App() {
       .catch((e) => {
         console.warn("platform probe failed", e);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void app.GetProductCapabilities()
+      .then((capabilities) => {
+        if (cancelled) return;
+        const promptModes = capabilities.promptModes.filter(
+          (mode): mode is PromptMode => mode === "assistant" || mode === "normal" || mode === "enhanced",
+        );
+        setProductCapabilities({
+          ...capabilities,
+          promptModes: promptModes.length > 0 ? promptModes : ENGINEERING_CAPABILITIES.promptModes,
+        });
+      })
+      .catch((e) => console.warn("product capability probe failed", e));
     return () => {
       cancelled = true;
     };
@@ -830,7 +859,11 @@ export default function App() {
     ? stepThinkingsByTab[activeTabId] ?? Boolean(state.meta?.stepThinkingEnabled ?? activeTab?.stepThinkingEnabled)
     : false;
   const promptMode = activeTabId
-    ? pendingPromptModesByTab[activeTabId] ?? promptModesByTab[activeTabId] ?? normalizePromptMode(state.meta?.promptMode ?? activeTab?.promptMode, state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled)
+    ? normalizePromptMode(
+        pendingPromptModesByTab[activeTabId] ?? promptModesByTab[activeTabId] ?? state.meta?.promptMode ?? activeTab?.promptMode,
+        state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled,
+        productCapabilities.promptModes,
+      )
     : "normal";
   const promptModeSwitching = activeTabId ? Boolean(promptModeSwitchingByTab[activeTabId]) : false;
   collaborationModeRef.current = collaborationMode;
@@ -969,10 +1002,10 @@ export default function App() {
     setAskWorkflowsByTab((current) => (current[activeTabId] === Boolean(state.meta?.askWorkflowEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.askWorkflowEnabled) }));
     setStepThinkingsByTab((current) => (current[activeTabId] === Boolean(state.meta?.stepThinkingEnabled) ? current : { ...current, [activeTabId]: Boolean(state.meta?.stepThinkingEnabled) }));
     setPromptModesByTab((current) => {
-      const nextMode = normalizePromptMode(state.meta?.promptMode, state.meta?.enhancedModeEnabled);
+      const nextMode = normalizePromptMode(state.meta?.promptMode, state.meta?.enhancedModeEnabled, productCapabilities.promptModes);
       return current[activeTabId] === nextMode ? current : { ...current, [activeTabId]: nextMode };
     });
-  }, [activeTabId, goalDraftMode, legacyMode, setGoalDraftModeForTab, state.meta]);
+  }, [activeTabId, goalDraftMode, legacyMode, productCapabilities.promptModes, setGoalDraftModeForTab, state.meta]);
 
   const syncModeToController = useCallback((m: Mode) => setControllerMode(m), [setControllerMode]);
 
@@ -1069,7 +1102,7 @@ export default function App() {
   );
   const applyPromptMode = useCallback(
     async (mode: PromptMode) => {
-      if (!activeTabId || mode === promptMode) return;
+      if (!activeTabId || mode === promptMode || !productCapabilities.promptModes.includes(mode)) return;
       latestPromptModeSwitchRef.current[activeTabId] = mode;
       setPendingPromptModesByTab((current) => (current[activeTabId] === mode ? current : { ...current, [activeTabId]: mode }));
       setPromptModesByTab((current) => (current[activeTabId] === mode ? current : { ...current, [activeTabId]: mode }));
@@ -1138,7 +1171,7 @@ export default function App() {
         releaseSwitchLock(settledMode);
       }
     },
-    [activeTabId, promptMode, refreshMeta, showToast],
+    [activeTabId, productCapabilities.promptModes, promptMode, refreshMeta, showToast],
   );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;
@@ -2774,6 +2807,7 @@ export default function App() {
               stepThinkingEnabled={stepThinkingEnabled}
               toolApprovalMode={toolApprovalMode}
               promptMode={promptMode}
+              promptModes={productCapabilities.promptModes}
               promptModeSwitching={promptModeSwitching}
               paused={Boolean(state.meta?.paused)}
               goal={goal}
@@ -2966,6 +3000,7 @@ export default function App() {
       {settingsTarget !== null && (
         <SettingsPanel
           initialTab={settingsTarget}
+          productCapabilities={productCapabilities}
           onClose={() => setSettingsTarget(null)}
           onChanged={() => {
             void refreshMeta();

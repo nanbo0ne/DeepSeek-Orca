@@ -1,95 +1,103 @@
-# DeepSeek-Orca
+# DeepSeek-Orca 桌面工程版
 
-[中文](README.zh-CN.md) | [English](README.DESKTOP.md)
+DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph 和可回溯执行。当前仓库发布的是 **工程版**，用户可见模式只有 **普通模式** 和 **增强模式**。
 
-DeepSeek-Orca 是一个面向桌面工作流的本地 AI 助手与工程 Agent。它把多模型接入、项目工作区、工具调用、MCP、Skill、CodeGraph、长期记忆、计划执行和自动化集中在一个应用中，并保留可审查、可暂停、可回滚的交互方式。
+未来独立的 Orca 助手应用会复用部分 Go 内核和前端组件，但不会与工程版共享可写数据。拆分边界、迁移方案和保留的助手代码入口见 [docs/ORCA_ASSISTANT_APP_HANDOFF.md](docs/ORCA_ASSISTANT_APP_HANDOFF.md)。
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.27)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.28)
 
-正式 Windows 主程序和安装器通过 SignPath Foundation 提供的可信证书签名。下载后可使用 `Get-AuthenticodeSignature` 验证状态为 `Valid`；完整签名策略见 [SIGNING.md](SIGNING.md)。SignPath 审核期间可能提供明确标注的临时未签名版本，此类文件仍会显示未知发布者；签名完成后会原位替换。
-
-首次启动后，在“设置 > 模型”中配置 API Key、服务地址和模型。多模态识图默认关闭，只有主动开启后图片才会上传给当前模型服务商。
+应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
 ## 核心能力
 
-- 助手、普通、增强三种提示词模式，分别面向个性化助理、通用任务和复杂工程工作。
-- DeepSeek、OpenAI-compatible 与 Anthropic Provider，多模型和双模型规划/执行。
-- 项目工作区、独立工作区、会话恢复、分支、检查点、回滚和回收站。
-- 可选多模态识图，支持粘贴、拖入和 `@` 引用工作区图片。
-- 工具库、MCP、Agent Skill、CodeGraph、联网搜索、REPL 和文档工具。
-- 助手画像记忆、共享 Agent 记忆、上下文压缩和长期对话检索。
-- Plan、Todo、Goal、自动化、机器人连接和只读侧边聊天。
-- 精简、标准、详细三档过程展示，正文与工具按真实时间顺序排列。
-- 工具审批、工作区限制、沙箱和本地数据管理。
+### 普通模式与增强模式
 
-## 三种模式
+- **普通模式**：适合常规对话、查询、研究、写作、分析和普通开发任务。
+- **增强模式**：适合复杂代码、架构分析、长任务、代码审查和更主动的工程执行。
 
-- **助手模式**：以 `Orca` 身份处理日常问答、轻量任务和陪伴式交流。它可以静默整理助手画像记忆，并在相关话题中联想用户偏好。
-- **普通模式**：以 `DeepSeek-Orca` 身份处理查询、写作、分析和常规开发任务，兼顾速度与工具能力。
-- **增强模式**：面向复杂代码、架构分析、长任务、代码审查和高质量推理，采用更主动的工程 Agent 工作方式。
+模式按会话保存。切换模式会重建当前控制器，但保留历史、模型、思考强度、审批状态、计划、目标和会话路径。两种模式对模型的身份均为 `DeepSeek-Orca`。
 
-模式保存在会话中。切换模式会重建该会话的控制器，但不会丢失历史、模型、思考强度、审批方式、计划和目标状态。
+### 模型与 Provider
 
-## 工作区、多模态与工具
+支持 DeepSeek、OpenAI 兼容 Provider 和 Anthropic 兼容 Provider。可以配置 API 地址、模型列表、Key 环境变量、上下文窗口、思考强度、价格信息，以及可选的规划模型和执行模型。余额查询异步进行，不会阻塞会话打开和历史恢复。
 
-项目工作区绑定真实目录；独立工作区为每个话题建立隔离目录。会话支持固定、重命名、历史预览、恢复、分支和检查点回滚。上下文过长时会自动压缩，长期对话工具可以搜索并分段读取更早的本地内容。
+### 工作区与会话
 
-开启多模态识图后，每轮最多发送 8 张 PNG、JPEG、WebP 或 GIF，总大小不超过 20 MB。会话只保存本地路径和 MIME，不保存 base64。不支持视觉的模型会返回明确错误；当前版本不包含截图、鼠标键盘控制或完整 computer-use。
+- 项目工作区绑定真实仓库目录，适合持续开发。
+- 独立主题拥有隔离的工作目录和会话数据。
+- 支持多标签、固定、重命名、预览、恢复、分支、检查点、回滚、回收站和导出。
+- 长会话支持上下文压缩，并可按需检索较早的本地会话内容。
+- 主会话 JSONL 保持本地，不写入 Provider 密钥。
 
-工具库按组管理联网搜索、主机系统、Node/Python REPL、文档、线程和长期对话检索。关闭工具组后，该组工具和路由提示都会从模型上下文移除。`bash` 保留为构建、测试、Git 和包管理的通用兜底。
+### 多模态识图
 
-## MCP、Skill、CodeGraph 与记忆
+在“设置 > 模型”中主动开启后，输入框粘贴、拖入图片或工作区 `@` 引用的 PNG、JPEG、WebP、GIF 才会发送给当前模型。每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。会话只保存路径、名称和 MIME，不保存 base64。模型不支持图片时会明确报错，不会静默按纯文本重试。当前版本不包含截图自动化或完整 computer-use。
 
-MCP 面板管理 Server、授权、连接和工具状态；Agent Skill 按需加载工作流；CodeGraph 使用真实 `mcp__codegraph__...` 工具分析符号和调用关系。
+### 工具、权限与本地执行
 
-助手模式只读写助手画像记忆。普通和增强模式读取全部记忆，写入共享 Agent 记忆。助手自动记忆在离开会话后静默运行，失败最多重试 5 次且不会阻塞退出。设置中可以关闭自动记忆或主动联想，也可以删除和清空助手记忆。
+工具库可管理联网搜索、主机操作、Node/Python 运行时、文档检查、线程工具和会话检索等工具组。关闭工具组后，注册表和模型可见的工具路由都会同步移除对应能力。Shell 用于构建、测试、Git 和包管理。审批模式、沙箱、工作区写入范围和只读工具分别控制执行边界。
 
-## 计划、过程与后台任务
+### MCP、Skill 与 CodeGraph
 
-计划模式先展示可批准或重写的完整计划；Todo 默认折叠为紧凑进度条，悬停或聚焦时展开并可点击固定；Goal 可以自动续跑并在内部完成标记后停止。Todo 浮层不会推挤输入框，询问、计划和待发送内容继续使用统一底部布局。
+MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 按需加载专业工作流；CodeGraph 可通过配置的 MCP Server 提供符号和调用关系分析；斜杠菜单统一显示内置命令、Skill 和 MCP prompt。
 
-## 更新与安装
+### 记忆
 
-应用默认在启动后和每 24 小时检查一次官方 GitHub Release。发现稳定的新桌面版后，仅显示低调的下载入口并在浏览器打开对应发布页，不会自动下载、安装或强制更新。设置页可以关闭自动检查或立即手动检查。Windows 安装器允许选择桌面快捷方式和安装完成后是否运行应用；升级会保留现有快捷方式选择。
+工程版普通和增强模式使用 `shared-agent` 记忆分区。原有记忆文档以及 `remember` / `forget` 工具继续可用。助手画像记忆在工程版中不读取、不写入、不自动生成，也不会被删除；相关数据保留在磁盘，供未来独立 Orca 应用迁移。
 
-- **精简**：单行白色圆角过程栏，默认折叠。
-- **标准**：运行中按顺序显示过程卡，完成后原位折叠。
-- **详细**：按顺序显示并默认展开详情。
+### 计划、Todo、目标与过程展示
 
-正文、思考、工具和压缩过程严格按事件顺序交错。只有收到 `TurnDone` 才显示完成操作。后台 bash/subagent 不会自动开启新模型轮次；当前回答依赖结果时必须先调用 `wait`。
+计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时向上展开，也可以点击固定，不会推挤输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示有精简、标准、详细三档：精简模式只显示低强调单行状态，标准模式显示按时间顺序排列的过程卡，详细模式默认展开详情；最终回答和 token 统计不受影响。
 
-## 自动化、机器人与侧边聊天
+对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。后台任务完成只更新状态，不会偷偷创建新的模型轮次。
 
-自动化用于周期任务、持续监控和提醒；机器人连接可选择模型及三种模式；侧边聊天可以参考主会话，但不写入主历史，也不参与主 token、压缩或标题生成。
+### 自动化与远程连接
 
-## 权限、隐私与排障
+支持定时自动化、任务状态、本地后台任务和可选的机器人渠道连接。机器人设置沿用工程版的普通/增强边界，与桌面主会话相互隔离。
 
-工具审批包含需要批准、自动批准和完全访问。会话、记忆、索引和设置默认保存在本地；API 请求及已开启的图片输入会发送给用户配置的服务商。
+## 隐私与安全
 
-- 无法识图：检查识图开关及当前模型能力。
-- 工具不存在：检查工具库、MCP、Skill 和模式。
-- 后台完成后不继续：后台完成只更新状态；依赖结果的任务应使用 `wait`。
-- 大项目较慢：只在需要时打开文件/Git 页签，并减少无关未跟踪文件。
+软件本地运行，但消息会发送给用户选择的 Provider。使用敏感数据前请核对 Provider、地址、代理、识图、工具和审批设置。只有开启识图且本轮包含图片时，图片字节才会上传。API Key 通过环境变量或本地凭据流程读取，不会写入会话消息。
 
-## 开发构建
+工具调用会显示在时间线中。用户可以暂停、取消、回滚、使用检查点或从回收站恢复会话。长任务仍应通过审批、沙箱和工作区写入范围控制风险。
 
-需要 Go、Node.js、npm、Wails v2；Windows 安装包还需要 NSIS。
+## 安装后配置
+
+首次启动后打开“设置”，依次检查模型与 Provider、工作区和沙箱、工具库与 MCP、识图、过程展示、更新检查、外观和权限。设置页会显示当前配置路径；项目级指令文件可放在工作区支持的位置。
+
+## 常见问题
+
+- **模型不可用**：检查 Provider 地址、模型名、Key 环境变量和代理。
+- **图片发送失败**：确认已开启识图，并确认当前模型支持图片；必要时切换模型或关闭识图。
+- **工具反复请求审批**：检查审批模式、沙箱和工具组，不要盲目重复执行。
+- **窗口过窄**：保持在软件支持的最小窗口宽度以上。输入框会逐步隐藏文字，但保留模型选择和核心操作。
+- **没有看到更新**：自动检查结果缓存 24 小时，且只查询官方稳定 GitHub Release；设置中可在自动检查开关旁手动检查。
+
+## 从源码构建
+
+需要 Go、Node.js/npm 和 Wails CLI v2。
 
 ```powershell
-git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
-cd DeepSeek-Orca
-npm install --prefix desktop/frontend
-npm run test:all --prefix desktop/frontend
-npm run build --prefix desktop/frontend
+cd desktop/frontend
+npm install
+npm run test:all
+npm run build
+
+cd ../..
 go test ./...
-cd desktop
+```
+
+修改导出的 Wails App 方法后，在 `desktop` 目录运行：
+
+```powershell
+wails generate module
 wails build
 ```
 
-License: MIT.
+更新记录不放在 README 中，统一维护于 [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md)。

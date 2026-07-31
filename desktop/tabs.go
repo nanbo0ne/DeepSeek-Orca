@@ -22,6 +22,7 @@ import (
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/event"
+	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/netclient"
 	"deepseek-orca/internal/provider"
 )
@@ -106,7 +107,7 @@ func currentTabPromptMode(tab *WorkspaceTab) string {
 	if tab == nil {
 		return promptModeNormal
 	}
-	return normalizePromptMode(tab.promptMode, tab.enhancedMode)
+	return normalizeProductPromptMode(tab.promptMode, tab.enhancedMode)
 }
 
 func tabPromptModeIsEnhanced(tab *WorkspaceTab) bool {
@@ -1174,6 +1175,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		EffortOverride: cloneStringPtr(tab.effort),
 		PromptMode:     currentTabPromptMode(tab),
 		EnhancedMode:   tabPromptModeIsEnhanced(tab),
+		MemoryProfile:  memory.ProfileSharedAgent,
 	})
 	if err != nil {
 		a.mu.Lock()

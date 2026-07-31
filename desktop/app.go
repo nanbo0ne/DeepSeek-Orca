@@ -397,7 +397,9 @@ func backgroundRestoreShouldMaximise(goos string, wasMaximised bool) bool {
 func (a *App) restoreOrBuildTabs() {
 	ctx := a.ctx
 	ensureWorkspace()
-	defer func() { a.schedulePendingAssistantMemories() }()
+	if assistantMemoryAvailable() {
+		defer func() { a.schedulePendingAssistantMemories() }()
+	}
 
 	// Load i18n from the first available config.
 	// Prefer DesktopLanguage (desktop UI setting) over Language (CLI setting),
@@ -413,6 +415,8 @@ func (a *App) restoreOrBuildTabs() {
 	f := loadTabsFile()
 	a.mu.Lock()
 	a.recentPrefs = f.RecentConversationPrefs
+	a.recentPrefs.PromptMode = normalizeProductPromptMode(a.recentPrefs.PromptMode, a.recentPrefs.EnhancedMode)
+	a.recentPrefs.EnhancedMode = a.recentPrefs.PromptMode == promptModeEnhanced
 	a.mu.Unlock()
 	if len(f.Tabs) > 0 {
 		toBuild := make([]*WorkspaceTab, 0, len(f.Tabs))
@@ -445,7 +449,7 @@ func (a *App) restoreOrBuildTabs() {
 			}
 			tab.askWorkflow = entry.AskWorkflow
 			tab.stepThinking = entry.StepThinking
-			tab.promptMode = normalizePromptMode(entry.PromptMode, entry.EnhancedMode)
+			tab.promptMode = normalizeProductPromptMode(entry.PromptMode, entry.EnhancedMode)
 			tab.enhancedMode = tab.promptMode == promptModeEnhanced
 			tab.SessionPath = strings.TrimSpace(entry.SessionPath)
 			tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
@@ -464,6 +468,9 @@ func (a *App) restoreOrBuildTabs() {
 				a.activeTabID = ordered[0]
 			}
 		}
+		a.mu.Unlock()
+		a.mu.Lock()
+		a.saveTabsLocked()
 		a.mu.Unlock()
 		for _, tab := range toBuild {
 			a.startTabControllerBuild(tab)
@@ -530,7 +537,7 @@ func (a *App) applyRecentPrefsToNewTabLocked(tab *WorkspaceTab) {
 	if approval := persistedToolApprovalMode(prefs.ToolApprovalMode); approval != "" {
 		tab.toolApprovalMode = approval
 	}
-	tab.promptMode = normalizePromptMode(prefs.PromptMode, prefs.EnhancedMode)
+	tab.promptMode = normalizeProductPromptMode(prefs.PromptMode, prefs.EnhancedMode)
 	tab.enhancedMode = tab.promptMode == promptModeEnhanced
 	tab.mode = "normal"
 	tab.goal = ""
@@ -590,7 +597,7 @@ func (a *App) shutdown(context.Context) {
 	}
 	a.mu.RUnlock()
 	for _, t := range tabs {
-		if currentTabPromptMode(t) == promptModeAssistant {
+		if assistantMemoryAvailable() && currentTabPromptMode(t) == promptModeAssistant {
 			sessionPath := strings.TrimSpace(t.SessionPath)
 			if sessionPath == "" && t.Ctrl != nil {
 				sessionPath = strings.TrimSpace(t.Ctrl.SessionPath())
@@ -2434,7 +2441,11 @@ func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
 }
 
 func (a *App) SetPromptModeForTab(tabID string, mode string) error {
-	mode = normalizePromptMode(mode, false)
+	var err error
+	mode, err = validateProductPromptMode(mode)
+	if err != nil {
+		return err
+	}
 	tab := a.tabByID(tabID)
 	if tab == nil {
 		return nil
@@ -2468,6 +2479,7 @@ func (a *App) SetPromptModeForTab(tabID string, mode string) error {
 		EffortOverride: cloneStringPtr(tab.effort),
 		PromptMode:     mode,
 		EnhancedMode:   mode == promptModeEnhanced,
+		MemoryProfile:  memory.ProfileSharedAgent,
 	})
 	if err != nil {
 		return err
@@ -3775,6 +3787,7 @@ func (a *App) SetModelForTab(tabID, name string) error {
 		EffortOverride: cloneStringPtr(effortOverride),
 		PromptMode:     currentTabPromptMode(tab),
 		EnhancedMode:   tabPromptModeIsEnhanced(tab),
+		MemoryProfile:  memory.ProfileSharedAgent,
 	})
 	if err != nil {
 		return err
@@ -3874,6 +3887,7 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 		EffortOverride: &effort,
 		PromptMode:     currentTabPromptMode(tab),
 		EnhancedMode:   tabPromptModeIsEnhanced(tab),
+		MemoryProfile:  memory.ProfileSharedAgent,
 	})
 	if err != nil {
 		return err

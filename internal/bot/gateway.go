@@ -21,6 +21,7 @@ import (
 type GatewayConfig struct {
 	Model         string
 	PromptMode    string
+	MemoryProfile string
 	MaxSteps      int
 	WorkspaceRoot string
 	Allowlist     AllowlistConfig
@@ -130,6 +131,7 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 			return boot.Build(ctx, boot.Options{
 				Model:         cfg.Model,
 				PromptMode:    cfg.PromptMode,
+				MemoryProfile: cfg.MemoryProfile,
 				MaxSteps:      cfg.MaxSteps,
 				RequireKey:    true,
 				Sink:          sink,

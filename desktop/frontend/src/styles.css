@@ -19898,3 +19898,262 @@ a[href] {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Composer responsive contract. Keep this as the final layout layer so the
+   older theme overrides above cannot reintroduce absolute positioning or hide
+   the model selector at narrow widths. */
+.composer-card {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.composer-card__actions {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  width: max-content;
+  max-width: none;
+  min-width: 0;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.composer-enhanced,
+.composer-enhanced__button,
+.composer-runstatus,
+.composer-runstatus__pause,
+.composer-runstatus__stop,
+.composer__btn {
+  flex-shrink: 0;
+}
+
+.composer-enhanced__help {
+  display: none !important;
+}
+
+.composer-meta__params {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.composer-meta__control--model {
+  min-width: 96px;
+  flex: 1 1 148px;
+  width: auto;
+  max-width: 176px;
+}
+
+.composer-meta__control--approval {
+  min-width: 0;
+  flex: 0 1 184px;
+  width: auto;
+  max-width: 184px;
+}
+
+@container (max-width: 720px) {
+  .composer-card__actions {
+    gap: 6px;
+  }
+
+  .composer-meta {
+    gap: 7px;
+    padding-inline: 9px 7px;
+  }
+
+  .composer-meta__params {
+    gap: 5px;
+  }
+
+  .composer-meta__control--model {
+    min-width: 92px;
+    flex-basis: 132px;
+    max-width: 148px;
+  }
+
+  .composer-meta__control--approval {
+    flex-basis: 170px;
+    max-width: 170px;
+  }
+
+  .composer-meta__control--effort {
+    display: none;
+  }
+
+  .composer-meta__control--more {
+    display: inline-flex;
+    flex: 0 0 32px;
+    width: 32px;
+    max-width: 32px;
+  }
+
+  .composer-more-trigger {
+    width: 32px;
+    padding-inline: 0;
+  }
+
+  .composer-more-trigger span,
+  .composer-enhanced__button span {
+    display: none;
+  }
+
+  .composer-enhanced__button {
+    width: 34px;
+    min-width: 34px;
+    padding-inline: 0;
+  }
+
+  .composer-enhanced__button svg:last-child {
+    display: none;
+  }
+}
+
+@container (max-width: 580px) {
+  .composer-card__actions {
+    gap: 5px;
+    padding-right: 6px;
+  }
+
+  .composer-meta {
+    gap: 5px;
+    padding-inline: 7px 5px;
+  }
+
+  .composer-meta__params {
+    gap: 4px;
+  }
+
+  .composer-meta__control--model {
+    min-width: 82px;
+    flex-basis: 108px;
+    max-width: 132px;
+  }
+
+  .composer-meta__control--approval {
+    flex-basis: 92px;
+    max-width: 92px;
+  }
+
+  .composer-meta__control--approval .composer-modebar__item {
+    padding-inline: 5px;
+  }
+
+  .composer-meta__control--approval .composer-modebar__item span {
+    display: none;
+  }
+
+  .composer-meta__control--intent-chips {
+    max-width: 34px;
+  }
+
+  .composer-meta__control--intent-chips .tooltip-trigger:not(:first-child) {
+    display: none;
+  }
+
+  .composer-runstatus {
+    max-width: 112px;
+    gap: 4px;
+    padding-inline: 3px;
+  }
+
+  .composer-runstatus__text {
+    max-width: 34px;
+  }
+}
+
+@container (max-width: 460px) {
+  .composer-meta__control--model {
+    display: inline-flex;
+    min-width: 74px;
+    flex-basis: 92px;
+    max-width: none;
+  }
+
+  .composer-meta__control--approval {
+    flex-basis: 82px;
+    max-width: 82px;
+  }
+
+  .composer-meta__control--approval .composer-modebar__item {
+    padding-inline: 3px;
+  }
+
+  .composer-runstatus {
+    max-width: 84px;
+  }
+
+  .composer-runstatus__text,
+  .composer-runstatus__dot,
+  .composer-runstatus__pause span,
+  .composer-runstatus__stop span {
+    display: none;
+  }
+
+  .composer-runstatus__pause,
+  .composer-runstatus__stop {
+    width: 28px;
+    min-width: 28px;
+    padding-inline: 0;
+  }
+}
+
+@container (max-width: 380px) {
+  .composer-meta {
+    gap: 3px;
+    padding-inline: 5px 4px;
+  }
+
+  .composer-meta__params {
+    gap: 3px;
+  }
+
+  .composer-meta__control--intent {
+    flex: 0 0 30px;
+    width: 30px;
+  }
+
+  .composer-meta__control--model {
+    min-width: 66px;
+    flex-basis: 78px;
+  }
+
+  .composer-meta__control--approval {
+    flex-basis: 76px;
+    max-width: 76px;
+  }
+
+  .composer-meta__control--approval .composer-modebar__item {
+    padding-inline: 1px;
+  }
+
+  .composer-card__actions {
+    gap: 3px;
+    padding-right: 4px;
+  }
+
+  .composer-enhanced__button {
+    width: 30px;
+    min-width: 30px;
+  }
+
+  .composer__btn {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@container (max-width: 320px) {
+  .composer-meta__control--model {
+    min-width: 62px;
+    flex-basis: 70px;
+  }
+
+  .composer-meta__control--approval {
+    display: none;
+  }
+
+  .composer-meta__control--intent-chips {
+    display: none;
+  }
+
+  .composer-card__actions {
+    gap: 2px;
+  }
+}
+

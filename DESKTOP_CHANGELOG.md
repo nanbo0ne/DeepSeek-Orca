@@ -1,5 +1,15 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.28 - 2026-07-31
+
+- Defined the engineering edition boundary: the desktop UI exposes only Normal and Enhanced while retaining Assistant prompt and memory code for the future standalone Orca application.
+- Migrated restored Assistant tab and recent/bot preferences to Normal without deleting sessions, attachments, Assistant memories, or pending-memory state.
+- Disabled Assistant automatic-memory scheduling and processing in the engineering edition and forced engineering controllers and bot sessions to use shared-agent memory.
+- Removed prompt-mode descriptions and the separate help button from the engineering mode menu; compact layouts now show one mode icon with a tooltip.
+- Added a capability-driven prompt-mode interface and removed hardcoded Assistant choices from the engineering Composer and bot settings.
+- Consolidated the final Composer responsive layout layer across 720, 580, 460, 380, and 320px container widths while preserving model selection and preventing control overlap.
+- Rewrote the engineering README documentation and added the Orca assistant application handoff document.
+
 ## V2.0.27 - 2026-07-25
 
 - Added fail-closed SignPath Authenticode signing for the Windows application and final NSIS installer, including trusted timestamp verification before release publication.

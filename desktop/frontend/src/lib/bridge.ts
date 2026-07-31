@@ -38,6 +38,7 @@ import type {
   NetworkView,
   ProjectNode,
   ProviderView,
+  ProductCapabilities,
   QuestionAnswer,
   ServerView,
   SessionMeta,
@@ -91,6 +92,7 @@ interface DesktopWindowState {
 // to AppBindings, then run `pnpm typecheck` to verify.
 export interface AppBindings {
   Platform(): Promise<string>;
+  GetProductCapabilities(): Promise<ProductCapabilities>;
   Submit(input: string): Promise<void>;
   SubmitToTab(tabID: string, input: string): Promise<void>;
   SubmitDisplay(display: string, input: string): Promise<void>;
@@ -1031,6 +1033,13 @@ function makeMockApp(): AppBindings {
       if (/Mac/i.test(ua)) return "darwin";
       return "linux";
     },
+    async GetProductCapabilities() {
+      return {
+        edition: "engineering",
+        promptModes: ["normal", "enhanced"],
+        assistantMemoryEnabled: false,
+      };
+    },
         async Submit(input) {
           cancelled = false;
       emitMockTurnStarted();
@@ -1368,7 +1377,8 @@ function makeMockApp(): AppBindings {
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, stepThinkingEnabled: enabled } : tab));
         },
         async SetPromptModeForTab(tabID, mode) {
-          const next = mode === "assistant" || mode === "enhanced" ? mode : "normal";
+          if (mode === "assistant") throw new Error("assistant mode is not available in the engineering edition");
+          const next = mode === "enhanced" ? mode : "normal";
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, promptMode: next, enhancedModeEnabled: next === "enhanced" } : tab));
         },
         async SetEnhancedModeForTab(tabID, enabled) {

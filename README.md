@@ -1,158 +1,110 @@
-# DeepSeek-Orca
+# DeepSeek-Orca Desktop
 
-[中文](README.zh-CN.md) | [English](README.DESKTOP.md)
+DeepSeek-Orca is a local desktop engineering workspace for using AI models on real projects. It combines multi-provider chat, project-scoped sessions, inspectable tools, planning, memory, MCP, skills, CodeGraph, and reversible execution in one Windows, macOS, and Linux application.
 
-DeepSeek-Orca 是一个面向桌面工作流的本地 AI 助手与工程 Agent。它把多模型接入、项目工作区、工具调用、MCP、Skill、CodeGraph、长期记忆、计划执行和自动化集中在一个应用中，并保留可审查、可暂停、可回滚的交互方式。
+This repository's desktop product is the **engineering edition**. It exposes two user-facing prompt modes: **Normal** and **Enhanced**. The future Orca personal-assistant edition is kept behind an internal product boundary and is documented separately in [docs/ORCA_ASSISTANT_APP_HANDOFF.md](docs/ORCA_ASSISTANT_APP_HANDOFF.md).
 
-## 下载
+## Download
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.27/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.27)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.28)
 
-正式 Windows 主程序和安装器通过 SignPath Foundation 提供的可信证书签名。下载后可使用 `Get-AuthenticodeSignature` 验证状态为 `Valid`；完整签名策略见 [SIGNING.md](SIGNING.md)。SignPath 审核期间可能提供明确标注的临时未签名版本，此类文件仍会显示未知发布者；签名完成后会原位替换。
+The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
-首次启动后，在“设置 > 模型”中配置 API Key、服务地址和模型。多模态识图默认关闭，只有主动开启后图片才会上传给当前模型服务商。
+## What It Provides
 
-## 三种模式
+### Engineering modes
 
-- **助手模式**：以 `Orca` 身份处理日常问答、轻量任务和陪伴式交流。它可以静默整理助手画像记忆，并在相关话题中联想用户偏好。
-- **普通模式**：以 `DeepSeek-Orca` 身份处理查询、写作、分析和常规开发任务，兼顾速度与工具能力。
-- **增强模式**：面向复杂代码、架构分析、长任务、代码审查和高质量推理，采用更主动的工程 Agent 工作方式。
+- **Normal mode**: general conversation, research, writing, analysis, everyday coding, and regular tasks.
+- **Enhanced mode**: complex coding, architecture work, long-running tasks, reviews, repository changes, and more agentic execution.
 
-模式保存在会话中。切换模式会重建该会话的控制器，但不会丢失历史、模型、思考强度、审批方式、计划和目标状态。
+The mode is stored per conversation. Switching mode rebuilds only the controller while preserving session history, model, effort, approvals, plan state, goal state, and session path. Both modes identify the product as `DeepSeek-Orca` to the model.
 
-## 模型与 Provider
+### Providers and models
 
-DeepSeek-Orca 支持 DeepSeek、OpenAI-compatible 服务和 Anthropic 协议服务。可以为主执行模型和规划模型分别配置 Provider、模型名称、上下文窗口、思考强度及价格信息。
+Use DeepSeek, OpenAI-compatible providers, and Anthropic-compatible providers. Configure endpoints, API keys, model lists, context windows, reasoning effort, pricing metadata, planner models, and optional executor/planner separation from Settings. Balance information loads asynchronously so a slow provider does not block opening a conversation.
 
-- 模型可按会话切换，新会话继承最近使用的偏好。
-- 支持单模型执行和双模型“规划器 + 执行器”结构。
-- 余额查询异步加载，不会阻塞会话打开和历史恢复。
-- 多模态识图支持聊天附件和工作区图片引用；模型本身仍需支持图片输入。
+### Workspaces and sessions
 
-## 工作区与会话
+- Project workspaces bind conversations to real repository directories.
+- Independent topics receive isolated working directories and session data.
+- Sessions support tabs, pinning, renaming, previews, restore, forks, checkpoints, rollback, trash, and export.
+- Long sessions can be compacted while preserving a durable summary and searchable local history.
+- Main transcript JSONL stays local and does not contain provider secrets.
 
-- **项目工作区**绑定真实目录，适合持续开发、Git 操作和项目级记忆。
-- **独立工作区**为每个话题建立隔离目录，适合临时任务和不应污染项目的对话。
-- 会话支持固定、重命名、历史预览、恢复、分支、回收站和检查点回滚。
-- 新会话按创建时间显示在所属工作区顶部。
-- 上下文过长时会自动压缩；长期对话检索可以按需查找更早的本地对话片段。
+### Vision attachments
 
-## 多模态识图
+Vision is opt-in under Settings > Models. When enabled, pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files are sent to the active model provider. Each turn accepts up to 8 images, 20 MB total, and 10 MB per image. Sessions store paths, names, and MIME types, never image base64. Unsupported models return an explicit error rather than silently retrying as text. Screenshot automation and full computer-use are outside this edition.
 
-在“设置 > 模型”中开启后，可以粘贴、拖入或通过 `@` 引用 PNG、JPEG、WebP 和 GIF 图片。
+### Tools and local execution
 
-- 每轮最多 8 张，总大小不超过 20 MB，单张不超过 10 MB。
-- 会话只保存本地附件路径、名称和 MIME，不保存 base64。
-- OpenAI-compatible 和 Anthropic 请求会使用各自的图片消息格式。
-- 不支持视觉的模型会返回明确错误，不会静默删除图片后重试。
-- 当前版本不包含截图识别、鼠标键盘控制或完整 computer-use。
+The Tool Library controls groups for web search, host operations, Node/Python runtimes, document inspection, thread utilities, and conversation search. A disabled group is removed from both the registry and the model-visible routing policy. The built-in shell remains available for builds, tests, Git, and package managers. Tool approval modes make permission boundaries visible before execution; sandbox and write-root settings further constrain local operations.
 
-## 工具库
+### MCP, Skills, and CodeGraph
 
-“工具库”面板可以按组控制扩展工具是否注册并暴露给模型：
+- MCP settings manage servers, authorization, connection status, retries, and exposed tools.
+- Skills provide reusable workflows that load on demand.
+- CodeGraph exposes project symbol and call-relationship tools through the configured MCP server.
+- The slash menu combines built-in commands, skills, and MCP prompts.
 
-- 联网搜索与网页读取
-- 系统信息、原生命令、进程、应用、剪贴板和通知
-- Node REPL 与 Python REPL
-- Word、PowerPoint、Excel 和 PDF 检查/提取
-- 本地会话线程管理
-- 长期对话搜索与分段读取
-- 更积极调用工具的提示策略
+### Memory
 
-关闭工具组后，模型看不到该组专用工具，对应路由提示也会移除。`bash` 继续作为构建、测试、Git 和包管理等开发任务的通用兜底。
+Normal and Enhanced use the `shared-agent` memory profile. Existing memory documents and tool-based `remember` / `forget` workflows remain available. The hidden assistant profile is not read, written, generated, or processed by the engineering edition. Assistant data is retained on disk for the future standalone Orca application and is not deleted during migration.
 
-## MCP、Skill 与 CodeGraph
+### Planning and process visibility
 
-- **MCP**：管理本地或远程 MCP Server、连接状态、授权、重试和工具启用状态。
-- **Agent Skill**：按需加载工作流说明和领域能力，避免把所有规则永久塞入系统提示词。
-- **CodeGraph**：使用真实的 `mcp__codegraph__...` 工具进行符号搜索、调用关系和架构上下文分析。
-- **斜杠菜单**：提供内置命令、Skill 和 MCP Prompt 的统一入口。
+- Plan mode presents a reviewable plan before execution.
+- Todo uses a compact centered progress control that expands upward on hover or keyboard focus and can be pinned without pushing the composer.
+- Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
+- Process display offers Compact, Standard, and Detailed levels. Compact keeps live activity on a quiet single line; Standard shows ordered process cards; Detailed keeps process details expanded. The final answer and token accounting are unchanged.
+- The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
 
-## 记忆
+### Automation and remote connections
 
-记忆按用途分区：
+The application includes scheduled automation, task status, local background jobs, and optional bot channel integrations. Background jobs do not silently start a new model turn after completion; work that depends on a result must explicitly collect it. Remote bot configuration is kept separate from the active desktop session and uses the same engineering prompt-mode boundary.
 
-- 助手模式只读写 `assistant` 画像记忆。
-- 普通和增强模式读取助手记忆与共享 Agent 记忆，写入 `shared-agent`。
-- 旧未分类记忆按共享 Agent 记忆兼容处理。
+## Privacy and Safety
 
-助手模式可以在切换或关闭会话后静默整理新增内容。生成失败不会阻塞退出或主对话，最多重试 5 次后忽略该批次；用户可以关闭自动记忆、关闭主动联想、删除单条记忆或清空助手记忆。
+DeepSeek-Orca is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when vision is enabled and a turn includes the image. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
 
-## 计划、Todo 与 Goal
+Tool execution is visible in the transcript. Approval, sandbox, workspace roots, read-only tools, and background-task status are separate controls. Cancel, pause, rollback, checkpoints, and session trash provide recovery paths for long tasks.
 
-- 计划模式先生成完整计划卡，用户批准后再执行，也可以要求整体重写计划。
-- Todo 默认显示为紧凑进度条；悬停或键盘聚焦时向上展开，点击可以固定，不会推挤输入框。
-- Goal 模式可自动续跑目标；模型发出内部完成/阻塞标记后会立即停止，不把控制标记显示在正文中。
-- 询问、计划、Todo 和待发送内容使用统一底部布局，不会遮挡“跳到最新”按钮。
+## Configuration
 
-## 过程展示
+After first launch, open Settings and configure models and providers, workspace and sandbox behavior, Tool Library and MCP servers, vision, process display, update checks, language, appearance, permissions, and approval defaults. The app exposes the active configuration path in Settings. Project-local instructions can be supplied through the supported instruction files in the workspace.
 
-在“设置 > 常规”中选择：
+## Troubleshooting
 
-- **精简**：思考和工具过程以单行白色圆角栏显示，默认折叠。
-- **标准**：运行中按真实时间顺序显示过程卡，完成后原位折叠。
-- **详细**：按真实时间顺序显示并默认展开过程详情。
+- **The model is unavailable**: check the provider endpoint, selected model, API-key environment variable, and proxy settings.
+- **A conversation opens slowly**: balance lookup is independent; inspect provider/network status and local workspace size if history itself is slow.
+- **An image is rejected**: confirm Vision is enabled and that the provider/model accepts image content; switch models or disable Vision explicitly.
+- **A tool asks for approval repeatedly**: review the approval mode, sandbox, and tool-group settings rather than retrying blindly.
+- **A window is narrow**: keep the application above its supported minimum width. Composer controls progressively hide labels while keeping model selection and core actions accessible.
+- **An update is not shown**: automatic checks are cached for 24 hours and use official stable GitHub Releases. Manual checking is available next to the update toggle in Settings.
 
-正文、思考、工具、图片读取和压缩过程严格按实际事件顺序交错排列。回合真正收到 `TurnDone` 前不会显示复制、分支、总结和回溯等完成操作。用户阅读历史时，新增工具输出会保持当前可见锚点，不会强行跳回工具区或底部。
+## Build From Source
 
-## 自动化、机器人与侧边聊天
-
-- 自动化用于明确的周期任务、持续监控和提醒，可查看、暂停、恢复或取消。
-- 机器人连接支持为渠道选择模型和助手/普通/增强模式。
-- 侧边聊天位于右侧 Dock，可参考主会话内容但不写入主历史，也不参与主会话 token、压缩和标题生成。
-- 后台 bash 和 subagent 会持续显示运行状态；当前回答依赖其结果时，模型必须先调用 `wait`。
-
-## 更新与安装
-
-应用默认在启动后和每 24 小时检查一次官方 GitHub Release。发现稳定的 `desktop-v*` 新版本时，只会在侧栏或状态栏显示一个低调的下载按钮；点击后使用浏览器打开对应发布页，不会自动下载、安装或强制更新。可以在“设置 > 常规”关闭自动检查或立即手动检查。
-
-Windows 安装器允许选择是否创建桌面快捷方式，并在完成页选择是否立即运行 DeepSeek-Orca。升级安装会保留现有桌面快捷方式选择，静默安装不会自动启动应用。
-
-## 权限与隐私
-
-- 支持“需要批准”“自动批准”“完全访问”三档工具审批。
-- 主机命令、文件写入和外部操作仍受工作区、沙箱及权限策略约束。
-- 会话、记忆、索引、工作区元数据和设置默认保存在本地。
-- API 请求会发送给用户配置的模型服务商；开启识图后，图片也会发送给该服务商。
-- 使用完全访问权限前，请确认任务边界、工作目录和命令风险。
-
-## 常见问题
-
-**模型无法识图**：确认已开启多模态识图，并确认当前模型及服务商兼容图片消息格式。
-
-**工具不存在**：检查工具库分组、MCP 连接、Skill 状态和当前模式；关闭的工具不会出现在模型 schema 中。
-
-**后台任务已经结束但模型没有继续**：后台任务不会自动创建新用户轮次。依赖结果的当前任务应使用 `wait`，独立任务结果会在下一次用户消息时注入。
-
-**大项目 Git 视图较慢**：只有打开“文件/改动”页签时才请求相关数据；仍可减少未跟踪文件或缩小工作区范围。
-
-**配置或会话异常**：先在设置中检查 Provider、模型和工作区路径，再查看本地日志。删除数据前建议备份用户数据目录。
-
-## 开发与构建
-
-需要 Go、Node.js、npm、Wails v2；Windows 安装包还需要 NSIS。
+Requirements: a Go toolchain compatible with `go.mod`, Node.js/npm, and Wails CLI v2.
 
 ```powershell
-git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
-cd DeepSeek-Orca
-npm install --prefix desktop/frontend
-npm run test:all --prefix desktop/frontend
-npm run build --prefix desktop/frontend
+cd desktop/frontend
+npm install
+npm run test:all
+npm run build
+
+cd ../..
 go test ./...
+```
+
+Generate Wails bindings after changing exported `desktop.App` methods:
+
+```powershell
 cd desktop
+wails generate module
 wails build
 ```
 
-桌面配置位于 `desktop/wails.json`，发布工作流位于 `.github/workflows/release-desktop.yml`。
-
-## 限制与许可
-
-- 模型能力、上下文窗口、工具调用和视觉支持取决于所选 Provider。
-- computer-use、屏幕截图理解和坐标级桌面控制尚未内置。
-- 自动记忆是辅助能力，不应保存密码、密钥、支付信息或高敏感个人画像。
-
-License: MIT.
+Release-specific procedures and signing configuration are intentionally kept outside this stable product overview.

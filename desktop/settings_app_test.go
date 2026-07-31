@@ -178,6 +178,23 @@ func TestSetBotSettingsPersistsPromptMode(t *testing.T) {
 	}
 }
 
+func TestEngineeringBotAssistantModeMigratesToNormal(t *testing.T) {
+	isolateDesktopUserDirs(t)
+
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	cfg.Bot.PromptMode = promptModeAssistant
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	app.migrateDesktopBotPromptMode()
+	got := config.LoadForEdit(config.UserConfigPath())
+	if got.Bot.PromptMode != promptModeNormal {
+		t.Fatalf("migrated bot.prompt_mode = %q, want %q", got.Bot.PromptMode, promptModeNormal)
+	}
+}
+
 func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	isolateDesktopUserDirs(t)
 

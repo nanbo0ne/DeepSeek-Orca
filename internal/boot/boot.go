@@ -87,6 +87,10 @@ type Options struct {
 	// "assistant", "normal", and "enhanced". Empty preserves the legacy
 	// EnhancedMode behavior.
 	PromptMode string
+	// MemoryProfile optionally overrides the memory scope inferred from
+	// PromptMode. Product editions use this to isolate memory while retaining the
+	// shared prompt builders and session format.
+	MemoryProfile string
 	// PauseWait is an optional cooperative pause gate for interactive frontends.
 	PauseWait func(context.Context) error
 }
@@ -220,6 +224,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	memoryProfile := memory.ProfileAll
 	if assistantMode {
 		memoryProfile = memory.ProfileAssistant
+	}
+	if strings.TrimSpace(opts.MemoryProfile) != "" {
+		memoryProfile = memory.NormalizeProfile(opts.MemoryProfile)
 	}
 	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir(), Profile: memoryProfile})
 	projectChecks := instruction.ExtractHostChecks(mem.Docs)

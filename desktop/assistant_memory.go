@@ -177,6 +177,9 @@ func (a *App) assistantMemoryCandidateForTabLocked(tab *WorkspaceTab) assistantM
 }
 
 func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate, runNow bool) {
+	if !assistantMemoryAvailable() {
+		return
+	}
 	if c.PromptMode != promptModeAssistant || strings.TrimSpace(c.SessionPath) == "" {
 		return
 	}
@@ -231,6 +234,9 @@ func (a *App) markActiveAssistantMemoryPending(runNow bool) {
 const assistantMemoryIdleDelay = 8 * time.Second
 
 func (a *App) schedulePendingAssistantMemories() {
+	if !assistantMemoryAvailable() {
+		return
+	}
 	a.assistantMemoryMu.Lock()
 	if a.assistantMemoryTimer != nil {
 		a.assistantMemoryTimer.Stop()
@@ -242,6 +248,9 @@ func (a *App) schedulePendingAssistantMemories() {
 }
 
 func (a *App) startPendingAssistantMemoriesIfIdle() {
+	if !assistantMemoryAvailable() {
+		return
+	}
 	a.assistantMemoryMu.Lock()
 	if a.assistantMemoryWorkerRunning {
 		a.assistantMemoryMu.Unlock()

@@ -339,6 +339,11 @@ export interface Meta {
 export type CollaborationMode = "normal" | "plan" | "goal";
 export type ToolApprovalMode = "ask" | "auto" | "yolo";
 export type PromptMode = "assistant" | "normal" | "enhanced";
+export interface ProductCapabilities {
+  edition: "engineering" | "assistant" | string;
+  promptModes: PromptMode[];
+  assistantMemoryEnabled: boolean;
+}
 export type GoalStatus = "running" | "complete" | "blocked" | "stopped";
 
 export function normalizeCollaborationMode(mode?: string, goal?: string, legacyMode?: Mode): CollaborationMode {

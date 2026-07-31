@@ -313,8 +313,8 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	if err := app.NewSession(); err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || app.recentPrefs.PromptMode != promptModeAssistant {
-		t.Fatalf("recent prefs = %+v, want model/effort/auto/assistant", app.recentPrefs)
+	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || app.recentPrefs.PromptMode != promptModeNormal {
+		t.Fatalf("recent prefs = %+v, want model/effort/auto/normal", app.recentPrefs)
 	}
 	if tab.askWorkflow || tab.stepThinking || tab.mode != "normal" || tab.goal != "" {
 		t.Fatalf("temporary modes after NewSession = ask:%v step:%v mode:%q goal:%q, want reset", tab.askWorkflow, tab.stepThinking, tab.mode, tab.goal)
@@ -327,7 +327,7 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	app.mu.Lock()
 	app.applyRecentPrefsToNewTabLocked(next)
 	app.mu.Unlock()
-	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || currentTabPromptMode(next) != promptModeAssistant {
+	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || currentTabPromptMode(next) != promptModeNormal {
 		t.Fatalf("new tab prefs = model:%q effort:%v approval:%q prompt:%q", next.model, next.effort, next.toolApprovalMode, currentTabPromptMode(next))
 	}
 	if next.askWorkflow || next.stepThinking || next.mode != "normal" || next.goal != "" {

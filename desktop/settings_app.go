@@ -14,6 +14,7 @@ import (
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/provider"
 )
 
@@ -407,7 +408,7 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 	return BotSettingsView{
 		Enabled:       true,
 		Model:         b.Model,
-		PromptMode:    normalizePromptMode(b.PromptMode, false),
+		PromptMode:    normalizeProductPromptMode(b.PromptMode, false),
 		WorkspaceRoot: orDefault(strings.TrimSpace(b.WorkspaceRoot), config.BotWorkspaceDir()),
 		MaxSteps:      b.MaxSteps,
 		DebounceMs:    b.DebounceMs,
@@ -625,6 +626,7 @@ func (a *App) rebuild() error {
 		EffortOverride: cloneStringPtr(tab.effort),
 		PromptMode:     currentTabPromptMode(tab),
 		EnhancedMode:   tabPromptModeIsEnhanced(tab),
+		MemoryProfile:  memory.ProfileSharedAgent,
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -1242,7 +1244,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 	err := a.applyConfigOnly(func(c *config.Config) error {
 		c.Bot.Enabled = true
 		c.Bot.Model = strings.TrimSpace(b.Model)
-		c.Bot.PromptMode = normalizePromptMode(b.PromptMode, false)
+		c.Bot.PromptMode = normalizeProductPromptMode(b.PromptMode, false)
 		c.Bot.WorkspaceRoot = strings.TrimSpace(b.WorkspaceRoot)
 		c.Bot.MaxSteps = b.MaxSteps
 		c.Bot.DebounceMs = b.DebounceMs

@@ -12,6 +12,7 @@ import (
 	"deepseek-orca/internal/bot/qq"
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/memory"
 )
 
 type BotRuntimeStatusView struct {
@@ -30,12 +31,28 @@ func (a *App) restartDesktopBotGateway() {
 }
 
 func (a *App) startDesktopBotGatewayOnStartup() {
+	a.migrateDesktopBotPromptMode()
 	cfg, err := config.Load()
 	if err != nil {
 		a.setBotRuntimeStatus("error", "读取机器人配置失败："+err.Error())
 		return
 	}
 	a.startDesktopBotGateway(cfg)
+}
+
+func (a *App) migrateDesktopBotPromptMode() {
+	cfg, path, err := a.loadDesktopUserConfigForEdit()
+	if err != nil || cfg == nil {
+		return
+	}
+	normalized := normalizeProductPromptMode(cfg.Bot.PromptMode, false)
+	if normalized == strings.ToLower(strings.TrimSpace(cfg.Bot.PromptMode)) {
+		return
+	}
+	cfg.Bot.PromptMode = normalized
+	if err := cfg.SaveTo(path); err != nil {
+		slog.Warn("could not migrate desktop bot prompt mode", "error", err)
+	}
 }
 
 func (a *App) startDesktopBotGateway(cfg *config.Config) {
@@ -81,7 +98,8 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	gw := bot.NewGateway(bot.GatewayConfig{
 		Model:         modelName,
-		PromptMode:    normalizePromptMode(cfg.Bot.PromptMode, false),
+		PromptMode:    normalizeProductPromptMode(cfg.Bot.PromptMode, false),
+		MemoryProfile: memory.ProfileSharedAgent,
 		MaxSteps:      cfg.Bot.MaxSteps,
 		WorkspaceRoot: workspaceRoot,
 		Enabled:       enabled,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Brain, Check, ChevronDown, CircleHelp, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowUp, Brain, Check, ChevronDown, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -55,20 +55,12 @@ type PastedBlock = {
   text: string;
 };
 
-const PROMPT_MODE_OPTIONS: PromptMode[] = ["assistant", "normal", "enhanced"];
 type PromptModeLabelKey = "composer.promptMode.assistant" | "composer.promptMode.normal" | "composer.promptMode.enhanced";
-type PromptModeHelpKey = "composer.promptMode.assistant.help" | "composer.promptMode.normal.help" | "composer.promptMode.enhanced.help";
 
 function promptModeLabelKey(mode: PromptMode): PromptModeLabelKey {
   if (mode === "assistant") return "composer.promptMode.assistant";
   if (mode === "enhanced") return "composer.promptMode.enhanced";
   return "composer.promptMode.normal";
-}
-
-function promptModeHelpKey(mode: PromptMode): PromptModeHelpKey {
-  if (mode === "assistant") return "composer.promptMode.assistant.help";
-  if (mode === "enhanced") return "composer.promptMode.enhanced.help";
-  return "composer.promptMode.normal.help";
 }
 
 type WebkitFileEntry = {
@@ -341,6 +333,7 @@ export function Composer({
   askWorkflowEnabled,
   stepThinkingEnabled,
   promptMode,
+  promptModes = ["normal", "enhanced"],
   promptModeSwitching = false,
   paused = false,
   goal,
@@ -379,6 +372,7 @@ export function Composer({
   askWorkflowEnabled: boolean;
   stepThinkingEnabled: boolean;
   promptMode: PromptMode;
+  promptModes?: PromptMode[];
   promptModeSwitching?: boolean;
   paused?: boolean;
   goal?: string;
@@ -1598,7 +1592,6 @@ export function Composer({
   const currentEffort = effort?.current || "auto";
   const hasEffort = Boolean(effort?.supported && effortLevels.length > 0);
   const promptModeLabel = t(promptModeLabelKey(promptMode));
-  const promptModeHelp = t(promptModeHelpKey(promptMode));
   const choosePromptMode = (mode: PromptMode) => {
     closePromptModeMenu(() => {
       if (mode !== promptMode) onSetPromptMode(mode);
@@ -1812,7 +1805,7 @@ export function Composer({
         <div className="composer-access-menu__section">
           <div className="composer-access-menu__label">{t("composer.promptMode.title")}</div>
           <div className="composer-prompt-mode-menu__items" role="listbox" aria-label={t("composer.promptMode.title")}>
-            {PROMPT_MODE_OPTIONS.map((mode) => (
+            {promptModes.map((mode) => (
               <button
                 key={mode}
                 type="button"
@@ -1821,12 +1814,11 @@ export function Composer({
                 className={`composer-prompt-mode-menu__item${mode === promptMode ? " composer-prompt-mode-menu__item--active" : ""}`}
                 onClick={() => choosePromptMode(mode)}
                 disabled={disabled}
-                title={t(promptModeHelpKey(mode))}
+                title={t(promptModeLabelKey(mode))}
               >
                 <Sparkles size={14} />
                 <span className="composer-prompt-mode-menu__copy">
                   <span>{t(promptModeLabelKey(mode))}</span>
-                  <small>{t(promptModeHelpKey(mode))}</small>
                 </span>
                 {mode === promptMode && <Check size={13} />}
               </button>
@@ -2285,28 +2277,21 @@ export function Composer({
         </div>
         <div className="composer-card__actions">
           <div className="composer-enhanced">
-            <button
-              ref={promptModeMenuAnchorRef}
-              type="button"
-              className={`composer-enhanced__button composer-enhanced__button--${promptMode}${promptModeMenuOpen || promptModeMenuClosing ? " composer-enhanced__button--open" : ""}${promptModeSwitching ? " composer-enhanced__button--switching" : ""}`}
-              onClick={() => (promptModeMenuOpen || promptModeMenuClosing ? closePromptModeMenu() : openPromptModeMenu())}
-              disabled={disabled}
-              aria-haspopup="listbox"
-              aria-expanded={promptModeMenuOpen && !promptModeMenuClosing}
-              aria-busy={promptModeSwitching}
-              aria-label={t("composer.promptMode.title")}
-            >
-              <Sparkles size={14} />
-              <span>{promptModeLabel}</span>
-              <ChevronDown size={13} />
-            </button>
-            <Tooltip label={promptModeHelp}>
+            <Tooltip label={promptModeLabel}>
               <button
+                ref={promptModeMenuAnchorRef}
                 type="button"
-                className="composer-enhanced__help"
-                aria-label={promptModeHelp}
+                className={`composer-enhanced__button composer-enhanced__button--${promptMode}${promptModeMenuOpen || promptModeMenuClosing ? " composer-enhanced__button--open" : ""}${promptModeSwitching ? " composer-enhanced__button--switching" : ""}`}
+                onClick={() => (promptModeMenuOpen || promptModeMenuClosing ? closePromptModeMenu() : openPromptModeMenu())}
+                disabled={disabled}
+                aria-haspopup="listbox"
+                aria-expanded={promptModeMenuOpen && !promptModeMenuClosing}
+                aria-busy={promptModeSwitching}
+                aria-label={`${t("composer.promptMode.title")}: ${promptModeLabel}`}
               >
-                <CircleHelp size={14} />
+                <Sparkles size={14} />
+                <span>{promptModeLabel}</span>
+                <ChevronDown size={13} />
               </button>
             </Tooltip>
           </div>

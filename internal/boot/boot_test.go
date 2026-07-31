@@ -231,6 +231,15 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	if normalMem.Store.Dir != normalMem.SharedStore.Dir {
 		t.Fatalf("normal writable store = %q, want shared %q", normalMem.Store.Dir, normalMem.SharedStore.Dir)
 	}
+
+	engineeringCtrl, err := Build(context.Background(), Options{PromptMode: PromptModeNormal, MemoryProfile: memory.ProfileSharedAgent})
+	if err != nil {
+		t.Fatalf("Build engineering memory profile: %v", err)
+	}
+	defer engineeringCtrl.Close()
+	if engineeringCtrl.Memory().Profile != memory.ProfileSharedAgent || strings.Contains(engineeringCtrl.Memory().Index, "assistant-fact.md") {
+		t.Fatalf("explicit shared memory profile = %q index=%q, want shared-agent without assistant memory", engineeringCtrl.Memory().Profile, engineeringCtrl.Memory().Index)
+	}
 }
 
 func TestBuildPromptRespectsToolLibrarySettings(t *testing.T) {
