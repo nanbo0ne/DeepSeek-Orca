@@ -17,6 +17,7 @@ interface ProjectTreeProps {
   activeScope?: string;
   activeWorkspaceRoot?: string;
   activeTopicId?: string;
+  loadingTopicId?: string;
   onOpenTopic: (scope: string, workspaceRoot: string, topicId: string) => Promise<void> | void;
   onOpenProjectHistory: (scope: "global" | "project", workspaceRoot: string) => Promise<void> | void;
   onAddProject: () => Promise<void>;
@@ -200,6 +201,7 @@ export function ProjectTree({
   activeScope,
   activeWorkspaceRoot,
   activeTopicId,
+  loadingTopicId,
   onOpenTopic,
   onOpenProjectHistory,
   onAddProject,
@@ -603,6 +605,7 @@ export function ProjectTree({
       const scopeClass = scope === "global" ? " project-tree__topic--global" : " project-tree__topic--project";
       const accentStyle = projectAccentStyle(node.projectColor, scope === "global" ? "var(--project-tree-global-accent)" : undefined);
       const active = topicIsActive(node, activeScope, activeWorkspaceRoot, activeTopicId);
+      const loading = loadingTopicId === node.topicId;
       const label = (node.label || node.topicId || "Untitled").replace(/^●\s*/, "");
       const meta = topicMetaLine(node, t);
       const status = topicStatus(node);
@@ -681,7 +684,7 @@ export function ProjectTree({
       return (
         <div
           key={key}
-          className={`project-tree__topic${scopeClass}${active ? " project-tree__topic--active" : ""}${node.running ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${meta ? " project-tree__topic--has-meta" : ""}`}
+          className={`project-tree__topic${scopeClass}${active ? " project-tree__topic--active" : ""}${node.running || loading ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${meta ? " project-tree__topic--has-meta" : ""}`}
           style={accentStyle}
           onContextMenu={openTopicMenu}
         >
@@ -699,7 +702,7 @@ export function ProjectTree({
           >
             <span className="project-tree__topic-copy">
               <span className="project-tree__topic-heading">
-                {node.running && <LoaderCircle size={12} className="project-tree__topic-spinner" aria-hidden="true" />}
+                {(node.running || loading) && <LoaderCircle size={12} className="project-tree__topic-spinner" aria-hidden="true" />}
                 <span className="project-tree__topic-label">{label}</span>
                 {statusLabel && <span className={`project-tree__topic-status project-tree__topic-status--${status}`}>{statusLabel}</span>}
               </span>

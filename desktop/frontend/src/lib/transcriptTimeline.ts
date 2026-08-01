@@ -16,6 +16,8 @@ export type TimelineSegment =
       final: Extract<Item, { kind: "assistant" }>;
     };
 
+const timelineCache = new WeakMap<readonly Item[], Map<boolean, TimelineSegment[]>>();
+
 function visibleProcessItem(item: Item): item is TimelineProcessItem {
   if (item.kind === "assistant") return Boolean(item.reasoning) || item.streaming;
   if (item.kind === "tool") return !item.parentId && item.name !== "todo_write" && item.name !== "exit_plan_mode";
@@ -97,6 +99,9 @@ function buildTurn(items: readonly Item[], completed: boolean): TimelineSegment[
 }
 
 export function buildTimelineSegments(items: readonly Item[], running: boolean): TimelineSegment[] {
+  const cached = timelineCache.get(items)?.get(running);
+  if (cached) return cached;
+
   const turns: Item[][] = [];
   const prelude: Item[] = [];
   for (const item of items) {
@@ -123,7 +128,24 @@ export function buildTimelineSegments(items: readonly Item[], running: boolean):
     const explicitlyCompleted = !running && hasSuccessfulStats;
     out.push(...buildTurn(turn, isHistoricalTurn || explicitlyCompleted));
   });
+  const variants = timelineCache.get(items) ?? new Map<boolean, TimelineSegment[]>();
+  variants.set(running, out);
+  timelineCache.set(items, variants);
   return out;
+}
+
+export function activityProcessSegmentID(
+  segments: readonly TimelineSegment[],
+  enabled: boolean,
+  running: boolean,
+  paused: boolean,
+): string | undefined {
+  if (!enabled || !running || paused) return undefined;
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    if (segment.kind === "process" && !segment.completed) return segment.id;
+  }
+  return undefined;
 }
 
 export function timelineKinds(segments: readonly TimelineSegment[]): string[] {

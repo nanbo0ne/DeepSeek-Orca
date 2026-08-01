@@ -39,8 +39,12 @@ func TestSetDefaultModel(t *testing.T) {
 
 func TestDesktopProcessDisplayAndVisionSettings(t *testing.T) {
 	var c Config
-	if got := c.DesktopProcessDisplayMode(); got != ProcessDisplayStandard {
+	if got := c.DesktopProcessDisplayMode(); got != ProcessDisplayCompact {
 		t.Fatalf("default mode = %q", got)
+	}
+	c.Desktop.ProcessDisplayMode = ProcessDisplayStandard
+	if got := c.DesktopProcessDisplayMode(); got != ProcessDisplayCompact {
+		t.Fatalf("legacy standard mode = %q, want compact", got)
 	}
 	if err := c.SetProcessDisplayMode(ProcessDisplayCompact); err != nil {
 		t.Fatal(err)
@@ -50,6 +54,18 @@ func TestDesktopProcessDisplayAndVisionSettings(t *testing.T) {
 	}
 	if err := c.SetProcessDisplayMode("invalid"); err == nil {
 		t.Fatal("invalid process display mode should fail")
+	}
+	if err := c.SetExpandThinking(true); err != nil || c.DesktopProcessDisplayMode() != ProcessDisplayDetailed {
+		t.Fatalf("expanded thinking should map to detailed: %+v, err=%v", c.Desktop, err)
+	}
+	if err := c.SetExpandThinking(false); err != nil || c.DesktopProcessDisplayMode() != ProcessDisplayCompact {
+		t.Fatalf("collapsed thinking should map to compact: %+v, err=%v", c.Desktop, err)
+	}
+	if c.Desktop.ActivityIndicator {
+		t.Fatal("activity indicator should default off")
+	}
+	if err := c.SetActivityIndicatorEnabled(true); err != nil || !c.Desktop.ActivityIndicator {
+		t.Fatalf("activity indicator setting = %+v, err=%v", c.Desktop, err)
 	}
 	if err := c.SetVisionEnabled(true); err != nil || !c.Desktop.VisionEnabled {
 		t.Fatalf("vision setting = %+v, err=%v", c.Desktop, err)

@@ -1,5 +1,15 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.30 - 2026-08-01
+
+- Reduced process presentation to Compact and Detailed, made Compact the default, and migrated legacy Standard or collapsed-thinking settings to Compact.
+- Fixed compact process rows so stable segment IDs preserve explicit open/closed state across streaming updates and closed details leave no residual layout or hit area.
+- Added an optional, off-by-default OpenCode-style two-block activity mark below the latest process row, including pause/completion handling and reduced-motion support.
+- Removed the full-width footer surface behind Todo, plan, approval, queued prompt, and context cards while retaining normal-flow height and individual card surfaces.
+- Split conversation loading into first-paint meta/history and background auxiliary hydration, added immediate switching for already-open topics, cached transcript derivations, and suppressed restored-history entrance replay.
+- Changed plain-text paste to remain direct editable text and made the Composer grow automatically for up to ten lines before scrolling.
+- Updated the desktop version and download documentation to V2.0.30.
+
 ## V2.0.29 - 2026-08-01
 
 - Collapsed every explicitly successful completed turn to the user message, elapsed-time row, and final answer while preserving failed, cancelled, interrupted, and active diagnostics.

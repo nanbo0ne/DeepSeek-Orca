@@ -8,6 +8,9 @@ const chrome = readFileSync(join(root, "components", "AppChrome.tsx"), "utf8");
 const app = readFileSync(join(root, "App.tsx"), "utf8");
 const composer = readFileSync(join(root, "components", "Composer.tsx"), "utf8");
 const settings = readFileSync(join(root, "components", "SettingsPanel.tsx"), "utf8");
+const processCard = readFileSync(join(root, "components", "ProcessCard.tsx"), "utf8");
+const transcript = readFileSync(join(root, "components", "Transcript.tsx"), "utf8");
+const controller = readFileSync(join(root, "lib", "useController.ts"), "utf8");
 
 let passed = 0;
 let failed = 0;
@@ -60,6 +63,58 @@ check(
   composerContract.includes(".composer-meta__control--model {\n    display: inline-flex;") &&
     composerContract.includes(".composer-enhanced__button svg:last-child {\n    display: none;"),
   "narrow Composer retains model access and collapses mode trigger to one icon",
+);
+check(
+  composer.includes("Plain text always follows the textarea's native paste path") &&
+    composer.includes('if (pasted !== "") return;') &&
+    !composer.includes("shouldFoldPaste") &&
+    !composer.includes("composer__pasted"),
+  "plain text paste remains editable text and wins over rich clipboard image hints",
+);
+check(
+  composer.includes("const COMPOSER_AUTO_MAX_LINES = 10") &&
+    composer.includes("composerAutoInputMaxHeight(node)") &&
+    composer.includes("node.scrollHeight > maxHeight + 1") &&
+    css.includes(".composer__input {\n  flex: 1;\n  resize: none;\n  margin: 0;\n  padding: 0;"),
+  "Composer grows with content up to a stable line limit before scrolling",
+);
+check(
+  settings.includes('["compact", "detailed"]') &&
+    !settings.includes('["compact", "standard", "detailed"]'),
+  "process settings expose only compact and detailed modes",
+);
+check(
+  processCard.includes("const closeFromKeyboard") &&
+    processCard.includes("{hasBody && actualOpen && (") &&
+    transcript.includes("processOpenOverrides.get(segment.id)") &&
+    transcript.includes("next.set(segment.id, nextOpen)"),
+  "compact process details can close cleanly and preserve stable segment overrides",
+);
+check(
+  css.includes(".process-activity-mark") &&
+    css.includes("prefers-reduced-motion: reduce") &&
+    transcript.includes("activityProcessSegmentID(segments, activityIndicatorEnabled, running, paused)"),
+  "optional activity mark is reduced-motion safe and anchored to the latest process segment",
+);
+check(
+  css.includes(".footer {\n  position: relative;") &&
+    css.includes("border-top: 0;\n  background: transparent;") &&
+    css.includes(".footer-shelves") &&
+    css.includes("background: transparent;"),
+  "footer shelves remain transparent outside their individual cards",
+);
+check(
+  transcript.includes("transcript--hydrating") &&
+    css.includes(".transcript--hydrating .timeline-entry") &&
+    css.includes("animation: none !important;"),
+  "restored history skips bulk entrance animation during its first paint",
+);
+check(
+  controller.includes("Meta and history are the only first-paint dependencies") &&
+    controller.includes("afterNextPaint()") &&
+    controller.includes('dispatchTo(meta.id, { type: "session_load_start"') &&
+    controller.indexOf("safe(app.EffortForTab(tabId))") > controller.indexOf('type: "session_primary_loaded"'),
+  "conversation selection paints before history work and auxiliary status hydrates later",
 );
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);

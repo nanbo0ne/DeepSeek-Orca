@@ -81,7 +81,8 @@ type DesktopConfig struct {
 	CheckUpdates          *bool    `toml:"check_updates"`                   // startup update checks; nil keeps the default enabled
 	ProviderAccess        []string `toml:"provider_access"`                 // desktop-only list of provider entries shown in Settings > Model > Access
 	ExpandThinking        bool     `toml:"expand_thinking"`                 // true = show reasoning text expanded by default; false = collapsed
-	ProcessDisplayMode    string   `toml:"process_display_mode"`            // compact|standard|detailed; empty migrates from expand_thinking
+	ProcessDisplayMode    string   `toml:"process_display_mode"`            // compact|detailed; standard is accepted as a legacy alias for compact
+	ActivityIndicator     bool     `toml:"activity_indicator_enabled"`      // show the optional animated process activity mark
 	VisionEnabled         bool     `toml:"vision_enabled"`                  // send attached image bytes to the selected model
 	VisionMode            string   `toml:"vision_mode"`                     // off|auto|on; vision_enabled is retained for legacy configs
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
@@ -111,9 +112,8 @@ func (c *Config) DesktopVisionMode() string {
 	}
 }
 
-// DesktopProcessDisplayMode normalizes the three-state desktop process view.
-// Older configs only carry expand_thinking, which maps losslessly to standard
-// or detailed without opting existing users into the new compact view.
+// DesktopProcessDisplayMode normalizes the two-state desktop process view.
+// Standard remains a read-only legacy alias and now migrates to compact.
 func (c *Config) DesktopProcessDisplayMode() string {
 	switch strings.ToLower(strings.TrimSpace(c.Desktop.ProcessDisplayMode)) {
 	case ProcessDisplayCompact:
@@ -121,12 +121,12 @@ func (c *Config) DesktopProcessDisplayMode() string {
 	case ProcessDisplayDetailed:
 		return ProcessDisplayDetailed
 	case ProcessDisplayStandard:
-		return ProcessDisplayStandard
+		return ProcessDisplayCompact
 	default:
 		if c.Desktop.ExpandThinking {
 			return ProcessDisplayDetailed
 		}
-		return ProcessDisplayStandard
+		return ProcessDisplayCompact
 	}
 }
 

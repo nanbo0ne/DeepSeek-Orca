@@ -158,6 +158,7 @@ type SettingsView struct {
 	CheckUpdates       bool            `json:"checkUpdates"`
 	ExpandThinking     bool            `json:"expandThinking"`
 	ProcessDisplayMode string          `json:"processDisplayMode"`
+	ActivityIndicator  bool            `json:"activityIndicatorEnabled"`
 	VisionEnabled      bool            `json:"visionEnabled"`
 	VisionMode         string          `json:"visionMode"`
 	ConfigPath         string          `json:"configPath"`
@@ -338,7 +339,8 @@ func (a *App) Settings() SettingsView {
 			CloseBehavior:      "background",
 			CheckUpdates:       true,
 			ExpandThinking:     false,
-			ProcessDisplayMode: config.ProcessDisplayStandard,
+			ProcessDisplayMode: config.ProcessDisplayCompact,
+			ActivityIndicator:  false,
 			VisionEnabled:      false,
 			VisionMode:         config.VisionModeAuto,
 		}
@@ -387,6 +389,7 @@ func (a *App) Settings() SettingsView {
 		CheckUpdates:       cfg.DesktopCheckUpdates(),
 		ExpandThinking:     cfg.DesktopProcessDisplayMode() == config.ProcessDisplayDetailed,
 		ProcessDisplayMode: cfg.DesktopProcessDisplayMode(),
+		ActivityIndicator:  cfg.Desktop.ActivityIndicator,
 		VisionEnabled:      cfg.Desktop.VisionEnabled,
 		VisionMode:         cfg.DesktopVisionMode(),
 		ConfigPath:         cfgPath,
@@ -1367,6 +1370,12 @@ func (a *App) SetExpandThinking(on bool) error {
 // rebuilding the model controller.
 func (a *App) SetProcessDisplayMode(mode string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetProcessDisplayMode(mode) })
+}
+
+// SetActivityIndicatorEnabled toggles the optional process activity animation.
+// It is UI-only and does not rebuild the model controller.
+func (a *App) SetActivityIndicatorEnabled(enabled bool) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetActivityIndicatorEnabled(enabled) })
 }
 
 // SetVisionEnabled rebuilds controllers because the setting changes both the

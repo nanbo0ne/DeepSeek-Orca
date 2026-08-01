@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Brain, Check, ChevronDown, Eye, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, Trash2, X } from "lucide-react";
+import { ArrowUp, Brain, Check, ChevronDown, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -39,21 +39,15 @@ interface WorkspaceReference {
   isDir?: boolean;
 }
 
-const LONG_PASTE_MIN_CHARS = 2000;
-const LONG_PASTE_MIN_LINES = 20;
 const COMPOSER_MIN_HEIGHT = 104;
 const COMPOSER_MAX_HEIGHT = 360;
 const COMPOSER_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_AUTO_RESERVED_HEIGHT = 58;
+const COMPOSER_AUTO_MAX_LINES = 10;
 // Grace after compositionend to swallow a confirm-Enter that lands just after
 // it; the real gap is a few ms, so keep it short or a deliberate quick second
 // Enter (submit) gets eaten too.
 const IME_CONFIRM_GRACE_MS = 100;
-
-type PastedBlock = {
-  label: string;
-  text: string;
-};
 
 type PromptModeLabelKey = "composer.promptMode.assistant" | "composer.promptMode.normal" | "composer.promptMode.enhanced";
 
@@ -66,19 +60,6 @@ function promptModeLabelKey(mode: PromptMode): PromptModeLabelKey {
 type WebkitFileEntry = {
   isDirectory?: boolean;
 };
-
-function lineCount(s: string): number {
-  if (s === "") return 0;
-  return s.split(/\r\n|\r|\n/).length;
-}
-
-function shouldFoldPaste(s: string): boolean {
-  return s.length >= LONG_PASTE_MIN_CHARS || lineCount(s) >= LONG_PASTE_MIN_LINES;
-}
-
-function renderPastedBlock(block: PastedBlock): string {
-  return `${block.label}\n\n--- Begin ${block.label} ---\n${block.text}\n--- End ${block.label} ---`;
-}
 
 function baseName(path: string): string {
   const clean = path.replace(/[\\/]+$/, "");
@@ -167,8 +148,13 @@ function clampComposerHeight(height: number): number {
   return Math.min(Math.max(Math.round(height), COMPOSER_MIN_HEIGHT), composerMaxHeight());
 }
 
-function composerAutoInputMaxHeight(): number {
-  return Math.max(32, composerMaxHeight() - COMPOSER_AUTO_RESERVED_HEIGHT);
+function composerAutoInputMaxHeight(node: HTMLTextAreaElement): number {
+  const style = window.getComputedStyle(node);
+  const measuredLineHeight = Number.parseFloat(style.lineHeight);
+  const lineHeight = Number.isFinite(measuredLineHeight) ? measuredLineHeight : 22;
+  const padding = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
+  const lineLimit = Math.ceil(lineHeight * COMPOSER_AUTO_MAX_LINES + padding);
+  return Math.max(32, Math.min(lineLimit, composerMaxHeight() - COMPOSER_AUTO_RESERVED_HEIGHT));
 }
 
 function loadComposerHeight(): number | null {
@@ -417,11 +403,7 @@ export function Composer({
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [workspaceRefs, setWorkspaceRefs] = useState<WorkspaceReference[]>([]);
-  const [pastedBlocks, setPastedBlocks] = useState<PastedBlock[]>([]);
-  const [openPastedLabels, setOpenPastedLabels] = useState<string[]>([]);
   const [pendingPaste, setPendingPaste] = useState(0);
-  const pastedBlocksRef = useRef<PastedBlock[]>([]);
-  const nextPasteId = useRef(1);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -452,7 +434,6 @@ export function Composer({
   const intentCloseTimerRef = useRef<number | null>(null);
   const moreCloseTimerRef = useRef<number | null>(null);
   const promptModeCloseTimerRef = useRef<number | null>(null);
-  const wasRunning = useRef(running);
   const composingRef = useRef(false);
   const lastCompositionEndAt = useRef(0);
   const lastSelectionRef = useRef({ start: 0, end: 0 });
@@ -474,15 +455,6 @@ export function Composer({
   };
 
   useEffect(() => () => clearNativeClipboardPasteTimer(), []);
-
-  useEffect(() => {
-    if (wasRunning.current && !running && text.trim() === "") {
-      pastedBlocksRef.current = [];
-      setPastedBlocks([]);
-      setOpenPastedLabels([]);
-    }
-    wasRunning.current = running;
-  }, [running, text]);
 
   // --- slash commands (whole-input "/token") ---
   const [commands, setCommands] = useState<CommandInfo[]>([]);
@@ -775,16 +747,6 @@ export function Composer({
     insertTextAtCaret(insertRequest.text);
   }, [insertRequest]);
 
-  const expandPastedBlocks = (displayText: string): string => {
-    let expanded = displayText;
-    for (const block of pastedBlocksRef.current) {
-      if (expanded.includes(block.label)) {
-        expanded = expanded.split(block.label).join(renderPastedBlock(block));
-      }
-    }
-    return expanded;
-  };
-
   const rememberAttachment = (path: string, key: AttachmentDedupKey) => {
     attachmentDedupRef.current.add(key.hash, key.source);
     attachmentDedupKeysRef.current[path] = key;
@@ -927,7 +889,7 @@ export function Composer({
     // original prompt in the input preview). With no refs we keep the original
     // submitText verbatim — no header, no rewording, byte-identical to pre-PR-B.
     const sessionContext = sessionRefs.length === 0 ? "" : await buildSessionContext(sessionRefs);
-    const baseSubmitText = [expandPastedBlocks(trimmedText), refs].filter(Boolean).join(trimmedText && refs ? " " : "");
+    const baseSubmitText = [trimmedText, refs].filter(Boolean).join(trimmedText && refs ? " " : "");
     const submitText = sessionContext ? `${sessionContext}${baseSubmitText}` : baseSubmitText;
     if (running && guide) {
       if (onGuide) onGuide(displayText, submitText);
@@ -1058,35 +1020,15 @@ export function Composer({
       return;
     }
 
-    const pasted = e.clipboardData.getData("text");
+    const pasted = e.clipboardData.getData("text/plain") || e.clipboardData.getData("text");
+    // Plain text always follows the textarea's native paste path, preserving
+    // line breaks and the current selection without creating a hidden block.
+    // Prefer it over image format hints carried by rich clipboard sources.
+    if (pasted !== "") return;
+
     const hasImageHint = clipboardHasImageHint(e.clipboardData);
-    if (hasImageHint || pasted === "") {
-      e.preventDefault();
-      void attachNativeClipboardImage(hasImageHint);
-      return;
-    }
-    if (!shouldFoldPaste(pasted)) return;
-
     e.preventDefault();
-    const ta = e.currentTarget;
-    const start = ta.selectionStart ?? text.length;
-    const end = ta.selectionEnd ?? text.length;
-    const id = nextPasteId.current++;
-    const lines = lineCount(pasted);
-    const label = t("composer.pastedLabel", { id, lines });
-    const block: PastedBlock = { label, text: pasted };
-    const next = text.slice(0, start) + label + text.slice(end);
-
-    pastedBlocksRef.current = [...pastedBlocksRef.current, block];
-    setPastedBlocks((prev) => [...prev, block]);
-    setText(next);
-    requestAnimationFrame(() => {
-      const node = taRef.current;
-      if (!node) return;
-      const pos = start + label.length;
-      node.focus();
-      node.selectionStart = node.selectionEnd = pos;
-    });
+    void attachNativeClipboardImage(hasImageHint);
   };
 
   const hasWorkspaceReferenceDrag = (dataTransfer: DataTransfer): boolean =>
@@ -1161,33 +1103,12 @@ export function Composer({
 
   const pickCommand = (c: CommandInfo) => setTextCaretEnd("/" + c.name + " ");
 
-  const activePastedBlocks = pastedBlocks.filter((block) => text.includes(block.label));
   const shellModeActive = text.trimStart().startsWith("!");
 
   const removeWorkspaceReference = (target: WorkspaceReference) => {
     const key = workspaceReferenceKey(target);
     setWorkspaceRefs((prev) => prev.filter((ref) => workspaceReferenceKey(ref) !== key));
     requestAnimationFrame(() => taRef.current?.focus());
-  };
-
-  const togglePastedPreview = (label: string) => {
-    setOpenPastedLabels((prev) => (prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label]));
-  };
-
-  const removePastedBlock = (block: PastedBlock) => {
-    const next = text.split(block.label).join("");
-    pastedBlocksRef.current = pastedBlocksRef.current.filter((x) => x.label !== block.label);
-    setPastedBlocks((prev) => prev.filter((x) => x.label !== block.label));
-    setOpenPastedLabels((prev) => prev.filter((x) => x !== block.label));
-    setTextCaretEnd(next);
-  };
-
-  const expandPastedBlock = (block: PastedBlock) => {
-    const next = text.split(block.label).join(block.text);
-    pastedBlocksRef.current = pastedBlocksRef.current.filter((x) => x.label !== block.label);
-    setPastedBlocks((prev) => prev.filter((x) => x.label !== block.label));
-    setOpenPastedLabels((prev) => prev.filter((x) => x !== block.label));
-    setTextCaretEnd(next);
   };
 
   useEffect(() => {
@@ -1206,7 +1127,7 @@ export function Composer({
     if (!node) return;
     const previousHeight = node.style.height;
     node.style.height = "auto";
-    const maxHeight = composerAutoInputMaxHeight();
+    const maxHeight = composerAutoInputMaxHeight(node);
     const nextHeight = Math.min(node.scrollHeight, maxHeight);
     const nextOverflow = node.scrollHeight > maxHeight + 1;
     node.style.height = previousHeight;
@@ -2076,39 +1997,6 @@ export function Composer({
               </Tooltip>
             </div>
           ))}
-        </div>
-      )}
-      {activePastedBlocks.length > 0 && (
-        <div className="composer__pasted">
-          {activePastedBlocks.map((block) => {
-            const open = openPastedLabels.includes(block.label);
-            return (
-              <div className="composer__pasted-block" key={block.label}>
-                <div className="composer__pasted-head">
-                  <FileText size={15} />
-                  <span className="composer__pasted-label">{block.label}</span>
-                  <div className="composer__pasted-actions">
-                    <Tooltip label={t(open ? "composer.pastedHidePreview" : "composer.pastedShowPreview")}>
-                      <button type="button" onClick={() => togglePastedPreview(block.label)}>
-                        <Eye size={14} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip label={t("composer.pastedExpand")}>
-                      <button type="button" onClick={() => expandPastedBlock(block)}>
-                        {t("composer.pastedExpand")}
-                      </button>
-                    </Tooltip>
-                    <Tooltip label={t("composer.pastedRemove")}>
-                      <button type="button" onClick={() => removePastedBlock(block)}>
-                        <Trash2 size={14} />
-                      </button>
-                    </Tooltip>
-                  </div>
-                </div>
-                {open && <pre className="composer__pasted-preview">{block.text}</pre>}
-              </div>
-            );
-          })}
         </div>
       )}
       <div

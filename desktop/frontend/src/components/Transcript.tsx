@@ -1,7 +1,7 @@
 ﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
 import type { CheckpointMeta, JobView, ProcessDisplayMode } from "../lib/types";
-import { buildTimelineSegments, type TimelineProcessItem } from "../lib/transcriptTimeline";
+import { activityProcessSegmentID, buildTimelineSegments, type TimelineProcessItem } from "../lib/transcriptTimeline";
 import { useLayoutEffect } from "react";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
@@ -120,18 +120,19 @@ function TimelineProcessGroup({
   liveToolID,
   mode,
   completed,
+  open,
+  onOpenChange,
 }: {
   items: TimelineProcessItem[];
   subcalls: ReadonlyMap<string, ToolItem[]>;
   liveToolID: string;
   mode: ProcessDisplayMode;
   completed: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const t = useT();
   const live = useContext(LiveStreamContext);
-  const defaultOpen = mode === "detailed";
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => setOpen(defaultOpen), [defaultOpen]);
   const visible = items.filter(isProcessItem);
   if (visible.length === 0) return null;
 
@@ -161,13 +162,22 @@ function TimelineProcessGroup({
       kind={label}
       meta={running ? <ProcessStatusIcon state="running" label={label} /> : undefined}
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={onOpenChange}
       className={`timeline-process-group${mode === "compact" ? " timeline-process-group--compact" : ""}`}
     >
       <div className="timeline-process-group__details process-activity-rail">
         {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
       </div>
     </ProcessCard>
+  );
+}
+
+function ProcessActivityMark() {
+  return (
+    <div className="process-activity-mark" aria-hidden="true">
+      <span />
+      <span />
+    </div>
   );
 }
 
@@ -270,6 +280,8 @@ function CompletedTurn({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
+  useEffect(() => setProcessOpenOverrides(new Map()), [mode]);
   const tokenLabel = typeof stats.tokens === "number" && stats.tokens > 0
     ? t("process.timeline.tokens", { n: stats.tokens.toLocaleString() })
     : t("process.timeline.tokensPending");
@@ -296,6 +308,7 @@ function CompletedTurn({
                   );
                 }
                 if (segment.kind === "process") {
+                  const segmentOpen = processOpenOverrides.get(segment.id) ?? mode === "detailed";
                   return (
                     <TimelineProcessGroup
                       key={segment.id}
@@ -304,6 +317,12 @@ function CompletedTurn({
                       liveToolID={liveToolID}
                       mode={mode}
                       completed={false}
+                      open={segmentOpen}
+                      onOpenChange={(nextOpen) => setProcessOpenOverrides((current) => {
+                        const next = new Map(current);
+                        next.set(segment.id, nextOpen);
+                        return next;
+                      })}
                     />
                   );
                 }
@@ -337,6 +356,17 @@ interface TurnGroup {
   startIdx: number; // first index in items[] (the user message)
   endIdx: number;   // exclusive end
 }
+
+interface TranscriptStructure {
+  questions: QuestionAnchor[];
+  subcallsByParent: Map<string, ToolItem[]>;
+  turnGroups: TurnGroup[];
+  hotStartIdx: number;
+  contentVersion: string;
+  liveToolID: string;
+}
+
+const transcriptStructureCache = new WeakMap<readonly Item[], TranscriptStructure>();
 
 function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[] {
   const groups: TurnGroup[] = [];
@@ -375,6 +405,45 @@ function buildTurnGroups(items: Item[], questions: QuestionAnchor[]): TurnGroup[
   return groups;
 }
 
+function deriveTranscriptStructure(items: Item[]): TranscriptStructure {
+  const cached = transcriptStructureCache.get(items);
+  if (cached) return cached;
+
+  const questions: QuestionAnchor[] = [];
+  const subcallsByParent = new Map<string, ToolItem[]>();
+  let hotStartIdx = 0;
+  let remainingHotTurns = HOT_TURNS;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index].kind !== "user") continue;
+    remainingHotTurns -= 1;
+    if (remainingHotTurns <= 0) {
+      hotStartIdx = index;
+      break;
+    }
+  }
+  for (const item of items) {
+    if (item.kind === "user") {
+      questions.push({ id: item.id, text: compactQuestionText(item.text), turn: questions.length });
+    }
+    if (item.kind === "tool" && item.parentId) {
+      const calls = subcallsByParent.get(item.parentId) ?? [];
+      calls.push(item);
+      subcallsByParent.set(item.parentId, calls);
+    }
+  }
+
+  const structure: TranscriptStructure = {
+    questions,
+    subcallsByParent,
+    turnGroups: buildTurnGroups(items, questions),
+    hotStartIdx,
+    contentVersion: scrollVersion(items),
+    liveToolID: lastRunningToolID(items),
+  };
+  transcriptStructureCache.set(items, structure);
+  return structure;
+}
+
 function TimelineItems({
   items,
   running,
@@ -389,6 +458,8 @@ function TimelineItems({
   onRewind,
   onEditUserMessage,
   setOpenAction,
+  activityIndicatorEnabled = false,
+  paused = false,
 }: {
   items: readonly Item[];
   running: boolean;
@@ -403,8 +474,13 @@ function TimelineItems({
   onRewind: ((turn: number, scope: string) => void) | undefined;
   onEditUserMessage?: (text: string) => void;
   setOpenAction: (action: OpenTurnAction | null) => void;
+  activityIndicatorEnabled?: boolean;
+  paused?: boolean;
 }) {
   const segments = useMemo(() => buildTimelineSegments(items, running), [items, running]);
+  const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
+  useEffect(() => setProcessOpenOverrides(new Map()), [processDisplayMode]);
+  const activitySegmentID = activityProcessSegmentID(segments, activityIndicatorEnabled, running, paused);
   const nodes: ReactNode[] = [];
   let activeTurn: number | undefined;
   let actionText = "";
@@ -486,6 +562,7 @@ function TimelineItems({
         );
         break;
       case "process":
+        const segmentOpen = processOpenOverrides.get(segment.id) ?? processDisplayMode === "detailed";
         nodes.push(
           <div className="timeline-entry timeline-entry--process" data-transcript-anchor={segment.id} key={segment.id}>
             <TimelineProcessGroup
@@ -494,7 +571,14 @@ function TimelineItems({
               liveToolID={liveToolID}
               mode={processDisplayMode}
               completed={segment.completed}
+              open={segmentOpen}
+              onOpenChange={(nextOpen) => setProcessOpenOverrides((current) => {
+                const next = new Map(current);
+                next.set(segment.id, nextOpen);
+                return next;
+              })}
             />
+            {activitySegmentID === segment.id && <ProcessActivityMark />}
           </div>,
         );
         break;
@@ -525,7 +609,10 @@ export function Transcript({
   actionPending = false,
   rewindDisabled = false,
   questionNavigator = true,
-  processDisplayMode = "standard",
+  processDisplayMode = "compact",
+  activityIndicatorEnabled = false,
+  paused = false,
+  hydrating = false,
   followButton = true,
   jobs = [],
 }: {
@@ -541,6 +628,9 @@ export function Transcript({
   rewindDisabled?: boolean;
   questionNavigator?: boolean;
   processDisplayMode?: ProcessDisplayMode;
+  activityIndicatorEnabled?: boolean;
+  paused?: boolean;
+  hydrating?: boolean;
   followButton?: boolean;
   jobs?: JobView[];
 }) {
@@ -581,16 +671,8 @@ export function Transcript({
     captureViewportAnchor(el);
   }, [captureViewportAnchor]);
 
-  const questions = useMemo<QuestionAnchor[]>(() => {
-    const anchors: QuestionAnchor[] = [];
-    let turn = 0;
-    for (const it of items) {
-      if (it.kind !== "user") continue;
-      anchors.push({ id: it.id, text: compactQuestionText(it.text), turn });
-      turn += 1;
-    }
-    return anchors;
-  }, [items]);
+  const structure = useMemo(() => deriveTranscriptStructure(items), [items]);
+  const { questions, subcallsByParent, turnGroups, hotStartIdx, contentVersion, liveToolID } = structure;
   const showQuestionNav = questionNavigator && questions.length >= QUESTION_NAV_MIN_COUNT;
 
   const updateActiveJumpTurn = useCallback((el: HTMLDivElement | null) => {
@@ -668,7 +750,6 @@ export function Transcript({
     prevQuestionsLen.current = questions.length;
   }, [questions, updateActiveJumpTurn, updateFollowButton]);
 
-  const contentVersion = useMemo(() => scrollVersion(items), [items]);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -719,38 +800,12 @@ export function Transcript({
 
   // Sub-agent calls carry a parentId; collect them under their parent `task`
   // call so the parent card can render them nested, and skip them at top level.
-  const subcallsByParent = useMemo(() => {
-    const m = new Map<string, ToolItem[]>();
-    for (const it of items) {
-      if (it.kind === "tool" && it.parentId) {
-        const arr = m.get(it.parentId) ?? [];
-        arr.push(it);
-        m.set(it.parentId, arr);
-      }
-    }
-    return m;
-  }, [items]);
-  const liveToolID = useMemo(() => lastRunningToolID(items), [items]);
   const backgroundJobs = useMemo(() => jobs.filter((job) => job.status === "running"), [jobs]);
   // Layer state
   const [expandedWarmTurns, setExpandedWarmTurns] = useState<Set<number>>(new Set());
   const [coldPage, setColdPage] = useState(0);
   // Compute turn groups (memoized; only rebuilds when user turns change,
   // not on every streaming token). The warm previews are static once built.
-  const turnGroupKey = questions.length;
-  const turnGroups = useMemo(() => buildTurnGroups(items, questions), [turnGroupKey, questions]);
-
-  // hotStartIdx: first index of the hot zone in items[].
-  const hotStartIdx = useMemo(() => {
-    let needed = HOT_TURNS;
-    for (let i = items.length - 1; i >= 0; i--) {
-      if (items[i].kind === "user") {
-        needed--;
-        if (needed <= 0) return i;
-      }
-    }
-    return 0;
-  }, [items]);
 
   // How many turns are in the cold zone (not yet shown).
   const warmTurnCount = turnGroups.length - Math.min(turnGroups.length, HOT_TURNS);
@@ -810,7 +865,7 @@ export function Transcript({
   return (
     <div className="transcript-shell">
       <div
-        className={`transcript${empty ? " transcript--empty" : ""}`}
+        className={`transcript${empty ? " transcript--empty" : ""}${hydrating ? " transcript--hydrating" : ""}`}
         ref={scrollRef}
         onScroll={onScroll}
         onWheel={(event) => { if (event.deltaY < 0 || !isAtBottom(event.currentTarget)) leaveFollowMode(); }}
@@ -872,6 +927,8 @@ export function Transcript({
               onRewind={onRewind}
               onEditUserMessage={onEditUserMessage}
               setOpenAction={setOpenAction}
+              activityIndicatorEnabled={activityIndicatorEnabled}
+              paused={paused}
             />
             {backgroundJobs.length > 0 && <BackgroundJobsCard jobs={backgroundJobs} />}
           </LiveStreamContext.Provider>
@@ -913,7 +970,7 @@ const WarmZone = memo(function WarmZone({
   warmOnRewind,
   warmOnEditUserMessage,
   warmSetOpenAction,
-  processDisplayMode = "standard",
+  processDisplayMode = "compact",
   liveToolID = "",
   onToggleColdPage,
   onToggleWarmTurn,
@@ -1036,7 +1093,7 @@ function WarmTurnItems({
   onRewind,
   onEditUserMessage,
   setOpenAction,
-  processDisplayMode = "standard",
+  processDisplayMode = "compact",
   liveToolID = "",
 }: {
   startIdx: number;

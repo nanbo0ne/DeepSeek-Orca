@@ -626,7 +626,7 @@ export interface AssistantMemorySettings {
   assistantMemoryRecallEnabled: boolean;
 }
 
-export type ProcessDisplayMode = "compact" | "standard" | "detailed";
+export type ProcessDisplayMode = "compact" | "detailed";
 
 // SettingsTab is the top-level navigation item in the Settings Centre modal.
 export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "permissions" | "sandbox" | "network" | "appearance";
@@ -845,6 +845,7 @@ export interface SettingsView {
   checkUpdates: boolean;
   expandThinking: boolean; // show reasoning text expanded by default
   processDisplayMode: ProcessDisplayMode;
+  activityIndicatorEnabled: boolean;
   visionEnabled: boolean;
   visionMode: VisionMode;
   configPath: string;

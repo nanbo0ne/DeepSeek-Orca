@@ -78,6 +78,8 @@ function splitLeadingReasoningBlock(text: string): { reasoning: string; text: st
 
 interface State {
   items: Item[];
+  loading: boolean;
+  hydrating: boolean;
   running: boolean;
   turnActive: boolean;
   approval?: WireApproval;
@@ -107,6 +109,8 @@ interface State {
 
 export const initialState: State = {
   items: [],
+  loading: false,
+  hydrating: false,
   running: false,
   turnActive: false,
   context: { used: 0, window: 0, sessionTokens: 0 },
@@ -186,6 +190,9 @@ type Action =
   | { type: "message_action_start"; action: MessageActionState }
   | { type: "message_action_done" }
   | { type: "history"; messages: HistoryMessage[] }
+  | { type: "session_load_start"; hydrating: boolean }
+  | { type: "session_primary_loaded" }
+  | { type: "session_hydrated" }
   | { type: "local_notice"; level: "info" | "warn"; text: string }
   | { type: "steer_sent"; text: string }
   | { type: "clearApproval" }
@@ -565,6 +572,9 @@ export function reducer(s: State, a: Action): State {
       const { items, seq } = historyMessagesToItems(a.messages, "h", s.seq);
       return { ...s, items, seq };
     }
+    case "session_load_start": return { ...s, loading: true, hydrating: a.hydrating };
+    case "session_primary_loaded": return { ...s, loading: false };
+    case "session_hydrated": return s.hydrating ? { ...s, hydrating: false } : s;
     case "local_notice": return { ...s, running: false, turnActive: false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: a.level, text: a.text }] };
     case "steer_sent": {
       const text = a.text.trim();
@@ -616,6 +626,20 @@ function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return String(err || "");
+}
+
+function afterNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(fallback);
+      resolve();
+    };
+    const fallback = window.setTimeout(finish, 50);
+    window.requestAnimationFrame(finish);
+  });
 }
 
 async function refreshMetaForTab(tabId: string, dispatchTo: (tabId: string, action: Action) => void): Promise<void> {
@@ -729,26 +753,40 @@ export function useController() {
   const loadSessionDataForTab = useCallback(async (tabId: string, reset = false) => {
     const seq = bumpSessionLoadSeq(tabId);
     const safe = <T,>(p: Promise<T>): Promise<T | undefined> => p.catch(() => undefined);
-    const [meta, context, effort, jobs, checkpoints, history] = await Promise.all([
-      safe(app.MetaForTab(tabId)),
-      safe(app.ContextUsageForTab(tabId)),
-      safe(app.EffortForTab(tabId)),
-      safe(app.JobsForTab(tabId)),
-      safe(app.CheckpointsForTab(tabId)),
-      safe(app.HistoryForTab(tabId)),
-    ]);
-    if (!sessionLoadCurrent(tabId, seq)) return;
     if (reset) dispatchTo(tabId, { type: "reset" });
-    if (meta) dispatchTo(tabId, { type: "meta", meta });
-    if (context) dispatchTo(tabId, { type: "context", context });
-    if (effort) dispatchTo(tabId, { type: "effort", effort });
-    if (jobs) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
-    if (checkpoints) dispatchTo(tabId, { type: "checkpoints", checkpoints: asArray(checkpoints) });
-    const messages = asArray(history);
-    if (messages.length) dispatchTo(tabId, { type: "history", messages });
+    const current = statesRef.current.get(tabId);
+    dispatchTo(tabId, { type: "session_load_start", hydrating: reset || !current || current.items.length === 0 });
+
+    // Meta and history are the only first-paint dependencies. Each is applied
+    // as soon as it arrives so a slow auxiliary endpoint cannot delay the chat.
+    const metaLoad = safe(app.MetaForTab(tabId)).then((meta) => {
+      if (meta && sessionLoadCurrent(tabId, seq)) dispatchTo(tabId, { type: "meta", meta });
+    });
+    const historyLoad = safe(app.HistoryForTab(tabId)).then((history) => {
+      if (history !== undefined && sessionLoadCurrent(tabId, seq)) {
+        dispatchTo(tabId, { type: "history", messages: asArray(history) });
+      }
+    });
+    await Promise.all([metaLoad, historyLoad]);
+    if (!sessionLoadCurrent(tabId, seq)) return;
+    dispatchTo(tabId, { type: "session_primary_loaded" });
+    window.requestAnimationFrame(() => {
+      if (sessionLoadCurrent(tabId, seq)) dispatchTo(tabId, { type: "session_hydrated" });
+    });
+
+    // Auxiliary status hydrates independently after the transcript is usable.
+    void safe(app.EffortForTab(tabId)).then((effort) => {
+      if (effort && sessionLoadCurrent(tabId, seq)) dispatchTo(tabId, { type: "effort", effort });
+    });
+    void safe(app.JobsForTab(tabId)).then((jobs) => {
+      if (jobs && sessionLoadCurrent(tabId, seq)) dispatchTo(tabId, { type: "jobs", jobs: asArray(jobs) });
+    });
+    void safe(app.CheckpointsForTab(tabId)).then((checkpoints) => {
+      if (checkpoints && sessionLoadCurrent(tabId, seq)) dispatchTo(tabId, { type: "checkpoints", checkpoints: asArray(checkpoints) });
+    });
     refreshBalanceForTab(tabId);
-    await refreshContextForTab(tabId);
-  }, [bumpSessionLoadSeq, dispatchTo, refreshBalanceForTab, refreshContextForTab, sessionLoadCurrent]);
+    requestContextRefresh(tabId);
+  }, [bumpSessionLoadSeq, dispatchTo, refreshBalanceForTab, requestContextRefresh, sessionLoadCurrent]);
 
   const activeTabFromBackend = useCallback(async (): Promise<TabMeta | undefined> => {
     const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
@@ -1182,26 +1220,35 @@ export function useController() {
 
   const openProjectTab = useCallback(async (workspaceRoot: string, topicId: string): Promise<TabMeta> => {
     const meta = await app.OpenProjectTab(workspaceRoot, topicId);
+    const reset = !statesRef.current.has(meta.id);
+    dispatchTo(meta.id, { type: "session_load_start", hydrating: reset });
     setActiveTabId(meta.id);
-    await loadSessionDataForTab(meta.id, !statesRef.current.has(meta.id));
+    await afterNextPaint();
+    await loadSessionDataForTab(meta.id, reset);
     return meta;
-  }, [loadSessionDataForTab]);
+  }, [dispatchTo, loadSessionDataForTab]);
 
   const openGlobalTab = useCallback(async (topicId: string): Promise<TabMeta> => {
     const meta = await app.OpenGlobalTab(topicId);
+    const reset = !statesRef.current.has(meta.id);
+    dispatchTo(meta.id, { type: "session_load_start", hydrating: reset });
     setActiveTabId(meta.id);
-    await loadSessionDataForTab(meta.id, !statesRef.current.has(meta.id));
+    await afterNextPaint();
+    await loadSessionDataForTab(meta.id, reset);
     return meta;
-  }, [loadSessionDataForTab]);
+  }, [dispatchTo, loadSessionDataForTab]);
 
   // Ensure a blank tab exists for the given scope — reuses an existing one
   // or creates a new tab, then loads its session data.
   const ensureBlankTab = useCallback(async (scope: string, workspaceRoot: string): Promise<TabMeta> => {
     const meta = await app.EnsureBlankTab(scope, workspaceRoot);
+    const reset = !statesRef.current.has(meta.id);
+    dispatchTo(meta.id, { type: "session_load_start", hydrating: reset });
     setActiveTabId(meta.id);
-    await loadSessionDataForTab(meta.id, !statesRef.current.has(meta.id));
+    await afterNextPaint();
+    await loadSessionDataForTab(meta.id, reset);
     return meta;
-  }, [loadSessionDataForTab]);
+  }, [dispatchTo, loadSessionDataForTab]);
 
   const closeTab = useCallback(async (tabId: string) => {
     try {

@@ -199,20 +199,29 @@ func (c *Config) SetExpandThinking(on bool) error {
 	if on {
 		c.Desktop.ProcessDisplayMode = ProcessDisplayDetailed
 	} else {
-		c.Desktop.ProcessDisplayMode = ProcessDisplayStandard
+		c.Desktop.ProcessDisplayMode = ProcessDisplayCompact
 	}
 	return nil
 }
 
 func (c *Config) SetProcessDisplayMode(mode string) error {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case ProcessDisplayCompact, ProcessDisplayStandard, ProcessDisplayDetailed:
+	case ProcessDisplayCompact, ProcessDisplayDetailed:
 		c.Desktop.ProcessDisplayMode = strings.ToLower(strings.TrimSpace(mode))
 		c.Desktop.ExpandThinking = c.Desktop.ProcessDisplayMode == ProcessDisplayDetailed
 		return nil
+	case ProcessDisplayStandard:
+		c.Desktop.ProcessDisplayMode = ProcessDisplayCompact
+		c.Desktop.ExpandThinking = c.Desktop.ProcessDisplayMode == ProcessDisplayDetailed
+		return nil
 	default:
-		return fmt.Errorf("process display mode %q: must be compact|standard|detailed", mode)
+		return fmt.Errorf("process display mode %q: must be compact|detailed", mode)
 	}
+}
+
+func (c *Config) SetActivityIndicatorEnabled(enabled bool) error {
+	c.Desktop.ActivityIndicator = enabled
+	return nil
 }
 
 func (c *Config) SetVisionEnabled(enabled bool) error {

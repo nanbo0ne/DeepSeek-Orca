@@ -550,7 +550,8 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     checkUpdates: view.checkUpdates !== false,
     processDisplayMode: view.processDisplayMode === "compact" || view.processDisplayMode === "detailed"
       ? view.processDisplayMode
-      : view.expandThinking ? "detailed" : "standard",
+      : view.expandThinking ? "detailed" : "compact",
+    activityIndicatorEnabled: Boolean(view.activityIndicatorEnabled),
     visionEnabled: Boolean(view.visionEnabled),
     visionMode: view.visionMode === "off" || view.visionMode === "on"
       ? view.visionMode
@@ -662,7 +663,7 @@ function GeneralSection({ s, busy, apply }: SectionProps) {
       </SettingsField>
       <SettingsField label={t("settings.processDisplay")} hint={t("settings.processDisplayHint")}>
         <div className="set-seg">
-          {(["compact", "standard", "detailed"] as ProcessDisplayMode[]).map((mode) => (
+          {(["compact", "detailed"] as ProcessDisplayMode[]).map((mode) => (
             <button
               key={mode}
               className={`set-seg__btn${s.processDisplayMode === mode ? " set-seg__btn--on" : ""}`}
@@ -673,6 +674,13 @@ function GeneralSection({ s, busy, apply }: SectionProps) {
             </button>
           ))}
         </div>
+      </SettingsField>
+      <SettingsField label={t("settings.activityIndicator")} hint={t("settings.activityIndicatorHint")}>
+        <ToggleSegment
+          value={s.activityIndicatorEnabled}
+          disabled={busy}
+          onChange={(enabled) => void apply(() => app.SetActivityIndicatorEnabled(enabled))}
+        />
       </SettingsField>
       <SettingsField label={t("settings.autoPlan")}>
         <div className="set-seg">

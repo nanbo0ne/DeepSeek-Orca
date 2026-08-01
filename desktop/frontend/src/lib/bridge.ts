@@ -240,6 +240,7 @@ export interface AppBindings {
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
   SetProcessDisplayMode(mode: string): Promise<void>;
+  SetActivityIndicatorEnabled(enabled: boolean): Promise<void>;
   SetVisionEnabled(enabled: boolean): Promise<void>;
   SetVisionMode(mode: string): Promise<void>;
   GetVisionCapabilities(): Promise<VisionCapability[]>;
@@ -728,7 +729,8 @@ function makeMockApp(): AppBindings {
     closeBehavior: "background",
     checkUpdates: true,
     expandThinking: false,
-    processDisplayMode: "standard",
+    processDisplayMode: "compact",
+    activityIndicatorEnabled: false,
     visionEnabled: false,
     visionMode: "auto",
     configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
@@ -2208,11 +2210,14 @@ function makeMockApp(): AppBindings {
         },
         async SetExpandThinking(on: boolean) {
           settings.expandThinking = on;
-          settings.processDisplayMode = on ? "detailed" : "standard";
+          settings.processDisplayMode = on ? "detailed" : "compact";
         },
         async SetProcessDisplayMode(mode: string) {
-          settings.processDisplayMode = mode === "compact" || mode === "detailed" ? mode : "standard";
+          settings.processDisplayMode = mode === "detailed" ? "detailed" : "compact";
           settings.expandThinking = settings.processDisplayMode === "detailed";
+        },
+        async SetActivityIndicatorEnabled(enabled: boolean) {
+          settings.activityIndicatorEnabled = enabled;
         },
         async SetVisionEnabled(enabled: boolean) {
           settings.visionEnabled = enabled;

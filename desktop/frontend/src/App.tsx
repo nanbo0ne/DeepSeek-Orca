@@ -511,6 +511,7 @@ export default function App() {
     rewind,
     setModel,
     setEffort,
+    switchTab,
     openProjectTab,
     openGlobalTab,
     syncActiveTab,
@@ -533,6 +534,7 @@ export default function App() {
   const [goalsByTab, setGoalsByTab] = useState<Record<string, string>>({});
   const [goalDraftModesByTab, setGoalDraftModesByTab] = useState<Record<string, boolean>>({});
   const [tabMetas, setTabMetas] = useState<TabMeta[]>([]);
+  const [pendingTopic, setPendingTopic] = useState<{ scope: string; workspaceRoot: string; topicId: string } | null>(null);
   const [startupSplashVisible, setStartupSplashVisible] = useState<boolean>(() => shouldShowStartupSplash());
   // null until the mount probe resolves; true shows the overlay. Probed once —
   // clearing the key mid-session is the Settings panel's job, not the gate's.
@@ -568,7 +570,8 @@ export default function App() {
   const [composerInsertRequest, setComposerInsertRequest] = useState<ComposerInsertRequest | null>(null);
   const [transientOverlayDismissSignal, setTransientOverlayDismissSignal] = useState(0);
   const [desktopPlatform, setDesktopPlatform] = useState<DesktopPlatform>(detectBrowserPlatform);
-  const [processDisplayMode, setProcessDisplayMode] = useState<ProcessDisplayMode>("standard");
+  const [processDisplayMode, setProcessDisplayMode] = useState<ProcessDisplayMode>("compact");
+  const [activityIndicatorEnabled, setActivityIndicatorEnabled] = useState(false);
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
   const [topicTitleDraft, setTopicTitleDraft] = useState("");
   const [topicExportOpen, setTopicExportOpen] = useState(false);
@@ -698,14 +701,15 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking" | "checkUpdates">) => {
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking" | "activityIndicatorEnabled" | "checkUpdates">) => {
       void settings.desktopTheme;
       void settings.desktopThemeStyle;
       applyTheme("light", "slate", { persist: false });
       setLocalePref(normalizeLangPref(settings.desktopLanguage));
       setProcessDisplayMode(settings.processDisplayMode === "compact" || settings.processDisplayMode === "detailed"
         ? settings.processDisplayMode
-        : settings.expandThinking ? "detailed" : "standard");
+        : settings.expandThinking ? "detailed" : "compact");
+      setActivityIndicatorEnabled(Boolean(settings.activityIndicatorEnabled));
       setCheckUpdatesEnabled(settings.checkUpdates !== false);
     },
     [setLocalePref],
@@ -2052,13 +2056,25 @@ export default function App() {
 
   const handleOpenTopic = useCallback(async (scope: string, workspaceRoot: string, topicId: string) => {
     closeTransientOverlays();
-    if (scope === "global") {
-      await openGlobalTab(topicId);
-    } else {
-      await openProjectTab(workspaceRoot, topicId);
+    const existing = tabMetas.find((tab) =>
+      tab.topicId === topicId &&
+      tab.scope === scope &&
+      (scope === "global" || tab.workspaceRoot === workspaceRoot),
+    );
+    if (existing) {
+      await switchTab(existing.id);
+      void refreshTabMetas();
+      return;
     }
-    await refreshTabMetas();
-  }, [closeTransientOverlays, openGlobalTab, openProjectTab, refreshTabMetas]);
+    setPendingTopic({ scope, workspaceRoot, topicId });
+    try {
+      if (scope === "global") await openGlobalTab(topicId);
+      else await openProjectTab(workspaceRoot, topicId);
+      await refreshTabMetas();
+    } finally {
+      setPendingTopic((current) => current?.topicId === topicId ? null : current);
+    }
+  }, [closeTransientOverlays, openGlobalTab, openProjectTab, refreshTabMetas, switchTab, tabMetas]);
 
   // History drawer: project menus can open a scoped saved-session list. Idle row
   // clicks resume; running row clicks only preview through PreviewSession.
@@ -2498,9 +2514,10 @@ export default function App() {
 
           <section className="sidebar__section sidebar__section--projects">
             <ProjectTree
-              activeScope={activeTab?.scope}
-              activeWorkspaceRoot={activeTab?.workspaceRoot}
-              activeTopicId={activeTab?.topicId}
+              activeScope={pendingTopic?.scope ?? activeTab?.scope}
+              activeWorkspaceRoot={pendingTopic?.workspaceRoot ?? activeTab?.workspaceRoot}
+              activeTopicId={pendingTopic?.topicId ?? activeTab?.topicId}
+              loadingTopicId={pendingTopic?.topicId}
               onOpenTopic={handleOpenTopic}
               onOpenProjectHistory={openProjectHistory}
               onCreateTopic={(scope, workspaceRoot) => openBlankSession(scope, scope === "project" ? workspaceRoot : "")}
@@ -2716,7 +2733,7 @@ export default function App() {
           )}
 
           <main className="main">
-            {state.meta?.ready === false && !state.meta?.startupErr ? (
+            {(state.loading && !state.meta) || (state.meta?.ready === false && !state.meta?.startupErr) ? (
               <div className="loading-screen">
                 <div className="loading-screen__spinner" />
                 <span className="loading-screen__text">{t("common.loading")}</span>
@@ -2734,6 +2751,9 @@ export default function App() {
                 actionPending={state.messageAction != null}
                 rewindDisabled={state.running || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
                 processDisplayMode={processDisplayMode}
+                activityIndicatorEnabled={activityIndicatorEnabled}
+                paused={Boolean(state.meta?.paused)}
+                hydrating={state.hydrating}
                 jobs={state.jobs}
               />
             )}

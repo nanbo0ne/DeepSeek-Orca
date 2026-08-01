@@ -6,11 +6,11 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.29)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.30)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -55,11 +55,11 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 计划、Todo、目标与过程展示
 
-计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时向上展开，也可以点击固定，不会推挤输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示有精简、标准、详细三档，用于控制运行中和手动展开后的信息密度；思考、工具、通知和 subagent 使用扁平的时间活动轨道，不再层层嵌套白色卡片。
+计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时向上展开，也可以点击固定，不会推挤输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示提供精简、详细两档并默认精简；精简过程条可反复展开和收拢。思考、工具、通知和 subagent 使用扁平的时间活动轨道，不再层层嵌套白色卡片。用户还可开启默认关闭的主题蓝动态运行标志，它固定显示在当前最后一个过程条目的下方左侧，并在暂停或结束后消失。
 
 成功完成的回合会自动收起，只保留用户消息、`已处理 ...` 行和最终回答。点击耗时行会按原始顺序恢复全部中间过程，并在顶部显示 token；失败、取消、中断和仍在运行的回合保持展开，方便排查。
 
-对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。后台任务完成只更新状态，不会偷偷创建新的模型轮次。
+对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。切换长会话时优先显示历史，再在后台补齐上下文、任务、检查点和余额，并复用已计算的时间线。后台任务完成只更新状态，不会偷偷创建新的模型轮次。粘贴文本会直接进入输入框，输入框在十行内随内容自动增高，超过后再滚动。
 
 ### 自动化与远程连接
 

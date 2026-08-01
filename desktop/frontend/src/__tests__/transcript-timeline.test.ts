@@ -1,5 +1,5 @@
 import { initialState, reducer, type Item } from "../lib/useController";
-import { buildTimelineSegments, timelineKinds } from "../lib/transcriptTimeline";
+import { activityProcessSegmentID, buildTimelineSegments, timelineKinds } from "../lib/transcriptTimeline";
 
 let failed = 0;
 
@@ -118,6 +118,14 @@ equal(
   lastCompletedProcess?.kind === "process" ? lastCompletedProcess.completed : undefined,
   false,
 );
+equal(
+  "activity mark follows the latest process segment",
+  activityProcessSegmentID(runningSegments, true, true, false),
+  lastRunningProcess?.kind === "process" ? lastRunningProcess.id : undefined,
+);
+equal("disabled activity mark stays hidden", activityProcessSegmentID(runningSegments, false, true, false), undefined);
+equal("paused activity mark stays hidden", activityProcessSegmentID(runningSegments, true, true, true), undefined);
+equal("completed activity mark stays hidden", activityProcessSegmentID(completedSegments, true, false, false), undefined);
 
 const active = reducer(initialState, { type: "event", e: { kind: "turn_started" } });
 const done = reducer(active, { type: "event", e: { kind: "turn_done" } });

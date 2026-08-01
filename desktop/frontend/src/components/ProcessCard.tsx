@@ -136,13 +136,19 @@ export function ProcessCard({
     onOpenChange?.(next);
   };
 
+  const closeFromKeyboard = () => {
+    if (!hasBody || !actualOpen) return;
+    if (open === undefined) setInternalOpen(false);
+    onOpenChange?.(false);
+  };
+
   return (
     <div className={`process-card${className ? ` ${className}` : ""}`} data-tone={tone} data-open={actualOpen} data-has-body={hasBody}>
       <button
         type="button"
         className="process-card__head"
         onClick={toggle}
-        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); toggle(); } }}
+        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); closeFromKeyboard(); } }}
         aria-expanded={hasBody ? actualOpen : undefined}
       >
         <span className="process-card__icon">{icon}</span>
@@ -156,8 +162,8 @@ export function ProcessCard({
           </span>
         )}
       </button>
-      {hasBody && (
-        <div className="process-card__wrap" aria-hidden={!actualOpen}>
+      {hasBody && actualOpen && (
+        <div className="process-card__wrap">
           <div>
             <div className="process-card__body">{children}</div>
           </div>
