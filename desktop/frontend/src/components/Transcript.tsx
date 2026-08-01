@@ -1,7 +1,7 @@
 ﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
 import type { CheckpointMeta, JobView, ProcessDisplayMode } from "../lib/types";
-import { activityProcessSegmentID, buildTimelineSegments, type TimelineProcessItem } from "../lib/transcriptTimeline";
+import { activityIndicatorPhase, buildTimelineSegments, type ActivityIndicatorPhase, type TimelineProcessItem } from "../lib/transcriptTimeline";
 import { useLayoutEffect } from "react";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
@@ -172,11 +172,10 @@ function TimelineProcessGroup({
   );
 }
 
-function ProcessActivityMark() {
+function ProcessActivityMark({ phase }: { phase: ActivityIndicatorPhase }) {
   return (
-    <div className="process-activity-mark" aria-hidden="true">
-      <span />
-      <span />
+    <div className={`process-activity-mark process-activity-mark--${phase}`} aria-hidden="true">
+      <span className="process-activity-spinner" />
     </div>
   );
 }
@@ -480,7 +479,7 @@ function TimelineItems({
   const segments = useMemo(() => buildTimelineSegments(items, running), [items, running]);
   const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
   useEffect(() => setProcessOpenOverrides(new Map()), [processDisplayMode]);
-  const activitySegmentID = activityProcessSegmentID(segments, activityIndicatorEnabled, running, paused);
+  const activityPhase = activityIndicatorPhase(items, activityIndicatorEnabled, running, paused);
   const nodes: ReactNode[] = [];
   let activeTurn: number | undefined;
   let actionText = "";
@@ -578,7 +577,6 @@ function TimelineItems({
                 return next;
               })}
             />
-            {activitySegmentID === segment.id && <ProcessActivityMark />}
           </div>,
         );
         break;
@@ -590,6 +588,13 @@ function TimelineItems({
         );
         break;
     }
+  }
+  if (activityPhase) {
+    nodes.push(
+      <div className="timeline-entry timeline-entry--activity" data-transcript-anchor="current-turn-activity" key="current-turn-activity">
+        <ProcessActivityMark phase={activityPhase} />
+      </div>,
+    );
   }
   pushTurnActions(!running);
   return nodes;

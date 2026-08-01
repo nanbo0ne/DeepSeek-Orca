@@ -672,7 +672,7 @@ export const zh: Record<DictKey, string> = {
   "settings.processDisplay.compact": "精简",
   "settings.processDisplay.detailed": "详细",
   "settings.activityIndicator": "动态运行标志",
-  "settings.activityIndicatorHint": "在当前过程末尾显示主题蓝的动态双方块，默认关闭。",
+  "settings.activityIndicatorHint": "在当前回合末尾显示主题蓝的旋转加载标志，默认关闭。",
   "settings.visionEnabled": "多模态识图",
   "settings.visionEnabledHint": "自动模式只向确认支持视觉的模型发送图片；检测会产生一次很小的模型请求。",
   "settings.visionMode.off": "关闭",

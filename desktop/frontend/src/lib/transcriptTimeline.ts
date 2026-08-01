@@ -134,18 +134,29 @@ export function buildTimelineSegments(items: readonly Item[], running: boolean):
   return out;
 }
 
-export function activityProcessSegmentID(
-  segments: readonly TimelineSegment[],
+export type ActivityIndicatorPhase = "model" | "tool";
+
+export function activityIndicatorPhase(
+  items: readonly Item[],
   enabled: boolean,
   running: boolean,
   paused: boolean,
-): string | undefined {
+): ActivityIndicatorPhase | undefined {
   if (!enabled || !running || paused) return undefined;
-  for (let index = segments.length - 1; index >= 0; index -= 1) {
-    const segment = segments[index];
-    if (segment.kind === "process" && !segment.completed) return segment.id;
+
+  let turnStart = 0;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index].kind === "user") {
+      turnStart = index;
+      break;
+    }
   }
-  return undefined;
+  for (let index = items.length - 1; index >= turnStart; index -= 1) {
+    const item = items[index];
+    if (item.kind === "tool" && item.status === "running") return "tool";
+    if (item.kind === "compaction" && item.pending) return "tool";
+  }
+  return "model";
 }
 
 export function timelineKinds(segments: readonly TimelineSegment[]): string[] {

@@ -2373,11 +2373,17 @@ a[href] {
   color: var(--fg-dim);
 }
 .process-activity-mark {
-  position: relative;
-  width: 28px;
-  height: 10px;
-  margin: -1px 0 8px 18px;
-  overflow: hidden;
+  --activity-spinner-color: var(--accent);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 18px;
+  margin: 1px 0 9px;
+  opacity: 0.92;
+  animation: process-activity-fade-in 0.16s ease-out both;
+}
+.timeline-entry--user + .timeline-entry--activity {
+  margin-top: -30px;
 }
 
 /* Restored history should appear immediately, without replaying every message
@@ -2389,35 +2395,41 @@ a[href] {
   animation: none !important;
   transition: none !important;
 }
-.process-activity-mark > span {
-  position: absolute;
-  top: 3px;
-  width: 5px;
-  height: 5px;
-  border-radius: 1px;
-  background: var(--accent);
-  animation: process-activity-left 0.9s ease-in-out infinite alternate;
+.process-activity-mark--tool {
+  --activity-spinner-color: color-mix(in srgb, var(--accent) 66%, var(--fg-faint));
 }
-.process-activity-mark > span:first-child {
-  left: 0;
+.process-activity-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 12deg,
+    transparent 0deg 38deg,
+    color-mix(in srgb, var(--activity-spinner-color) 18%, transparent) 92deg,
+    color-mix(in srgb, var(--activity-spinner-color) 52%, transparent) 206deg,
+    var(--activity-spinner-color) 332deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  animation: process-activity-spin 0.78s linear infinite;
 }
-.process-activity-mark > span:last-child {
-  right: 0;
-  background: color-mix(in srgb, var(--accent) 58%, #ffffff);
-  animation-name: process-activity-right;
+.process-activity-mark--tool .process-activity-spinner {
+  animation-direction: reverse;
+  animation-duration: 0.92s;
 }
-@keyframes process-activity-left {
-  to { transform: translateX(18px); }
+@keyframes process-activity-spin {
+  to { transform: rotate(1turn); }
 }
-@keyframes process-activity-right {
-  to { transform: translateX(-18px); }
+@keyframes process-activity-fade-in {
+  from { opacity: 0; }
+  to { opacity: 0.92; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .process-activity-mark > span {
+  .process-activity-mark,
+  .process-activity-spinner {
     animation: none;
   }
-  .process-activity-mark > span:first-child { left: 5px; }
-  .process-activity-mark > span:last-child { right: 5px; }
 }
 .turn-stats-row {
   margin: 4px 0 8px;

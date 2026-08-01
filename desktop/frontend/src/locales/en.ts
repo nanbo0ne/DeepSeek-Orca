@@ -670,7 +670,7 @@ export const en = {
   "settings.processDisplay.compact": "Compact",
   "settings.processDisplay.detailed": "Detailed",
   "settings.activityIndicator": "Animated activity mark",
-  "settings.activityIndicatorHint": "Show a theme-blue two-block activity mark below the latest process item. Off by default.",
+  "settings.activityIndicatorHint": "Show a theme-blue rotating activity indicator below the current turn. Off by default.",
   "settings.visionEnabled": "Multimodal vision",
   "settings.visionEnabledHint": "Auto sends images only to models confirmed to support vision. Probing uses one very small model request.",
   "settings.visionMode.off": "Off",

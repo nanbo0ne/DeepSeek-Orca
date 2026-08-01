@@ -4,7 +4,7 @@
 
 - Reduced process presentation to Compact and Detailed, made Compact the default, and migrated legacy Standard or collapsed-thinking settings to Compact.
 - Fixed compact process rows so stable segment IDs preserve explicit open/closed state across streaming updates and closed details leave no residual layout or hit area.
-- Added an optional, off-by-default OpenCode-style two-block activity mark below the latest process row, including pause/completion handling and reduced-motion support.
+- Added an optional, off-by-default blue spinner below the current turn. It rotates clockwise for model activity and counterclockwise for tool activity, with pause/completion handling and reduced-motion support.
 - Removed the full-width footer surface behind Todo, plan, approval, queued prompt, and context cards while retaining normal-flow height and individual card surfaces.
 - Split conversation loading into first-paint meta/history and background auxiliary hydration, added immediate switching for already-open topics, cached transcript derivations, and suppressed restored-history entrance replay.
 - Changed plain-text paste to remain direct editable text and made the Composer grow automatically for up to ten lines before scrolling.

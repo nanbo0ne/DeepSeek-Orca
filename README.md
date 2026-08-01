@@ -62,7 +62,7 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 - Todo uses a compact centered progress control that expands upward on hover or keyboard focus and can be pinned without pushing the composer.
 - Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
 - Process display offers Compact and Detailed levels, with Compact as the default. Reasoning, tools, notices, and subagents use a flat chronological activity rail instead of nested cards; compact rows can be repeatedly expanded and collapsed.
-- An optional, off-by-default theme-blue activity mark can appear below the latest process row. It stays out of message text, respects reduced-motion settings, and disappears when work pauses or ends.
+- An optional, off-by-default theme-blue spinner can appear below the current turn. It rotates clockwise while the model is active and counterclockwise while tools are running, respects reduced-motion settings, and disappears when work pauses or ends.
 - A successfully completed turn automatically collapses to its user message, elapsed-time row, and final answer. Expanding the elapsed row restores every intermediate event in its original order and shows token usage; failed, cancelled, interrupted, and active turns stay open for diagnosis.
 - The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
 - Conversation switches reuse cached transcript structure, paint history before auxiliary status, and skip replaying entrance animations for restored messages. Plain-text paste remains directly editable, and the composer grows automatically for up to ten lines before scrolling.

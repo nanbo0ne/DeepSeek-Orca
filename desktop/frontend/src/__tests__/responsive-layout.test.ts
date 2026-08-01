@@ -93,8 +93,11 @@ check(
 check(
   css.includes(".process-activity-mark") &&
     css.includes("prefers-reduced-motion: reduce") &&
-    transcript.includes("activityProcessSegmentID(segments, activityIndicatorEnabled, running, paused)"),
-  "optional activity mark is reduced-motion safe and anchored to the latest process segment",
+    css.includes("process-activity-mark--tool") &&
+    css.includes("animation-direction: reverse") &&
+    transcript.includes("activityIndicatorPhase(items, activityIndicatorEnabled, running, paused)") &&
+    transcript.includes("timeline-entry--activity"),
+  "optional activity spinner is direction-aware, reduced-motion safe, and follows the current turn",
 );
 check(
   css.includes(".footer {\n  position: relative;") &&
