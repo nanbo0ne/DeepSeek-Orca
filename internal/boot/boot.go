@@ -42,6 +42,7 @@ import (
 	"deepseek-orca/internal/tool"
 	"deepseek-orca/internal/tool/builtin"
 	"deepseek-orca/internal/tool/hosttools"
+	"deepseek-orca/internal/visioncap"
 )
 
 // ErrUnknownModel is returned by Build when the configured model can't be
@@ -163,6 +164,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	promptMode := normalizePromptMode(opts.PromptMode, opts.EnhancedMode)
 	enhancedMode := promptMode == PromptModeEnhanced
 	assistantMode := promptMode == PromptModeAssistant
+	visionMode := cfg.DesktopVisionMode()
+	visionStore := visioncap.Load("")
+	mainVisionEnabled := visionMode == config.VisionModeOn || (visionMode == config.VisionModeAuto && visionStore.Get(entry).Status == visioncap.Supported)
 
 	if migErr != nil {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "config migration from ~/.deepseek-orca failed: " + migErr.Error()})
@@ -198,22 +202,25 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		return nil, err
 	}
 	outputStylePrompt := ""
+	if promptMode == PromptModeNormal && strings.TrimSpace(sysPrompt) == strings.TrimSpace(config.DefaultAgentSystemPrompt) {
+		sysPrompt = ""
+	}
 	// Output style: fold the selected persona/tone block into the base prompt
 	// before language/memory/skills append, so a "replace" style (keep-coding
 	// false) still keeps those. Applied once, into the cache-stable prefix.
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
-		if enhancedMode {
+		if enhancedMode || promptMode == PromptModeNormal {
 			outputStylePrompt = outputstyle.Apply("", st)
 		} else if !assistantMode {
 			sysPrompt = outputstyle.Apply(sysPrompt, st)
 		}
 	}
 	if assistantMode {
-		sysPrompt = promptprofile.AssistantSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionPolicy(cfg.Desktop.VisionEnabled), config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.AssistantSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
 	} else if enhancedMode {
-		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionPolicy(cfg.Desktop.VisionEnabled), config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
 	} else {
-		sysPrompt = promptprofile.NormalSystemPrompt(sysPrompt, "", config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionPolicy(cfg.Desktop.VisionEnabled), config.ActiveLanguagePolicy)
+		sysPrompt = promptprofile.NormalSystemPrompt(sysPrompt, outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
 	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
@@ -510,12 +517,37 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 	taskModel := firstNonEmpty(cfg.Agent.SubagentModels["task"], cfg.Agent.SubagentModel)
 	taskEffort := firstNonEmpty(cfg.Agent.SubagentEfforts["task"], cfg.Agent.SubagentEffort)
+	imageLoader := func(ctx context.Context, image provider.ImageContent) (provider.ImageContent, error) {
+		return control.LoadImageContent(ctx, root, image)
+	}
+	visionStatus := func(modelRef string) string {
+		e, ok := cfg.ResolveModel(modelRef)
+		if !ok {
+			return visioncap.Unknown
+		}
+		return visioncap.Load("").Get(e).Status
+	}
+	visionModels := func() []string {
+		store := visioncap.Load("")
+		models := make([]string, 0)
+		for i := range cfg.Providers {
+			for _, model := range cfg.Providers[i].ChatModelList() {
+				e := cfg.Providers[i]
+				e.Model = model
+				if store.Get(&e).Status == visioncap.Supported {
+					models = append(models, visioncap.ModelRef(&e))
+				}
+			}
+		}
+		return models
+	}
 	reg.Add(agent.NewTaskTool(execProv, entry.Price, reg, maxSteps,
 		entry.ContextWindow, cfg.Agent.SoftCompactRatio, cfg.Agent.CompactRatio, cfg.Agent.CompactForceRatio,
 		cfg.Agent.Temperature, config.ArchiveDir(), "", headlessGate,
 		taskModel, taskEffort, resolveSubagentProvider).
 		WithTranscripts(subagentStore, root, modelName, entry.Effort).
-		WithTranscriptIdentityResolver(subagentIdentity))
+		WithTranscriptIdentityResolver(subagentIdentity).
+		WithVision(visionMode, visionStatus, imageLoader))
 
 	// The `remember` tool lets the model persist durable facts to the project's
 	// auto-memory store; `forget` prunes ones that turn out wrong. The saved index
@@ -673,27 +705,26 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 
 	execSess := agent.NewSession(sysPrompt)
-	var imageLoader func(context.Context, provider.ImageContent) (provider.ImageContent, error)
-	if cfg.Desktop.VisionEnabled {
-		imageLoader = func(ctx context.Context, image provider.ImageContent) (provider.ImageContent, error) {
-			return control.LoadImageContent(ctx, root, image)
-		}
+	var mainImageLoader func(context.Context, provider.ImageContent) (provider.ImageContent, error)
+	if mainVisionEnabled {
+		mainImageLoader = imageLoader
 	}
 	executor := agent.New(execProv, reg, execSess, agent.Options{
-		MaxSteps:          maxSteps,
-		Temperature:       cfg.Agent.Temperature,
-		Pricing:           entry.Price,
-		Gate:              headlessGate,
-		Hooks:             hookRunner,
-		Jobs:              jm,
-		ProjectChecks:     projectChecks,
-		ContextWindow:     entry.ContextWindow,
-		SoftCompactRatio:  cfg.Agent.SoftCompactRatio,
-		CompactRatio:      cfg.Agent.CompactRatio,
-		CompactForceRatio: cfg.Agent.CompactForceRatio,
-		ArchiveDir:        config.ArchiveDir(),
-		PauseWait:         opts.PauseWait,
-		ImageLoader:       imageLoader,
+		MaxSteps:                     maxSteps,
+		Temperature:                  cfg.Agent.Temperature,
+		Pricing:                      entry.Price,
+		Gate:                         headlessGate,
+		Hooks:                        hookRunner,
+		Jobs:                         jm,
+		ProjectChecks:                projectChecks,
+		RequirePostWriteVerification: promptMode == PromptModeNormal,
+		ContextWindow:                entry.ContextWindow,
+		SoftCompactRatio:             cfg.Agent.SoftCompactRatio,
+		CompactRatio:                 cfg.Agent.CompactRatio,
+		CompactForceRatio:            cfg.Agent.CompactForceRatio,
+		ArchiveDir:                   config.ArchiveDir(),
+		PauseWait:                    opts.PauseWait,
+		ImageLoader:                  mainImageLoader,
 	}, sink)
 
 	// Custom slash commands (.deepseek-orca/commands + user dir). Best-effort: a malformed
@@ -802,7 +833,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Registry:       reg,
 		PluginCtx:      ctx,
 		WorkspaceRoot:  root,
-		VisionEnabled:  cfg.Desktop.VisionEnabled,
+		VisionEnabled:  mainVisionEnabled,
+		VisionMode:     visionMode,
+		VisionModels:   visionModels,
 		AutoPlan:       cfg.Agent.AutoPlan,
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)

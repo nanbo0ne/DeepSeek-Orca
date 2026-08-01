@@ -339,6 +339,16 @@ export interface Meta {
 export type CollaborationMode = "normal" | "plan" | "goal";
 export type ToolApprovalMode = "ask" | "auto" | "yolo";
 export type PromptMode = "assistant" | "normal" | "enhanced";
+export type VisionMode = "off" | "auto" | "on";
+export type VisionCapabilityStatus = "supported" | "unsupported" | "unknown" | "probing";
+export interface VisionCapability {
+  modelRef: string;
+  key: string;
+  status: VisionCapabilityStatus;
+  checkedAt?: number;
+  reason?: string;
+  attempts?: number;
+}
 export interface ProductCapabilities {
   edition: "engineering" | "assistant" | string;
   promptModes: PromptMode[];
@@ -836,6 +846,7 @@ export interface SettingsView {
   expandThinking: boolean; // show reasoning text expanded by default
   processDisplayMode: ProcessDisplayMode;
   visionEnabled: boolean;
+  visionMode: VisionMode;
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

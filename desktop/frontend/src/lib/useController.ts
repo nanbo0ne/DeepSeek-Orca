@@ -42,7 +42,7 @@ export type Item =
   | { kind: "steer"; id: string; text: string }
   | { kind: "phase"; id: string; text: string }
   | { kind: "notice"; id: string; level: "info" | "warn"; text: string }
-  | { kind: "turn_stats"; id: string; elapsedMs: number; tokens?: number }
+  | { kind: "turn_stats"; id: string; elapsedMs?: number; tokens?: number; success: boolean }
   | {
       kind: "compaction";
       id: string;
@@ -336,7 +336,7 @@ function hasCurrentTurnActivity(items: Item[]): boolean {
   return false;
 }
 
-function appendTurnStats(s: State, items: Item[], now = Date.now()): { items: Item[]; seq: number } {
+function appendTurnStats(s: State, items: Item[], success: boolean, now = Date.now()): { items: Item[]; seq: number } {
   if (!s.turnStartAt || !hasCurrentTurnActivity(items)) return { items, seq: s.seq };
   const elapsedMs = Math.max(0, now - (s.turnProcessStartAt || s.turnStartAt));
   const stats: Item = {
@@ -344,6 +344,7 @@ function appendTurnStats(s: State, items: Item[], now = Date.now()): { items: It
     id: `ts${s.seq}`,
     elapsedMs,
     tokens: s.turnUsageTokens > 0 ? s.turnUsageTokens : undefined,
+    success,
   };
   return { items: [...items, stats], seq: s.seq + 1 };
 }
@@ -492,7 +493,7 @@ function applyEvent(s: State, e: WireEvent): State {
         return it;
       });
       const withError: Item[] = e.err ? [...finalized, { kind: "notice", id: `e${s.seq}`, level: "warn", text: e.err }] : finalized;
-      const stats = appendTurnStats(s, withError);
+      const stats = appendTurnStats(s, withError, !e.err);
       return { ...s, items: stats.items, live: undefined, running: false, turnActive: false, currentAssistant: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     default: return s;
@@ -537,7 +538,7 @@ export function reducer(s: State, a: Action): State {
         if (it.kind === "tool" && it.status === "running") return { ...it, status: "stopped" as const };
         return it;
       });
-      const stats = appendTurnStats(s, finalized);
+      const stats = appendTurnStats(s, finalized, true);
       return { ...s, items: stats.items, running: false, turnActive: false, live: undefined, currentAssistant: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     case "meta": return sameMeta(s.meta, a.meta) ? s : { ...s, meta: a.meta };

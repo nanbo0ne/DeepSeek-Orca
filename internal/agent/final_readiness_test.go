@@ -20,6 +20,7 @@ func TestFinalReadinessFailureBranches(t *testing.T) {
 	check := instruction.VerifyCheck{Command: "go test ./...", SourcePath: "AGENTS.md", Line: 3}
 	writer := evidence.Receipt{ToolName: "write_file", Success: true, Write: true, Paths: []string{"a.go"}}
 	checkAfter := evidence.Receipt{ToolName: "bash", Success: true, Command: "go test ./..."}
+	listingAfter := evidence.Receipt{ToolName: "bash", Success: true, Command: "ls -la"}
 	todo := evidence.Receipt{ToolName: "todo_write", Success: true, Todos: []evidence.TodoItem{{Content: "edit", Status: "in_progress"}}}
 	completeAfter := evidence.Receipt{ToolName: "complete_step", Success: true, Step: "edit"}
 	doneTodo := evidence.Receipt{ToolName: "todo_write", Success: true, Todos: []evidence.TodoItem{{Content: "edit", Status: "completed"}}}
@@ -35,16 +36,18 @@ func TestFinalReadinessFailureBranches(t *testing.T) {
 		{"no writer never gates", []instruction.VerifyCheck{check}, readinessLedger(checkAfter), true, ""},
 		{"incomplete todo without writer is reported", nil, readinessLedger(todo), false, "latest successful todo_write"},
 		{"completed todo without writer satisfies", nil, readinessLedger(doneTodo), true, ""},
-		{"writer without checks or todo never gates", nil, readinessLedger(writer), true, ""},
+		{"writer without checks requires fallback verification", nil, readinessLedger(writer), false, "relevant test"},
+		{"ordinary shell command is not verification", nil, readinessLedger(writer, listingAfter), false, "relevant test"},
+		{"writer with fallback verification satisfies", nil, readinessLedger(writer, checkAfter), true, ""},
 		{"missing project check after writer is reported", []instruction.VerifyCheck{check}, readinessLedger(checkAfter, writer), false, "go test ./..."},
 		{"project check run after writer satisfies", []instruction.VerifyCheck{check}, readinessLedger(writer, checkAfter), true, ""},
 		{"todo writer without complete_step is reported", nil, readinessLedger(writer, todo), false, "incomplete items"},
 		{"complete_step without final todo update is reported", nil, readinessLedger(writer, todo, completeAfter), false, "latest successful todo_write"},
-		{"todo writer with complete_step and completed todo satisfies", nil, readinessLedger(writer, todo, completeAfter, doneTodo), true, ""},
+		{"todo writer with verification, complete_step and completed todo satisfies", nil, readinessLedger(writer, checkAfter, todo, completeAfter, doneTodo), true, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := &Agent{evidence: tc.evidence, projectChecks: tc.checks}
+			a := &Agent{evidence: tc.evidence, projectChecks: tc.checks, requirePostWriteVerification: true}
 			got := a.finalReadinessFailure()
 			if tc.wantEmpty {
 				if got != "" {

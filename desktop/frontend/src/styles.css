@@ -10486,6 +10486,62 @@ a[href] {
   line-height: 1;
   padding: 5px 8px;
 }
+.settings-vision-capabilities {
+  width: 100%;
+  max-width: 640px;
+  border-top: 1px solid var(--border-soft);
+}
+.settings-vision-capabilities__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.settings-vision-capabilities__model {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.settings-vision-capabilities__model strong,
+.settings-vision-capabilities__model span,
+.settings-vision-capabilities__model small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-vision-capabilities__model strong {
+  color: var(--fg);
+  font-size: var(--font-control-small);
+  font-weight: 650;
+}
+.settings-vision-capabilities__model span,
+.settings-vision-capabilities__model small,
+.settings-vision-capabilities__empty {
+  color: var(--fg-dim);
+  font-size: var(--text-2xs);
+}
+.settings-vision-capabilities__model small {
+  color: var(--fg-faint);
+}
+.settings-vision-capabilities__empty {
+  padding: 10px 0;
+}
+.settings-vision-capabilities__probe {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding-inline: 9px;
+}
+.settings-vision-capabilities__probe svg {
+  margin-right: 5px;
+}
+.settings-vision-capabilities__spin {
+  animation: spin 0.9s linear infinite;
+}
 .settings-field__control > .settings-model-picker {
   width: 100%;
   max-width: 520px;
@@ -18603,6 +18659,72 @@ a[href] {
 :root[data-theme-style] .process-card__body {
   border-top-color: transparent;
   background: transparent;
+}
+
+/* Process activity is a timeline, not a stack of cards. Contained surfaces are
+   reserved for code, diffs, raw output, and errors inside these rows. */
+.process-activity-rail {
+  position: relative;
+  gap: 0;
+  padding-left: 18px;
+}
+.process-activity-rail::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--border-soft);
+}
+.process-activity-rail > .process-card,
+.process-activity-rail > .msg,
+.process-activity-rail .tool__nested > .process-card {
+  overflow: visible;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.process-activity-rail > .process-card + .process-card,
+.process-activity-rail > .msg + .process-card,
+.process-activity-rail > .process-card + .msg {
+  border-top: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
+}
+.process-activity-rail .process-card::after {
+  display: none;
+}
+:root[data-theme-style] .process-activity-rail .process-card__head {
+  min-height: 34px;
+  padding: 6px 4px;
+}
+.process-activity-rail .process-card__icon {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  box-shadow: none;
+}
+.process-activity-rail .process-card__body {
+  padding: 0 4px 8px 25px;
+}
+.process-activity-rail .tool__body {
+  padding: 0 4px 9px 25px;
+}
+.process-activity-rail .tool__nested {
+  margin: 2px 0 7px 24px;
+  padding-left: 12px;
+  border-left-color: var(--border-soft);
+}
+.completed-turn__details {
+  margin-top: 3px;
+  width: min(100%, 820px);
+}
+.completed-turn__details .turn-stats-row__tokens {
+  margin-bottom: 4px;
+}
+.timeline-entry--completed > .msg {
+  margin-top: 8px;
 }
 
 :root[data-theme-style] .reasoning__body {

@@ -7,7 +7,14 @@ export type TimelineSegment =
   | { kind: "assistant"; item: Extract<Item, { kind: "assistant" }> }
   | { kind: "steer"; item: Extract<Item, { kind: "steer" }> }
   | { kind: "process"; id: string; items: TimelineProcessItem[]; completed: boolean }
-  | { kind: "stats"; item: Extract<Item, { kind: "turn_stats" }> };
+  | { kind: "stats"; item: Extract<Item, { kind: "turn_stats" }> }
+  | {
+      kind: "completed";
+      id: string;
+      stats: Extract<Item, { kind: "turn_stats" }>;
+      hidden: Item[];
+      final: Extract<Item, { kind: "assistant" }>;
+    };
 
 function visibleProcessItem(item: Item): item is TimelineProcessItem {
   if (item.kind === "assistant") return Boolean(item.reasoning) || item.streaming;
@@ -24,11 +31,49 @@ function pushProcess(out: TimelineSegment[], item: TimelineProcessItem, complete
   out.push({ kind: "process", id: `process-${item.id}`, items: [item], completed });
 }
 
+function completedTurnSegment(items: readonly Item[], completed: boolean, fallbackID: string): TimelineSegment | null {
+  if (!completed) return null;
+  const explicitStats = items.find((item): item is Extract<Item, { kind: "turn_stats" }> => item.kind === "turn_stats");
+  if (explicitStats && !explicitStats.success) return null;
+  const hasFailureEvidence = items.some((item) =>
+    (item.kind === "user" && item.failed) ||
+    (item.kind === "tool" && (item.status === "error" || item.status === "stopped")),
+  );
+  if (!explicitStats && hasFailureEvidence) return null;
+  let finalIndex = -1;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (item.kind === "assistant" && !item.streaming && item.text.trim() !== "") {
+      finalIndex = i;
+      break;
+    }
+  }
+  if (finalIndex < 0) return null;
+  const final = items[finalIndex] as Extract<Item, { kind: "assistant" }>;
+  const stats = explicitStats ?? {
+    kind: "turn_stats" as const,
+    id: `legacy-stats-${fallbackID}`,
+    success: true,
+  };
+  const hidden = items.flatMap((item, index): Item[] => {
+    if (item.kind === "user" || item.kind === "turn_stats") return [];
+    if (index !== finalIndex) return [item];
+    return final.reasoning.trim() !== "" ? [{ ...final, text: "" }] : [];
+  });
+  if (hidden.length === 0) return null;
+  return { kind: "completed", id: `completed-${fallbackID}`, stats, hidden, final: { ...final, reasoning: "" } };
+}
+
 function buildTurn(items: readonly Item[], completed: boolean): TimelineSegment[] {
   const out: TimelineSegment[] = [];
   const stats = items.find((item): item is Extract<Item, { kind: "turn_stats" }> => item.kind === "turn_stats");
   const user = items.find((item): item is Extract<Item, { kind: "user" }> => item.kind === "user");
   if (user) out.push({ kind: "user", item: user });
+  const collapsed = completedTurnSegment(items, completed, user?.id ?? stats?.id ?? "turn");
+  if (collapsed) {
+    out.push(collapsed);
+    return out;
+  }
   if (stats) out.push({ kind: "stats", item: stats });
 
   for (const item of items) {
@@ -73,13 +118,17 @@ export function buildTimelineSegments(items: readonly Item[], running: boolean):
   }
 
   turns.forEach((turn, index) => {
-    out.push(...buildTurn(turn, index < turns.length - 1 || !running));
+    const hasSuccessfulStats = turn.some((item) => item.kind === "turn_stats" && item.success);
+    const isHistoricalTurn = index < turns.length - 1;
+    const explicitlyCompleted = !running && hasSuccessfulStats;
+    out.push(...buildTurn(turn, isHistoricalTurn || explicitlyCompleted));
   });
   return out;
 }
 
 export function timelineKinds(segments: readonly TimelineSegment[]): string[] {
   return segments.map((segment) => {
+    if (segment.kind === "completed") return `completed:${segment.hidden.map((item) => item.kind === "tool" ? `tool:${item.name}` : item.kind).join(",")}`;
     if (segment.kind !== "process") return segment.kind;
     return `process:${segment.items.map((item) => item.kind === "tool" ? `tool:${item.name}` : item.kind).join(",")}`;
   });

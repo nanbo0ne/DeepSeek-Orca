@@ -96,7 +96,8 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		}
 		fmt.Fprintf(&b, "process_display_mode = %q   # desktop: compact|standard|detailed process presentation\n", c.DesktopProcessDisplayMode())
 		fmt.Fprintf(&b, "expand_thinking = %v   # legacy compatibility; detailed mode sets this true\n", c.DesktopProcessDisplayMode() == ProcessDisplayDetailed)
-		fmt.Fprintf(&b, "vision_enabled = %v   # desktop: send attached images to the selected model\n", c.Desktop.VisionEnabled)
+		fmt.Fprintf(&b, "vision_mode = %q   # desktop: off|auto|on image routing\n", c.DesktopVisionMode())
+		fmt.Fprintf(&b, "vision_enabled = %v   # legacy compatibility; true maps to on\n", c.DesktopVisionMode() == VisionModeOn)
 		fmt.Fprintf(&b, "assistant_auto_memory_enabled = %v   # desktop: assistant mode silently updates profile memories when leaving a conversation\n", c.DesktopAssistantAutoMemoryEnabled())
 		fmt.Fprintf(&b, "assistant_memory_recall_enabled = %v   # desktop: assistant mode injects assistant memories before each turn\n", c.DesktopAssistantMemoryRecallEnabled())
 		b.WriteString("\n")

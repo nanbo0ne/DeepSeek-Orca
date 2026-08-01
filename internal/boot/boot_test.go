@@ -854,10 +854,9 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	}
 }
 
-// TestBuildWithoutMemoryLeavesPromptUnchanged is the inverse invariant: with no
-// memory files, the system prompt is exactly the configured base — the cache
-// prefix is untouched by the memory feature.
-func TestBuildWithoutMemoryLeavesPromptUnchanged(t *testing.T) {
+// Custom instructions append after the stable normal-mode core. Memory remains
+// absent when no memory files exist.
+func TestBuildWithoutMemoryAppendsCustomPromptToNormalCore(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	writeFile(t, dir, "deepseek-orca.toml", `
@@ -884,23 +883,11 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	defer ctrl.Close()
 
 	sys := systemMessage(ctrl.History())
-	// The built-in skills always append a "# Skills" index to the prefix; this
-	// test is about memory, so strip that and assert the remaining base is exactly
-	// the configured prompt — i.e. no *project/ancestor* memory leaked in. (A
-	// user-global DEEPSEEK_ORCA.md in the real config dir could append; the test
-	// environment has none, so the base stands alone.)
-	base := sys
-	if i := strings.Index(sys, "\n\n# Skills"); i >= 0 {
-		base = sys[:i]
+	if !strings.Contains(sys, "You are DeepSeek-Orca, a coding agent") {
+		t.Fatalf("normal core prompt missing:\n%s", sys)
 	}
-	// The language policy is always appended at boot; strip it so this assertion
-	// is purely about whether project/ancestor memory leaked into the base.
-	base = stripLanguagePolicy(base)
-	base = strings.TrimSpace(strings.TrimSuffix(base, config.BuildVisionPolicy(false)))
-	base = stripToolRoutingPolicy(base)
-	base = stripTaskTrackingPolicy(base)
-	if base != "JUST THE BASE" {
-		t.Fatalf("expected untouched base prompt, got:\n%s", sys)
+	if !strings.Contains(sys, "# User-configured instructions\n\nJUST THE BASE") {
+		t.Fatalf("custom instructions were not appended:\n%s", sys)
 	}
 }
 

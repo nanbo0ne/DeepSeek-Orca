@@ -216,8 +216,25 @@ func (c *Config) SetProcessDisplayMode(mode string) error {
 }
 
 func (c *Config) SetVisionEnabled(enabled bool) error {
-	c.Desktop.VisionEnabled = enabled
-	return nil
+	if enabled {
+		return c.SetVisionMode(VisionModeOn)
+	}
+	return c.SetVisionMode(VisionModeOff)
+}
+
+func (c *Config) SetVisionMode(mode string) error {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	switch mode {
+	case VisionModeOff, VisionModeAuto, VisionModeOn:
+		c.Desktop.VisionMode = mode
+		c.Desktop.VisionEnabled = mode == VisionModeOn
+		if c.ConfigVersion < 4 {
+			c.ConfigVersion = 4
+		}
+		return nil
+	default:
+		return fmt.Errorf("vision mode %q: must be off|auto|on", mode)
+	}
 }
 
 func (c *Config) SetDesktopAssistantAutoMemory(enabled bool) error {

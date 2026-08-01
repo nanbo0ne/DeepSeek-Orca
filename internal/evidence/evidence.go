@@ -125,6 +125,49 @@ func (l *Ledger) HasSuccessfulCommandAfter(command string, after int) bool {
 	return false
 }
 
+// HasSuccessfulVerificationAfter reports whether any successful command-like
+// check ran after the latest write. Project-declared checks use the stricter
+// exact matcher above; this is the fallback for repositories without one.
+func (l *Ledger) HasSuccessfulVerificationAfter(after int) bool {
+	if l == nil {
+		return false
+	}
+	start := after + 1
+	if start < 0 {
+		start = 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for i := start; i < len(l.receipts); i++ {
+		r := l.receipts[i]
+		if r.Success && (r.ToolName == "bash" || r.ToolName == "host_command") && isVerificationCommand(r.Command) {
+			return true
+		}
+	}
+	return false
+}
+
+func isVerificationCommand(command string) bool {
+	command = strings.ToLower(strings.TrimSpace(command))
+	if command == "" {
+		return false
+	}
+	markers := []string{
+		" test", "test ", "pytest", "go test", "cargo test", "dotnet test",
+		" build", "build ", "go build", "cargo build", "dotnet build",
+		" lint", "lint ", "eslint", "golangci-lint", "ruff check",
+		"typecheck", "type-check", "tsc ", "mypy", "pyright",
+		"git diff --check", "go vet", "cargo check", "compileall",
+		"json.tool", "toml check", "yamllint", "validate",
+	}
+	for _, marker := range markers {
+		if strings.Contains(command, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *Ledger) HasSuccessfulCompleteStepAfter(after int) bool {
 	if l == nil {
 		return false
@@ -364,7 +407,7 @@ func ReceiptFromToolCall(toolName string, args json.RawMessage, success bool, re
 
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(args, &fields); err == nil {
-		if toolName == "bash" {
+		if toolName == "bash" || toolName == "host_command" {
 			r.Command = stringField(fields, "command")
 		}
 		if toolName == "complete_step" {

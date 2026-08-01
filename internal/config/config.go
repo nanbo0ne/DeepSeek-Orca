@@ -83,6 +83,7 @@ type DesktopConfig struct {
 	ExpandThinking        bool     `toml:"expand_thinking"`                 // true = show reasoning text expanded by default; false = collapsed
 	ProcessDisplayMode    string   `toml:"process_display_mode"`            // compact|standard|detailed; empty migrates from expand_thinking
 	VisionEnabled         bool     `toml:"vision_enabled"`                  // send attached image bytes to the selected model
+	VisionMode            string   `toml:"vision_mode"`                     // off|auto|on; vision_enabled is retained for legacy configs
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
 	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"` // inject assistant memories before assistant-mode turns; nil = enabled
 }
@@ -92,6 +93,23 @@ const (
 	ProcessDisplayStandard = "standard"
 	ProcessDisplayDetailed = "detailed"
 )
+
+const (
+	VisionModeOff  = "off"
+	VisionModeAuto = "auto"
+	VisionModeOn   = "on"
+)
+
+func (c *Config) DesktopVisionMode() string {
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.VisionMode)) {
+	case VisionModeOff:
+		return VisionModeOff
+	case VisionModeOn:
+		return VisionModeOn
+	default:
+		return VisionModeAuto
+	}
+}
 
 // DesktopProcessDisplayMode normalizes the three-state desktop process view.
 // Older configs only carry expand_thinking, which maps losslessly to standard
@@ -1086,10 +1104,10 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 3,
+		ConfigVersion: 4,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
-		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true)},
+		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto},
 		Notifications: NotificationsConfig{
 			Enabled:         false,
 			TurnDone:        true,
@@ -1218,6 +1236,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeLegacyProviderModels(cfg)
 	normalizeDesktopOfficialProviderAccess(cfg)
 	normalizeDesktopUpdatePreference(cfg)
+	normalizeDesktopVisionPreference(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1331,6 +1350,7 @@ func LoadForEdit(path string) *Config {
 	normalizeLegacyProviderModels(cfg)
 	normalizeDesktopOfficialProviderAccess(cfg)
 	normalizeDesktopUpdatePreference(cfg)
+	normalizeDesktopVisionPreference(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
 }
@@ -1344,6 +1364,38 @@ func normalizeDesktopUpdatePreference(c *Config) {
 	enabled := true
 	c.Desktop.CheckUpdates = &enabled
 	c.ConfigVersion = 3
+}
+
+func BuildVisionModePolicy(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case VisionModeOn:
+		return BuildVisionPolicy(true)
+	case VisionModeAuto:
+		return `<vision-policy>
+Vision mode is automatic. Image bytes are sent only to models whose visual capability has been confirmed. If the current model receives only an image snapshot reference, do not claim to have seen it. Use the task tool with its images field and a confirmed vision-capable model only when visual inspection is needed.
+</vision-policy>`
+	default:
+		return BuildVisionPolicy(false)
+	}
+}
+
+// V4 replaces the old boolean vision flag with an explicit off|auto|on mode.
+// Existing users keep their exact behavior; only fresh V4 installs default to auto.
+func normalizeDesktopVisionPreference(c *Config) {
+	if c == nil {
+		return
+	}
+	if c.ConfigVersion < 4 {
+		if c.Desktop.VisionEnabled {
+			c.Desktop.VisionMode = VisionModeOn
+		} else {
+			c.Desktop.VisionMode = VisionModeOff
+		}
+		c.ConfigVersion = 4
+	}
+	mode := c.DesktopVisionMode()
+	c.Desktop.VisionMode = mode
+	c.Desktop.VisionEnabled = mode == VisionModeOn
 }
 
 // mergeFile decodes a TOML file onto cfg if it exists. An absent file is not an error.

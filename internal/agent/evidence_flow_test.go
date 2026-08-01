@@ -113,7 +113,7 @@ func TestEvidenceFlowEndToEnd(t *testing.T) {
 		{{Type: provider.ChunkText, Text: "done"}, {Type: provider.ChunkDone}},
 	}}
 
-	a := New(prov, reg, NewSession(""), Options{}, event.Discard)
+	a := New(prov, reg, NewSession(""), Options{RequirePostWriteVerification: true}, event.Discard)
 	if err := a.Run(context.Background(), "run the suite and sign the step off"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -176,23 +176,26 @@ func TestFinalReadinessAllowsFinalAnswerWithoutWriter(t *testing.T) {
 	}
 }
 
-func TestFinalReadinessAllowsWriterWithoutChecksOrTodos(t *testing.T) {
+func TestFinalReadinessRequiresVerificationWithoutChecksOrTodos(t *testing.T) {
 	reg := tool.NewRegistry()
 	reg.Add(fakeTool{name: "write_file", readOnly: false})
+	reg.Add(fakeTool{name: "bash", readOnly: false})
 	prov := &scriptedProvider{name: "p", turns: [][]provider.Chunk{
 		{
 			toolCallChunk("c1", "write_file", `{"path":"changed.go","content":"package main"}`),
 			{Type: provider.ChunkDone},
 		},
 		{{Type: provider.ChunkText, Text: "done"}, {Type: provider.ChunkDone}},
+		{toolCallChunk("c2", "bash", `{"command":"git diff --check"}`), {Type: provider.ChunkDone}},
+		{{Type: provider.ChunkText, Text: "verified"}, {Type: provider.ChunkDone}},
 	}}
-	a := New(prov, reg, NewSession(""), Options{}, event.Discard)
+	a := New(prov, reg, NewSession(""), Options{RequirePostWriteVerification: true}, event.Discard)
 
 	if err := a.Run(context.Background(), "simple edit"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if prov.call != 2 {
-		t.Fatalf("provider calls = %d, want 2", prov.call)
+	if prov.call != 4 {
+		t.Fatalf("provider calls = %d, want 4", prov.call)
 	}
 }
 

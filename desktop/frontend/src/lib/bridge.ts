@@ -52,6 +52,7 @@ import type {
   TopicMeta,
   UpdateInfo,
   WireEvent,
+  VisionCapability,
   WorkspaceChangesView,
   GitCommitView,
   GitCommitDetailView,
@@ -240,6 +241,9 @@ export interface AppBindings {
   SetExpandThinking(on: boolean): Promise<void>;
   SetProcessDisplayMode(mode: string): Promise<void>;
   SetVisionEnabled(enabled: boolean): Promise<void>;
+  SetVisionMode(mode: string): Promise<void>;
+  GetVisionCapabilities(): Promise<VisionCapability[]>;
+  ProbeModelVision(modelRef: string): Promise<VisionCapability>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
   SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, softCompactRatio: number, compactRatio: number, compactForceRatio: number, systemPrompt: string): Promise<void>;
   SetTrayLocale(locale: "en" | "zh"): Promise<void>;
@@ -726,11 +730,19 @@ function makeMockApp(): AppBindings {
     expandThinking: false,
     processDisplayMode: "standard",
     visionEnabled: false,
+    visionMode: "auto",
     configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
   };
+  let mockVisionCapabilities: VisionCapability[] = settings.providers.flatMap((provider) => provider.models.map((model) => ({
+    modelRef: `${provider.name}/${model}`,
+    key: `${provider.kind}|${provider.baseUrl}|${model}`,
+    status: provider.name === "deepseek" ? "unsupported" : "unknown",
+    checkedAt: provider.name === "deepseek" ? Date.now() : undefined,
+    reason: provider.name === "deepseek" ? "model does not support image input" : undefined,
+  })));
   settings.providers = settings.providers.map((provider) =>
     provider.apiKeyEnv === "DEEPSEEK_API_KEY" ? { ...provider, keySet: !freshMock } : provider,
   );
@@ -2204,6 +2216,19 @@ function makeMockApp(): AppBindings {
         },
         async SetVisionEnabled(enabled: boolean) {
           settings.visionEnabled = enabled;
+          settings.visionMode = enabled ? "on" : "off";
+        },
+        async SetVisionMode(mode: string) {
+          settings.visionMode = mode === "off" || mode === "on" ? mode : "auto";
+          settings.visionEnabled = settings.visionMode === "on";
+        },
+        async GetVisionCapabilities() {
+          return mockVisionCapabilities.map((item) => ({ ...item }));
+        },
+        async ProbeModelVision(modelRef: string) {
+          const next: VisionCapability = { modelRef, key: modelRef, status: modelRef.toLowerCase().includes("deepseek") ? "unsupported" : "supported", checkedAt: Date.now() };
+          mockVisionCapabilities = [...mockVisionCapabilities.filter((item) => item.modelRef !== modelRef), next];
+          return next;
         },
         async MigrateDesktopPreferences(language: string, theme: string, style: string) {
           if (!settings.desktopLanguage) settings.desktopLanguage = language === "en" || language === "zh" ? language : "";

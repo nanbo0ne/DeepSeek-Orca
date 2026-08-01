@@ -22,7 +22,7 @@ const chronology: Item[] = [
 
 equal(
   "assistant text and tools preserve insertion order",
-  timelineKinds(buildTimelineSegments(chronology, false)),
+  timelineKinds(buildTimelineSegments(chronology, true)),
   ["user", "assistant", "process:tool:read", "assistant", "process:tool:bash"],
 );
 
@@ -37,22 +37,75 @@ const adjacent: Item[] = [
 
 equal(
   "adjacent process items merge but never cross assistant text",
-  timelineKinds(buildTimelineSegments(adjacent, false)),
+  timelineKinds(buildTimelineSegments(adjacent, true)),
   ["user", "process:assistant,tool:read,notice", "assistant", "process:tool:bash"],
 );
 
 const withStats: Item[] = [
   ...chronology,
-  { kind: "turn_stats", id: "s1", elapsedMs: 5000, tokens: 120 },
+  { kind: "turn_stats", id: "s1", elapsedMs: 5000, tokens: 120, success: true },
 ];
 equal(
-  "turn stats render immediately after the user message",
+  "successful completed turn collapses intermediate activity",
   timelineKinds(buildTimelineSegments(withStats, false)),
-  ["user", "stats", "assistant", "process:tool:read", "assistant", "process:tool:bash"],
+  ["user", "completed:assistant,tool:read,tool:bash"],
+);
+
+const recoveredStats: Item[] = [
+  { kind: "user", id: "ru1", text: "fix it" },
+  { kind: "tool", id: "rt1", name: "bash", args: "{}", readOnly: false, status: "error", error: "first attempt failed" },
+  { kind: "tool", id: "rt2", name: "bash", args: "{}", readOnly: false, status: "done" },
+  { kind: "assistant", id: "ra1", text: "Fixed and verified.", reasoning: "", streaming: false },
+  { kind: "turn_stats", id: "rs1", elapsedMs: 7000, success: true },
+];
+equal(
+  "explicit successful completion collapses a recovered tool failure",
+  timelineKinds(buildTimelineSegments(recoveredStats, false)),
+  ["user", "completed:tool:bash,tool:bash"],
+);
+
+const failedStats: Item[] = [
+  ...chronology,
+  { kind: "notice", id: "error", level: "warn", text: "failed" },
+  { kind: "turn_stats", id: "s2", elapsedMs: 5000, success: false },
+];
+equal(
+  "failed turn keeps its diagnostic timeline visible",
+  timelineKinds(buildTimelineSegments(failedStats, false)),
+  ["user", "stats", "assistant", "process:tool:read", "assistant", "process:tool:bash,notice"],
+);
+
+equal(
+  "final legacy turn without completion evidence remains expanded",
+  timelineKinds(buildTimelineSegments(chronology, false)),
+  ["user", "assistant", "process:tool:read", "assistant", "process:tool:bash"],
+);
+
+const legacyHistory: Item[] = [
+  ...chronology,
+  { kind: "user", id: "u2", text: "next question" },
+  { kind: "assistant", id: "a3", text: "working", reasoning: "", streaming: false },
+];
+equal(
+  "next real user turn confirms the preceding legacy turn completed",
+  timelineKinds(buildTimelineSegments(legacyHistory, true)),
+  ["user", "completed:assistant,tool:read,tool:bash", "user", "assistant"],
+);
+
+const failedLegacyHistory: Item[] = [
+  { kind: "user", id: "fu1", text: "run" },
+  { kind: "tool", id: "ft1", name: "bash", args: "{}", readOnly: false, status: "error", error: "failed" },
+  { kind: "assistant", id: "fa1", text: "The command failed.", reasoning: "", streaming: false },
+  { kind: "user", id: "fu2", text: "try something else" },
+];
+equal(
+  "legacy failure evidence prevents automatic collapse",
+  timelineKinds(buildTimelineSegments(failedLegacyHistory, false)),
+  ["user", "process:tool:bash", "assistant", "user"],
 );
 
 const runningSegments = buildTimelineSegments(chronology, true);
-const completedSegments = buildTimelineSegments(chronology, false);
+const completedSegments = buildTimelineSegments(failedStats, false);
 const lastRunningProcess = [...runningSegments].reverse().find((segment) => segment.kind === "process");
 const lastCompletedProcess = [...completedSegments].reverse().find((segment) => segment.kind === "process");
 equal(
@@ -61,9 +114,9 @@ equal(
   false,
 );
 equal(
-  "current process segment completes after TurnDone",
+  "failed process segment stays expanded after TurnDone",
   lastCompletedProcess?.kind === "process" ? lastCompletedProcess.completed : undefined,
-  true,
+  false,
 );
 
 const active = reducer(initialState, { type: "event", e: { kind: "turn_started" } });

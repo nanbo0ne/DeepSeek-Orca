@@ -137,7 +137,7 @@ function TimelineProcessGroup({
 
   if (!completed && mode !== "compact") {
     return (
-      <div className="timeline-process-live">
+      <div className="timeline-process-live process-activity-rail">
         {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, mode === "detailed"))}
       </div>
     );
@@ -164,7 +164,7 @@ function TimelineProcessGroup({
       onOpenChange={setOpen}
       className={`timeline-process-group${mode === "compact" ? " timeline-process-group--compact" : ""}`}
     >
-      <div className="timeline-process-group__details">
+      <div className="timeline-process-group__details process-activity-rail">
         {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
       </div>
     </ProcessCard>
@@ -231,6 +231,11 @@ function formatTurnElapsed(ms: number): string {
   return `${seconds}s`;
 }
 
+function turnStatsLabel(t: ReturnType<typeof useT>, item: TurnStatsItem): string {
+  if (typeof item.elapsedMs !== "number") return t("process.timeline.complete");
+  return t("process.timeline.elapsed", { elapsed: formatTurnElapsed(item.elapsedMs) });
+}
+
 function TurnStatsRow({ item }: { item: TurnStatsItem }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -240,11 +245,77 @@ function TurnStatsRow({ item }: { item: TurnStatsItem }) {
   return (
     <div className={`turn-stats-row${open ? " turn-stats-row--open" : ""}`}>
       <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <span>{t("process.timeline.elapsed", { elapsed: formatTurnElapsed(item.elapsedMs) })}</span>
+        <span>{turnStatsLabel(t, item)}</span>
         <ChevronRight size={12} aria-hidden="true" />
       </button>
       {open && <div className="turn-stats-row__tokens">{tokenLabel}</div>}
     </div>
+  );
+}
+
+function CompletedTurn({
+  stats,
+  hidden,
+  final,
+  mode,
+  subcalls,
+  liveToolID,
+}: {
+  stats: TurnStatsItem;
+  hidden: Item[];
+  final: AssistantItem;
+  mode: ProcessDisplayMode;
+  subcalls: ReadonlyMap<string, ToolItem[]>;
+  liveToolID: string;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const tokenLabel = typeof stats.tokens === "number" && stats.tokens > 0
+    ? t("process.timeline.tokens", { n: stats.tokens.toLocaleString() })
+    : t("process.timeline.tokensPending");
+  const details = useMemo(() => buildTimelineSegments(hidden, false), [hidden]);
+  return (
+    <>
+      <div className={`turn-stats-row${open ? " turn-stats-row--open" : ""}`}>
+        <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          <span>{turnStatsLabel(t, stats)}</span>
+          <ChevronRight size={12} aria-hidden="true" />
+        </button>
+        {open && (
+          <div className="completed-turn__details">
+            <div className="turn-stats-row__tokens">{tokenLabel}</div>
+            <div className="process-activity-rail">
+              {details.map((segment) => {
+                if (segment.kind === "assistant") {
+                  return (
+                    <AssistantMessage
+                      key={`${segment.item.id}-hidden`}
+                      item={segment.item}
+                      defaultExpanded={mode === "detailed"}
+                    />
+                  );
+                }
+                if (segment.kind === "process") {
+                  return (
+                    <TimelineProcessGroup
+                      key={segment.id}
+                      items={segment.items}
+                      subcalls={subcalls}
+                      liveToolID={liveToolID}
+                      mode={mode}
+                      completed={false}
+                    />
+                  );
+                }
+                if (segment.kind === "steer") return <SteerCard key={segment.item.id} text={segment.item.text} />;
+                return null;
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      <AssistantMessage item={final} />
+    </>
   );
 }
 
@@ -386,6 +457,21 @@ function TimelineItems({
         nodes.push(
           <div className="timeline-entry timeline-entry--stats" data-transcript-anchor={segment.item.id} key={segment.item.id}>
             <TurnStatsRow item={segment.item} />
+          </div>,
+        );
+        break;
+      case "completed":
+        actionText = segment.final.text;
+        nodes.push(
+          <div className="timeline-entry timeline-entry--completed" data-transcript-anchor={segment.id} key={segment.id}>
+            <CompletedTurn
+              stats={segment.stats}
+              hidden={segment.hidden}
+              final={segment.final}
+              mode={processDisplayMode}
+              subcalls={subcalls}
+              liveToolID={liveToolID}
+            />
           </div>,
         );
         break;

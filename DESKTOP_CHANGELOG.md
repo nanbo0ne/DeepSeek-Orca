@@ -1,5 +1,15 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.29 - 2026-08-01
+
+- Collapsed every explicitly successful completed turn to the user message, elapsed-time row, and final answer while preserving failed, cancelled, interrupted, and active diagnostics.
+- Restored the full chronological process on demand and replaced nested process cards with a flat activity rail for reasoning, tools, notices, and subagents.
+- Migrated multimodal vision to Off, Auto, and On modes, with new installations defaulting to per-model automatic capability detection.
+- Added isolated visual probes, persisted model/endpoint capability status, bounded retries, manual rechecks, and expected text-only handling for DeepSeek.
+- Added current-turn image delegation to confirmed vision-capable subagents without placing image base64 in transcripts, titles, memory, or compaction.
+- Ensured Normal mode always includes the complete built-in engineering prompt, appends user instructions, and requires relevant verification after the latest write.
+- Updated the desktop version and download documentation to V2.0.29.
+
 ## V2.0.28 - 2026-07-31
 
 - Defined the engineering edition boundary: the desktop UI exposes only Normal and Enhanced while retaining Assistant prompt and memory code for the future standalone Orca application.

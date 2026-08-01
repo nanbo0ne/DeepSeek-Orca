@@ -159,6 +159,7 @@ type SettingsView struct {
 	ExpandThinking     bool            `json:"expandThinking"`
 	ProcessDisplayMode string          `json:"processDisplayMode"`
 	VisionEnabled      bool            `json:"visionEnabled"`
+	VisionMode         string          `json:"visionMode"`
 	ConfigPath         string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -339,6 +340,7 @@ func (a *App) Settings() SettingsView {
 			ExpandThinking:     false,
 			ProcessDisplayMode: config.ProcessDisplayStandard,
 			VisionEnabled:      false,
+			VisionMode:         config.VisionModeAuto,
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -386,6 +388,7 @@ func (a *App) Settings() SettingsView {
 		ExpandThinking:     cfg.DesktopProcessDisplayMode() == config.ProcessDisplayDetailed,
 		ProcessDisplayMode: cfg.DesktopProcessDisplayMode(),
 		VisionEnabled:      cfg.Desktop.VisionEnabled,
+		VisionMode:         cfg.DesktopVisionMode(),
 		ConfigPath:         cfgPath,
 		ProviderKinds:      nonNil(provider.Kinds()),
 		AutoApproveTools:   ctrl != nil && ctrl.AutoApproveTools(),
@@ -870,7 +873,7 @@ func providerDefaultForModels(currentDefault string, models []string) string {
 // SaveProvider adds or updates a provider. A single model fills `model`; several
 // fill `models` (with `default`). The shared key/endpoint live on the entry.
 func (a *App) SaveProvider(p ProviderView) error {
-	return a.applyConfigChange(func(c *config.Config) error {
+	err := a.applyConfigChange(func(c *config.Config) error {
 		e := config.ProviderEntry{Name: p.Name}
 		for i := range c.Providers {
 			if c.Providers[i].Name == p.Name {
@@ -905,6 +908,14 @@ func (a *App) SaveProvider(p ProviderView) error {
 		addProviderAccess(c, p.Name)
 		return nil
 	})
+	if err == nil {
+		refs := make([]string, 0, len(p.Models))
+		for _, model := range p.Models {
+			refs = append(refs, p.Name+"/"+model)
+		}
+		a.scheduleVisionProbes(refs)
+	}
+	return err
 }
 
 // AddOfficialProviderAccess adds one curated desktop provider template to the
@@ -1361,7 +1372,15 @@ func (a *App) SetProcessDisplayMode(mode string) error {
 // SetVisionEnabled rebuilds controllers because the setting changes both the
 // provider-visible policy and whether image parts are attached to new turns.
 func (a *App) SetVisionEnabled(enabled bool) error {
-	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetVisionEnabled(enabled) }); err != nil {
+	mode := config.VisionModeOff
+	if enabled {
+		mode = config.VisionModeOn
+	}
+	return a.SetVisionMode(mode)
+}
+
+func (a *App) SetVisionMode(mode string) error {
+	if err := a.applyConfigOnly(func(c *config.Config) error { return c.SetVisionMode(mode) }); err != nil {
 		return err
 	}
 	tab := a.activeTab()

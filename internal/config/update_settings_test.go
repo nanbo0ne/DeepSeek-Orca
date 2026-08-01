@@ -13,7 +13,7 @@ func TestDesktopUpdatePreferenceMigration(t *testing.T) {
 	legacy.Desktop.CheckUpdates = &disabled
 	normalizeDesktopUpdatePreference(legacy)
 	if legacy.ConfigVersion != 3 || !legacy.DesktopCheckUpdates() {
-		t.Fatalf("V2 migration = version %d, enabled %v; want 3,true", legacy.ConfigVersion, legacy.DesktopCheckUpdates())
+		t.Fatalf("V2 update migration = version %d, enabled %v; want 3,true before the V4 vision migration", legacy.ConfigVersion, legacy.DesktopCheckUpdates())
 	}
 
 	v3 := Default()
@@ -25,8 +25,8 @@ func TestDesktopUpdatePreferenceMigration(t *testing.T) {
 	}
 
 	fresh := Default()
-	if fresh.ConfigVersion != 3 || !fresh.DesktopCheckUpdates() {
-		t.Fatalf("fresh default = version %d, enabled %v; want 3,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates())
+	if fresh.ConfigVersion != 4 || !fresh.DesktopCheckUpdates() {
+		t.Fatalf("fresh default = version %d, enabled %v; want 4,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates())
 	}
 }
 
@@ -36,7 +36,7 @@ func TestDesktopUpdatePreferenceMigrationPersistsOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := LoadForEdit(path)
-	if cfg.ConfigVersion != 3 || !cfg.DesktopCheckUpdates() {
+	if cfg.ConfigVersion != 4 || !cfg.DesktopCheckUpdates() {
 		t.Fatalf("loaded V2 config = version %d, enabled %v", cfg.ConfigVersion, cfg.DesktopCheckUpdates())
 	}
 	if err := cfg.SetDesktopCheckUpdates(false); err != nil {
@@ -46,7 +46,36 @@ func TestDesktopUpdatePreferenceMigrationPersistsOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	reloaded := LoadForEdit(path)
-	if reloaded.ConfigVersion != 3 || reloaded.DesktopCheckUpdates() {
+	if reloaded.ConfigVersion != 4 || reloaded.DesktopCheckUpdates() {
 		t.Fatalf("reloaded opt-out = version %d, enabled %v", reloaded.ConfigVersion, reloaded.DesktopCheckUpdates())
+	}
+}
+
+func TestDesktopVisionPreferenceMigration(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		enabled bool
+		want    string
+	}{
+		{name: "legacy disabled", enabled: false, want: VisionModeOff},
+		{name: "legacy enabled", enabled: true, want: VisionModeOn},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Default()
+			cfg.ConfigVersion = 3
+			cfg.Desktop.VisionMode = ""
+			cfg.Desktop.VisionEnabled = tt.enabled
+
+			normalizeDesktopVisionPreference(cfg)
+
+			if cfg.ConfigVersion != 4 || cfg.DesktopVisionMode() != tt.want {
+				t.Fatalf("migrated vision = version %d, mode %q; want 4,%q", cfg.ConfigVersion, cfg.DesktopVisionMode(), tt.want)
+			}
+		})
+	}
+
+	fresh := Default()
+	if fresh.DesktopVisionMode() != VisionModeAuto {
+		t.Fatalf("fresh vision mode = %q, want auto", fresh.DesktopVisionMode())
 	}
 }

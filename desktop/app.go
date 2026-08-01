@@ -98,6 +98,9 @@ type App struct {
 	sessionInfoCache             map[string]sessionInfoCacheEntry
 	updateMu                     sync.RWMutex
 	updateURL                    string
+	visionProbeMu                sync.Mutex
+	visionProbeRunMu             sync.Mutex
+	visionProbing                map[string]bool
 }
 
 type balanceCacheEntry struct {
@@ -284,6 +287,7 @@ func NewApp() *App {
 		balanceCache:     map[string]balanceCacheEntry{},
 		balanceInflight:  map[string]chan struct{}{},
 		sessionInfoCache: map[string]sessionInfoCacheEntry{},
+		visionProbing:    map[string]bool{},
 	}
 }
 
@@ -397,6 +401,7 @@ func backgroundRestoreShouldMaximise(goos string, wasMaximised bool) bool {
 func (a *App) restoreOrBuildTabs() {
 	ctx := a.ctx
 	ensureWorkspace()
+	defer a.scheduleConfiguredVisionProbes()
 	if assistantMemoryAvailable() {
 		defer func() { a.schedulePendingAssistantMemories() }()
 	}

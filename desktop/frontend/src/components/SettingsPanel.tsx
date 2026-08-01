@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, RefreshCw } from "lucide-react";
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
 import { app, openExternal } from "../lib/bridge";
@@ -8,7 +8,7 @@ import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandida
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
 import { checkDesktopUpdate } from "../lib/updateCheck";
-import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView } from "../lib/types";
+import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView, VisionCapability } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
@@ -552,6 +552,9 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
       ? view.processDisplayMode
       : view.expandThinking ? "detailed" : "standard",
     visionEnabled: Boolean(view.visionEnabled),
+    visionMode: view.visionMode === "off" || view.visionMode === "on"
+      ? view.visionMode
+      : view.visionEnabled ? "on" : "auto",
   };
 }
 
@@ -1653,7 +1656,10 @@ function sanitizeBotDraft(draft: BotSettingsView, promptModes: PromptMode[] = EN
 
 function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) {
   const t = useT();
+  const { locale } = useI18n();
   const [subtab, setSubtab] = useState<"usage" | "access">("usage");
+  const [visionCapabilities, setVisionCapabilities] = useState<VisionCapability[]>([]);
+  const [probingVision, setProbingVision] = useState<string | null>(null);
   const autoRefreshKeyRef = useRef("");
   const refs = allRefs(s);
   const defaultRef = toRef(s.defaultModel, s);
@@ -1666,6 +1672,37 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
   const providerLabel = defaultProvider ? modelProviderLabel(defaultProvider, defaultProviderView, t) : t("common.none");
   const plannerLabel = plannerSelectRef || t("settings.plannerNone");
   const keyStatusLabel = defaultProviderView?.keySet ? t("settings.keySet") : t("settings.noKey");
+  const modelRefKey = refs.join("|");
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void app.GetVisionCapabilities().then((items) => {
+        if (!cancelled) setVisionCapabilities(items);
+      }).catch(() => {
+        if (!cancelled) setVisionCapabilities([]);
+      });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 3_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [modelRefKey]);
+
+  const capabilityByRef = useMemo(() => new Map(visionCapabilities.map((item) => [item.modelRef, item])), [visionCapabilities]);
+  const probeVision = async (modelRef: string) => {
+    setProbingVision(modelRef);
+    try {
+      await backgroundApply(async () => {
+        const result = await app.ProbeModelVision(modelRef);
+        setVisionCapabilities((current) => [...current.filter((item) => item.modelRef !== modelRef), result]);
+      });
+    } finally {
+      setProbingVision(null);
+    }
+  };
   const agent = normalizeAgentView(s.agent);
   const setAgentParams = (patch: Partial<typeof agent>) => {
     const next = normalizeAgentView({ ...agent, ...patch });
@@ -1788,16 +1825,51 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
 
             <SettingsField label={t("settings.visionEnabled")} hint={t("settings.visionEnabledHint")}>
               <div className="set-seg">
-                {([false, true] as const).map((enabled) => (
+                {(["off", "auto", "on"] as const).map((mode) => (
                   <button
-                    key={enabled ? "on" : "off"}
-                    className={`set-seg__btn${s.visionEnabled === enabled ? " set-seg__btn--on" : ""}`}
+                    key={mode}
+                    className={`set-seg__btn${s.visionMode === mode ? " set-seg__btn--on" : ""}`}
                     disabled={busy}
-                    onClick={() => void apply(() => app.SetVisionEnabled(enabled))}
+                    onClick={() => void apply(() => app.SetVisionMode(mode))}
                   >
-                    {enabled ? t("settings.autoPlan.on") : t("settings.autoPlan.off")}
+                    {t(`settings.visionMode.${mode}`)}
                   </button>
                 ))}
+              </div>
+            </SettingsField>
+
+            <SettingsField label={t("settings.visionCapabilities")} hint={t("settings.visionCapabilitiesHint")} stacked>
+              <div className="settings-vision-capabilities">
+                {refs.length === 0 ? (
+                  <div className="settings-vision-capabilities__empty">{t("settings.visionCapabilitiesEmpty")}</div>
+                ) : refs.map((ref) => {
+                  const capability = capabilityByRef.get(ref);
+                  const status = capability?.status || "unknown";
+                  const statusLabel = t(`settings.visionStatus.${status}` as DictKey);
+                  const checked = capability?.checkedAt
+                    ? new Date(capability.checkedAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")
+                    : t("settings.visionNotChecked");
+                  const isProbing = probingVision === ref || status === "probing";
+                  return (
+                    <div className="settings-vision-capabilities__row" key={ref}>
+                      <div className="settings-vision-capabilities__model">
+                        <strong title={ref}>{ref}</strong>
+                        <span>{statusLabel} · {checked}</span>
+                        {capability?.reason && <small title={capability.reason}>{capability.reason}</small>}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn--ghost settings-vision-capabilities__probe"
+                        disabled={busy || isProbing}
+                        onClick={() => void probeVision(ref)}
+                        title={t("settings.visionProbe")}
+                      >
+                        <RefreshCw size={14} className={isProbing ? "settings-vision-capabilities__spin" : undefined} />
+                        <span>{t("settings.visionProbe")}</span>
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </SettingsField>
 

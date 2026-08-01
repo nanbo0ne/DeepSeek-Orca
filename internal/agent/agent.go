@@ -54,6 +54,7 @@ type Asker interface {
 // callContextKey carries the executing tool call's identity into Execute.
 type callContextKey struct{}
 type parentSessionContextKey struct{}
+type turnImagesContextKey struct{}
 
 // callContext is the per-call context a tool can read. parentID is the call being
 // executed and sink is the agent's event sink (the `task` tool uses both to nest
@@ -80,6 +81,17 @@ func CallContext(ctx context.Context) (parentID string, sink event.Sink, asker A
 		return "", nil, nil, false
 	}
 	return cc.parentID, cc.sink, cc.asker, true
+}
+
+// WithTurnImages makes the current user's validated attachment snapshots
+// available to tools without adding image bytes to the model transcript.
+func WithTurnImages(ctx context.Context, images []provider.ImageContent) context.Context {
+	return context.WithValue(ctx, turnImagesContextKey{}, append([]provider.ImageContent(nil), images...))
+}
+
+func TurnImages(ctx context.Context) []provider.ImageContent {
+	images, _ := ctx.Value(turnImagesContextKey{}).([]provider.ImageContent)
+	return append([]provider.ImageContent(nil), images...)
 }
 
 // WithParentSession stamps the active parent session ID onto a turn context so
@@ -214,12 +226,13 @@ type Agent struct {
 
 	// projectChecks are structured project instructions that complete_step can
 	// verify against same-turn bash receipts after a write-backed completion.
-	projectChecks   []instruction.VerifyCheck
-	pauseWait       func(context.Context) error
-	imageLoader     func(context.Context, provider.ImageContent) (provider.ImageContent, error)
-	missingImages   map[string]bool
-	imageCache      map[string]provider.ImageContent
-	imageCacheBytes int
+	projectChecks                []instruction.VerifyCheck
+	requirePostWriteVerification bool
+	pauseWait                    func(context.Context) error
+	imageLoader                  func(context.Context, provider.ImageContent) (provider.ImageContent, error)
+	missingImages                map[string]bool
+	imageCache                   map[string]provider.ImageContent
+	imageCacheBytes              int
 
 	// memQueue, when non-nil, lets the remember/forget tools fold a turn-tail note
 	// about a just-made memory change into the next turn, so it applies this
@@ -424,9 +437,10 @@ type Options struct {
 	Jobs *jobs.Manager
 
 	// ProjectChecks are host-observable structured checks extracted during boot.
-	ProjectChecks []instruction.VerifyCheck
-	PauseWait     func(context.Context) error
-	ImageLoader   func(context.Context, provider.ImageContent) (provider.ImageContent, error)
+	ProjectChecks                []instruction.VerifyCheck
+	RequirePostWriteVerification bool
+	PauseWait                    func(context.Context) error
+	ImageLoader                  func(context.Context, provider.ImageContent) (provider.ImageContent, error)
 }
 
 // New constructs an Agent. MaxSteps <= 0 means no cap — the run loop continues
@@ -462,29 +476,30 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
 		maxStepsKey = "agent.max_steps"
 	}
 	return &Agent{
-		prov:              prov,
-		tools:             tools,
-		session:           session,
-		maxSteps:          opts.MaxSteps,
-		maxStepsKey:       maxStepsKey,
-		temperature:       opts.Temperature,
-		pricing:           opts.Pricing,
-		sink:              sink,
-		gate:              gate,
-		hooks:             hooks,
-		jobs:              opts.Jobs,
-		evidence:          evidence.NewLedger(),
-		projectChecks:     append([]instruction.VerifyCheck(nil), opts.ProjectChecks...),
-		contextWindow:     opts.ContextWindow,
-		softCompactRatio:  opts.SoftCompactRatio,
-		compactRatio:      opts.CompactRatio,
-		compactForceRatio: opts.CompactForceRatio,
-		recentKeep:        opts.RecentKeep,
-		archiveDir:        opts.ArchiveDir,
-		pauseWait:         opts.PauseWait,
-		imageLoader:       opts.ImageLoader,
-		missingImages:     map[string]bool{},
-		imageCache:        map[string]provider.ImageContent{},
+		prov:                         prov,
+		tools:                        tools,
+		session:                      session,
+		maxSteps:                     opts.MaxSteps,
+		maxStepsKey:                  maxStepsKey,
+		temperature:                  opts.Temperature,
+		pricing:                      opts.Pricing,
+		sink:                         sink,
+		gate:                         gate,
+		hooks:                        hooks,
+		jobs:                         opts.Jobs,
+		evidence:                     evidence.NewLedger(),
+		projectChecks:                append([]instruction.VerifyCheck(nil), opts.ProjectChecks...),
+		requirePostWriteVerification: opts.RequirePostWriteVerification,
+		contextWindow:                opts.ContextWindow,
+		softCompactRatio:             opts.SoftCompactRatio,
+		compactRatio:                 opts.CompactRatio,
+		compactForceRatio:            opts.CompactForceRatio,
+		recentKeep:                   opts.RecentKeep,
+		archiveDir:                   opts.ArchiveDir,
+		pauseWait:                    opts.PauseWait,
+		imageLoader:                  opts.ImageLoader,
+		missingImages:                map[string]bool{},
+		imageCache:                   map[string]provider.ImageContent{},
 	}
 }
 
@@ -696,7 +711,7 @@ func (a *Agent) finalReadinessCheck() finalReadinessCheck {
 	}
 	hasProjectChecks := len(a.projectChecks) > 0
 	hasTodoReceipt := a.evidence.HasSuccessfulTodoWrite()
-	if !hasProjectChecks && !hasTodoReceipt && len(missing) == 0 {
+	if !hasProjectChecks && !hasTodoReceipt && !a.requirePostWriteVerification && len(missing) == 0 {
 		return finalReadinessCheck{}
 	}
 	out.applies = true
@@ -709,6 +724,10 @@ func (a *Agent) finalReadinessCheck() finalReadinessCheck {
 			out.missingProjectChecks++
 			missing = append(missing, fmt.Sprintf("run %q from %s after the latest write", command, finalReadinessCheckSource(check)))
 		}
+	}
+	if a.requirePostWriteVerification && !hasProjectChecks && !a.evidence.HasSuccessfulVerificationAfter(writer) {
+		out.missingProjectChecks++
+		missing = append(missing, "run a relevant test, build, lint, typecheck, parser check, or git diff --check after the latest write")
 	}
 
 	if len(missing) == 0 {

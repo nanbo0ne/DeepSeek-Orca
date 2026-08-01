@@ -6,11 +6,11 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.28)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.29)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -18,7 +18,7 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ### 普通模式与增强模式
 
-- **普通模式**：适合常规对话、查询、研究、写作、分析和普通开发任务。
+- **普通模式**：适合常规对话、查询、研究、写作、分析和普通开发任务。即使配置了自定义提示词，完整的内置工程规则仍会保留；修改文件后，最后一次写入之后必须完成一次相关验证。
 - **增强模式**：适合复杂代码、架构分析、长任务、代码审查和更主动的工程执行。
 
 模式按会话保存。切换模式会重建当前控制器，但保留历史、模型、思考强度、审批状态、计划、目标和会话路径。两种模式对模型的身份均为 `DeepSeek-Orca`。
@@ -37,7 +37,9 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ### 多模态识图
 
-在“设置 > 模型”中主动开启后，输入框粘贴、拖入图片或工作区 `@` 引用的 PNG、JPEG、WebP、GIF 才会发送给当前模型。每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。会话只保存路径、名称和 MIME，不保存 base64。模型不支持图片时会明确报错，不会静默按纯文本重试。当前版本不包含截图自动化或完整 computer-use。
+“设置 > 模型”中的识图模式分为 **关闭 / 自动 / 开启**。新安装默认使用“自动”：软件会针对每个 Provider 类型、接口地址和模型执行一次很小的独立探测，只向已确认支持视觉的模型发送图片字节。设置页会显示能力状态、检测时间、失败原因和“重新检测”入口。DeepSeek 被识别为不支持图片是正常结果，不影响其文本能力，也不属于版本验收失败。
+
+输入框粘贴、拖入图片或工作区 `@` 引用支持 PNG、JPEG、WebP、GIF；每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。文本主模型只会得到图片引用，并可在确有需要时把本轮已验证图片交给支持视觉的 subagent。会话只保存路径、名称和 MIME，不保存 base64；目标模型能力未知或不支持时会明确报错，不能假装看过图片。当前版本不包含截图自动化或完整 computer-use。
 
 ### 工具、权限与本地执行
 
@@ -53,7 +55,9 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 计划、Todo、目标与过程展示
 
-计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时向上展开，也可以点击固定，不会推挤输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示有精简、标准、详细三档：精简模式只显示低强调单行状态，标准模式显示按时间顺序排列的过程卡，详细模式默认展开详情；最终回答和 token 统计不受影响。
+计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时向上展开，也可以点击固定，不会推挤输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示有精简、标准、详细三档，用于控制运行中和手动展开后的信息密度；思考、工具、通知和 subagent 使用扁平的时间活动轨道，不再层层嵌套白色卡片。
+
+成功完成的回合会自动收起，只保留用户消息、`已处理 ...` 行和最终回答。点击耗时行会按原始顺序恢复全部中间过程，并在顶部显示 token；失败、取消、中断和仍在运行的回合保持展开，方便排查。
 
 对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。后台任务完成只更新状态，不会偷偷创建新的模型轮次。
 
@@ -63,7 +67,7 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ## 隐私与安全
 
-软件本地运行，但消息会发送给用户选择的 Provider。使用敏感数据前请核对 Provider、地址、代理、识图、工具和审批设置。只有开启识图且本轮包含图片时，图片字节才会上传。API Key 通过环境变量或本地凭据流程读取，不会写入会话消息。
+软件本地运行，但消息会发送给用户选择的 Provider。使用敏感数据前请核对 Provider、地址、代理、识图、工具和审批设置。只有当前识图模式允许目标模型且本轮包含图片时，图片字节才会上传；能力探测本身也会向对应 Provider 发起一次很小的请求。API Key 通过环境变量或本地凭据流程读取，不会写入会话消息。
 
 工具调用会显示在时间线中。用户可以暂停、取消、回滚、使用检查点或从回收站恢复会话。长任务仍应通过审批、沙箱和工作区写入范围控制风险。
 
@@ -74,7 +78,7 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 ## 常见问题
 
 - **模型不可用**：检查 Provider 地址、模型名、Key 环境变量和代理。
-- **图片发送失败**：确认已开启识图，并确认当前模型支持图片；必要时切换模型或关闭识图。
+- **图片发送失败**：先查看设置中的模型视觉状态。自动模式下请选择已确认支持视觉的主模型或 subagent；DeepSeek 显示不支持是正常情况。“开启”只能强制尝试发送，不能让纯文本模型凭空获得识图能力。
 - **工具反复请求审批**：检查审批模式、沙箱和工具组，不要盲目重复执行。
 - **窗口过窄**：保持在软件支持的最小窗口宽度以上。输入框会逐步隐藏文字，但保留模型选择和核心操作。
 - **没有看到更新**：自动检查结果缓存 24 小时，且只查询官方稳定 GitHub Release；设置中可在自动检查开关旁手动检查。

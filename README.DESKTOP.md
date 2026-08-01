@@ -4,11 +4,11 @@ This is the desktop-focused English entry point. The current build is the engine
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.28)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-linux-amd64.deb)
+- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.29)
 
 ## Scope
 
@@ -16,7 +16,9 @@ DeepSeek-Orca Desktop provides project and independent workspaces, persistent se
 
 Normal mode handles routine conversation, research, writing, analysis, and everyday development. Enhanced mode handles complex coding, architecture, long tasks, reviews, and active repository changes. Both use the `DeepSeek-Orca` engineering identity. The hidden Assistant prompt and memory implementation remain reserved for the future `Orca` application and are not active in this build.
 
-Vision is disabled by default. When enabled, PNG/JPEG/WebP/GIF attachments are sent to the selected provider within the documented count and size limits. Session files keep references, not image base64. Process display can be Compact, Standard, or Detailed, and does not change model output or token accounting.
+Vision defaults to Auto. The app probes capability per model and endpoint with one small isolated request, sends images only to confirmed visual models, and can route selected current-turn images from a text-only main model to a visual subagent. DeepSeek being detected as unsupported is expected. Session files keep references, not image base64.
+
+Process display can be Compact, Standard, or Detailed. Successful turns collapse to elapsed time and the final answer; expanding restores the flat chronological activity rail. Failed, cancelled, interrupted, and active turns remain expanded. Normal mode always retains the complete built-in engineering prompt and requires relevant post-write verification.
 
 Updates are notification-only: the app checks stable official releases, caches successful checks for 24 hours, and opens the release page in a browser after the user clicks the update entry. It does not auto-download, auto-install, or force upgrades.
 

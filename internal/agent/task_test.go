@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -42,6 +43,66 @@ func TestTaskToolReturnsSubAgentFinalAnswer(t *testing.T) {
 	}
 	if got := lastUser(sub.lastReq); got != "find callers of Foo" {
 		t.Errorf("sub-agent user = %q, want the prompt verbatim", got)
+	}
+}
+
+func TestTaskToolRoutesValidatedImagesToSupportedSubagent(t *testing.T) {
+	sub := &mockProvider{name: "vision-sub", chunks: []provider.Chunk{
+		{Type: provider.ChunkText, Text: "the image contains a chart"},
+		{Type: provider.ChunkDone},
+	}}
+	task := newTestTaskTool(t, sub, tool.NewRegistry(), "sys", "", "", nil).
+		WithVision("auto", func(modelRef string) string {
+			if modelRef != "base-model" {
+				t.Fatalf("capability checked for %q, want base-model", modelRef)
+			}
+			return "supported"
+		}, func(_ context.Context, image provider.ImageContent) (provider.ImageContent, error) {
+			image.Data = "HYDRATED_IMAGE_DATA"
+			return image, nil
+		})
+	ctx := WithTurnImages(testTaskContext(), []provider.ImageContent{{
+		Name:      "chart.png",
+		Path:      ".deepseek-orca/attachments/chart.png",
+		MediaType: "image/png",
+	}})
+	if _, err := task.Execute(ctx, []byte(`{"prompt":"inspect the chart","images":["chart.png"]}`)); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	user := sub.lastReq.Messages[len(sub.lastReq.Messages)-1]
+	if len(user.Images) != 1 || user.Images[0].Data != "HYDRATED_IMAGE_DATA" {
+		t.Fatalf("subagent images = %+v", user.Images)
+	}
+}
+
+func TestTaskToolRejectsDisallowedImageRouting(t *testing.T) {
+	available := []provider.ImageContent{{Name: "allowed.png", Path: ".deepseek-orca/attachments/allowed.png", MediaType: "image/png"}}
+	ctx := WithTurnImages(testTaskContext(), available)
+	newTask := func(mode, capability string) *TaskTool {
+		return newTestTaskTool(t, &mockProvider{name: "sub"}, tool.NewRegistry(), "sys", "", "", nil).
+			WithVision(mode, func(string) string { return capability }, func(_ context.Context, image provider.ImageContent) (provider.ImageContent, error) {
+				image.Data = "data"
+				return image, nil
+			})
+	}
+	for _, tc := range []struct {
+		name       string
+		mode       string
+		capability string
+		image      string
+		want       string
+	}{
+		{name: "off", mode: "off", capability: "supported", image: "allowed.png", want: "disabled"},
+		{name: "auto unknown", mode: "auto", capability: "unknown", image: "allowed.png", want: "not confirmed"},
+		{name: "auto unsupported", mode: "auto", capability: "unsupported", image: "allowed.png", want: "not confirmed"},
+		{name: "arbitrary path", mode: "on", capability: "supported", image: `C:\\secrets\\private.png`, want: "validated attachments"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := newTask(tc.mode, tc.capability).Execute(ctx, []byte(`{"prompt":"inspect","images":[`+strconv.Quote(tc.image)+`]}`))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Execute error = %v, want substring %q", err, tc.want)
+			}
+		})
 	}
 }
 

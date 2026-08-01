@@ -6,11 +6,11 @@ This repository's desktop product is the **engineering edition**. It exposes two
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.28/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.28)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.29/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.29)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -18,7 +18,7 @@ The application never downloads or installs an update without user action. Updat
 
 ### Engineering modes
 
-- **Normal mode**: general conversation, research, writing, analysis, everyday coding, and regular tasks.
+- **Normal mode**: general conversation, research, writing, analysis, everyday coding, and regular tasks. Its complete built-in engineering instructions stay active even when custom instructions are configured, and file-changing work requires a relevant verification after the last write.
 - **Enhanced mode**: complex coding, architecture work, long-running tasks, reviews, repository changes, and more agentic execution.
 
 The mode is stored per conversation. Switching mode rebuilds only the controller while preserving session history, model, effort, approvals, plan state, goal state, and session path. Both modes identify the product as `DeepSeek-Orca` to the model.
@@ -37,7 +37,9 @@ Use DeepSeek, OpenAI-compatible providers, and Anthropic-compatible providers. C
 
 ### Vision attachments
 
-Vision is opt-in under Settings > Models. When enabled, pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files are sent to the active model provider. Each turn accepts up to 8 images, 20 MB total, and 10 MB per image. Sessions store paths, names, and MIME types, never image base64. Unsupported models return an explicit error rather than silently retrying as text. Screenshot automation and full computer-use are outside this edition.
+Vision under Settings > Models offers **Off**, **Auto**, and **On**. New installations default to Auto: each configured model is checked with one small, isolated request, and image bytes are sent only to models confirmed to support vision. Capability is tracked per provider type, endpoint, and model, with status and manual recheck controls in Settings. DeepSeek being marked unsupported is expected and does not affect text use.
+
+Pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files remain limited to 8 images per turn, 20 MB total, and 10 MB per image. A text-only main model receives references rather than image bytes and may explicitly delegate selected current-turn images to a confirmed vision-capable subagent. Sessions store paths, names, and MIME types, never image base64; an unsupported or unknown target returns a clear error instead of pretending it saw the image. Screenshot automation and full computer-use are outside this edition.
 
 ### Tools and local execution
 
@@ -59,7 +61,8 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 - Plan mode presents a reviewable plan before execution.
 - Todo uses a compact centered progress control that expands upward on hover or keyboard focus and can be pinned without pushing the composer.
 - Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
-- Process display offers Compact, Standard, and Detailed levels. Compact keeps live activity on a quiet single line; Standard shows ordered process cards; Detailed keeps process details expanded. The final answer and token accounting are unchanged.
+- Process display offers Compact, Standard, and Detailed levels while a turn is running or manually expanded. Reasoning, tools, notices, and subagents use a flat chronological activity rail instead of nested cards.
+- A successfully completed turn automatically collapses to its user message, elapsed-time row, and final answer. Expanding the elapsed row restores every intermediate event in its original order and shows token usage; failed, cancelled, interrupted, and active turns stay open for diagnosis.
 - The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
 
 ### Automation and remote connections
@@ -68,7 +71,7 @@ The application includes scheduled automation, task status, local background job
 
 ## Privacy and Safety
 
-DeepSeek-Orca is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when vision is enabled and a turn includes the image. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
+DeepSeek-Orca is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when the selected vision mode permits the target model and a turn includes the image. Vision probing itself makes one very small request to the configured provider. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
 
 Tool execution is visible in the transcript. Approval, sandbox, workspace roots, read-only tools, and background-task status are separate controls. Cancel, pause, rollback, checkpoints, and session trash provide recovery paths for long tasks.
 
@@ -80,7 +83,7 @@ After first launch, open Settings and configure models and providers, workspace 
 
 - **The model is unavailable**: check the provider endpoint, selected model, API-key environment variable, and proxy settings.
 - **A conversation opens slowly**: balance lookup is independent; inspect provider/network status and local workspace size if history itself is slow.
-- **An image is rejected**: confirm Vision is enabled and that the provider/model accepts image content; switch models or disable Vision explicitly.
+- **An image is rejected**: inspect the model's vision status in Settings. In Auto, choose a confirmed vision-capable model or subagent; DeepSeek being unsupported is normal. On forces an attempt but cannot add capability to a text-only model.
 - **A tool asks for approval repeatedly**: review the approval mode, sandbox, and tool-group settings rather than retrying blindly.
 - **A window is narrow**: keep the application above its supported minimum width. Composer controls progressively hide labels while keeping model selection and core actions accessible.
 - **An update is not shown**: automatic checks are cached for 24 hours and use official stable GitHub Releases. Manual checking is available next to the update toggle in Settings.

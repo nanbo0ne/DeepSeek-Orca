@@ -73,6 +73,9 @@ type TaskTool struct {
 	baseModel         string
 	baseEffort        string
 	identityProfile   func(modelRef, effort string) (string, string)
+	visionMode        string
+	visionCapability  func(modelRef string) string
+	imageLoader       func(context.Context, provider.ImageContent) (provider.ImageContent, error)
 }
 
 // NewTaskTool wires a task tool to the parent agent's environment so its
@@ -122,6 +125,11 @@ func (t *TaskTool) WithTranscriptIdentityResolver(resolve func(modelRef, effort 
 	return t
 }
 
+func (t *TaskTool) WithVision(mode string, capability func(string) string, loader func(context.Context, provider.ImageContent) (provider.ImageContent, error)) *TaskTool {
+	t.visionMode, t.visionCapability, t.imageLoader = strings.TrimSpace(mode), capability, loader
+	return t
+}
+
 func (t *TaskTool) Name() string { return "task" }
 
 func (t *TaskTool) Description() string {
@@ -139,6 +147,7 @@ func (t *TaskTool) Schema() json.RawMessage {
   "run_in_background":{"type":"boolean","description":"Run the sub-agent asynchronously: returns a job id immediately and keeps working across turns. Use only when the user explicitly wants background work or when the sub-task is independent of the current answer. If the current answer needs this research, do not final-answer after starting it; call wait first to collect the result. You'll be notified when it finishes."},
   "model":{"type":"string","description":"Optional model override for the sub-agent (a configured provider/model name)."},
   "effort":{"type":"string","description":"Optional reasoning effort for the sub-agent (e.g. high, max)."},
+  "images":{"type":"array","items":{"type":"string"},"description":"Optional current-user image names or snapshot paths. Only request these when visual inspection is necessary and the selected sub-agent model supports vision."},
   "continue_from":{"type":"string","description":"Optional subagent transcript reference to continue in place. The current kind, prompt persona, tools, model, effort, and workspace must match the saved transcript."},
   "fork_from":{"type":"string","description":"Optional subagent transcript reference to copy into a new transcript before running this task. Mutually exclusive with continue_from."}
 },
@@ -188,6 +197,7 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 		RunInBackground bool     `json:"run_in_background"`
 		Model           string   `json:"model"`
 		Effort          string   `json:"effort"`
+		Images          []string `json:"images"`
 		ContinueFrom    string   `json:"continue_from"`
 		ForkFrom        string   `json:"fork_from"`
 	}
@@ -215,6 +225,10 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 
 	subReg := t.buildSubReg(p.Tools)
 	modelRef, effortRef := t.effectiveProfile(p.Model, p.Effort)
+	selectedImages, err := t.selectImages(ctx, p.Images, modelRef)
+	if err != nil {
+		return "", err
+	}
 	parentID, parent, _, _ := CallContext(ctx)
 	run, err := t.prepareTranscriptRun(subReg, modelRef, effortRef, ParentSession(ctx), parentID, p.ContinueFrom, p.ForkFrom)
 	if err != nil {
@@ -251,7 +265,7 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 		}
 		job := jm.Start("task", label, func(jobCtx context.Context, _ io.Writer) (string, error) {
 			defer run.Release()
-			answer, err := t.runSubSession(jobCtx, p.Prompt, subReg, nested, maxSteps, prov, pricing, ctxWin, run.Session)
+			answer, err := t.runSubSession(jobCtx, p.Prompt, selectedImages, subReg, nested, maxSteps, prov, pricing, ctxWin, run.Session)
 			if err != nil {
 				return FormatSubagentResult("", run.Ref, true), errors.Join(err, t.transcripts.SaveFailed(run))
 			}
@@ -268,7 +282,7 @@ func (t *TaskTool) Execute(ctx context.Context, args json.RawMessage) (string, e
 
 	// Foreground: run synchronously, nesting events under this call.
 	defer run.Release()
-	answer, err := t.runSubSession(ctx, p.Prompt, subReg, subSink(ctx), maxSteps, prov, pricing, ctxWin, run.Session)
+	answer, err := t.runSubSession(ctx, p.Prompt, selectedImages, subReg, subSink(ctx), maxSteps, prov, pricing, ctxWin, run.Session)
 	if err != nil {
 		return "", errors.Join(err, t.transcripts.SaveFailed(run))
 	}
@@ -430,8 +444,8 @@ func (t *TaskTool) resolveSubSessionRuntime(modelRef, effort string) (provider.P
 	return prov, pricing, ctxWin, nil
 }
 
-func (t *TaskTool) runSubSession(ctx context.Context, prompt string, subReg *tool.Registry, sink event.Sink, maxSteps int, prov provider.Provider, pricing *provider.Pricing, ctxWin int, sess *Session) (string, error) {
-	return RunSubAgentWithSession(ctx, prov, subReg, sess, prompt, Options{
+func (t *TaskTool) runSubSession(ctx context.Context, prompt string, images []provider.ImageContent, subReg *tool.Registry, sink event.Sink, maxSteps int, prov provider.Provider, pricing *provider.Pricing, ctxWin int, sess *Session) (string, error) {
+	return RunSubAgentWithRichSession(ctx, prov, subReg, sess, RichInput{Text: prompt, Images: images}, Options{
 		MaxSteps:          maxSteps,
 		Temperature:       t.temperature,
 		Pricing:           pricing,
@@ -441,6 +455,7 @@ func (t *TaskTool) runSubSession(ctx context.Context, prompt string, subReg *too
 		CompactRatio:      t.compactRatio,
 		CompactForceRatio: t.compactForceRatio,
 		ArchiveDir:        t.archiveDir,
+		ImageLoader:       t.imageLoader,
 	}, sink)
 }
 
@@ -461,11 +476,15 @@ func FormatSubagentResult(answer, ref string, failed bool) string {
 // returns the latest final assistant answer. Fresh sub-agents pass a newly-created
 // session; continued sub-agents pass a loaded transcript session.
 func RunSubAgentWithSession(ctx context.Context, prov provider.Provider, reg *tool.Registry, sess *Session, prompt string, opts Options, sink event.Sink) (string, error) {
+	return RunSubAgentWithRichSession(ctx, prov, reg, sess, RichInput{Text: prompt}, opts, sink)
+}
+
+func RunSubAgentWithRichSession(ctx context.Context, prov provider.Provider, reg *tool.Registry, sess *Session, input RichInput, opts Options, sink event.Sink) (string, error) {
 	if sess == nil {
 		return "", fmt.Errorf("sub-agent session is nil")
 	}
 	sub := New(prov, reg, sess, opts, sink)
-	if err := sub.Run(ctx, prompt); err != nil {
+	if err := sub.RunRich(ctx, input); err != nil {
 		return "", fmt.Errorf("sub-agent: %w", err)
 	}
 	// Walk the session backwards for the last assistant message with content —
@@ -478,6 +497,52 @@ func RunSubAgentWithSession(ctx context.Context, prov provider.Provider, reg *to
 		}
 	}
 	return "", fmt.Errorf("sub-agent finished without producing a final answer")
+}
+
+func (t *TaskTool) selectImages(ctx context.Context, names []string, modelRef string) ([]provider.ImageContent, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	if t.visionMode == "off" {
+		return nil, fmt.Errorf("vision is disabled in Settings")
+	}
+	identity := strings.TrimSpace(modelRef)
+	if identity == "" {
+		identity = strings.TrimSpace(t.baseModel)
+	}
+	if t.visionMode == "auto" && (t.visionCapability == nil || t.visionCapability(identity) != "supported") {
+		return nil, fmt.Errorf("model %q is not confirmed to support vision; choose a supported model, re-run its vision check, or use vision mode on", identity)
+	}
+	available := TurnImages(ctx)
+	selected := make([]provider.ImageContent, 0, len(names))
+	seen := map[string]bool{}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		var found *provider.ImageContent
+		for i := range available {
+			if name == available[i].Path || name == available[i].Name {
+				found = &available[i]
+				break
+			}
+		}
+		if found == nil {
+			return nil, fmt.Errorf("image %q is not one of the current user's validated attachments", name)
+		}
+		if seen[found.Path] {
+			continue
+		}
+		seen[found.Path] = true
+		image := *found
+		if t.imageLoader == nil {
+			return nil, fmt.Errorf("image loading is unavailable for subagents")
+		}
+		hydrated, err := t.imageLoader(ctx, image)
+		if err != nil {
+			return nil, fmt.Errorf("image %q: %w", name, err)
+		}
+		selected = append(selected, hydrated)
+	}
+	return selected, nil
 }
 
 // NestedSink returns a sink that forwards a sub-agent's tool activity to the

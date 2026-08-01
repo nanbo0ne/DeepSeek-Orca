@@ -77,6 +77,8 @@ type Controller struct {
 	askWorkflow    bool
 	stepThinking   bool
 	visionEnabled  bool
+	visionMode     string
+	visionModels   func() []string
 	cleanup        func()
 	autoPlan       string
 	classifier     autoPlanClassifier
@@ -295,6 +297,8 @@ type Options struct {
 	AskWorkflow    bool
 	StepThinking   bool
 	VisionEnabled  bool
+	VisionMode     string
+	VisionModels   func() []string
 	Cleanup        func()
 	// BalanceURL/BalanceKey wire the active provider's optional wallet-balance
 	// endpoint and bearer key; empty when the provider declares no balance_url.
@@ -354,6 +358,8 @@ func New(opts Options) *Controller {
 		askWorkflow:      opts.AskWorkflow,
 		stepThinking:     opts.StepThinking,
 		visionEnabled:    opts.VisionEnabled,
+		visionMode:       opts.VisionMode,
+		visionModels:     opts.VisionModels,
 		cleanup:          opts.Cleanup,
 		autoPlan:         normalizeAutoPlan(opts.AutoPlan),
 		classifier:       classifier,
@@ -1139,17 +1145,32 @@ func (c *Controller) runRefTurn(input, display string) {
 // "/path/File.kt:12: error" attach @/path/File.kt without rewriting the error.
 func (c *Controller) runRefTurnWithRefs(input, refLine, display string) {
 	c.runGuarded(func(ctx context.Context) error {
-		block, images, errs, imageErr := c.resolveRefsWithImages(ctx, refLine, c.visionEnabled)
+		block, availableImages, errs, imageErr := c.resolveRefsWithImages(ctx, refLine, true)
 		for _, e := range errs {
 			c.notice(e)
 		}
 		if imageErr != nil {
 			return imageErr
 		}
+		images := availableImages
+		if !c.visionEnabled {
+			images = nil
+			models := []string{}
+			if c.visionModels != nil {
+				models = c.visionModels()
+			}
+			available := "none confirmed"
+			if len(models) > 0 {
+				available = strings.Join(models, ", ")
+			}
+			placeholder := "[image snapshot is available to the task tool; the current model did not receive image bytes. Confirmed vision-capable subagent models: " + available + ". Select one explicitly only when visual inspection is needed]"
+			block = strings.ReplaceAll(block, "[image content attached to this user message]", placeholder)
+		}
 		sent := input
 		if block != "" {
 			sent = "Referenced context:\n\n" + block + "\n\n" + input
 		}
+		ctx = agent.WithTurnImages(ctx, availableImages)
 		return c.runGoalLoopWithRichDisplay(ctx, agent.RichInput{Text: sent, Images: images}, input, display)
 	})
 }
