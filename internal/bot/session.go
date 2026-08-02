@@ -39,15 +39,17 @@ func BuildSessionKey(src SessionSource) string {
 }
 
 var slashCommands = map[string]bool{
-	"/start":   true,
-	"/stop":    true,
-	"/new":     true,
-	"/reset":   true,
-	"/approve": true,
-	"/deny":    true,
-	"/answer":  true,
-	"/status":  true,
-	"/help":    true,
+	"/start":    true,
+	"/stop":     true,
+	"/new":      true,
+	"/continue": true,
+	"/hi":       true,
+	"/reset":    true,
+	"/approve":  true,
+	"/deny":     true,
+	"/answer":   true,
+	"/status":   true,
+	"/help":     true,
 }
 
 // IsSlashBypass reports whether text is a management command that must bypass

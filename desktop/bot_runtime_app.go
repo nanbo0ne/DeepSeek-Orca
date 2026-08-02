@@ -5,13 +5,18 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/boot"
 	"deepseek-orca/internal/bot"
 	"deepseek-orca/internal/bot/qq"
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/memory"
 )
 
@@ -31,7 +36,6 @@ func (a *App) restartDesktopBotGateway() {
 }
 
 func (a *App) startDesktopBotGatewayOnStartup() {
-	a.migrateDesktopBotPromptMode()
 	cfg, err := config.Load()
 	if err != nil {
 		a.setBotRuntimeStatus("error", "读取机器人配置失败："+err.Error())
@@ -98,8 +102,8 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	gw := bot.NewGateway(bot.GatewayConfig{
 		Model:         modelName,
-		PromptMode:    normalizeProductPromptMode(cfg.Bot.PromptMode, false),
-		MemoryProfile: memory.ProfileSharedAgent,
+		PromptMode:    promptModeAssistant,
+		MemoryProfile: memory.ProfileAssistant,
 		MaxSteps:      cfg.Bot.MaxSteps,
 		WorkspaceRoot: workspaceRoot,
 		Enabled:       enabled,
@@ -111,9 +115,39 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 		},
 		Debounce:      time.Duration(cfg.Bot.DebounceMs) * time.Millisecond,
 		CreateSession: a.createDesktopBotSession,
-		MirrorEvent:   a.mirrorBotEventToOpenTab,
-		MirrorUser:    a.mirrorBotUserToOpenTab,
-		AfterTurn:     a.refreshOpenTabForBotSession,
+		BuildSession: func(ctx context.Context, choice bot.SessionChoice, sink event.Sink) (*control.Controller, error) {
+			store, err := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir())
+			if err != nil {
+				return nil, err
+			}
+			topicID := ""
+			if meta, ok, _ := agent.LoadBranchMeta(choice.Path); ok {
+				topicID = meta.TopicID
+			}
+			return boot.Build(ctx, boot.Options{
+				Model: modelName, PromptMode: promptModeAssistant, MemoryProfile: memory.ProfileAssistant,
+				AssistantMemoryStoreDir: store.Dir, MaxSteps: cfg.Bot.MaxSteps, RequireKey: true, Sink: sink,
+				WorkspaceRoot: workspaceRoot, SessionDir: filepath.Dir(choice.Path),
+				ExtraTools:  a.conversationBroker.Tools("bot:"+topicID, topicID),
+				TurnContext: func() string { return a.conversationBroker.Index(topicID) },
+				TurnLease:   a.sessionGate.Acquire, RefreshOnLease: true,
+			})
+		},
+		MirrorEvent:    a.mirrorBotEventToOpenTab,
+		MirrorUser:     a.mirrorBotUserToOpenTab,
+		AfterTurn:      func(sessionPath string) { a.afterDesktopBotTurn(sessionPath, modelName) },
+		RestoreSession: a.restoreDesktopBotSession,
+		GuideSent:      botGuideState(cfg),
+		AfterGuideSent: a.markBotGuideSent,
+		ContinuityDecider: func(ctx context.Context, previous bot.SessionChoice, currentMessage string) (bool, error) {
+			return a.decideBotContinuity(ctx, modelName, previous, currentMessage)
+		},
+		RegisterExternalSink: a.conversationBroker.RegisterSourceSink,
+		ExternalApprove: func(id string, allow bool) bool {
+			return a.conversationBroker.Approve(id, allow, false, false)
+		},
+		ExternalAnswer: a.conversationBroker.Answer,
+		ExternalStop:   a.conversationBroker.CancelActive,
 	}, adapters, logger)
 	if err := gw.Start(ctx); err != nil {
 		cancel()

@@ -7,13 +7,19 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/provider"
 )
+
+type gatewayRunnerFunc func(context.Context, string) error
+
+func (f gatewayRunnerFunc) Run(ctx context.Context, input string) error { return f(ctx, input) }
 
 // fakeAdapter 是一个内存中的假适配器，用于测试 BotGateway。
 type fakeAdapter struct {
@@ -353,5 +359,120 @@ func TestGatewayNewCreatesAndSelectsSession(t *testing.T) {
 	sent := fa.sentMessages()
 	if len(sent) != 1 || !strings.Contains(sent[0].Text, "已创建新对话") {
 		t.Fatalf("/new response = %#v", sent)
+	}
+}
+
+func TestGatewayFirstMessageRestoresMappedAutomationSession(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "restored.jsonl")
+	if err := agent.NewSession("sys").Save(path); err != nil {
+		t.Fatal(err)
+	}
+	created := false
+	restored := false
+	gw := NewGateway(GatewayConfig{
+		Allowlist: AllowlistConfig{AllowAll: true},
+		RestoreSession: func(ctx context.Context, remoteKey string, msg InboundMessage) (SessionChoice, bool, error) {
+			restored = true
+			return SessionChoice{TopicID: "auto-1", Path: path, Title: "已恢复", WorkspaceRoot: dir}, true, nil
+		},
+		CreateSession: func(context.Context, string, InboundMessage) (SessionChoice, error) {
+			created = true
+			return SessionChoice{}, nil
+		},
+		BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+			return control.New(control.Options{Runner: gatewayRunnerFunc(func(context.Context, string) error { return nil }), SessionPath: choice.Path, Sink: sink}), nil
+		},
+	}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	key, err := gw.ensureAutomationSession(context.Background(), "qq:chat-1", InboundMessage{Platform: PlatformQQ, Text: "继续"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !restored || created || key != controllerKeyForSession(path) {
+		t.Fatalf("restored=%v created=%v key=%q", restored, created, key)
+	}
+}
+
+func TestGatewayContinuityDecisionAfterIdle(t *testing.T) {
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old.jsonl")
+	newPath := filepath.Join(dir, "new.jsonl")
+	for _, path := range []string{oldPath, newPath} {
+		if err := agent.NewSession("sys").Save(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	newGateway := func(related bool, decisionErr error) (*BotGateway, *int) {
+		created := 0
+		gw := NewGateway(GatewayConfig{
+			Allowlist:         AllowlistConfig{AllowAll: true},
+			ContinuityDecider: func(context.Context, SessionChoice, string) (bool, error) { return related, decisionErr },
+			CreateSession: func(context.Context, string, InboundMessage) (SessionChoice, error) {
+				created++
+				return SessionChoice{TopicID: "new", Path: newPath, Title: "新段", WorkspaceRoot: dir}, nil
+			},
+			BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+				return control.New(control.Options{Runner: gatewayRunnerFunc(func(context.Context, string) error { return nil }), SessionPath: choice.Path, Sink: sink}), nil
+			},
+		}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		gw.remoteStates["qq:chat"] = &remoteSessionState{mode: remoteModeInSession, selectedKey: controllerKeyForSession(oldPath), selectedPath: oldPath, title: "旧段", workspaceRoot: dir, lastActive: time.Now().Add(-31 * time.Minute)}
+		return gw, &created
+	}
+
+	gw, created := newGateway(true, nil)
+	key, err := gw.ensureAutomationSession(context.Background(), "qq:chat", InboundMessage{Text: "相关追问"})
+	if err != nil || key != controllerKeyForSession(oldPath) || *created != 0 {
+		t.Fatalf("related key=%q created=%d err=%v", key, *created, err)
+	}
+	gw, created = newGateway(false, nil)
+	key, err = gw.ensureAutomationSession(context.Background(), "qq:chat", InboundMessage{Text: "新话题"})
+	if err != nil || key != controllerKeyForSession(newPath) || *created != 1 {
+		t.Fatalf("new key=%q created=%d err=%v", key, *created, err)
+	}
+}
+
+func TestGatewayGuidePersistsOnlyAfterSuccessfulTurn(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "guide.jsonl")
+	if err := agent.NewSession("sys").Save(path); err != nil {
+		t.Fatal(err)
+	}
+	adapter := newFakeAdapter(PlatformQQ, "qq")
+	var ran atomic.Bool
+	marked := 0
+	gw := NewGateway(GatewayConfig{
+		Allowlist: AllowlistConfig{AllowAll: true},
+		CreateSession: func(context.Context, string, InboundMessage) (SessionChoice, error) {
+			return SessionChoice{TopicID: "auto-guide", Path: path, Title: "指南", WorkspaceRoot: dir}, nil
+		},
+		BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+			return control.New(control.Options{Runner: gatewayRunnerFunc(func(context.Context, string) error { ran.Store(true); return nil }), SessionPath: choice.Path, Sink: sink}), nil
+		},
+		AfterGuideSent: func(Platform) error {
+			if !ran.Load() {
+				t.Fatal("guide persisted before the first turn completed")
+			}
+			marked++
+			return nil
+		},
+	}, map[Platform]Adapter{PlatformQQ: adapter}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	msg := InboundMessage{Platform: PlatformQQ, ChatType: ChatDM, ChatID: "chat", UserID: "user", Text: "你好"}
+	gw.handleMessage(context.Background(), PlatformQQ, adapter, msg)
+	gw.handleMessage(context.Background(), PlatformQQ, adapter, InboundMessage{Platform: PlatformQQ, ChatType: ChatDM, ChatID: "chat", UserID: "user", Text: "再问一次"})
+	if marked != 1 {
+		t.Fatalf("guide persisted %d times, want once", marked)
+	}
+	if sent := adapter.sentMessages(); len(sent) != 1 || !strings.Contains(sent[0].Text, "使用指南") {
+		t.Fatalf("guide messages = %#v", sent)
+	}
+}
+
+func TestGatewayHiShowsAutomationCommands(t *testing.T) {
+	adapter := newFakeAdapter(PlatformWeixin, "weixin")
+	gw := NewGateway(GatewayConfig{Allowlist: AllowlistConfig{AllowAll: true}}, map[Platform]Adapter{PlatformWeixin: adapter}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gw.handleMessage(context.Background(), PlatformWeixin, adapter, InboundMessage{ChatType: ChatDM, ChatID: "chat", UserID: "user", Text: "/hi"})
+	sent := adapter.sentMessages()
+	if len(sent) != 1 || !strings.Contains(sent[0].Text, "/new") || !strings.Contains(sent[0].Text, "/continue") {
+		t.Fatalf("/hi response = %#v", sent)
 	}
 }

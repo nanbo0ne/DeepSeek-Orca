@@ -25,6 +25,7 @@ import (
 	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/netclient"
 	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 )
 
 // --- WorkspaceTab -----------------------------------------------------------
@@ -35,7 +36,7 @@ import (
 // topics can be active concurrently without interfering.
 type WorkspaceTab struct {
 	ID            string              // stable random id
-	Scope         string              // "project" | "global"
+	Scope         string              // "project" | "global" | "automation"
 	WorkspaceRoot string              // project root dir (empty for global)
 	TopicID       string              // topic within the project
 	TopicTitle    string              // display title
@@ -82,6 +83,7 @@ type recentConversationPrefs struct {
 }
 
 const (
+	scopeAutomation     = "automation"
 	promptModeAssistant = "assistant"
 	promptModeNormal    = "normal"
 	promptModeEnhanced  = "enhanced"
@@ -106,6 +108,9 @@ func normalizePromptMode(mode string, enhanced bool) string {
 func currentTabPromptMode(tab *WorkspaceTab) string {
 	if tab == nil {
 		return promptModeNormal
+	}
+	if tab.Scope == scopeAutomation {
+		return promptModeAssistant
 	}
 	return normalizeProductPromptMode(tab.promptMode, tab.enhancedMode)
 }
@@ -350,6 +355,16 @@ type tabEventSink struct {
 
 func (s *tabEventSink) Emit(e event.Event) {
 	if s.app != nil {
+		s.app.mu.RLock()
+		tab := s.app.tabs[s.tabID]
+		var ctrl *control.Controller
+		if tab != nil {
+			ctrl = tab.Ctrl
+		}
+		s.app.mu.RUnlock()
+		if s.app.conversationBroker != nil {
+			s.app.conversationBroker.Observe(s.tabID, ctrl, e)
+		}
 		switch e.Kind {
 		case event.TurnStarted:
 			s.recordTurnStarted()
@@ -763,12 +778,74 @@ func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	return a.tabMeta(tab, true), nil
 }
 
+// OpenAutomationTab opens a topic in the shared automation workspace. These
+// tabs are permanently bound to the assistant prompt and assistant profile.
+func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
+	root := automationWorkspaceRoot()
+	if root == "" {
+		return TabMeta{}, fmt.Errorf("automation workspace is unavailable")
+	}
+	if strings.TrimSpace(topicID) == "" {
+		topic, err := a.CreateTopic(scopeAutomation, root, "")
+		if err != nil {
+			return TabMeta{}, err
+		}
+		topicID = topic.ID
+	}
+
+	a.mu.Lock()
+	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
+	for _, tab := range a.tabs {
+		if tab.Scope == scopeAutomation && tab.TopicID == topicID {
+			if a.activeTabID == tab.ID {
+				leave = assistantMemoryCandidate{}
+			}
+			a.activeTabID = tab.ID
+			meta := a.tabMeta(tab, true)
+			a.saveTabsLocked()
+			a.mu.Unlock()
+			a.markAssistantMemoryPendingForCandidate(leave, true)
+			return meta, nil
+		}
+	}
+
+	tabID := a.newUniqueTabIDLocked()
+	tab := &WorkspaceTab{
+		ID:               tabID,
+		Scope:            scopeAutomation,
+		WorkspaceRoot:    root,
+		TopicID:          topicID,
+		TopicTitle:       topicTitleForTab(scopeAutomation, root, topicID),
+		mode:             "normal",
+		promptMode:       promptModeAssistant,
+		toolApprovalMode: control.ToolApprovalAsk,
+		disabledMCP:      map[string]ServerView{},
+	}
+	a.applyRecentPrefsToNewTabLocked(tab)
+	tab.promptMode = promptModeAssistant
+	tab.enhancedMode = false
+	if cfg, err := config.LoadForRoot(root); err == nil && strings.TrimSpace(cfg.Bot.Model) != "" {
+		tab.model = strings.TrimSpace(cfg.Bot.Model)
+	}
+	tab.sink = &tabEventSink{tabID: tabID, app: a}
+	a.tabs[tabID] = tab
+	a.tabOrder = append(a.tabOrder, tabID)
+	a.activeTabID = tabID
+	a.saveTabsLocked()
+	a.mu.Unlock()
+
+	a.markAssistantMemoryPendingForCandidate(leave, true)
+	a.startTabControllerBuild(tab)
+	a.emitProjectTreeChanged()
+	return a.tabMeta(tab, true), nil
+}
+
 // EnsureBlankTab activates the existing blank tab for the target scope, or
 // creates one if none exists. Reusing a blank tab keeps repeated "new session"
 // clicks from piling up empty conversations.
 func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 	scope = strings.TrimSpace(scope)
-	if scope != "project" {
+	if scope != "project" && scope != scopeAutomation {
 		scope = "global"
 	}
 
@@ -782,6 +859,11 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		}
 		saveWorkspace(workspaceRoot)
 		_ = addProject(workspaceRoot, "")
+	} else if scope == scopeAutomation {
+		workspaceRoot = automationWorkspaceRoot()
+		if workspaceRoot == "" {
+			return TabMeta{}, fmt.Errorf("automation workspace is unavailable")
+		}
 	} else {
 		workspaceRoot = ""
 	}
@@ -822,7 +904,10 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		return TabMeta{}, err
 	}
 	f := loadProjectsFile()
-	if workspaceRoot == "" {
+	if scope == scopeAutomation {
+		f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
+		_ = saveProjectsFile(f)
+	} else if workspaceRoot == "" {
 		f.GlobalTopics = prependUniqueString(f.GlobalTopics, topicID)
 		_ = saveProjectsFile(f)
 	} else {
@@ -856,6 +941,10 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 		disabledMCP:      map[string]ServerView{},
 	}
 	a.applyRecentPrefsToNewTabLocked(created)
+	if scope == scopeAutomation {
+		created.promptMode = promptModeAssistant
+		created.enhancedMode = false
+	}
 	created.sink = &tabEventSink{tabID: tabID, app: a}
 	a.tabs[tabID] = created
 	a.tabOrder = append(a.tabOrder, tabID)
@@ -1166,16 +1255,37 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		}
 	}
 
+	memoryProfile := memory.ProfileSharedAgent
+	assistantStoreDir := ""
+	var extraTools []tool.Tool
+	var turnContext func() string
+	if tab.Scope == scopeAutomation {
+		memoryProfile = memory.ProfileAssistant
+		if store, storeErr := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir()); storeErr == nil {
+			assistantStoreDir = store.Dir
+		} else {
+			a.noticeForTab(tab.ID, fmt.Sprintf("could not prepare shared assistant profile: %v", storeErr))
+		}
+		if a.conversationBroker != nil {
+			extraTools = a.conversationBroker.Tools(tab.ID, tab.TopicID)
+			turnContext = func() string { return a.conversationBroker.Index(tab.TopicID) }
+		}
+	}
 	ctrl, err := boot.Build(buildCtx, boot.Options{
-		Model:          model,
-		RequireKey:     false,
-		Sink:           tab.sink,
-		WorkspaceRoot:  root,
-		SessionDir:     sessionDir,
-		EffortOverride: cloneStringPtr(tab.effort),
-		PromptMode:     currentTabPromptMode(tab),
-		EnhancedMode:   tabPromptModeIsEnhanced(tab),
-		MemoryProfile:  memory.ProfileSharedAgent,
+		Model:                   model,
+		RequireKey:              false,
+		Sink:                    tab.sink,
+		WorkspaceRoot:           root,
+		SessionDir:              sessionDir,
+		EffortOverride:          cloneStringPtr(tab.effort),
+		PromptMode:              currentTabPromptMode(tab),
+		EnhancedMode:            tabPromptModeIsEnhanced(tab),
+		MemoryProfile:           memoryProfile,
+		AssistantMemoryStoreDir: assistantStoreDir,
+		ExtraTools:              extraTools,
+		TurnContext:             turnContext,
+		TurnLease:               a.sessionGate.Acquire,
+		RefreshOnLease:          true,
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -1744,11 +1854,12 @@ type desktopProject struct {
 }
 
 type desktopProjectFile struct {
-	GlobalTitle  string           `json:"globalTitle,omitempty"`
-	GlobalColor  string           `json:"globalColor,omitempty"`
-	GlobalTopics []string         `json:"globalTopics,omitempty"`
-	SidebarOrder []string         `json:"sidebarOrder,omitempty"`
-	Projects     []desktopProject `json:"projects"`
+	GlobalTitle      string           `json:"globalTitle,omitempty"`
+	GlobalColor      string           `json:"globalColor,omitempty"`
+	GlobalTopics     []string         `json:"globalTopics,omitempty"`
+	AutomationTopics []string         `json:"automationTopics,omitempty"`
+	SidebarOrder     []string         `json:"sidebarOrder,omitempty"`
+	Projects         []desktopProject `json:"projects"`
 }
 
 type desktopTabEntry struct {
@@ -1899,14 +2010,19 @@ func normalizeProjectRoot(root string) string {
 
 func normalizeProjectsFile(f desktopProjectFile) desktopProjectFile {
 	out := desktopProjectFile{
-		GlobalTitle:  strings.TrimSpace(f.GlobalTitle),
-		GlobalColor:  normalizeProjectColor(f.GlobalColor),
-		GlobalTopics: uniqueStrings(f.GlobalTopics),
+		GlobalTitle:      strings.TrimSpace(f.GlobalTitle),
+		GlobalColor:      normalizeProjectColor(f.GlobalColor),
+		GlobalTopics:     uniqueStrings(f.GlobalTopics),
+		AutomationTopics: uniqueStrings(f.AutomationTopics),
 	}
 	index := map[string]int{}
 	for _, p := range f.Projects {
 		root := normalizeProjectRoot(p.Root)
 		if root == "" {
+			continue
+		}
+		if automationRoot := normalizeProjectRoot(automationWorkspaceRoot()); automationRoot != "" && strings.EqualFold(filepath.Clean(root), filepath.Clean(automationRoot)) {
+			out.AutomationTopics = uniqueStrings(append(out.AutomationTopics, p.Topics...))
 			continue
 		}
 		p.Root = root
@@ -2337,12 +2453,18 @@ func topicTitleForTab(scope, workspaceRoot, topicID string) string {
 	if scope == "global" {
 		return "Global"
 	}
+	if scope == scopeAutomation {
+		return "Automation"
+	}
 	return defaultTopicTitle
 }
 
 func topicTitleRoot(scope, workspaceRoot string) string {
 	if scope == "global" {
 		return ""
+	}
+	if scope == scopeAutomation {
+		return automationWorkspaceRoot()
 	}
 	return workspaceRoot
 }
@@ -2423,6 +2545,8 @@ func ensureTopicIndexed(scope, workspaceRoot, topicID, title, source string) err
 	defer topicIndexMu.Unlock()
 	if strings.TrimSpace(scope) == "global" {
 		workspaceRoot = ""
+	} else if strings.TrimSpace(scope) == scopeAutomation {
+		workspaceRoot = automationWorkspaceRoot()
 	} else {
 		workspaceRoot = normalizeProjectRoot(workspaceRoot)
 	}
@@ -2438,6 +2562,10 @@ func ensureTopicIndexed(scope, workspaceRoot, topicID, title, source string) err
 		return err
 	}
 	f := loadProjectsFile()
+	if scope == scopeAutomation {
+		f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
+		return saveProjectsFile(f)
+	}
 	if workspaceRoot == "" {
 		f.GlobalTopics = prependUniqueString(f.GlobalTopics, topicID)
 		return saveProjectsFile(f)
@@ -2808,8 +2936,10 @@ func (a *App) CreateTopic(scope, workspaceRoot, title string) (TopicMeta, error)
 	createdAt := time.Now().UnixMilli()
 	if scope == "global" {
 		workspaceRoot = ""
+	} else if scope == scopeAutomation {
+		workspaceRoot = automationWorkspaceRoot()
 	}
-	if workspaceRoot != "" {
+	if scope == "project" && workspaceRoot != "" {
 		if abs, err := filepath.Abs(workspaceRoot); err == nil {
 			workspaceRoot = abs
 		}
@@ -2824,7 +2954,10 @@ func (a *App) CreateTopic(scope, workspaceRoot, title string) (TopicMeta, error)
 	// New topics should appear first in their project/global group so the item
 	// just created is immediately visible and selected in the sidebar.
 	f := loadProjectsFile()
-	if workspaceRoot == "" {
+	if scope == scopeAutomation {
+		f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
+		_ = saveProjectsFile(f)
+	} else if workspaceRoot == "" {
 		f.GlobalTopics = prependUniqueString(f.GlobalTopics, topicID)
 		_ = saveProjectsFile(f)
 	} else {
@@ -2926,6 +3059,18 @@ func (a *App) RenameTopic(topicID, title string) error {
 			return nil
 		}
 	}
+	// Check automation before global; its metadata lives in the canonical
+	// automation workspace root.
+	automationRoot := automationWorkspaceRoot()
+	if m := loadTopicTitles(automationRoot); m[topicID] != "" {
+		if err := setTopicTitle(automationRoot, topicID, trimmed); err != nil {
+			return err
+		}
+		a.updateOpenTopicTitle(topicID, trimmed)
+		a.updateTopicSessionTitles(topicID, trimmed)
+		a.emitProjectTreeChanged()
+		return nil
+	}
 	// Check global.
 	m := loadTopicTitles("")
 	if _, ok := m[topicID]; ok {
@@ -2965,26 +3110,34 @@ func (a *App) findTopicLocation(topicID string) (string, string, bool) {
 		if scope == "global" {
 			return "global", "", true
 		}
+		if scope == scopeAutomation {
+			return scopeAutomation, automationWorkspaceRoot(), true
+		}
 		return "project", normalizeProjectRoot(workspaceRoot), true
 	}
 	a.mu.RUnlock()
 
-	infos, err := a.cachedSessionInfos(config.SessionDir())
-	if err != nil {
-		return "", "", false
-	}
-	for _, info := range infos {
-		if strings.TrimSpace(info.TopicID) != topicID {
+	for _, dir := range a.knownSessionDirs() {
+		infos, err := a.cachedSessionInfos(dir)
+		if err != nil {
 			continue
 		}
-		scope := strings.TrimSpace(info.Scope)
-		if scope == "" {
-			scope = "global"
+		for _, info := range infos {
+			if strings.TrimSpace(info.TopicID) != topicID {
+				continue
+			}
+			scope := strings.TrimSpace(info.Scope)
+			if scope == "" {
+				scope = "global"
+			}
+			if scope == "global" {
+				return "global", "", true
+			}
+			if scope == scopeAutomation {
+				return scopeAutomation, automationWorkspaceRoot(), true
+			}
+			return "project", normalizeProjectRoot(info.WorkspaceRoot), true
 		}
-		if scope == "global" {
-			return "global", "", true
-		}
-		return "project", normalizeProjectRoot(info.WorkspaceRoot), true
 	}
 	return "", "", false
 }
@@ -3062,6 +3215,19 @@ func (a *App) DeleteTopic(topicID string) error {
 			deleteTopicCreatedAt(p.Root, topicID)
 			found = true
 			break
+		}
+	}
+	if !found {
+		m := loadTopicTitles(automationWorkspaceRoot())
+		if _, ok := m[topicID]; ok {
+			delete(m, topicID)
+			_ = saveTopicTitles(automationWorkspaceRoot(), m)
+			sources := loadTopicTitleSources(automationWorkspaceRoot())
+			delete(sources, topicID)
+			_ = saveTopicTitleSources(automationWorkspaceRoot(), sources)
+			deleteTopicCreatedAt(automationWorkspaceRoot(), topicID)
+			f.AutomationTopics = removeString(f.AutomationTopics, topicID)
+			found = true
 		}
 	}
 	if !found {
@@ -3203,6 +3369,8 @@ func (a *App) TrashTopic(topicID string) error {
 		}
 		if fallbackScope == "global" {
 			_, err = a.OpenGlobalTab(topic.ID)
+		} else if fallbackScope == scopeAutomation {
+			_, err = a.OpenAutomationTab(topic.ID)
 		} else {
 			_, err = a.OpenProjectTab(fallbackRoot, topic.ID)
 		}
@@ -3333,6 +3501,44 @@ func (a *App) ListProjectTree() []ProjectNode {
 			ProjectColor: globalColor,
 			Children:     children,
 		})
+	}
+
+	// Automation is a fixed top-level workspace. It is separate from ordinary
+	// engineering conversations so assistant routing and memory remain isolated.
+	automationRoot := automationWorkspaceRoot()
+	automationTitles := loadTopicTitles(automationRoot)
+	automationCreated := loadTopicCreatedAts(automationRoot)
+	automationIDs := orderedTopicIDs(f.AutomationTopics, automationTitles)
+	automationChildren := make([]ProjectNode, 0, len(automationIDs))
+	for _, id := range automationIDs {
+		title := strings.TrimSpace(automationTitles[id])
+		if title == "" {
+			title = topicTitleForTab(scopeAutomation, automationRoot, id)
+		}
+		summary := topicSummaries[topicSummaryKey(scopeAutomation, automationRoot, id)]
+		status := openTopics[topicSummaryKey(scopeAutomation, automationRoot, id)]
+		automationChildren = append(automationChildren, ProjectNode{
+			Key: "automation_topic_" + id, Kind: "automation_topic", Label: title, Root: automationRoot,
+			TopicID: id, ProjectColor: "#4d8dff", Turns: summary.turns, CreatedAt: automationCreated[id],
+			LastActivityAt: summary.lastActivityAt, Open: status.open, Running: status.running, Status: status.status,
+			Pinned: summary.pinned,
+		})
+	}
+	if len(automationChildren) > 0 || automationRoot != "" {
+		sort.SliceStable(automationChildren, func(i, j int) bool {
+			ai, aj := automationChildren[i].LastActivityAt, automationChildren[j].LastActivityAt
+			if ai == 0 {
+				ai = automationChildren[i].CreatedAt
+			}
+			if aj == 0 {
+				aj = automationChildren[j].CreatedAt
+			}
+			if ai == aj {
+				return automationChildren[i].Label < automationChildren[j].Label
+			}
+			return ai > aj
+		})
+		out = append(out, ProjectNode{Key: "automation_folder", Kind: "automation_folder", Label: "自动化工作区", Root: automationRoot, ProjectColor: "#4d8dff", Children: automationChildren})
 	}
 
 	// Project sections.
@@ -3514,6 +3720,9 @@ func (a *App) SetTopicPinned(topicID string, pinned bool) error {
 func topicSummaryKey(scope, workspaceRoot, topicID string) string {
 	if scope == "global" {
 		return "global::" + topicID
+	}
+	if scope == scopeAutomation {
+		return "automation::" + topicID
 	}
 	return "project:" + workspaceRoot + ":" + topicID
 }
@@ -3819,6 +4028,18 @@ func independentWorkspaceRoot(topicID string) string {
 	return filepath.Join(dir, "deepseek-orca", "independent-workspaces", safe, "workspace")
 }
 
+func automationWorkspaceRoot() string {
+	root := strings.TrimSpace(config.BotWorkspaceDir())
+	if root == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	_ = os.MkdirAll(root, 0o755)
+	return root
+}
+
 func sanitizeSessionComponent(s string) string {
 	var b strings.Builder
 	for _, r := range s {
@@ -4054,6 +4275,7 @@ func (a *App) knownSessionDirs() []string {
 	}
 	add(config.SessionDir()) // legacy/global sessions from earlier desktop builds
 	add(desktopSessionDir(globalWorkspaceRoot()))
+	add(desktopSessionDir(automationWorkspaceRoot()))
 	projectsFile := loadProjectsFile()
 	for _, topicID := range projectsFile.GlobalTopics {
 		add(desktopSessionDir(independentWorkspaceRoot(topicID)))

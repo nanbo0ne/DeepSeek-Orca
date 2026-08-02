@@ -84,8 +84,8 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	if got.DefaultModel != "mimo-pro" {
 		t.Errorf("default_model = %q, want mimo-pro", got.DefaultModel)
 	}
-	if got.ConfigVersion != 4 {
-		t.Errorf("config_version = %d, want 4", got.ConfigVersion)
+	if got.ConfigVersion != 5 {
+		t.Errorf("config_version = %d, want 5", got.ConfigVersion)
 	}
 	if got.Language != "zh" {
 		t.Errorf("language = %q, want zh", got.Language)
@@ -235,6 +235,22 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 }
 
+func TestRenderBotConnectionGuideStateRoundTrips(t *testing.T) {
+	cfg := Default()
+	cfg.Bot.Connections = []BotConnectionConfig{{
+		ID: "qq-main", Provider: "qq", Enabled: true, GuideSent: true,
+		SessionMappings: []BotConnectionSessionMapping{{RemoteID: "qq:dm:1", SessionID: "auto-1"}},
+	}}
+	rendered := RenderTOML(cfg)
+	var got Config
+	if _, err := toml.Decode(rendered, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Bot.Connections) != 1 || !got.Bot.Connections[0].GuideSent || got.Bot.Connections[0].SessionMappings[0].SessionID != "auto-1" {
+		t.Fatalf("bot connection did not round trip: %+v", got.Bot.Connections)
+	}
+}
+
 func TestScopedRenderPreservesLSPConfig(t *testing.T) {
 	const src = `
 config_version = 2
@@ -359,7 +375,7 @@ func TestScopedRenderSeparatesUserAndProjectConfig(t *testing.T) {
 	c.Desktop.CheckUpdates = boolPtr(false)
 
 	user := RenderTOMLForScope(c, RenderScopeUser)
-	for _, want := range []string{"config_version = 4", "[desktop]", `theme = "light"`, `close_behavior = "background"`, `check_updates = false`, "[notifications]"} {
+	for _, want := range []string{"config_version = 5", "[desktop]", `theme = "light"`, `close_behavior = "background"`, `check_updates = false`, "[notifications]"} {
 		if !strings.Contains(user, want) {
 			t.Fatalf("user render missing %q:\n%s", want, user)
 		}

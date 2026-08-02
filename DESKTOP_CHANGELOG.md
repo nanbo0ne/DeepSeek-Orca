@@ -1,5 +1,14 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.31 - 2026-08-02
+
+- Added the Automation Workspace beside project and independent workspaces. Automation conversations use the retained Assistant prompt and canonical assistant profile while ordinary engineering conversations remain Normal or Enhanced.
+- Added conversation routing tools for listing, reading, dispatching, waiting, status, cancellation, and ordinary-session creation. Routing stays inside the Assistant model's normal tool loop; only the 30-minute continuity check is a separate low-token request.
+- Added QQ and Weixin first-message automation session creation, persisted remote-to-topic restoration, `/new`, `/continue`, `/hi`, and one-time persisted onboarding guidance.
+- Added per-session execution leases so desktop and mobile controllers cannot concurrently write the same transcript, and waiting controllers refresh newer history before continuing.
+- Preserved legacy Assistant sessions and memory stores while migrating them into a canonical profile without deleting the source data. Fixed automation-root indexing so it is not treated as an ordinary project.
+- Updated automation capability tests, routing prompt coverage, broker ownership checks, and desktop/frontend layout regression checks.
+
 ## V2.0.30 - 2026-08-01
 
 - Reduced process presentation to Compact and Detailed, made Compact the default, and migrated legacy Standard or collapsed-thinking settings to Compact.

@@ -18,13 +18,17 @@ func TestEngineeringProductCapabilitiesHideAssistant(t *testing.T) {
 	}
 }
 
-func TestEngineeringAssistantMemoryWorkerIsDisabled(t *testing.T) {
+func TestEngineeringAssistantMemoryWorkerIsAutomationOnly(t *testing.T) {
 	if assistantMemoryAvailable() {
-		t.Fatal("engineering edition should not run assistant memory worker")
+		t.Fatal("engineering edition should not expose assistant memory to ordinary conversations")
+	}
+	if !productCapabilities().AutomationWorkspaceEnabled || !assistantMemoryFeatureAvailable(automationWorkspaceRoot()) {
+		t.Fatal("automation workspace should retain the internal assistant memory worker")
 	}
 	app := NewApp()
 	app.schedulePendingAssistantMemories()
-	if app.assistantMemoryTimer != nil {
-		t.Fatal("disabled assistant worker should not create a timer")
+	if app.assistantMemoryTimer == nil {
+		t.Fatal("automation memory worker should create an idle timer")
 	}
+	app.assistantMemoryTimer.Stop()
 }

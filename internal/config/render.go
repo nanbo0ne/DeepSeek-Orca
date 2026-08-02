@@ -425,6 +425,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			fmt.Fprintf(&b, "label = %q\n", conn.Label)
 			fmt.Fprintf(&b, "enabled = %v\n", conn.Enabled)
 			fmt.Fprintf(&b, "status = %q\n", conn.Status)
+			fmt.Fprintf(&b, "guide_sent = %v\n", conn.GuideSent)
 			if conn.LastError != "" {
 				fmt.Fprintf(&b, "last_error = %q\n", conn.LastError)
 			}

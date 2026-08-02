@@ -33,12 +33,12 @@ function projectNodeKey(node: ProjectNode, depth: number): string {
 }
 
 function topicIsActive(node: ProjectNode, activeScope?: string, activeWorkspaceRoot?: string, activeTopicId?: string): boolean {
-  if (node.kind !== "topic" && node.kind !== "global_topic") return false;
-  const scope = node.kind === "global_topic" ? "global" : "project";
+  if (node.kind !== "topic" && node.kind !== "global_topic" && node.kind !== "automation_topic") return false;
+  const scope = node.kind === "automation_topic" ? "automation" : node.kind === "global_topic" ? "global" : "project";
   return (
     activeTopicId === node.topicId &&
     activeScope === scope &&
-    (scope === "global" || activeWorkspaceRoot === node.root)
+    (scope !== "project" || activeWorkspaceRoot === node.root)
   );
 }
 
@@ -124,7 +124,7 @@ function collapsibleFolderKeys(nodes: ProjectNode[], depth = 0): string[] {
   for (const node of nodes) {
     if (!node) continue;
     const children = asArray(node.children);
-  if ((node.kind === "project" || node.kind === "global_folder" || node.kind === "pinned_folder") && children.length > 0) {
+  if ((node.kind === "project" || node.kind === "global_folder" || node.kind === "automation_folder" || node.kind === "pinned_folder") && children.length > 0) {
       keys.push(projectNodeKey(node, depth));
     }
     keys.push(...collapsibleFolderKeys(children, depth + 1));
@@ -220,7 +220,7 @@ export function ProjectTree({
   const [editingTopic, setEditingTopic] = useState<string | null>(null);
   const [topicDraft, setTopicDraft] = useState("");
   const [menuTopic, setMenuTopic] = useState<string | null>(null);
-  const [menuProject, setMenuProject] = useState<{ key: string; root: string; path: string; scope: "global" | "project"; label: string } | null>(null);
+  const [menuProject, setMenuProject] = useState<{ key: string; root: string; path: string; scope: "global" | "project" | "automation"; label: string } | null>(null);
   const [menuPoint, setMenuPoint] = useState<ContextMenuPoint | null>(null);
   const [editingProject, setEditingProject] = useState<{ key: string; root: string } | null>(null);
   const [projectDraft, setProjectDraft] = useState("");
@@ -600,9 +600,9 @@ export function ProjectTree({
     const isExpanded = query.trim() ? true : expanded.has(key);
     const hasChildren = children.length > 0;
 
-    if (node.kind === "topic" || node.kind === "global_topic") {
-      const scope = node.kind === "global_topic" ? "global" : "project";
-      const scopeClass = scope === "global" ? " project-tree__topic--global" : " project-tree__topic--project";
+    if (node.kind === "topic" || node.kind === "global_topic" || node.kind === "automation_topic") {
+      const scope = node.kind === "automation_topic" ? "automation" : node.kind === "global_topic" ? "global" : "project";
+      const scopeClass = scope === "automation" ? " project-tree__topic--automation" : scope === "global" ? " project-tree__topic--global" : " project-tree__topic--project";
       const accentStyle = projectAccentStyle(node.projectColor, scope === "global" ? "var(--project-tree-global-accent)" : undefined);
       const active = topicIsActive(node, activeScope, activeWorkspaceRoot, activeTopicId);
       const loading = loadingTopicId === node.topicId;
@@ -726,15 +726,15 @@ export function ProjectTree({
     }
 
     const isPinnedFolder = node.kind === "pinned_folder";
-    const scope = node.kind === "global_folder" ? "global" : "project";
-    const scopeClass = scope === "global" ? " project-tree__folder--global" : " project-tree__folder--project";
+    const scope = node.kind === "automation_folder" ? "automation" : node.kind === "global_folder" ? "global" : "project";
+    const scopeClass = scope === "automation" ? " project-tree__folder--automation" : scope === "global" ? " project-tree__folder--global" : " project-tree__folder--project";
     const accentStyle = projectAccentStyle(node.projectColor, scope === "global" ? "var(--project-tree-global-accent)" : undefined);
     const projectRoot = scope === "global" ? "" : node.root ?? "";
-    const projectDragKey = isPinnedFolder ? "" : (scope === "global" ? GLOBAL_PROJECT_ORDER_KEY : projectRoot);
+    const projectDragKey = isPinnedFolder || scope === "automation" ? "" : (scope === "global" ? GLOBAL_PROJECT_ORDER_KEY : projectRoot);
     const projectPath = node.root ?? "";
     const colorTargetRoot = scope === "global" ? "" : projectPath;
-    const projectLabel = node.label || (isPinnedFolder ? "置顶" : scope === "global" ? "独立工作区" : "Untitled");
-    const projectActive = activeScope === scope && (scope === "global" || activeWorkspaceRoot === node.root);
+    const projectLabel = node.label || (isPinnedFolder ? "置顶" : scope === "automation" ? "自动化工作区" : scope === "global" ? "独立工作区" : "Untitled");
+    const projectActive = activeScope === scope && (scope !== "project" || activeWorkspaceRoot === node.root);
     const draggableProject = projectDragEnabled && depth === 0 && Boolean(projectDragKey) && editingProject?.key !== key;
     const projectDropPosition = dropProject?.root === projectDragKey ? dropProject.position : null;
     const handleProjectDragStart = (event: ReactDragEvent<HTMLElement>) => {
@@ -799,20 +799,24 @@ export function ProjectTree({
             },
           ]
         : []),
-      {
-        key: "rename",
-        icon: <Pencil size={13} />,
-        label: t("projectTree.renameProject"),
-        onSelect: () => startRenameProject(key, projectRoot, projectLabel),
-      },
-      { type: "separator" as const, key: "color-separator" },
-      ...PROJECT_COLOR_OPTIONS.map((option): ContextMenuItem => ({
-        key: `color-${option.key || "default"}`,
-        label: colorMenuLabel(projectColorLabel(t, option.key), option.key, (node.projectColor || "") === option.key),
-        onSelect: () => {
-          void setProjectColor(colorTargetRoot, option.key);
-        },
-      })),
+      ...(scope === "automation"
+        ? []
+        : [
+            {
+              key: "rename",
+              icon: <Pencil size={13} />,
+              label: t("projectTree.renameProject"),
+              onSelect: () => startRenameProject(key, projectRoot, projectLabel),
+            },
+            { type: "separator" as const, key: "color-separator" },
+            ...PROJECT_COLOR_OPTIONS.map((option): ContextMenuItem => ({
+              key: `color-${option.key || "default"}`,
+              label: colorMenuLabel(projectColorLabel(t, option.key), option.key, (node.projectColor || "") === option.key),
+              onSelect: () => {
+                void setProjectColor(colorTargetRoot, option.key);
+              },
+            })),
+          ]),
       { type: "separator" as const, key: "path-separator" },
       {
         key: "reveal",

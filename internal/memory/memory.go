@@ -31,6 +31,9 @@ type Options struct {
 	CWD     string
 	UserDir string
 	Profile string
+	// AssistantStoreDir overrides the assistant profile store. Product shells
+	// use this to share one assistant identity across multiple workspaces.
+	AssistantStoreDir string
 }
 
 const (
@@ -66,6 +69,9 @@ func Load(opts Options) *Set {
 	profile := NormalizeProfile(opts.Profile)
 	sharedStore := StoreFor(opts.UserDir, cwd)
 	assistantStore := AssistantStoreFor(opts.UserDir, cwd)
+	if strings.TrimSpace(opts.AssistantStoreDir) != "" {
+		assistantStore = Store{Dir: filepath.Clean(opts.AssistantStoreDir)}
+	}
 	store := sharedStore
 	docs := discoverDocs(cwd, opts.UserDir)
 	index := sharedStore.Index()

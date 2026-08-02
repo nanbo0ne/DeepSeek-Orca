@@ -120,7 +120,7 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
                 {BOT_SETTINGS_ENABLED && tab === "bots" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><BotsSection s={s} busy={busy} apply={apply} promptModes={productCapabilities.promptModes} /></SettingsPageShell>}
                 {tab === "mcp" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MCPServersSettingsPage /></SettingsPageShell>}
                 {tab === "skills" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><SkillsSettingsPage /></SettingsPageShell>}
-                {tab === "memory" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MemorySettingsPage assistantMemoryEnabled={productCapabilities.assistantMemoryEnabled} /></SettingsPageShell>}
+                {tab === "memory" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><MemorySettingsPage assistantMemoryEnabled={productCapabilities.assistantMemoryEnabled || productCapabilities.automationWorkspaceEnabled === true} /></SettingsPageShell>}
                 {tab === "permissions" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><PermissionsSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "sandbox" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><SandboxSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "network" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><NetworkSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
@@ -493,6 +493,7 @@ function normalizeBotConnection(raw: any) {
       sessionId: String(item?.sessionId ?? "").trim(),
       updatedAt: String(item?.updatedAt ?? "").trim(),
     })),
+    guideSent: Boolean(raw?.guideSent),
     lastError: String(raw?.lastError ?? "").trim(),
     createdAt: String(raw?.createdAt ?? "").trim(),
     updatedAt: String(raw?.updatedAt ?? "").trim(),

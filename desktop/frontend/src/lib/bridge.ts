@@ -261,6 +261,7 @@ export interface AppBindings {
   ListTabs(): Promise<TabMeta[]>;
   OpenProjectTab(workspaceRoot: string, topicID: string): Promise<TabMeta>;
   OpenGlobalTab(topicID: string): Promise<TabMeta>;
+  OpenAutomationTab(topicID: string): Promise<TabMeta>;
   EnsureBlankTab(scope: string, workspaceRoot: string): Promise<TabMeta>;
   SetActiveTab(tabID: string): Promise<void>;
   ReorderTabs(tabIDs: string[]): Promise<void>;
@@ -2124,6 +2125,7 @@ function makeMockApp(): AppBindings {
               secretSet: true,
             },
             sessionMappings: [],
+            guideSent: false,
             lastError: "",
             createdAt: now,
             updatedAt: now,
@@ -2167,6 +2169,7 @@ function makeMockApp(): AppBindings {
               secretSet: true,
             },
             sessionMappings: [],
+            guideSent: false,
             lastError: "",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -2332,8 +2335,23 @@ function makeMockApp(): AppBindings {
       mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
       return { ...tab };
     },
+    async OpenAutomationTab(_topicID: string) {
+      const existing = mockTabs.find((tab) => tab.scope === "automation" && tab.topicId === _topicID);
+      if (existing) {
+        setMockActiveTab(existing.id);
+        return { ...existing, active: true };
+      }
+      const tab: TabMeta = {
+        id: "tab_" + Date.now(), scope: "automation", workspaceRoot: "", workspaceName: "自动化工作区",
+        topicId: _topicID, topicTitle: topicLabel(_topicID, "自动化工作区"), label: "deepseek-v4-flash",
+        ready: true, running: false, mode: "normal", collaborationMode: "normal", toolApprovalMode: "ask",
+        promptMode: "assistant", enhancedModeEnabled: false, active: true, cwd: "",
+      };
+      mockTabs = [...mockTabs.map((item) => ({ ...item, active: false })), tab];
+      return { ...tab };
+    },
     async EnsureBlankTab(scope: string, workspaceRoot: string) {
-      const targetScope = scope === "project" && workspaceRoot ? "project" : "global";
+      const targetScope = scope === "automation" ? "automation" : scope === "project" && workspaceRoot ? "project" : "global";
       const targetRoot = targetScope === "project" ? workspaceRoot : "";
       const existing = mockTabs.find((tab) =>
         tab.scope === targetScope &&
@@ -2345,6 +2363,7 @@ function makeMockApp(): AppBindings {
         return { ...existing, active: true };
       }
       const topic = await this.CreateTopic(targetScope, targetRoot, "");
+      if (targetScope === "automation") return this.OpenAutomationTab(topic.id);
       return targetScope === "global" ? this.OpenGlobalTab(topic.id) : this.OpenProjectTab(targetRoot, topic.id);
     },
     async SetActiveTab(_tabID: string) {

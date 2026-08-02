@@ -320,6 +320,7 @@ export function Composer({
   stepThinkingEnabled,
   promptMode,
   promptModes = ["normal", "enhanced"],
+  promptModeLocked = false,
   promptModeSwitching = false,
   paused = false,
   goal,
@@ -359,6 +360,7 @@ export function Composer({
   stepThinkingEnabled: boolean;
   promptMode: PromptMode;
   promptModes?: PromptMode[];
+  promptModeLocked?: boolean;
   promptModeSwitching?: boolean;
   paused?: boolean;
   goal?: string;
@@ -1716,7 +1718,7 @@ export function Composer({
         )}
       </AnchoredPopover>
       <AnchoredPopover
-        open={promptModeMenuOpen && !disabled}
+        open={promptModeMenuOpen && !disabled && !promptModeLocked}
         closing={promptModeMenuClosing}
         anchorRef={promptModeMenuAnchorRef}
         onClose={() => closePromptModeMenu()}
@@ -1734,7 +1736,7 @@ export function Composer({
                 aria-selected={mode === promptMode}
                 className={`composer-prompt-mode-menu__item${mode === promptMode ? " composer-prompt-mode-menu__item--active" : ""}`}
                 onClick={() => choosePromptMode(mode)}
-                disabled={disabled}
+                disabled={disabled || promptModeLocked}
                 title={t(promptModeLabelKey(mode))}
               >
                 <Sparkles size={14} />
@@ -2171,7 +2173,7 @@ export function Composer({
                 type="button"
                 className={`composer-enhanced__button composer-enhanced__button--${promptMode}${promptModeMenuOpen || promptModeMenuClosing ? " composer-enhanced__button--open" : ""}${promptModeSwitching ? " composer-enhanced__button--switching" : ""}`}
                 onClick={() => (promptModeMenuOpen || promptModeMenuClosing ? closePromptModeMenu() : openPromptModeMenu())}
-                disabled={disabled}
+                disabled={disabled || promptModeLocked}
                 aria-haspopup="listbox"
                 aria-expanded={promptModeMenuOpen && !promptModeMenuClosing}
                 aria-busy={promptModeSwitching}

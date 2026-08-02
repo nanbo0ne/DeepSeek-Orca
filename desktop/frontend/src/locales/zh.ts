@@ -955,6 +955,8 @@ export const zh: Record<DictKey, string> = {
   "palette.cmd.models": "模型",
   "newSession.title": "要在哪里开始新会话？",
   "newSession.independent": "独立工作区",
+  "newSession.automation": "自动化工作区",
+  "newSession.automationHint": "使用助手模式连接手机并按需调度工程对话",
   "newSession.independentHint": "不绑定项目文件夹",
   "newSession.projects": "项目",
   "newSession.searchPlaceholder": "搜索项目…",

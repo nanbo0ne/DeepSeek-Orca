@@ -150,7 +150,7 @@ export interface TabMeta {
 
 export interface ProjectNode {
   key: string;
-  kind: "project" | "topic" | "global_folder" | "global_topic" | "pinned_folder";
+  kind: "project" | "topic" | "global_folder" | "global_topic" | "automation_folder" | "automation_topic" | "pinned_folder";
   label: string;
   root?: string;
   topicId?: string;
@@ -319,6 +319,7 @@ export interface ContextInfo {
 }
 
 export interface Meta {
+  scope?: string;
   label: string;
   ready: boolean;
   startupErr?: string;
@@ -353,6 +354,7 @@ export interface ProductCapabilities {
   edition: "engineering" | "assistant" | string;
   promptModes: PromptMode[];
   assistantMemoryEnabled: boolean;
+  automationWorkspaceEnabled?: boolean;
 }
 export type GoalStatus = "running" | "complete" | "blocked" | "stopped";
 
@@ -771,6 +773,7 @@ export interface BotConnectionView {
   status: "disconnected" | "pending" | "connected" | "error" | string;
   credential: BotConnectionCredentialView;
   sessionMappings: BotConnectionSessionMappingView[];
+  guideSent: boolean;
   lastError: string;
   createdAt: string;
   updatedAt: string;

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"deepseek-orca/internal/bot"
 	"deepseek-orca/internal/bot/qq"
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
@@ -44,6 +45,7 @@ type BotConnectionView struct {
 	Status          string                            `json:"status"`
 	Credential      BotConnectionCredentialView       `json:"credential"`
 	SessionMappings []BotConnectionSessionMappingView `json:"sessionMappings"`
+	GuideSent       bool                              `json:"guideSent"`
 	LastError       string                            `json:"lastError"`
 	CreatedAt       string                            `json:"createdAt"`
 	UpdatedAt       string                            `json:"updatedAt"`
@@ -350,6 +352,10 @@ func (a *App) upsertBotConnection(conn config.BotConnectionConfig, updateLegacy 
 		for i, existing := range c.Bot.Connections {
 			if existing.ID == conn.ID {
 				conn.CreatedAt = firstNonEmptyBot(existing.CreatedAt, conn.CreatedAt)
+				if len(conn.SessionMappings) == 0 {
+					conn.SessionMappings = existing.SessionMappings
+				}
+				conn.GuideSent = conn.GuideSent || existing.GuideSent
 				c.Bot.Connections[i] = conn
 				replaced = true
 				break
@@ -389,6 +395,66 @@ func (a *App) rememberBotConnectionRemote(id, remoteID string) error {
 			})
 			c.Bot.Connections[i].UpdatedAt = now
 			return nil
+		}
+		return nil
+	})
+}
+
+func (a *App) rememberBotAutomationSession(platform bot.Platform, remoteID, sessionID string) error {
+	remoteID = strings.TrimSpace(remoteID)
+	sessionID = strings.TrimSpace(sessionID)
+	if remoteID == "" || sessionID == "" {
+		return nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	provider := string(platform)
+	return a.applyConfigOnly(func(c *config.Config) error {
+		for i := range c.Bot.Connections {
+			if strings.ToLower(strings.TrimSpace(c.Bot.Connections[i].Provider)) != provider {
+				continue
+			}
+			updated := false
+			for j := range c.Bot.Connections[i].SessionMappings {
+				if c.Bot.Connections[i].SessionMappings[j].RemoteID == remoteID {
+					c.Bot.Connections[i].SessionMappings[j].SessionID = sessionID
+					c.Bot.Connections[i].SessionMappings[j].UpdatedAt = now
+					updated = true
+					break
+				}
+			}
+			if !updated {
+				c.Bot.Connections[i].SessionMappings = append(c.Bot.Connections[i].SessionMappings, config.BotConnectionSessionMapping{RemoteID: remoteID, SessionID: sessionID, UpdatedAt: now})
+			}
+			c.Bot.Connections[i].UpdatedAt = now
+		}
+		return nil
+	})
+}
+
+func botGuideState(cfg *config.Config) map[bot.Platform]bool {
+	state := map[bot.Platform]bool{}
+	if cfg == nil {
+		return state
+	}
+	for _, connection := range cfg.Bot.Connections {
+		platform := bot.Platform(strings.ToLower(strings.TrimSpace(connection.Provider)))
+		if platform == bot.PlatformQQ || platform == bot.PlatformWeixin {
+			state[platform] = state[platform] || connection.GuideSent
+		}
+	}
+	return state
+}
+
+func (a *App) markBotGuideSent(platform bot.Platform) error {
+	provider := strings.ToLower(strings.TrimSpace(string(platform)))
+	return a.applyConfigOnly(func(c *config.Config) error {
+		now := time.Now().UTC().Format(time.RFC3339)
+		for i := range c.Bot.Connections {
+			if strings.ToLower(strings.TrimSpace(c.Bot.Connections[i].Provider)) != provider {
+				continue
+			}
+			c.Bot.Connections[i].GuideSent = true
+			c.Bot.Connections[i].UpdatedAt = now
 		}
 		return nil
 	})
@@ -436,6 +502,7 @@ func botConnectionView(conn config.BotConnectionConfig) BotConnectionView {
 			SecretSet: secretSet,
 		},
 		SessionMappings: botSessionMappingViews(conn.SessionMappings),
+		GuideSent:       conn.GuideSent,
 		LastError:       conn.LastError, CreatedAt: conn.CreatedAt, UpdatedAt: conn.UpdatedAt,
 	}
 }
@@ -467,6 +534,7 @@ func botConnectionConfig(view BotConnectionView) config.BotConnectionConfig {
 			Environment:  strings.TrimSpace(view.Credential.Environment),
 		},
 		SessionMappings: botSessionMappingConfigs(view.SessionMappings),
+		GuideSent:       view.GuideSent,
 		LastError:       strings.TrimSpace(view.LastError),
 		CreatedAt:       strings.TrimSpace(view.CreatedAt),
 		UpdatedAt:       strings.TrimSpace(view.UpdatedAt),

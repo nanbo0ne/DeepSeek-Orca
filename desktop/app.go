@@ -80,10 +80,12 @@ type App struct {
 	mediaTokens *mediaTokenStore
 	botInstalls map[string]*botInstallSession
 
-	botGateway       *bot.BotGateway
-	botGatewayCancel context.CancelFunc
-	botRuntimeStatus string
-	botRuntimeErr    string
+	botGateway         *bot.BotGateway
+	botGatewayCancel   context.CancelFunc
+	botRuntimeStatus   string
+	botRuntimeErr      string
+	conversationBroker *ConversationBroker
+	sessionGate        *sessionExecutionGate
 
 	sideChatMu      sync.Mutex
 	sideChatCancels map[string]sideChatCancel
@@ -279,7 +281,7 @@ func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 // NewApp constructs the bound object. Tabs are restored in startup from the
 // last session's desktop-tabs.json.
 func NewApp() *App {
-	return &App{
+	a := &App{
 		tabs:             map[string]*WorkspaceTab{},
 		mediaTokens:      newMediaTokenStore(),
 		botInstalls:      map[string]*botInstallSession{},
@@ -288,7 +290,10 @@ func NewApp() *App {
 		balanceInflight:  map[string]chan struct{}{},
 		sessionInfoCache: map[string]sessionInfoCacheEntry{},
 		visionProbing:    map[string]bool{},
+		sessionGate:      newSessionExecutionGate(),
 	}
+	a.conversationBroker = NewConversationBroker(a)
+	return a
 }
 
 func (a *App) bootContext() context.Context {
@@ -402,7 +407,7 @@ func (a *App) restoreOrBuildTabs() {
 	ctx := a.ctx
 	ensureWorkspace()
 	defer a.scheduleConfiguredVisionProbes()
-	if assistantMemoryAvailable() {
+	if assistantMemoryFeatureAvailable("") {
 		defer func() { a.schedulePendingAssistantMemories() }()
 	}
 
@@ -431,7 +436,9 @@ func (a *App) restoreOrBuildTabs() {
 			a.mu.Unlock()
 
 			var tab *WorkspaceTab
-			if entry.Scope == "project" {
+			if entry.Scope == scopeAutomation {
+				tab = a.createTabEntryWithID(scopeAutomation, automationWorkspaceRoot(), entry.TopicID, id)
+			} else if entry.Scope == "project" {
 				tab = a.createTabEntryWithID(entry.Scope, entry.WorkspaceRoot, entry.TopicID, id)
 			} else {
 				topicID := strings.TrimSpace(entry.TopicID)
@@ -454,7 +461,11 @@ func (a *App) restoreOrBuildTabs() {
 			}
 			tab.askWorkflow = entry.AskWorkflow
 			tab.stepThinking = entry.StepThinking
-			tab.promptMode = normalizeProductPromptMode(entry.PromptMode, entry.EnhancedMode)
+			if tab.Scope == scopeAutomation {
+				tab.promptMode = promptModeAssistant
+			} else {
+				tab.promptMode = normalizeProductPromptMode(entry.PromptMode, entry.EnhancedMode)
+			}
 			tab.enhancedMode = tab.promptMode == promptModeEnhanced
 			tab.SessionPath = strings.TrimSpace(entry.SessionPath)
 			tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
@@ -505,7 +516,12 @@ func (a *App) createTabEntry(scope, workspaceRoot, topicID string) *WorkspaceTab
 }
 
 func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *WorkspaceTab {
-	if scope != "project" {
+	if scope == scopeAutomation {
+		workspaceRoot = automationWorkspaceRoot()
+		if strings.TrimSpace(topicID) == "" {
+			topicID = newTopicID()
+		}
+	} else if scope != "project" {
 		scope = "global"
 		if strings.TrimSpace(topicID) == "" {
 			topicID = newTopicID()
@@ -527,6 +543,10 @@ func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *Wo
 		disabledMCP:      map[string]ServerView{},
 	}
 	a.applyRecentPrefsToNewTabLocked(tab)
+	if scope == scopeAutomation {
+		tab.promptMode = promptModeAssistant
+		tab.enhancedMode = false
+	}
 	return tab
 }
 
@@ -551,7 +571,7 @@ func (a *App) applyRecentPrefsToNewTabLocked(tab *WorkspaceTab) {
 }
 
 func (a *App) rememberConversationPrefsLocked(tab *WorkspaceTab) {
-	if tab == nil {
+	if tab == nil || tab.Scope == scopeAutomation {
 		return
 	}
 	a.recentPrefs = recentConversationPrefs{
@@ -768,6 +788,9 @@ func (a *App) Approve(id string, allow, session, persist bool) {
 
 // ApproveTab is like Approve but scoped to a specific tab.
 func (a *App) ApproveTab(tabID, id string, allow, session, persist bool) {
+	if a.conversationBroker != nil && a.conversationBroker.Approve(id, allow, session, persist) {
+		return
+	}
 	ctrl := a.ctrlByTabID(tabID)
 	if ctrl != nil {
 		ctrl.Approve(id, allow, session, persist)
@@ -937,13 +960,16 @@ func (a *App) AnswerQuestion(id string, answers []QuestionAnswer) {
 }
 
 func (a *App) AnswerQuestionForTab(tabID, id string, answers []QuestionAnswer) {
-	ctrl := a.ctrlByTabID(tabID)
-	if ctrl == nil {
-		return
-	}
 	out := make([]event.AskAnswer, len(answers))
 	for i, an := range answers {
 		out[i] = event.AskAnswer{QuestionID: an.QuestionID, Selected: an.Selected}
+	}
+	if a.conversationBroker != nil && a.conversationBroker.Answer(id, out) {
+		return
+	}
+	ctrl := a.ctrlByTabID(tabID)
+	if ctrl == nil {
+		return
 	}
 	ctrl.AnswerQuestion(id, out)
 }
@@ -2446,6 +2472,12 @@ func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
 }
 
 func (a *App) SetPromptModeForTab(tabID string, mode string) error {
+	if tab := a.tabByID(tabID); tab != nil && tab.Scope == scopeAutomation {
+		if strings.ToLower(strings.TrimSpace(mode)) == promptModeAssistant {
+			return nil
+		}
+		return fmt.Errorf("automation conversations always use assistant mode")
+	}
 	var err error
 	mode, err = validateProductPromptMode(mode)
 	if err != nil {

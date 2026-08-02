@@ -85,6 +85,8 @@ func TestIsSlashBypass(t *testing.T) {
 		{"/stop", true},
 		{"/stop  extra args", true},
 		{"/new", true},
+		{"/continue", true},
+		{"/hi", true},
 		{"/reset", true},
 		{"/approve", true},
 		{"/deny", true},

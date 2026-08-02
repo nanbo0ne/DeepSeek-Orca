@@ -6,11 +6,11 @@ This repository's desktop product is the **engineering edition**. It exposes two
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.30)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.31)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -54,7 +54,7 @@ The Tool Library controls groups for web search, host operations, Node/Python ru
 
 ### Memory
 
-Normal and Enhanced use the `shared-agent` memory profile. Existing memory documents and tool-based `remember` / `forget` workflows remain available. The hidden assistant profile is not read, written, generated, or processed by the engineering edition. Assistant data is retained on disk for the future standalone Orca application and is not deleted during migration.
+Normal and Enhanced use the `shared-agent` memory profile. Existing memory documents and tool-based `remember` / `forget` workflows remain available. Automation Workspace conversations use a separate canonical Assistant profile shared by desktop automation tabs, QQ, and Weixin. Legacy Assistant stores are imported once without deleting their source files; proactive profile updates run only after foreground conversations and dispatched work are idle.
 
 ### Planning and process visibility
 
@@ -69,7 +69,11 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 
 ### Automation and remote connections
 
-The application includes scheduled automation, task status, local background jobs, and optional bot channel integrations. Background jobs do not silently start a new model turn after completion; work that depends on a result must explicitly collect it. Remote bot configuration is kept separate from the active desktop session and uses the same engineering prompt-mode boundary.
+The top-level **Automation Workspace** is available beside project and independent workspaces. Its conversations always use the retained Assistant profile; the mode selector stays visible but locked. The Assistant can answer directly or, when the request genuinely depends on existing engineering context, list, read, create, dispatch to, wait for, inspect, or cancel work in Normal and Enhanced conversations. Dispatched conversations retain their own model, workspace, prompt, and approval policy, and automation conversations cannot recursively dispatch to automation.
+
+QQ and Weixin use the same Automation Workspace history and profile. The first ordinary phone message creates or restores an automation topic automatically. After 30 minutes of inactivity, one small no-tool request decides whether a new message continues the previous segment; `/continue` forces continuation and `/new` starts a clean segment. `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain available. The first successful reply is followed by a separate one-time guide. Session mappings and guide state persist across restarts, and a per-session execution lease prevents desktop and phone controllers from writing the same transcript concurrently.
+
+The application also includes scheduled automation, task status, and local background jobs. Background jobs do not silently start a new model turn after completion; work that depends on a result must explicitly collect it.
 
 ## Privacy and Safety
 

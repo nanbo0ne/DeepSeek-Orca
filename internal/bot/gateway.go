@@ -19,20 +19,28 @@ import (
 
 // GatewayConfig configures the multi-channel IM bot gateway.
 type GatewayConfig struct {
-	Model         string
-	PromptMode    string
-	MemoryProfile string
-	MaxSteps      int
-	WorkspaceRoot string
-	Allowlist     AllowlistConfig
-	Enabled       map[Platform]bool
-	Debounce      time.Duration
-	SessionLister botSessionLister
-	CreateSession SessionCreator
-	BuildSession  botControllerFactory
-	MirrorEvent   EventMirror
-	MirrorUser    UserMirror
-	AfterTurn     AfterTurnHook
+	Model                string
+	PromptMode           string
+	MemoryProfile        string
+	MaxSteps             int
+	WorkspaceRoot        string
+	Allowlist            AllowlistConfig
+	Enabled              map[Platform]bool
+	Debounce             time.Duration
+	SessionLister        botSessionLister
+	CreateSession        SessionCreator
+	BuildSession         botControllerFactory
+	MirrorEvent          EventMirror
+	MirrorUser           UserMirror
+	AfterTurn            AfterTurnHook
+	ContinuityDecider    ContinuityDecider
+	RestoreSession       SessionRestorer
+	GuideSent            map[Platform]bool
+	AfterGuideSent       GuideSentHook
+	RegisterExternalSink ExternalSinkRegistrar
+	ExternalApprove      ExternalApprovalRouter
+	ExternalAnswer       ExternalAnswerRouter
+	ExternalStop         ExternalStopRouter
 }
 
 // AllowlistConfig controls which remote users/groups can invoke the bot.
@@ -55,6 +63,7 @@ type BotGateway struct {
 	remoteStates   map[string]*remoteSessionState
 	allowlist      map[Platform]map[string]bool
 	groupAllowlist map[Platform]map[string]bool
+	guideSent      map[Platform]bool
 
 	logger *slog.Logger
 }
@@ -69,6 +78,7 @@ type sessionState struct {
 	sessionPath   string
 	workspaceRoot string
 	title         string
+	sourceID      string
 }
 
 type botControllerFactory func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error)
@@ -76,6 +86,13 @@ type SessionCreator func(ctx context.Context, remoteKey string, msg InboundMessa
 type EventMirror func(sessionPath string, e event.Event)
 type UserMirror func(sessionPath, text string)
 type AfterTurnHook func(sessionPath string)
+type ContinuityDecider func(ctx context.Context, previous SessionChoice, currentMessage string) (bool, error)
+type SessionRestorer func(ctx context.Context, remoteKey string, msg InboundMessage) (SessionChoice, bool, error)
+type GuideSentHook func(platform Platform) error
+type ExternalSinkRegistrar func(sourceID string, sink event.Sink) func()
+type ExternalApprovalRouter func(id string, allow bool) bool
+type ExternalAnswerRouter func(id string, answers []event.AskAnswer) bool
+type ExternalStopRouter func(sourceID string) bool
 
 type remoteMode string
 
@@ -91,6 +108,8 @@ type remoteSessionState struct {
 	workspaceRoot string
 	title         string
 	lastListed    []sessionChoice
+	previous      *sessionChoice
+	lastActive    time.Time
 }
 
 type sessionEventSink struct {
@@ -148,7 +167,11 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 		remoteStates:   make(map[string]*remoteSessionState),
 		allowlist:      make(map[Platform]map[string]bool),
 		groupAllowlist: make(map[Platform]map[string]bool),
+		guideSent:      make(map[Platform]bool),
 		logger:         logger.With("component", "bot_gateway"),
+	}
+	for platform, sent := range cfg.GuideSent {
+		gw.guideSent[platform] = sent
 	}
 	gw.buildAllowlist()
 	return gw
@@ -209,6 +232,13 @@ func (gw *BotGateway) Stop() {
 	}
 }
 
+func (gw *BotGateway) ActiveCount() int {
+	if gw == nil || gw.sessions == nil {
+		return 0
+	}
+	return gw.sessions.ActiveCount()
+}
+
 func (gw *BotGateway) dispatchLoop(ctx context.Context, plat Platform, adapter Adapter) {
 	for {
 		select {
@@ -245,9 +275,10 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 		return
 	}
 
-	sessionKey, ok := gw.activeControllerKey(remoteKey)
-	if !ok {
-		_ = gw.sendText(ctx, adapter, msg, "请先发送 /start 选择要进入的对话。")
+	sessionKey, err := gw.ensureAutomationSession(ctx, remoteKey, msg)
+	if err != nil {
+		gw.logger.Warn("prepare automation session failed", "err", err)
+		_ = gw.sendText(ctx, adapter, msg, "无法准备自动化对话："+err.Error())
 		return
 	}
 
@@ -261,6 +292,62 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 		return
 	}
 	gw.runTurn(ctx, adapter, remoteKey, sessionKey, msg)
+}
+
+func (gw *BotGateway) ensureAutomationSession(ctx context.Context, remoteKey string, msg InboundMessage) (string, error) {
+	gw.mu.Lock()
+	remote := gw.remoteStates[remoteKey]
+	if remote != nil && remote.mode == remoteModeInSession && remote.selectedKey != "" {
+		key := remote.selectedKey
+		idle := time.Since(remote.lastActive)
+		choice := sessionChoice{Path: remote.selectedPath, Title: remote.title, WorkspaceRoot: remote.workspaceRoot, LastActivity: remote.lastActive}
+		gw.mu.Unlock()
+		if idle <= 30*time.Minute || gw.sessions.IsActive(key) {
+			return key, nil
+		}
+		related := false
+		var err error
+		if gw.cfg.ContinuityDecider != nil {
+			related, err = gw.cfg.ContinuityDecider(ctx, choice, msg.Text)
+		}
+		if err == nil && related {
+			gw.mu.Lock()
+			if current := gw.remoteStates[remoteKey]; current != nil {
+				current.lastActive = time.Now()
+			}
+			gw.mu.Unlock()
+			return key, nil
+		}
+	} else {
+		gw.mu.Unlock()
+	}
+	if gw.cfg.RestoreSession != nil {
+		choice, ok, err := gw.cfg.RestoreSession(ctx, remoteKey, msg)
+		if err != nil {
+			gw.logger.Warn("restore automation session failed", "remote", remoteKey, "err", err)
+		} else if ok {
+			if err := gw.selectSession(ctx, remoteKey, choice); err == nil {
+				key, selected := gw.activeControllerKey(remoteKey)
+				if selected {
+					return key, nil
+				}
+			} else {
+				gw.logger.Warn("select restored automation session failed", "remote", remoteKey, "err", err)
+			}
+		}
+	}
+	choice, err := gw.cfg.CreateSession(ctx, remoteKey, msg)
+	if err != nil {
+		return "", err
+	}
+	if err := gw.selectSession(ctx, remoteKey, choice); err != nil {
+		return "", err
+	}
+	key, ok := gw.activeControllerKey(remoteKey)
+	if !ok {
+		return "", fmt.Errorf("automation session was not selected")
+	}
+	return key, nil
 }
 
 func (gw *BotGateway) checkAllowlist(plat Platform, msg InboundMessage) bool {
@@ -374,6 +461,7 @@ func (gw *BotGateway) selectSession(ctx context.Context, remoteKey string, choic
 			sessionPath:   choice.Path,
 			workspaceRoot: workspaceRoot,
 			title:         choice.Title,
+			sourceID:      "bot:" + choice.TopicID,
 		}
 	} else {
 		if state.ctrl != nil {
@@ -382,10 +470,18 @@ func (gw *BotGateway) selectSession(ctx context.Context, remoteKey string, choic
 		state.sessionPath = choice.Path
 		state.workspaceRoot = workspaceRoot
 		state.title = choice.Title
+		state.sourceID = "bot:" + choice.TopicID
 		state.lastActive = time.Now()
 	}
 
 	gw.mu.Lock()
+	var previous *sessionChoice
+	if old := gw.remoteStates[remoteKey]; old != nil && old.selectedPath != "" && old.selectedPath != choice.Path {
+		prev := sessionChoice{Path: old.selectedPath, Title: old.title, WorkspaceRoot: old.workspaceRoot, LastActivity: old.lastActive}
+		previous = &prev
+	} else if old != nil {
+		previous = old.previous
+	}
 	gw.controllers[sessionKey] = state
 	gw.remoteStates[remoteKey] = &remoteSessionState{
 		mode:          remoteModeInSession,
@@ -394,6 +490,8 @@ func (gw *BotGateway) selectSession(ctx context.Context, remoteKey string, choic
 		workspaceRoot: workspaceRoot,
 		title:         choice.Title,
 		lastListed:    nil,
+		previous:      previous,
+		lastActive:    time.Now(),
 	}
 	gw.mu.Unlock()
 	return nil
@@ -421,14 +519,24 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, r
 			gw.mu.Lock()
 			state, ok := gw.controllers[key]
 			gw.mu.Unlock()
-			if ok && state.cancel != nil {
-				state.cancel()
+			if ok {
+				if state.cancel != nil {
+					state.cancel()
+				}
+				if gw.cfg.ExternalStop != nil && state.sourceID != "" {
+					gw.cfg.ExternalStop(state.sourceID)
+				}
 			}
 			gw.sessions.ForceRelease(key)
 		}
 		_ = gw.sendText(ctx, adapter, msg, "已停止当前任务。")
 
 	case strings.HasPrefix(msg.Text, "/new") || strings.HasPrefix(msg.Text, "/reset"):
+		if !hasSession && gw.cfg.RestoreSession != nil {
+			if restored, ok, err := gw.cfg.RestoreSession(ctx, remoteKey, msg); err == nil && ok {
+				_ = gw.selectSession(ctx, remoteKey, restored)
+			}
+		}
 		choice, err := gw.cfg.CreateSession(ctx, remoteKey, msg)
 		if err != nil {
 			gw.logger.Warn("create bot session failed", "err", err)
@@ -441,11 +549,52 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, r
 			return
 		}
 		_ = gw.sendText(ctx, adapter, msg, formatSessionCreated(choice))
+		if tail := slashTail(msg.Text); tail != "" {
+			msg.Text = tail
+			gw.handleMessage(ctx, msg.Platform, adapter, msg)
+		}
+
+	case strings.HasPrefix(msg.Text, "/continue"):
+		gw.mu.Lock()
+		remote := gw.remoteStates[remoteKey]
+		var previous *sessionChoice
+		if remote != nil {
+			if remote.previous != nil {
+				previous = remote.previous
+			} else if remote.selectedPath != "" {
+				current := sessionChoice{Path: remote.selectedPath, Title: remote.title, WorkspaceRoot: remote.workspaceRoot, LastActivity: remote.lastActive}
+				previous = &current
+			}
+		}
+		gw.mu.Unlock()
+		if previous == nil && gw.cfg.RestoreSession != nil {
+			if restored, ok, err := gw.cfg.RestoreSession(ctx, remoteKey, msg); err == nil && ok {
+				previous = &restored
+			}
+		}
+		if previous != nil {
+			if err := gw.selectSession(ctx, remoteKey, *previous); err != nil {
+				_ = gw.sendText(ctx, adapter, msg, "无法继续上一段对话："+err.Error())
+				return
+			}
+		} else {
+			_ = gw.sendText(ctx, adapter, msg, "没有可继续的自动化对话，请直接发送消息或使用 /new。")
+			return
+		}
+		_ = gw.sendText(ctx, adapter, msg, "已继续上一段自动化对话。")
+		if tail := slashTail(msg.Text); tail != "" {
+			msg.Text = tail
+			gw.handleMessage(ctx, msg.Platform, adapter, msg)
+		}
 
 	case strings.HasPrefix(msg.Text, "/approve"):
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
 			_ = gw.sendText(ctx, adapter, msg, "用法：/approve <id>")
+			return
+		}
+		if gw.cfg.ExternalApprove != nil && gw.cfg.ExternalApprove(parts[1], true) {
+			_ = gw.sendText(ctx, adapter, msg, "已批准。")
 			return
 		}
 		state, ok := gw.controllerState(key, hasSession)
@@ -460,6 +609,10 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, r
 		parts := strings.Fields(msg.Text)
 		if len(parts) < 2 {
 			_ = gw.sendText(ctx, adapter, msg, "用法：/deny <id>")
+			return
+		}
+		if gw.cfg.ExternalApprove != nil && gw.cfg.ExternalApprove(parts[1], false) {
+			_ = gw.sendText(ctx, adapter, msg, "已拒绝。")
 			return
 		}
 		state, ok := gw.controllerState(key, hasSession)
@@ -488,6 +641,10 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, r
 		delete(state.pendingAsks, askID)
 		gw.mu.Unlock()
 		answers := parseAskAnswers(questions, rawAnswer)
+		if gw.cfg.ExternalAnswer != nil && gw.cfg.ExternalAnswer(askID, answers) {
+			_ = gw.sendText(ctx, adapter, msg, "已提交回答。")
+			return
+		}
 		state.ctrl.AnswerQuestion(askID, answers)
 		_ = gw.sendText(ctx, adapter, msg, "已提交回答。")
 
@@ -503,7 +660,7 @@ func (gw *BotGateway) handleSlashCommand(ctx context.Context, adapter Adapter, r
 		}
 		_ = gw.sendText(ctx, adapter, msg, fmt.Sprintf("当前对话：%s\n活跃任务数：%d\n已加载会话数：%d", current, active, controllers))
 
-	case strings.HasPrefix(msg.Text, "/help"):
+	case strings.HasPrefix(msg.Text, "/help") || strings.HasPrefix(msg.Text, "/hi"):
 		_ = gw.sendText(ctx, adapter, msg, botHelpText())
 	}
 }
@@ -519,15 +676,24 @@ func (gw *BotGateway) controllerState(key string, hasSession bool) (*sessionStat
 }
 
 func botHelpText() string {
-	return "可用命令：\n" +
+	return "自动化工作区会直接处理请求，并在需要时读取或调度电脑上的工程对话。\n\n可用命令：\n" +
 		"/start - 回到会话列表，选择最近 15 条对话\n" +
-		"/new - 创建新的独立工作区对话\n" +
+		"/new [消息] - 开始新的自动化对话段\n" +
+		"/continue [消息] - 强制继续上一段对话\n" +
 		"/stop - 停止当前任务\n" +
 		"/approve <id> - 批准操作\n" +
 		"/deny <id> - 拒绝操作\n" +
 		"/answer <id> <选项> - 回答 ask 问题\n" +
 		"/status - 查看当前状态\n" +
-		"/help - 显示帮助"
+		"/hi - 显示帮助（/help 兼容）"
+}
+
+func slashTail(text string) string {
+	_, tail, ok := strings.Cut(strings.TrimSpace(text), " ")
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(tail)
 }
 
 func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, remoteKey, sessionKey string, msg InboundMessage) {
@@ -571,6 +737,10 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, remoteKey, s
 	}
 	state.sink.setTarget(target)
 	defer state.sink.setTarget(nil)
+	if gw.cfg.RegisterExternalSink != nil && state.sourceID != "" {
+		unregister := gw.cfg.RegisterExternalSink(state.sourceID, renderSink)
+		defer unregister()
+	}
 
 	turnCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -588,7 +758,27 @@ func (gw *BotGateway) runTurn(ctx context.Context, adapter Adapter, remoteKey, s
 	}
 	if err != nil {
 		gw.logger.Warn("turn error", "remote", remoteKey, "session", sessionKey, "err", err)
+		return
 	}
+	gw.mu.Lock()
+	if remote := gw.remoteStates[remoteKey]; remote != nil {
+		remote.lastActive = time.Now()
+	}
+	guideSent := gw.guideSent[msg.Platform]
+	gw.mu.Unlock()
+	if !guideSent {
+		if sendErr := gw.sendText(ctx, adapter, msg, botFirstUseGuide()); sendErr == nil {
+			if gw.cfg.AfterGuideSent == nil || gw.cfg.AfterGuideSent(msg.Platform) == nil {
+				gw.mu.Lock()
+				gw.guideSent[msg.Platform] = true
+				gw.mu.Unlock()
+			}
+		}
+	}
+}
+
+func botFirstUseGuide() string {
+	return "使用指南：直接发送自然语言即可。助手会先判断是否需要调用已有电脑对话。/new 开始新段，/continue 继续上一段，/status 查看状态，/stop 停止任务，/hi 查看全部命令。"
 }
 
 type multiEventSink []event.Sink

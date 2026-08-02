@@ -47,8 +47,27 @@ check(
 );
 check(
   settings.includes("promptModes.map((mode)") &&
-    settings.includes("assistantMemoryEnabled={productCapabilities.assistantMemoryEnabled}"),
+    settings.includes("productCapabilities.automationWorkspaceEnabled === true"),
   "bot and memory settings follow the product capability boundary",
+);
+check(
+  app.includes('automationConversation ? ["assistant"]') &&
+    app.includes("promptModeLocked={automationConversation}") &&
+    composer.includes("disabled={disabled || promptModeLocked}"),
+  "automation conversations expose a visible but locked assistant mode",
+);
+const chooser = readFileSync(join(root, "components", "NewSessionChooser.tsx"), "utf8");
+const projectTree = readFileSync(join(root, "components", "ProjectTree.tsx"), "utf8");
+check(
+  chooser.includes('choose("automation", "", "automation")') &&
+    projectTree.includes('node.kind === "automation_folder"') &&
+    projectTree.includes('node.kind === "automation_topic"'),
+  "automation workspace can be created and opened from the desktop tree",
+);
+check(
+  projectTree.includes('scope === "automation"\n        ? []') &&
+    projectTree.includes('scope === "automation" ? "自动化工作区"'),
+  "automation root stays fixed instead of inheriting project rename and color actions",
 );
 const composerContract = css.slice(css.indexOf("/* Composer responsive contract."));
 check(

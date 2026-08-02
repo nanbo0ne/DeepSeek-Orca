@@ -11,6 +11,7 @@ import (
 
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/bot"
+	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/event"
 )
 
@@ -27,10 +28,7 @@ type botSessionUpdatedEvent struct {
 
 func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg bot.InboundMessage) (bot.SessionChoice, error) {
 	topicID := newTopicID()
-	root := independentWorkspaceRoot(topicID)
-	if ensured, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
-		root = ensured
-	}
+	root := automationWorkspaceRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return bot.SessionChoice{}, err
 	}
@@ -39,13 +37,13 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 		return bot.SessionChoice{}, err
 	}
 
-	title := "机器人新对话"
-	if err := setTopicTitleWithSource("", topicID, title, topicTitleSourceAuto); err != nil {
+	title := "自动化新对话"
+	if err := setTopicTitleWithSource(root, topicID, title, topicTitleSourceAuto); err != nil {
 		return bot.SessionChoice{}, err
 	}
-	_ = setTopicCreatedAt("", topicID, time.Now().Unix())
+	_ = setTopicCreatedAt(root, topicID, time.Now().UnixMilli())
 	f := loadProjectsFile()
-	f.GlobalTopics = prependUniqueString(f.GlobalTopics, topicID)
+	f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
 	_ = saveProjectsFile(f)
 
 	path := agent.NewSessionPath(dir, "bot")
@@ -56,7 +54,7 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 	now := time.Now()
 	_ = agent.SaveBranchMetaPreserveUpdated(path, agent.BranchMeta{
 		ID:            agent.BranchID(path),
-		Scope:         "global",
+		Scope:         scopeAutomation,
 		WorkspaceRoot: root,
 		TopicID:       topicID,
 		TopicTitle:    title,
@@ -64,14 +62,76 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 		UpdatedAt:     now,
 	})
 	a.emitProjectTreeChanged()
+	_ = a.rememberBotAutomationSession(msg.Platform, remoteKey, topicID)
 
 	return bot.SessionChoice{
+		TopicID:       topicID,
 		Path:          path,
 		Title:         title,
-		Location:      "独立工作区",
+		Location:      "自动化工作区",
 		WorkspaceRoot: root,
 		LastActivity:  now,
 	}, nil
+}
+
+func (a *App) restoreDesktopBotSession(_ context.Context, remoteKey string, msg bot.InboundMessage) (bot.SessionChoice, bool, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return bot.SessionChoice{}, false, err
+	}
+	provider := strings.ToLower(strings.TrimSpace(string(msg.Platform)))
+	topicID := ""
+	for _, connection := range cfg.Bot.Connections {
+		if strings.ToLower(strings.TrimSpace(connection.Provider)) != provider {
+			continue
+		}
+		for _, mapping := range connection.SessionMappings {
+			if strings.TrimSpace(mapping.RemoteID) == strings.TrimSpace(remoteKey) {
+				topicID = strings.TrimSpace(mapping.SessionID)
+				break
+			}
+		}
+		if topicID != "" {
+			break
+		}
+	}
+	if topicID == "" {
+		return bot.SessionChoice{}, false, nil
+	}
+	path, _ := a.findKnownTopicSession(topicID)
+	if strings.TrimSpace(path) == "" {
+		return bot.SessionChoice{}, false, nil
+	}
+	meta, ok, err := agent.LoadBranchMeta(path)
+	if err != nil || !ok || meta.Scope != scopeAutomation {
+		return bot.SessionChoice{}, false, err
+	}
+	lastActivity := meta.UpdatedAt
+	if lastActivity.IsZero() {
+		if stat, statErr := os.Stat(path); statErr == nil {
+			lastActivity = stat.ModTime()
+		}
+	}
+	title := strings.TrimSpace(meta.TopicTitle)
+	if title == "" {
+		title = topicTitleForTab(scopeAutomation, automationWorkspaceRoot(), topicID)
+	}
+	return bot.SessionChoice{
+		TopicID: topicID, Path: path, Title: title, Location: "自动化工作区",
+		WorkspaceRoot: automationWorkspaceRoot(), LastActivity: lastActivity,
+	}, true, nil
+}
+
+func (a *App) afterDesktopBotTurn(sessionPath, model string) {
+	a.refreshOpenTabForBotSession(sessionPath)
+	meta, ok, _ := agent.LoadBranchMeta(sessionPath)
+	if !ok || meta.Scope != scopeAutomation {
+		return
+	}
+	a.markAssistantMemoryPendingForCandidate(assistantMemoryCandidate{
+		SessionPath: sessionPath, TopicID: meta.TopicID, WorkspaceRoot: meta.WorkspaceRoot,
+		PromptMode: promptModeAssistant, Model: model,
+	}, true)
 }
 
 func (a *App) mirrorBotUserToOpenTab(sessionPath, text string) {

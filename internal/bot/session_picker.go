@@ -18,6 +18,7 @@ import (
 const maxBotSessionChoices = 15
 
 type sessionChoice struct {
+	TopicID       string
 	Number        int
 	Path          string
 	Title         string
@@ -109,6 +110,7 @@ func defaultBotSessionCreator(ctx context.Context, remoteKey string, msg Inbound
 		UpdatedAt:     now,
 	})
 	return sessionChoice{
+		TopicID:       agent.BranchID(path),
 		Path:          path,
 		Title:         title,
 		Location:      "独立工作区",
@@ -206,6 +208,7 @@ func sessionChoiceFromInfo(info agent.SessionInfo, explicitTitle string) session
 		workspaceRoot = globalBotWorkspaceRoot()
 	}
 	return sessionChoice{
+		TopicID:       info.TopicID,
 		Path:          info.Path,
 		Title:         oneLine(title, 42),
 		Preview:       oneLine(info.Preview, 64),

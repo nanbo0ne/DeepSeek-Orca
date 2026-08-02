@@ -15,23 +15,26 @@ const (
 // ProductCapabilities defines the public surface of a product edition. The
 // three-state PromptMode remains intact for old sessions and the future Orca app.
 type ProductCapabilities struct {
-	Edition                string   `json:"edition"`
-	PromptModes            []string `json:"promptModes"`
-	AssistantMemoryEnabled bool     `json:"assistantMemoryEnabled"`
+	Edition                    string   `json:"edition"`
+	PromptModes                []string `json:"promptModes"`
+	AssistantMemoryEnabled     bool     `json:"assistantMemoryEnabled"`
+	AutomationWorkspaceEnabled bool     `json:"automationWorkspaceEnabled"`
 }
 
 func productCapabilities() ProductCapabilities {
 	if currentProductEdition == productEditionAssistant {
 		return ProductCapabilities{
-			Edition:                productEditionAssistant,
-			PromptModes:            []string{promptModeAssistant},
-			AssistantMemoryEnabled: true,
+			Edition:                    productEditionAssistant,
+			PromptModes:                []string{promptModeAssistant},
+			AssistantMemoryEnabled:     true,
+			AutomationWorkspaceEnabled: true,
 		}
 	}
 	return ProductCapabilities{
-		Edition:                productEditionEngineering,
-		PromptModes:            []string{promptModeNormal, promptModeEnhanced},
-		AssistantMemoryEnabled: false,
+		Edition:                    productEditionEngineering,
+		PromptModes:                []string{promptModeNormal, promptModeEnhanced},
+		AssistantMemoryEnabled:     false,
+		AutomationWorkspaceEnabled: true,
 	}
 }
 

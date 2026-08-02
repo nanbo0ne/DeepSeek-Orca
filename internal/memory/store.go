@@ -88,6 +88,9 @@ func ClearAssistantStores(userDir string) error {
 	if strings.TrimSpace(userDir) == "" {
 		return nil
 	}
+	if err := os.RemoveAll(CanonicalAssistantStore(userDir).Dir); err != nil {
+		return err
+	}
 	projectsDir := filepath.Join(userDir, "projects")
 	entries, err := os.ReadDir(projectsDir)
 	if err != nil {

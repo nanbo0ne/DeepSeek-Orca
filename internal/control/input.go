@@ -9,7 +9,7 @@ import (
 	"deepseek-orca/internal/skill"
 )
 
-var reComposeBlock = regexp.MustCompile(`(?s)^\s*<(?:memory-update|background-jobs|system-reminder|workflow-reminder)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder)>\s*(?:\n|$)`)
+var reComposeBlock = regexp.MustCompile(`(?s)^\s*<(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>\s*(?:\n|$)`)
 
 // PlanModeMarker is prepended to every user turn while plan mode is on. It rides
 // in the user message (not the system prompt or tools), so the cache-stable
@@ -112,8 +112,15 @@ func (c *Controller) Compose(text string) string {
 	askWorkflow := c.askWorkflow
 	stepThinking := c.stepThinking
 	mem := c.mem
+	turnContext := c.turnContext
 	c.pendingMemory = nil
 	c.mu.Unlock()
+
+	if turnContext != nil {
+		if contextBlock := strings.TrimSpace(turnContext()); contextBlock != "" {
+			text = "<automation-context>\n" + contextBlock + "\n</automation-context>\n\n" + text
+		}
+	}
 
 	if reminder := promptprofile.WorkflowReminder(askWorkflow, stepThinking); reminder != "" {
 		text = reminder + "\n\n" + text

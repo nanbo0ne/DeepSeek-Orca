@@ -129,6 +129,7 @@ const ENGINEERING_CAPABILITIES: ProductCapabilities = {
   edition: "engineering",
   promptModes: ["normal", "enhanced"],
   assistantMemoryEnabled: false,
+  automationWorkspaceEnabled: true,
 };
 
 function normalizePromptMode(mode?: string, enhanced?: boolean, supported: PromptMode[] = ENGINEERING_CAPABILITIES.promptModes): PromptMode {
@@ -514,6 +515,7 @@ export default function App() {
     switchTab,
     openProjectTab,
     openGlobalTab,
+    openAutomationTab,
     syncActiveTab,
     ensureBlankTab,
   } = useController();
@@ -862,7 +864,10 @@ export default function App() {
   const stepThinkingEnabled = activeTabId
     ? stepThinkingsByTab[activeTabId] ?? Boolean(state.meta?.stepThinkingEnabled ?? activeTab?.stepThinkingEnabled)
     : false;
-  const promptMode = activeTabId
+  const automationConversation = (state.meta?.scope ?? activeTab?.scope) === "automation";
+  const promptMode = automationConversation
+    ? "assistant"
+    : activeTabId
     ? normalizePromptMode(
         pendingPromptModesByTab[activeTabId] ?? promptModesByTab[activeTabId] ?? state.meta?.promptMode ?? activeTab?.promptMode,
         state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled,
@@ -2036,7 +2041,7 @@ export default function App() {
     setNewSessionChooserOpen(true);
   }, [closeTransientOverlays]);
 
-  const handleNewSessionChoice = useCallback(async (scope: "global" | "project", workspaceRoot: string) => {
+  const handleNewSessionChoice = useCallback(async (scope: "global" | "project" | "automation", workspaceRoot: string) => {
     setNewSessionChooserOpen(false);
     await openBlankSession(scope, scope === "project" ? workspaceRoot : "");
   }, [openBlankSession]);
@@ -2069,12 +2074,13 @@ export default function App() {
     setPendingTopic({ scope, workspaceRoot, topicId });
     try {
       if (scope === "global") await openGlobalTab(topicId);
+      else if (scope === "automation") await openAutomationTab(topicId);
       else await openProjectTab(workspaceRoot, topicId);
       await refreshTabMetas();
     } finally {
       setPendingTopic((current) => current?.topicId === topicId ? null : current);
     }
-  }, [closeTransientOverlays, openGlobalTab, openProjectTab, refreshTabMetas, switchTab, tabMetas]);
+  }, [closeTransientOverlays, openAutomationTab, openGlobalTab, openProjectTab, refreshTabMetas, switchTab, tabMetas]);
 
   // History drawer: project menus can open a scoped saved-session list. Idle row
   // clicks resume; running row clicks only preview through PreviewSession.
@@ -2827,7 +2833,8 @@ export default function App() {
               stepThinkingEnabled={stepThinkingEnabled}
               toolApprovalMode={toolApprovalMode}
               promptMode={promptMode}
-              promptModes={productCapabilities.promptModes}
+              promptModes={automationConversation ? ["assistant"] : productCapabilities.promptModes}
+              promptModeLocked={automationConversation}
               promptModeSwitching={promptModeSwitching}
               paused={Boolean(state.meta?.paused)}
               goal={goal}

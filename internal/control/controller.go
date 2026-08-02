@@ -74,6 +74,7 @@ type Controller struct {
 	mem            *memory.Set
 	enhancedMode   bool
 	memoryReminder bool
+	turnContext    func() string
 	askWorkflow    bool
 	stepThinking   bool
 	visionEnabled  bool
@@ -175,6 +176,8 @@ type Controller struct {
 	pendingMemory []string
 
 	displayRecorder func(content, display string)
+	turnLease       func(context.Context, string) (func(), error)
+	refreshOnLease  bool
 }
 
 type approvalReply struct {
@@ -294,12 +297,15 @@ type Options struct {
 	Memory         *memory.Set
 	EnhancedMode   bool
 	MemoryReminder bool
-	AskWorkflow    bool
-	StepThinking   bool
-	VisionEnabled  bool
-	VisionMode     string
-	VisionModels   func() []string
-	Cleanup        func()
+	// TurnContext returns a transient model-only block to prepend to each user
+	// turn. It is evaluated at send time so indexes and statuses stay current.
+	TurnContext   func() string
+	AskWorkflow   bool
+	StepThinking  bool
+	VisionEnabled bool
+	VisionMode    string
+	VisionModels  func() []string
+	Cleanup       func()
 	// BalanceURL/BalanceKey wire the active provider's optional wallet-balance
 	// endpoint and bearer key; empty when the provider declares no balance_url.
 	BalanceURL    string
@@ -320,6 +326,12 @@ type Options struct {
 	// persist to disk (e.g. "Bash(go test:*)"). The callback is wired into the
 	// permission Gate on EnableInteractiveApproval.
 	OnRemember func(rule string) RememberResult
+	// TurnLease serializes foreground turns that target the same persisted
+	// session across multiple controller instances (for example desktop + bot).
+	TurnLease func(context.Context, string) (func(), error)
+	// RefreshOnLease reloads a newer transcript from disk after acquiring the
+	// lease, preventing a waiting controller from appending to stale history.
+	RefreshOnLease bool
 }
 
 // New builds a Controller. A nil Sink is replaced with event.Discard.
@@ -355,6 +367,7 @@ func New(opts Options) *Controller {
 		mem:              opts.Memory,
 		enhancedMode:     opts.EnhancedMode,
 		memoryReminder:   opts.MemoryReminder,
+		turnContext:      opts.TurnContext,
 		askWorkflow:      opts.AskWorkflow,
 		stepThinking:     opts.StepThinking,
 		visionEnabled:    opts.VisionEnabled,
@@ -364,6 +377,8 @@ func New(opts Options) *Controller {
 		autoPlan:         normalizeAutoPlan(opts.AutoPlan),
 		classifier:       classifier,
 		onRemember:       opts.OnRemember,
+		turnLease:        opts.TurnLease,
+		refreshOnLease:   opts.RefreshOnLease,
 		balanceURL:       opts.BalanceURL,
 		balanceKey:       opts.BalanceKey,
 		balanceClient:    opts.BalanceClient,
@@ -583,6 +598,14 @@ func (c *Controller) runGoalLoopWithRawDisplay(ctx context.Context, input, raw, 
 }
 
 func (c *Controller) runGoalLoopWithRichDisplay(ctx context.Context, input agent.RichInput, raw, display string) error {
+	release, err := c.acquireTurnLease(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if c.refreshOnLease {
+		c.refreshSessionFromDisk()
+	}
 	if err := c.runTurnWithRichDisplay(ctx, input, raw, display); err != nil {
 		if ctx.Err() != nil {
 			c.stopGoal(GoalStatusStopped)
@@ -590,6 +613,46 @@ func (c *Controller) runGoalLoopWithRichDisplay(ctx context.Context, input agent
 		return err
 	}
 	return c.continueGoal(ctx)
+}
+
+func (c *Controller) acquireTurnLease(ctx context.Context) (func(), error) {
+	if c.turnLease == nil {
+		return func() {}, nil
+	}
+	c.mu.Lock()
+	path := c.sessionPath
+	c.mu.Unlock()
+	if strings.TrimSpace(path) == "" {
+		return func() {}, nil
+	}
+	return c.turnLease(ctx, path)
+}
+
+func (c *Controller) refreshSessionFromDisk() {
+	if c.executor == nil {
+		return
+	}
+	c.mu.Lock()
+	path := c.sessionPath
+	c.mu.Unlock()
+	if strings.TrimSpace(path) == "" {
+		return
+	}
+	loaded, err := agent.LoadSession(path)
+	if err != nil {
+		return
+	}
+	disk := loaded.Snapshot()
+	current := c.executor.Session().Snapshot()
+	if len(disk) == len(current) && (len(disk) == 0 || sameMessageBoundary(disk[len(disk)-1], current[len(current)-1])) {
+		return
+	}
+	c.executor.SetSession(loaded)
+}
+
+func sameMessageBoundary(a, b provider.Message) bool {
+	return a.Role == b.Role && a.Content == b.Content && a.ReasoningContent == b.ReasoningContent &&
+		a.ToolCallID == b.ToolCallID && a.Name == b.Name && len(a.ToolCalls) == len(b.ToolCalls) && len(a.Images) == len(b.Images)
 }
 
 func (c *Controller) runTurnWithRawDisplay(ctx context.Context, input, raw, display string) error {

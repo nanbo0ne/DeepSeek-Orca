@@ -374,6 +374,7 @@ type BotConnectionConfig struct {
 	Status          string                        `toml:"status"` // disconnected|pending|connected|error
 	Credential      BotConnectionCredential       `toml:"credential"`
 	SessionMappings []BotConnectionSessionMapping `toml:"session_mappings"`
+	GuideSent       bool                          `toml:"guide_sent"`
 	LastError       string                        `toml:"last_error"`
 	CreatedAt       string                        `toml:"created_at"`
 	UpdatedAt       string                        `toml:"updated_at"`
@@ -1104,7 +1105,7 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 4,
+		ConfigVersion: 5,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
 		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto},
@@ -1237,6 +1238,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeDesktopOfficialProviderAccess(cfg)
 	normalizeDesktopUpdatePreference(cfg)
 	normalizeDesktopVisionPreference(cfg)
+	normalizeAutomationPreference(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1351,6 +1353,7 @@ func LoadForEdit(path string) *Config {
 	normalizeDesktopOfficialProviderAccess(cfg)
 	normalizeDesktopUpdatePreference(cfg)
 	normalizeDesktopVisionPreference(cfg)
+	normalizeAutomationPreference(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
 }
@@ -1396,6 +1399,18 @@ func normalizeDesktopVisionPreference(c *Config) {
 	mode := c.DesktopVisionMode()
 	c.Desktop.VisionMode = mode
 	c.Desktop.VisionEnabled = mode == VisionModeOn
+	if c.ConfigVersion < 5 {
+		c.ConfigVersion = 5
+	}
+}
+
+// V5 introduces the automation workspace and shared assistant profile. The
+// feature has no destructive config migration; the marker lets future versions
+// distinguish configurations that have passed through the new defaults.
+func normalizeAutomationPreference(c *Config) {
+	if c != nil && c.ConfigVersion < 5 {
+		c.ConfigVersion = 5
+	}
 }
 
 // mergeFile decodes a TOML file onto cfg if it exists. An absent file is not an error.

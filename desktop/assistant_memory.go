@@ -177,7 +177,7 @@ func (a *App) assistantMemoryCandidateForTabLocked(tab *WorkspaceTab) assistantM
 }
 
 func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate, runNow bool) {
-	if !assistantMemoryAvailable() {
+	if !assistantMemoryFeatureAvailable(c.WorkspaceRoot) {
 		return
 	}
 	if c.PromptMode != promptModeAssistant || strings.TrimSpace(c.SessionPath) == "" {
@@ -234,7 +234,7 @@ func (a *App) markActiveAssistantMemoryPending(runNow bool) {
 const assistantMemoryIdleDelay = 8 * time.Second
 
 func (a *App) schedulePendingAssistantMemories() {
-	if !assistantMemoryAvailable() {
+	if !assistantMemoryFeatureAvailable("") {
 		return
 	}
 	a.assistantMemoryMu.Lock()
@@ -248,7 +248,7 @@ func (a *App) schedulePendingAssistantMemories() {
 }
 
 func (a *App) startPendingAssistantMemoriesIfIdle() {
-	if !assistantMemoryAvailable() {
+	if !assistantMemoryFeatureAvailable("") {
 		return
 	}
 	a.assistantMemoryMu.Lock()
@@ -279,13 +279,15 @@ func (a *App) startPendingAssistantMemoriesIfIdle() {
 
 func (a *App) anyTabRunning() bool {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	for _, tab := range a.tabs {
 		if tab != nil && tab.Ctrl != nil && tab.Ctrl.Running() {
+			a.mu.RUnlock()
 			return true
 		}
 	}
-	return false
+	gw := a.botGateway
+	a.mu.RUnlock()
+	return gw != nil && gw.ActiveCount() > 0
 }
 
 func (a *App) hasRunnableAssistantMemoryPending() bool {
@@ -417,6 +419,11 @@ func (a *App) processAssistantMemoryItem(item *assistantMemoryPendingItem) error
 		return err
 	}
 	store := memory.AssistantStoreFor(config.MemoryUserDir(), item.WorkspaceRoot)
+	if isAutomationWorkspaceRoot(item.WorkspaceRoot) {
+		if canonical, err := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir()); err == nil {
+			store = canonical
+		}
+	}
 	now := memory.NowRFC3339()
 	for _, update := range updates {
 		if !assistantMemoryUpdateAllowed(update) {
@@ -474,6 +481,9 @@ func assistantMemoryMessagesSince(sessionPath string, processed int) ([]provider
 	}
 	var real []provider.Message
 	for _, m := range s.Snapshot() {
+		if m.Role == provider.RoleUser {
+			m.Content = control.StripComposePrefixes(m.Content)
+		}
 		if !assistantMemoryRealMessage(m) {
 			continue
 		}
@@ -505,6 +515,24 @@ func assistantMemoryRealMessage(m provider.Message) bool {
 		return false
 	}
 	return true
+}
+
+func assistantMemoryFeatureAvailable(workspaceRoot string) bool {
+	if assistantMemoryAvailable() || isAutomationWorkspaceRoot(workspaceRoot) {
+		return true
+	}
+	return strings.TrimSpace(workspaceRoot) == "" && strings.TrimSpace(automationWorkspaceRoot()) != ""
+}
+
+func isAutomationWorkspaceRoot(root string) bool {
+	root = strings.TrimSpace(root)
+	automationRoot := strings.TrimSpace(automationWorkspaceRoot())
+	if root == "" || automationRoot == "" {
+		return false
+	}
+	a, errA := filepath.Abs(root)
+	b, errB := filepath.Abs(automationRoot)
+	return errA == nil && errB == nil && filepath.Clean(a) == filepath.Clean(b)
 }
 
 func (a *App) generateAssistantMemoryUpdates(item assistantMemoryPendingItem, msgs []provider.Message) ([]assistantMemoryUpdate, error) {
@@ -587,7 +615,13 @@ func assistantMemoryUpdateUserPrompt(item assistantMemoryPendingItem, msgs []pro
 	fmt.Fprintf(&b, "Conversation title/topic ID: %s\n", item.TopicID)
 	fmt.Fprintf(&b, "Workspace: %s\n", item.WorkspaceRoot)
 	b.WriteString("\nExisting assistant memory index:\n")
-	b.WriteString(strings.TrimSpace(memory.AssistantStoreFor(config.MemoryUserDir(), item.WorkspaceRoot).Index()))
+	store := memory.AssistantStoreFor(config.MemoryUserDir(), item.WorkspaceRoot)
+	if isAutomationWorkspaceRoot(item.WorkspaceRoot) {
+		if canonical, err := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir()); err == nil {
+			store = canonical
+		}
+	}
+	b.WriteString(strings.TrimSpace(store.Index()))
 	b.WriteString("\n\nNew real user/assistant messages since the last memory update:\n")
 	for _, m := range msgs {
 		role := "assistant"

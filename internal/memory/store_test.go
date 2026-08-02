@@ -248,6 +248,9 @@ func TestClearAssistantStoresLeavesSharedMemory(t *testing.T) {
 	if _, err := AssistantStoreFor(userDir, cwd).Save(Memory{Name: "assistant-fact", Description: "assistant", Body: "assistant"}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := CanonicalAssistantStore(userDir).Save(Memory{Name: "canonical-fact", Description: "canonical", Body: "canonical"}); err != nil {
+		t.Fatal(err)
+	}
 	if err := ClearAssistantStores(userDir); err != nil {
 		t.Fatal(err)
 	}
@@ -256,6 +259,9 @@ func TestClearAssistantStoresLeavesSharedMemory(t *testing.T) {
 	}
 	if got := AssistantStoreFor(userDir, cwd).List(); len(got) != 0 {
 		t.Fatalf("assistant memory should be cleared, got %+v", got)
+	}
+	if got := CanonicalAssistantStore(userDir).List(); len(got) != 0 {
+		t.Fatalf("canonical assistant memory should be cleared, got %+v", got)
 	}
 }
 

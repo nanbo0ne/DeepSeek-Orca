@@ -25,8 +25,8 @@ func TestDesktopUpdatePreferenceMigration(t *testing.T) {
 	}
 
 	fresh := Default()
-	if fresh.ConfigVersion != 4 || !fresh.DesktopCheckUpdates() {
-		t.Fatalf("fresh default = version %d, enabled %v; want 4,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates())
+	if fresh.ConfigVersion != 5 || !fresh.DesktopCheckUpdates() {
+		t.Fatalf("fresh default = version %d, enabled %v; want 5,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates())
 	}
 }
 
@@ -36,7 +36,7 @@ func TestDesktopUpdatePreferenceMigrationPersistsOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := LoadForEdit(path)
-	if cfg.ConfigVersion != 4 || !cfg.DesktopCheckUpdates() {
+	if cfg.ConfigVersion != 5 || !cfg.DesktopCheckUpdates() {
 		t.Fatalf("loaded V2 config = version %d, enabled %v", cfg.ConfigVersion, cfg.DesktopCheckUpdates())
 	}
 	if err := cfg.SetDesktopCheckUpdates(false); err != nil {
@@ -46,7 +46,7 @@ func TestDesktopUpdatePreferenceMigrationPersistsOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	reloaded := LoadForEdit(path)
-	if reloaded.ConfigVersion != 4 || reloaded.DesktopCheckUpdates() {
+	if reloaded.ConfigVersion != 5 || reloaded.DesktopCheckUpdates() {
 		t.Fatalf("reloaded opt-out = version %d, enabled %v", reloaded.ConfigVersion, reloaded.DesktopCheckUpdates())
 	}
 }
@@ -68,8 +68,8 @@ func TestDesktopVisionPreferenceMigration(t *testing.T) {
 
 			normalizeDesktopVisionPreference(cfg)
 
-			if cfg.ConfigVersion != 4 || cfg.DesktopVisionMode() != tt.want {
-				t.Fatalf("migrated vision = version %d, mode %q; want 4,%q", cfg.ConfigVersion, cfg.DesktopVisionMode(), tt.want)
+			if cfg.ConfigVersion != 5 || cfg.DesktopVisionMode() != tt.want {
+				t.Fatalf("migrated vision = version %d, mode %q; want 5,%q", cfg.ConfigVersion, cfg.DesktopVisionMode(), tt.want)
 			}
 		})
 	}

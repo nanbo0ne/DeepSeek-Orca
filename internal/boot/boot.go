@@ -92,8 +92,18 @@ type Options struct {
 	// PromptMode. Product editions use this to isolate memory while retaining the
 	// shared prompt builders and session format.
 	MemoryProfile string
+	// AssistantMemoryStoreDir overrides the assistant profile store directory.
+	// Automation shells use one canonical store across every remote channel.
+	AssistantMemoryStoreDir string
+	// ExtraTools are host-owned tools available only to this controller.
+	ExtraTools []tool.Tool
+	// TurnContext returns transient model-only context before each turn.
+	TurnContext func() string
 	// PauseWait is an optional cooperative pause gate for interactive frontends.
 	PauseWait func(context.Context) error
+	// TurnLease coordinates controllers that may share one persisted session.
+	TurnLease      func(context.Context, string) (func(), error)
+	RefreshOnLease bool
 }
 
 const (
@@ -235,7 +245,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if strings.TrimSpace(opts.MemoryProfile) != "" {
 		memoryProfile = memory.NormalizeProfile(opts.MemoryProfile)
 	}
-	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir(), Profile: memoryProfile})
+	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir(), Profile: memoryProfile, AssistantStoreDir: opts.AssistantMemoryStoreDir})
 	projectChecks := instruction.ExtractHostChecks(mem.Docs)
 	if !enhancedMode && !assistantMode {
 		sysPrompt = memory.Compose(sysPrompt, mem)
@@ -273,6 +283,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	addBuiltins(reg, cfg.Tools.Enabled, cfg.WriteRootsForRoot(root), bashSpec, bashTimeout, searchSpec, stderr, root, proxySpec, config.BuildBashHostToolSteer(cfg.ToolLibrary))
 	for _, t := range hosttools.Tools(root, cfg.ToolLibrary) {
 		reg.Add(t)
+	}
+	for _, t := range opts.ExtraTools {
+		if t != nil {
+			reg.Add(t)
+		}
 	}
 	// Always construct a host, even with no plugins configured, so the controller's
 	// host pointer is stable for the session and `/mcp add` can hot-add into it.
@@ -825,6 +840,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Memory:         mem,
 		EnhancedMode:   enhancedMode,
 		MemoryReminder: enhancedMode || (assistantMode && cfg.DesktopAssistantMemoryRecallEnabled()),
+		TurnContext:    opts.TurnContext,
 		Cleanup:        cleanup,
 		BalanceURL:     entry.BalanceURL,
 		BalanceKey:     entry.APIKey(),
@@ -840,6 +856,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)
 		},
+		TurnLease:      opts.TurnLease,
+		RefreshOnLease: opts.RefreshOnLease,
 	}
 	if classifier != nil {
 		ctrlOpts.Classifier = classifier

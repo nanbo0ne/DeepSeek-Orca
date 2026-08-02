@@ -240,6 +240,9 @@ func (c *Config) SetVisionMode(mode string) error {
 		if c.ConfigVersion < 4 {
 			c.ConfigVersion = 4
 		}
+		if c.ConfigVersion < 5 {
+			c.ConfigVersion = 5
+		}
 		return nil
 	default:
 		return fmt.Errorf("vision mode %q: must be off|auto|on", mode)

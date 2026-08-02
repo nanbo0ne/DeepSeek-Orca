@@ -5,7 +5,7 @@ import type { ProjectNode } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { useMountTransition } from "../lib/useMountTransition";
 
-type NewSessionScope = "global" | "project";
+type NewSessionScope = "global" | "project" | "automation";
 
 interface ProjectChoice {
   key: string;
@@ -134,6 +134,20 @@ export function NewSessionChooser({
           <span className="new-session__body">
             <strong>{t("newSession.independent")}</strong>
             <span>{t("newSession.independentHint")}</span>
+          </span>
+          <ArrowUpRight size={16} />
+        </button>
+
+        <button
+          type="button"
+          className="new-session__primary"
+          disabled={busyKey !== null}
+          onClick={() => void choose("automation", "", "automation")}
+        >
+          <span className="new-session__icon"><Sparkles size={17} /></span>
+          <span className="new-session__body">
+            <strong>{t("newSession.automation")}</strong>
+            <span>{t("newSession.automationHint")}</span>
           </span>
           <ArrowUpRight size={16} />
         </button>

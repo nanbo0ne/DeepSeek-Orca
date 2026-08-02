@@ -953,6 +953,8 @@ export const en = {
   "palette.cmd.models": "Models",
   "newSession.title": "Where should this session start?",
   "newSession.independent": "Independent workspace",
+  "newSession.automation": "Automation workspace",
+  "newSession.automationHint": "Use assistant mode for mobile access and conversation routing",
   "newSession.independentHint": "Start without attaching a project folder",
   "newSession.projects": "Projects",
   "newSession.searchPlaceholder": "Search projects…",

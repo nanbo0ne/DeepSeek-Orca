@@ -6,11 +6,11 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.30/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.30)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.31/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.31)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -51,7 +51,7 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 记忆
 
-工程版普通和增强模式使用 `shared-agent` 记忆分区。原有记忆文档以及 `remember` / `forget` 工具继续可用。助手画像记忆在工程版中不读取、不写入、不自动生成，也不会被删除；相关数据保留在磁盘，供未来独立 Orca 应用迁移。
+工程版普通和增强模式使用 `shared-agent` 记忆分区。原有记忆文档以及 `remember` / `forget` 工具继续可用。自动化工作区、QQ 和微信共同使用独立的 canonical 助手画像；旧助手记忆只导入一次且不删除源文件。主动画像任务只会在所有前台回复和派发任务空闲后运行。
 
 ### 计划、Todo、目标与过程展示
 
@@ -63,7 +63,11 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 自动化与远程连接
 
-支持定时自动化、任务状态、本地后台任务和可选的机器人渠道连接。机器人设置沿用工程版的普通/增强边界，与桌面主会话相互隔离。
+顶层 **自动化工作区** 与项目工作区、独立工作区并列。自动化对话固定使用保留的助手模式，右下角模式选择器可见但不可切换。助手会先在当前模型回合内判断是否需要已有工程对话：普通问题直接回答；确有依赖时才列出、读取、新建、派发、等待、查询或取消普通/增强对话中的任务。目标对话继续使用自己的模型、工作区、提示词和审批规则，自动化对话之间禁止递归派发。
+
+QQ 和微信与桌面端共享自动化对话历史和助手画像。手机第一次发送普通消息时会自动创建或恢复自动化 topic；闲置超过 30 分钟后，通过一次无工具、低 token 的轻量请求判断是否延续上一段。`/continue` 强制继续，`/new` 新建一段，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer`。首轮成功回复后会单独发送一次使用指南；连接映射和指南状态跨重启保存。同一会话使用执行锁，避免手机和桌面同时写入同一 JSONL。
+
+此外仍支持定时自动化、任务状态和本地后台任务。后台任务完成只更新状态；依赖结果的工作必须显式等待，不会偷偷创建新的模型轮次。
 
 ## 隐私与安全
 
