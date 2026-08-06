@@ -5,11 +5,60 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/visioncap"
 )
+
+func TestConcurrentConfigWritesPreserveBothChanges(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if err := config.Default().SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp()
+	firstEntered := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		errs <- app.applyConfigOnly(func(c *config.Config) error {
+			close(firstEntered)
+			<-releaseFirst
+			return c.SetDesktopUIScale(90)
+		})
+	}()
+	<-firstEntered
+	go func() {
+		defer wg.Done()
+		errs <- app.applyConfigOnly(func(c *config.Config) error {
+			return c.SetDesktopCheckUpdates(false)
+		})
+	}()
+
+	// Give the second writer time to contend while the first writer owns the
+	// read-modify-write transaction. Without serialization it reads stale data.
+	time.Sleep(30 * time.Millisecond)
+	close(releaseFirst)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := config.LoadForEdit(config.UserConfigPath())
+	if got.DesktopUIScale() != 90 || got.DesktopCheckUpdates() {
+		t.Fatalf("concurrent settings update lost a change: scale=%d checkUpdates=%v", got.DesktopUIScale(), got.DesktopCheckUpdates())
+	}
+}
 
 func TestWithFreshSystemPromptReplacesExistingSystemMessage(t *testing.T) {
 	msgs := []provider.Message{
@@ -215,5 +264,95 @@ func TestSetDesktopCheckUpdatesPersistsToUserConfig(t *testing.T) {
 	}
 	if cfg.DesktopCheckUpdates() {
 		t.Fatal("DesktopCheckUpdates() = true, want false")
+	}
+}
+
+func TestFetchProviderModelsStoresVisionMetadata(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	t.Setenv("TEST_PROVIDER_KEY", "test-key")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{
+			"id": "vision-model", "input_modalities": []string{"text", "image"},
+		}}})
+	}))
+	defer srv.Close()
+
+	models, err := NewApp().FetchProviderModels(ProviderView{Name: "proxy", Kind: "openai", BaseURL: srv.URL, APIKeyEnv: "TEST_PROVIDER_KEY"})
+	if err != nil || !reflect.DeepEqual(models, []string{"vision-model"}) {
+		t.Fatalf("models=%v err=%v", models, err)
+	}
+	e := &config.ProviderEntry{Name: "proxy", Kind: "openai", BaseURL: srv.URL, Model: "vision-model"}
+	got := visioncap.Load("").Get(e)
+	if got.Status != visioncap.Supported || got.Source != visioncap.SourceMetadata {
+		t.Fatalf("vision metadata capability = %+v", got)
+	}
+}
+
+func TestUpdateProviderModelsPreservesLatestProviderFields(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	cfg := config.Default()
+	cfg.Providers = []config.ProviderEntry{{
+		Name: "proxy", Kind: "openai", BaseURL: "https://new.example/v1",
+		Model: "old", APIKeyEnv: "PROXY_KEY", BalanceURL: "https://new.example/balance",
+	}}
+	cfg.Desktop.ProviderAccess = []string{"proxy"}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := NewApp().UpdateProviderModels("proxy", []string{"new-a", "new-b"}, "new-b"); err != nil {
+		t.Fatal(err)
+	}
+	got := config.LoadForEdit(config.UserConfigPath())
+	p, ok := got.Provider("proxy")
+	if !ok {
+		t.Fatal("provider disappeared after model refresh")
+	}
+	if p.BaseURL != "https://new.example/v1" || p.BalanceURL != "https://new.example/balance" || p.APIKeyEnv != "PROXY_KEY" {
+		t.Fatalf("provider fields changed during model refresh: %+v", p)
+	}
+	if !reflect.DeepEqual(p.Models, []string{"new-a", "new-b"}) || p.Default != "new-b" {
+		t.Fatalf("provider models = %+v default=%q", p.Models, p.Default)
+	}
+}
+
+func TestUpdateProviderModelsRejectsEmptyDiscovery(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	cfg := config.Default()
+	cfg.Providers = []config.ProviderEntry{{Name: "proxy", Kind: "openai", BaseURL: "https://example.test", Model: "keep"}}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewApp().UpdateProviderModels("proxy", nil, ""); err == nil {
+		t.Fatal("empty model refresh should fail")
+	}
+	p, _ := config.LoadForEdit(config.UserConfigPath()).Provider("proxy")
+	if p == nil || p.Model != "keep" {
+		t.Fatalf("empty refresh changed provider: %+v", p)
+	}
+}
+
+func TestVisionCapabilityOverrideCanReturnToAutomaticResult(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	cfg := config.Default()
+	cfg.Providers = []config.ProviderEntry{{Name: "proxy", Kind: "openai", BaseURL: "https://example.test/v1", Model: "vision"}}
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	e := &cfg.Providers[0]
+	if err := visioncap.Load("").Put(visioncap.Capability{
+		ModelRef: visioncap.ModelRef(e), Key: visioncap.Key(e), Status: visioncap.Unsupported,
+		Source: visioncap.SourceProbe, Override: visioncap.OverrideAuto,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	manual, err := app.SetVisionCapabilityOverride("proxy/vision", visioncap.Supported)
+	if err != nil || manual.Status != visioncap.Supported || manual.Source != visioncap.SourceManual {
+		t.Fatalf("manual override = %+v err=%v", manual, err)
+	}
+	automatic, err := app.SetVisionCapabilityOverride("proxy/vision", visioncap.OverrideAuto)
+	if err != nil || automatic.Status != visioncap.Unsupported || automatic.Source != visioncap.SourceProbe {
+		t.Fatalf("automatic result = %+v err=%v", automatic, err)
 	}
 }

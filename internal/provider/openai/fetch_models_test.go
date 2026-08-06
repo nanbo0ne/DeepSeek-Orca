@@ -66,3 +66,32 @@ func TestFetchModelsEmptyResponse(t *testing.T) {
 		t.Errorf("want empty list, got %v", models)
 	}
 }
+
+func TestFetchModelMetadataReadsVisionHints(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{
+			{"id": "vision", "input_modalities": []string{"text", "image"}},
+			{"id": "text", "capabilities": map[string]any{"vision": false}},
+			{"id": "unknown"},
+		}})
+	}))
+	defer srv.Close()
+
+	items, err := FetchModelMetadata(context.Background(), srv.URL, "key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]ModelMetadata{}
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	if byID["vision"].Vision == nil || !*byID["vision"].Vision {
+		t.Fatalf("vision metadata = %+v", byID["vision"])
+	}
+	if byID["text"].Vision == nil || *byID["text"].Vision {
+		t.Fatalf("text metadata = %+v", byID["text"])
+	}
+	if byID["unknown"].Vision != nil {
+		t.Fatalf("unknown metadata = %+v", byID["unknown"])
+	}
+}

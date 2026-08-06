@@ -1083,3 +1083,57 @@ func TestEffortCapabilityEmptySupportedEffortsNotConfigurable(t *testing.T) {
 		t.Fatalf("empty supported_efforts should also fall through to the heuristic, got %+v", cap)
 	}
 }
+
+func TestMergeTOMLProvidersKeepsUnrelatedSources(t *testing.T) {
+	fallback := []ProviderEntry{{Name: "built-in", Model: "base"}}
+	paths := []string{"user.toml", "project.toml"}
+	// The helper is intentionally tested through temporary TOML files so the
+	// behavior matches the real decoder rather than a hand-built slice merge.
+	dir := t.TempDir()
+	user := filepath.Join(dir, paths[0])
+	project := filepath.Join(dir, paths[1])
+	if err := os.WriteFile(user, []byte(`[[providers]]
+name = "custom"
+kind = "openai"
+base_url = "https://user.example"
+model = "user-model"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(project, []byte(`[[providers]]
+name = "project"
+kind = "openai"
+base_url = "https://project.example"
+model = "project-model"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := mergeTOMLProviders([]string{user, project}, fallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Name != "custom" || got[1].Name != "project" {
+		t.Fatalf("merged providers = %+v, want custom and project", got)
+	}
+}
+
+func TestMergeTOMLProvidersLaterSourceWinsByName(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.toml")
+	second := filepath.Join(dir, "second.toml")
+	for path, body := range map[string]string{
+		first:  "[[providers]]\nname = \"same\"\nkind = \"openai\"\nbase_url = \"https://one.example\"\nmodel = \"one\"\n",
+		second: "[[providers]]\nname = \"same\"\nkind = \"openai\"\nbase_url = \"https://two.example\"\nmodel = \"two\"\n",
+	} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := mergeTOMLProviders([]string{first, second}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].BaseURL != "https://two.example" || got[0].Model != "two" {
+		t.Fatalf("merged provider = %+v, want later source", got)
+	}
+}

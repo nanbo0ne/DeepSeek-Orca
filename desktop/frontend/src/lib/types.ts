@@ -342,6 +342,7 @@ export type ToolApprovalMode = "ask" | "auto" | "yolo";
 export type PromptMode = "assistant" | "normal" | "enhanced";
 export type VisionMode = "off" | "auto" | "on";
 export type VisionCapabilityStatus = "supported" | "unsupported" | "unknown" | "probing";
+export type VisionCapabilityOverride = "auto" | "supported" | "unsupported";
 export interface VisionCapability {
   modelRef: string;
   key: string;
@@ -349,6 +350,8 @@ export interface VisionCapability {
   checkedAt?: number;
   reason?: string;
   attempts?: number;
+  source?: "probe" | "metadata" | "manual";
+  override?: VisionCapabilityOverride;
 }
 export interface ProductCapabilities {
   edition: "engineering" | "assistant" | string;
@@ -851,6 +854,8 @@ export interface SettingsView {
   activityIndicatorEnabled: boolean;
   visionEnabled: boolean;
   visionMode: VisionMode;
+  uiScale: number; // 0 = automatic; otherwise 80..125
+  effectiveUIScale: number;
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

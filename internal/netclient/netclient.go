@@ -199,13 +199,29 @@ func environmentProxyFunc() func(*http.Request) (*url.URL, error) {
 // system proxy (Windows IE/PAC/WPAD) so corporate Windows machines work without
 // any manual HTTP_PROXY setup. Non-Windows resolves to env-only.
 func autoProxyFunc() func(*http.Request) (*url.URL, error) {
+	return autoProxyFuncWithSystem(sysproxy.ForURL)
+}
+
+func autoProxyFuncWithSystem(systemProxy func(*url.URL) (*url.URL, error)) func(*http.Request) (*url.URL, error) {
 	pf := httpproxy.FromEnvironment().ProxyFunc()
 	return func(req *http.Request) (*url.URL, error) {
 		if u, err := pf(req.URL); err != nil || u != nil {
 			return u, err
 		}
-		return sysproxy.ForURL(req.URL)
+		if isLocalProxyBypass(req.URL.Hostname()) {
+			return nil, nil
+		}
+		return systemProxy(req.URL)
 	}
+}
+
+func isLocalProxyBypass(host string) bool {
+	host = strings.TrimSpace(strings.ToLower(host))
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func customProxyURL(spec ProxySpec) (*url.URL, error) {

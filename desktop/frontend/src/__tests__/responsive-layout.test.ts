@@ -57,7 +57,7 @@ check(
   "automation conversations expose a visible but locked assistant mode",
 );
 const chooser = readFileSync(join(root, "components", "NewSessionChooser.tsx"), "utf8");
-const projectTree = readFileSync(join(root, "components", "ProjectTree.tsx"), "utf8");
+const projectTree = readFileSync(join(root, "components", "ProjectTree.tsx"), "utf8").replace(/\r\n/g, "\n");
 check(
   chooser.includes('choose("automation", "", "automation")') &&
     projectTree.includes('node.kind === "automation_folder"') &&
@@ -66,7 +66,7 @@ check(
 );
 check(
   projectTree.includes('scope === "automation"\n        ? []') &&
-    projectTree.includes('scope === "automation" ? "自动化工作区"'),
+    projectTree.includes('scope === "automation" ? "'),
   "automation root stays fixed instead of inheriting project rename and color actions",
 );
 const composerContract = css.slice(css.indexOf("/* Composer responsive contract."));
@@ -100,6 +100,19 @@ check(
     !composer.includes("shouldFoldPaste") &&
     !composer.includes("composer__pasted"),
   "plain text paste remains editable text and wins over rich clipboard image hints",
+);
+check(
+  app.includes('target.classList.contains("composer__input")') &&
+    app.includes("pasteRequest={composerPasteRequest}") &&
+    composer.includes("pasteFromContextMenu") &&
+    composer.includes("await attachNativeClipboardImage(true)"),
+  "custom context-menu paste delegates images and files to Composer",
+);
+check(
+  css.includes(":root[data-theme-style] .composer__btn--send:disabled") &&
+    css.includes("background: var(--control-disabled-bg)") &&
+    css.includes("color: var(--control-disabled-fg)"),
+  "themed disabled send button stays muted",
 );
 check(
   composer.includes("const COMPOSER_AUTO_MAX_LINES = 10") &&

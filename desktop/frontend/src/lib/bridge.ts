@@ -187,6 +187,7 @@ export interface AppBindings {
   RevealPath(path: string): Promise<void>;
   SavePastedImage(dataUrl: string): Promise<string>;
   SaveClipboardImage(): Promise<string>;
+  ReadClipboardFilePaths(): Promise<string[]>;
   SavePastedFile(name: string, dataUrl: string): Promise<string>;
   PickExportFile(defaultFilename: string, mimeType: string): Promise<string>;
   SaveExportFile(path: string, payload: string, base64Encoded: boolean): Promise<void>;
@@ -214,6 +215,7 @@ export interface AppBindings {
   SetSubagentEffort(level: string): Promise<void>;
   SetAutoPlan(mode: string): Promise<void>;
   SaveProvider(p: ProviderView): Promise<void>;
+  UpdateProviderModels(name: string, models: string[], defaultModel: string): Promise<void>;
   AddOfficialProviderAccess(kind: string, key: string): Promise<void>;
   FetchProviderModels(p: ProviderView): Promise<string[]>;
   DeleteProvider(name: string): Promise<void>;
@@ -237,6 +239,7 @@ export interface AppBindings {
   SetCloseBehavior(mode: string): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
+  SetDesktopUIScale(scale: number): Promise<void>;
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
   SetProcessDisplayMode(mode: string): Promise<void>;
@@ -245,6 +248,7 @@ export interface AppBindings {
   SetVisionMode(mode: string): Promise<void>;
   GetVisionCapabilities(): Promise<VisionCapability[]>;
   ProbeModelVision(modelRef: string): Promise<VisionCapability>;
+  SetVisionCapabilityOverride(modelRef: string, override: string): Promise<VisionCapability>;
   MigrateDesktopPreferences(language: string, theme: string, style: string): Promise<void>;
   SetAgentParams(temperature: number, maxSteps: number, plannerMaxSteps: number, softCompactRatio: number, compactRatio: number, compactForceRatio: number, systemPrompt: string): Promise<void>;
   SetTrayLocale(locale: "en" | "zh"): Promise<void>;
@@ -734,6 +738,8 @@ function makeMockApp(): AppBindings {
     activityIndicatorEnabled: false,
     visionEnabled: false,
     visionMode: "auto",
+    uiScale: 0,
+    effectiveUIScale: 100,
     configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
@@ -1887,6 +1893,9 @@ function makeMockApp(): AppBindings {
     async SaveClipboardImage() {
       return ".deepseek-orca/attachments/mock-clipboard.png";
     },
+    async ReadClipboardFilePaths() {
+      return [];
+    },
     async SavePastedFile(name: string, _dataUrl: string) {
       return `.deepseek-orca/attachments/mock-${name}`;
     },
@@ -2208,6 +2217,10 @@ function makeMockApp(): AppBindings {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
         },
+        async SetDesktopUIScale(scale: number) {
+          settings.uiScale = scale === 0 || (scale >= 80 && scale <= 125 && scale % 5 === 0) ? scale : 0;
+          settings.effectiveUIScale = settings.uiScale || 100;
+        },
         async SetDesktopCheckUpdates(enabled: boolean) {
           settings.checkUpdates = enabled;
         },
@@ -2230,11 +2243,29 @@ function makeMockApp(): AppBindings {
           settings.visionMode = mode === "off" || mode === "on" ? mode : "auto";
           settings.visionEnabled = settings.visionMode === "on";
         },
+        async UpdateProviderModels(name: string, models: string[], defaultModel: string) {
+          const provider = settings.providers.find((item) => item.name === name);
+          if (!provider) throw new Error(`provider ${name} not found`);
+          provider.models = [...models];
+          provider.default = defaultModel;
+        },
         async GetVisionCapabilities() {
           return mockVisionCapabilities.map((item) => ({ ...item }));
         },
         async ProbeModelVision(modelRef: string) {
           const next: VisionCapability = { modelRef, key: modelRef, status: modelRef.toLowerCase().includes("deepseek") ? "unsupported" : "supported", checkedAt: Date.now() };
+          mockVisionCapabilities = [...mockVisionCapabilities.filter((item) => item.modelRef !== modelRef), next];
+          return next;
+        },
+        async SetVisionCapabilityOverride(modelRef: string, override: string) {
+          const current = mockVisionCapabilities.find((item) => item.modelRef === modelRef) ?? { modelRef, key: modelRef, status: "unknown" as const };
+          const normalized = override === "supported" || override === "unsupported" ? override : "auto";
+          const next: VisionCapability = {
+            ...current,
+            override: normalized,
+            status: normalized === "auto" ? current.status : normalized,
+            source: normalized === "auto" ? (current.source ?? "probe") : "manual",
+          };
           mockVisionCapabilities = [...mockVisionCapabilities.filter((item) => item.modelRef !== modelRef), next];
           return next;
         },

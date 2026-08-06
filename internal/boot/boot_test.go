@@ -1246,6 +1246,9 @@ func isolateConfigHome(t *testing.T) string {
 	dir := robustTempDir(t)
 	t.Setenv("HOME", dir)
 	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("APPDATA", filepath.Join(dir, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(dir, "AppData", "Local"))
+	t.Setenv("USERPROFILE", dir)
 	return dir
 }
 

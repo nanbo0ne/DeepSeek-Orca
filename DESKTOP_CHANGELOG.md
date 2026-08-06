@@ -1,5 +1,17 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.33 - 2026-08-07
+
+- Added automatic interface scaling based on the DPI-adjusted usable display size plus an immediate 80%-125% manual scale control, and rebuilt Composer permission controls so they remain usable at narrow content widths.
+- Unified file selection, Explorer clipboard paths, browser paste, native image paste, and drag-and-drop into ordered attachment batches. Added DOCX, XLSX, PPTX, PDF, CSV, TSV, and text extraction without blocking successful files when one item fails.
+- Fixed user and project provider configuration merging and protected provider/model saves from stale background refreshes, empty catalog responses, and concurrent settings snapshots.
+- Improved vision capability detection with provider metadata, protocol-specific probes, tolerant verification parsing, and per-model automatic/supported/unsupported overrides.
+- Separated image thumbnails and file chips from the blue user text bubble, enlarged the completed-turn summary, and replaced nested process cards with a flat chronological activity rail.
+- Synchronized Compact and Detailed switching across completed turns and reasoning rows, and fixed the question navigation rail so cold history is mounted before an immediate stable jump.
+- Added image support to the custom right-click Paste command and kept native text, file, mixed clipboard, attachment failure, retry, and ordering behavior consistent.
+- Stopped the boot subagent test from writing `first review` fixtures into the real Windows profile and added a strict startup cleanup that removes only the exact leaked fixture signature.
+- Muted the empty Composer send arrow across themed styles, and made automatic proxy mode bypass loopback addresses so local model endpoints and provider tests are never routed through the Windows system proxy.
+
 ## V2.0.31 - 2026-08-02
 
 - Added the Automation Workspace beside project and independent workspaces. Automation conversations use the retained Assistant prompt and canonical assistant profile while ordinary engineering conversations remain Normal or Enhanced.

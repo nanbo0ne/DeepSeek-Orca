@@ -1,10 +1,6 @@
-// attachDedup centralizes the small deduplication helpers the composer
-// uses when adding attachments. The composer's image paste/drop already
-// works, but a user can drop the same file twice (or paste the same
-// clipboard twice) and end up with two @path references pointing to
-// the same on-disk blob — which the kernel would re-process. Dedup
-// keys on the SHA-256 of the file bytes, with a path fallback for the
-// case where a file:// URL or data: URL is the only available signal.
+// attachDedup centralizes source-level deduplication. Content hashes remain in
+// the API for compatibility, but different filenames with equal bytes remain
+// distinct inputs.
 
 const HEX = "0123456789abcdef";
 
@@ -34,37 +30,23 @@ export async function sha256(blob: Blob): Promise<string> {
   }
 }
 
-// DedupIndex tracks the SHA-256 hashes the user has already attached
-// in the current composer session (lives for the life of the App
-// mount; cleared on new session because the user expects a fresh
-// palette). A path-keyed fallback lets a non-Crypto-capable browser
-// still dedup by URL when the same path is dropped twice — the
-// fallback is weaker (the same content from two paths won't match)
-// but covers the common "dropped the same file twice" case.
+// DedupIndex tracks source identities for the current composer session.
 export class DedupIndex {
-  private hashes = new Set<string>();
   private paths = new Set<string>();
 
-  seen(hash: string, path: string): boolean {
-    if (hash) {
-      if (this.hashes.has(hash)) return true;
-      return false;
-    }
+  seen(_hash: string, path: string): boolean {
     return this.paths.has(path);
   }
 
-  add(hash: string, path: string): void {
-    if (hash) this.hashes.add(hash);
+  add(_hash: string, path: string): void {
     this.paths.add(path);
   }
 
-  forget(hash: string, path: string): void {
-    if (hash) this.hashes.delete(hash);
+  forget(_hash: string, path: string): void {
     this.paths.delete(path);
   }
 
   clear(): void {
-    this.hashes.clear();
     this.paths.clear();
   }
 }

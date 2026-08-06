@@ -31,9 +31,29 @@ func IsModelFetchEndpointMiss(err error) bool {
 	return statusErr.status == http.StatusNotFound || statusErr.status == http.StatusMethodNotAllowed
 }
 
+type ModelMetadata struct {
+	ID           string
+	Vision       *bool
+	VisionReason string
+}
+
 // FetchModels calls the OpenAI-compatible GET /models endpoint and returns the
 // available model IDs.
 func FetchModels(ctx context.Context, baseURL, apiKey string) ([]string, error) {
+	items, err := FetchModelMetadata(ctx, baseURL, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	return ids, nil
+}
+
+// FetchModelMetadata retains optional modality hints exposed by compatible
+// gateways while keeping FetchModels backward compatible for existing callers.
+func FetchModelMetadata(ctx context.Context, baseURL, apiKey string) ([]ModelMetadata, error) {
 	cli := &http.Client{Timeout: 10 * time.Second}
 	url := strings.TrimRight(baseURL, "/")
 	if !strings.HasSuffix(url, "/models") {
@@ -63,23 +83,70 @@ func FetchModels(ctx context.Context, baseURL, apiKey string) ([]string, error) 
 	}
 
 	var result struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
+		Data []map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("fetch models: decode response: %w", err)
 	}
 
-	ids := make([]string, 0, len(result.Data))
+	items := make([]ModelMetadata, 0, len(result.Data))
 	for _, m := range result.Data {
-		if m.ID != "" {
-			ids = append(ids, m.ID)
+		id, _ := m["id"].(string)
+		if id == "" {
+			continue
+		}
+		vision, reason := modelVisionMetadata(m)
+		items = append(items, ModelMetadata{ID: id, Vision: vision, VisionReason: reason})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	return items, nil
+}
+
+func modelVisionMetadata(raw map[string]any) (*bool, string) {
+	for _, key := range []string{"input_modalities", "supported_input_modalities", "modalities"} {
+		if values, ok := stringList(raw[key]); ok {
+			return boolPtr(containsVisionModality(values)), key
 		}
 	}
-	sort.Strings(ids)
-	return ids, nil
+	if architecture, ok := raw["architecture"].(map[string]any); ok {
+		if values, ok := stringList(architecture["input_modalities"]); ok {
+			return boolPtr(containsVisionModality(values)), "architecture.input_modalities"
+		}
+	}
+	if capabilities, ok := raw["capabilities"].(map[string]any); ok {
+		for _, key := range []string{"vision", "image", "multimodal"} {
+			if value, ok := capabilities[key].(bool); ok {
+				return boolPtr(value), "capabilities." + key
+			}
+		}
+	}
+	return nil, ""
 }
+
+func stringList(value any) ([]string, bool) {
+	items, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if text, ok := item.(string); ok {
+			out = append(out, strings.ToLower(strings.TrimSpace(text)))
+		}
+	}
+	return out, true
+}
+
+func containsVisionModality(values []string) bool {
+	for _, value := range values {
+		if value == "image" || value == "vision" || value == "image_url" || value == "multimodal" {
+			return true
+		}
+	}
+	return false
+}
+
+func boolPtr(value bool) *bool { return &value }
 
 func truncateFetchBody(body string) string {
 	body = strings.TrimSpace(body)

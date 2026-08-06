@@ -570,6 +570,7 @@ export default function App() {
   const [dockRefreshKey, setDockRefreshKey] = useState(0);
   const [projectRevision, setProjectRevision] = useState(0);
   const [composerInsertRequest, setComposerInsertRequest] = useState<ComposerInsertRequest | null>(null);
+  const [composerPasteRequest, setComposerPasteRequest] = useState(0);
   const [transientOverlayDismissSignal, setTransientOverlayDismissSignal] = useState(0);
   const [desktopPlatform, setDesktopPlatform] = useState<DesktopPlatform>(detectBrowserPlatform);
   const [processDisplayMode, setProcessDisplayMode] = useState<ProcessDisplayMode>("compact");
@@ -2374,10 +2375,14 @@ export default function App() {
         closeTextEditMenu();
         if (!target) return;
         target.focus();
+        if (target.classList.contains("composer__input")) {
+          setComposerPasteRequest((value) => value + 1);
+          return;
+        }
         void (async () => {
           try {
             const pasted = await navigator.clipboard?.readText();
-            if (typeof pasted === "string") {
+            if (typeof pasted === "string" && pasted !== "") {
               replaceEditableSelection(target, pasted);
               return;
             }
@@ -2859,6 +2864,7 @@ export default function App() {
               onSwitchModel={switchModel}
               onSetEffort={(level) => void switchEffort(level)}
               insertRequest={composerInsertRequest}
+              pasteRequest={composerPasteRequest}
               disabled={state.meta?.ready === false || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               decisionPending={state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               ready={state.meta?.ready === true}

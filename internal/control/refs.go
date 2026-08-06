@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"deepseek-orca/internal/documentextract"
 	"deepseek-orca/internal/proc"
 	"deepseek-orca/internal/provider"
 )
@@ -461,6 +462,13 @@ func readFileRef(path, baseDir string) (content string, isDir bool, err error) {
 	if strings.EqualFold(filepath.Ext(rel), ".pdf") {
 		return readPDFRef(absPath, info.Size()), false, nil
 	}
+	if documentextract.IsSupportedOffice(rel) {
+		text, err := documentextract.Extract(absPath, maxFileRefBytes)
+		if err != nil {
+			return fmt.Sprintf("[document %s could not be extracted: %v; file remains attached]", rel, err), false, nil
+		}
+		return text, false, nil
+	}
 
 	f, err := root.Open(rel)
 	if err != nil {
@@ -537,6 +545,13 @@ func readFileRefUnscoped(path string) (content string, isDir bool, err error) {
 
 	if strings.EqualFold(filepath.Ext(path), ".pdf") {
 		return readPDFRef(path, info.Size()), false, nil
+	}
+	if documentextract.IsSupportedOffice(path) {
+		text, err := documentextract.Extract(path, maxFileRefBytes)
+		if err != nil {
+			return fmt.Sprintf("[document %s could not be extracted: %v; file remains attached]", path, err), false, nil
+		}
+		return text, false, nil
 	}
 
 	f, err := os.Open(path)

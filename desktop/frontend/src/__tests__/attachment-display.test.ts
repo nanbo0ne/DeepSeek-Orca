@@ -1,6 +1,7 @@
 // Run: tsx src/__tests__/attachment-display.test.ts
 
 import { baseName, parseAttachmentRefsForDisplay, replaceAttachmentRefsForDisplay, sortDisplayAttachments } from "../lib/attachmentDisplay";
+import { readFileSync } from "node:fs";
 
 let passed = 0;
 let failed = 0;
@@ -52,6 +53,16 @@ eq(
 );
 eq(baseName("C:\\Users\\Abyss\\Desktop\\DS30000.sl2"), "DS30000.sl2", "extracts Windows path basenames");
 eq(baseName("/Users/abyss/Desktop/park.png"), "park.png", "extracts POSIX path basenames");
+
+const messageSource = readFileSync(new URL("../components/Message.tsx", import.meta.url), "utf8");
+const attachmentStart = messageSource.indexOf('{orderedAttachments.length > 0 && (');
+const bodyStart = messageSource.indexOf('{(displayText || failed) && (');
+eq(attachmentStart >= 0 && bodyStart > attachmentStart, true, "renders attachments before the text bubble");
+eq(
+  messageSource.includes('className="msg-attachments__images"') && messageSource.includes('className="msg-attachments__files"'),
+  true,
+  "renders separate image and file rows outside msg body",
+);
 
 console.log(`\n${passed} passed, ${failed} failed, ${passed + failed} total`);
 if (failed > 0) process.exit(1);

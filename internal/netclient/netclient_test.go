@@ -84,6 +84,42 @@ func TestDirectHostsBypassProxy(t *testing.T) {
 	}
 }
 
+func TestAutoProxyBypassesLoopbackBeforeSystemProxy(t *testing.T) {
+	for _, key := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"} {
+		t.Setenv(key, "")
+	}
+	proxyURL := mustURL("http://proxy.example.com:8080")
+	var systemCalls int
+	pf := autoProxyFuncWithSystem(func(*url.URL) (*url.URL, error) {
+		systemCalls++
+		return proxyURL, nil
+	})
+
+	for _, rawURL := range []string{"http://localhost:8080/x", "http://127.0.0.1:8080/x", "http://[::1]:8080/x"} {
+		got, err := pf(&http.Request{URL: mustURL(rawURL)})
+		if err != nil {
+			t.Fatalf("proxy lookup for %s: %v", rawURL, err)
+		}
+		if got != nil {
+			t.Fatalf("loopback URL %s should bypass the system proxy, got %s", rawURL, got)
+		}
+	}
+	if systemCalls != 0 {
+		t.Fatalf("system proxy called %d times for loopback URLs", systemCalls)
+	}
+
+	got, err := pf(&http.Request{URL: mustURL("https://example.com/x")})
+	if err != nil {
+		t.Fatalf("external proxy lookup: %v", err)
+	}
+	if got == nil || got.String() != proxyURL.String() {
+		t.Fatalf("external URL proxy = %v, want %s", got, proxyURL)
+	}
+	if systemCalls != 1 {
+		t.Fatalf("system proxy calls = %d, want 1", systemCalls)
+	}
+}
+
 func TestNoDirectHostsKeepsEveryoneProxied(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
 	t.Setenv("NO_PROXY", "")

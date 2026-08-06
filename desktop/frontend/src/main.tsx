@@ -9,6 +9,7 @@ import { ToastProvider } from "./lib/toast";
 import { initFontFamily } from "./lib/fontFamily";
 import { initTextSize } from "./lib/textSize";
 import { initTheme } from "./lib/theme";
+import { initUIScale } from "./lib/uiScale";
 import "./styles.css";
 
 // Install first so startup/runtime failures paint a useful error instead of a
@@ -17,6 +18,7 @@ installGlobalCrashHandlers();
 
 // Apply the saved appearance (auto/light/dark) before the first paint.
 initTheme();
+initUIScale();
 initTextSize();
 initFontFamily();
 

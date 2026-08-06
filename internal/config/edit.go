@@ -161,6 +161,17 @@ func (c *Config) SetDesktopAppearance(theme, style string) error {
 	return nil
 }
 
+func (c *Config) SetDesktopUIScale(scale int) error {
+	if scale != 0 && (scale < 80 || scale > 125 || scale%5 != 0) {
+		return fmt.Errorf("desktop ui scale %d: must be 0 or 80..125 in increments of 5", scale)
+	}
+	c.Desktop.UIScale = scale
+	if c.ConfigVersion < 6 {
+		c.ConfigVersion = 6
+	}
+	return nil
+}
+
 // SetDesktopCloseBehavior sets the desktop close-window preference. It is
 // intentionally UI-only and must not affect model prompts or provider-visible
 // request data.

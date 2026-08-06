@@ -24,6 +24,18 @@ var knownModelFetchCompatSuffixes = []string{
 // FetchModels queries the provider's OpenAI-compatible GET /models endpoint and
 // returns the available model IDs, sorted alphabetically.
 func (e *ProviderEntry) FetchModels(ctx context.Context) ([]string, error) {
+	items, err := e.FetchModelMetadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+	models := make([]string, 0, len(items))
+	for _, item := range items {
+		models = append(models, item.ID)
+	}
+	return models, nil
+}
+
+func (e *ProviderEntry) FetchModelMetadata(ctx context.Context) ([]openai.ModelMetadata, error) {
 	if e.BaseURL == "" {
 		return nil, fmt.Errorf("fetch models: provider %q has no base_url", e.Name)
 	}
@@ -37,7 +49,7 @@ func (e *ProviderEntry) FetchModels(ctx context.Context) ([]string, error) {
 	}
 	var lastErr error
 	for _, u := range candidates {
-		models, err := openai.FetchModels(ctx, u, key)
+		models, err := openai.FetchModelMetadata(ctx, u, key)
 		if err == nil {
 			return models, nil
 		}

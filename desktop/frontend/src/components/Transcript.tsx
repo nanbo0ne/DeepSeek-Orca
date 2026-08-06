@@ -1,7 +1,7 @@
 ﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
 import type { CheckpointMeta, JobView, ProcessDisplayMode } from "../lib/types";
-import { activityIndicatorPhase, buildTimelineSegments, type ActivityIndicatorPhase, type TimelineProcessItem } from "../lib/transcriptTimeline";
+import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, type ActivityIndicatorPhase, type TimelineProcessItem } from "../lib/transcriptTimeline";
 import { useLayoutEffect } from "react";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
@@ -155,20 +155,37 @@ function TimelineProcessGroup({
   else if (visible.some((item) => item.kind === "compaction")) label = t("process.timeline.compaction");
   const running = visible.some(isProcessItemRunning);
 
+  const toggle = () => onOpenChange(!open);
   return (
-    <ProcessCard
-      tone="default"
-      icon={toolCount > 0 ? <ProcessToolIcon size={12} /> : <ProcessBrainIcon size={12} />}
-      kind={label}
-      meta={running ? <ProcessStatusIcon state="running" label={label} /> : undefined}
-      open={open}
-      onOpenChange={onOpenChange}
+    <div
       className={`timeline-process-group${mode === "compact" ? " timeline-process-group--compact" : ""}`}
+      data-open={open}
     >
-      <div className="timeline-process-group__details process-activity-rail">
-        {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
-      </div>
-    </ProcessCard>
+      <button
+        type="button"
+        className="timeline-process-group__head"
+        onClick={toggle}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && open) {
+            event.preventDefault();
+            onOpenChange(false);
+          }
+        }}
+        aria-expanded={open}
+      >
+        <span className="timeline-process-group__icon">
+          {toolCount > 0 ? <ProcessToolIcon size={13} /> : <ProcessBrainIcon size={13} />}
+        </span>
+        <span className="timeline-process-group__label">{label}</span>
+        {running && <ProcessStatusIcon state="running" label={label} />}
+        <ChevronRight className="timeline-process-group__chevron" size={13} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="timeline-process-group__details process-activity-rail">
+          {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -278,9 +295,12 @@ function CompletedTurn({
   liveToolID: string;
 }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(mode === "detailed");
   const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
-  useEffect(() => setProcessOpenOverrides(new Map()), [mode]);
+  useEffect(() => {
+    setOpen(mode === "detailed");
+    setProcessOpenOverrides(new Map());
+  }, [mode]);
   const tokenLabel = typeof stats.tokens === "number" && stats.tokens > 0
     ? t("process.timeline.tokens", { n: stats.tokens.toLocaleString() })
     : t("process.timeline.tokensPending");
@@ -295,7 +315,7 @@ function CompletedTurn({
         {open && (
           <div className="completed-turn__details">
             <div className="turn-stats-row__tokens">{tokenLabel}</div>
-            <div className="process-activity-rail">
+            <div className="completed-turn__timeline">
               {details.map((segment) => {
                 if (segment.kind === "assistant") {
                   return (
@@ -644,6 +664,7 @@ export function Transcript({
   const stick = useRef(true);
   const resizeFrame = useRef<number | null>(null);
   const viewportAnchor = useRef<{ id: string; top: number } | null>(null);
+  const pendingQuestionJump = useRef<QuestionAnchor | null>(null);
   const [showFollowButton, setShowFollowButton] = useState(false);
   const [activeJumpTurn, setActiveJumpTurn] = useState<number | null>(null);
   const t = useT();
@@ -831,10 +852,10 @@ export function Transcript({
   const userTurn = useMemo(() => new Map(questions.map((question) => [question.id, question.turn])), [questions]);
   const checkpointsByTurn = useMemo(() => new Map(checkpoints.map((checkpoint) => [checkpoint.turn, checkpoint])), [checkpoints]);
   // JumpBar integration
-  const jumpToQuestion = (question: QuestionAnchor) => {
+  const jumpToQuestion = useCallback((question: QuestionAnchor): boolean => {
     const el = scrollRef.current;
     const node = document.getElementById(questionAnchorId(question.id));
-    if (!el || !node) return;
+    if (!el || !node) return false;
     stick.current = false;
     if (resizeFrame.current !== null) {
       cancelAnimationFrame(resizeFrame.current);
@@ -843,20 +864,34 @@ export function Transcript({
     const scrollerRect = el.getBoundingClientRect();
     const nodeRect = node.getBoundingClientRect();
     const top = el.scrollTop + nodeRect.top - scrollerRect.top - 12;
-    el.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  };
+    viewportAnchor.current = null;
+    el.scrollTop = Math.max(0, top);
+    captureViewportAnchor(el);
+    updateFollowButton(el);
+    updateActiveJumpTurn(el);
+    return true;
+  }, [captureViewportAnchor, updateActiveJumpTurn, updateFollowButton]);
 
   const handleJumpToQuestion = useCallback((question: QuestionAnchor) => {
-    // Auto-expand the warm turn when jumping to an old question.
     const warmTurnStart = turnGroups.length - HOT_TURNS;
     if (question.turn < warmTurnStart) {
+      pendingQuestionJump.current = question;
+      const requiredPage = requiredWarmPage(warmTurnCount, question.turn, WARM_PAGE_SIZE);
+      if (requiredPage > coldPage) setColdPage(requiredPage);
       setExpandedWarmTurns((prev) => {
         if (prev.has(question.turn)) return prev;
         return new Set([...prev, question.turn]);
       });
+      return;
     }
     jumpToQuestion(question);
-  }, [turnGroups.length]);
+  }, [coldPage, jumpToQuestion, turnGroups.length, warmTurnCount]);
+
+  useLayoutEffect(() => {
+    const question = pendingQuestionJump.current;
+    if (!question) return;
+    if (jumpToQuestion(question)) pendingQuestionJump.current = null;
+  }, [coldPage, expandedWarmTurns, jumpToQuestion]);
   // Hot zone: fully rendered from hotStartIdx to end
   // Memoized separately from the assembly so streaming tokens don't rebuild
   // the warm/cold zone JSX trees. Uses LiveStreamContext for streaming data
@@ -1198,8 +1233,13 @@ function QuestionJumpBar({
 
   useEffect(() => {
     if (activeTurn === null) return;
-    const el = barRef.current?.querySelector(`[data-turn="${activeTurn}"]`);
-    el?.scrollIntoView({ block: "nearest" });
+    const rail = barRef.current?.querySelector<HTMLElement>(".jump-scroll");
+    const el = rail?.querySelector<HTMLElement>(`[data-turn="${activeTurn}"]`);
+    if (!rail || !el) return;
+    const top = el.offsetTop;
+    const bottom = top + el.offsetHeight;
+    if (top < rail.scrollTop) rail.scrollTop = top;
+    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTop = bottom - rail.clientHeight;
   }, [activeTurn]);
 
   const hoverIdx = hovered !== null ? questions.findIndex((question) => question.turn === hovered) : -1;

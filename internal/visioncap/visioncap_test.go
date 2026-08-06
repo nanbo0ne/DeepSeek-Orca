@@ -52,6 +52,19 @@ func TestProbeWithImageSupported(t *testing.T) {
 	}
 }
 
+func TestProbeAcceptsWrappedStandaloneCode(t *testing.T) {
+	for _, answer := range []string{"The digits are 4821.", "`4821`", "结果：4821"} {
+		p := &fakeProvider{chunks: []provider.Chunk{{Type: provider.ChunkText, Text: answer}, {Type: provider.ChunkDone}}}
+		got := probeWithImage(context.Background(), p, testEntry(), "4821", "data")
+		if got.Status != Supported {
+			t.Fatalf("answer %q capability = %+v, want supported", answer, got)
+		}
+	}
+	if probeAnswerMatches("148210", "4821") {
+		t.Fatal("code embedded in a longer number must not match")
+	}
+}
+
 func TestProbeWithImageUnsupported(t *testing.T) {
 	for _, answer := range []string{"", "I cannot inspect images"} {
 		p := &fakeProvider{chunks: []provider.Chunk{{Type: provider.ChunkText, Text: answer}, {Type: provider.ChunkDone}}}
@@ -75,10 +88,30 @@ func TestProbeWithImageTransportFailureStaysUnknown(t *testing.T) {
 }
 
 func TestProbeWithImageExplicitRejectionIsUnsupported(t *testing.T) {
-	p := &fakeProvider{err: errors.New("400: image input is not supported by this text-only model")}
-	got := probeWithImage(context.Background(), p, testEntry(), "4821", "data")
-	if got.Status != Unsupported {
-		t.Fatalf("capability = %+v, want unsupported", got)
+	for _, message := range []string{
+		"400: image input is not supported by this text-only model",
+		"404: No endpoints found that support image input",
+	} {
+		p := &fakeProvider{err: errors.New(message)}
+		got := probeWithImage(context.Background(), p, testEntry(), "4821", "data")
+		if got.Status != Unsupported {
+			t.Fatalf("capability = %+v, want unsupported", got)
+		}
+	}
+}
+
+func TestManualOverrideMasksStoredProbeResult(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vision.json")
+	store := Load(path)
+	e := testEntry()
+	if err := store.Put(Capability{Key: Key(e), Status: Unsupported, Source: SourceProbe, Override: Supported}); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(path).Get(e); got.Status != Supported || got.Source != SourceManual {
+		t.Fatalf("effective capability = %+v, want manual supported", got)
+	}
+	if got := Load(path).Stored(e); got.Status != Unsupported || got.Source != SourceProbe {
+		t.Fatalf("stored capability = %+v, want probe unsupported", got)
 	}
 }
 

@@ -100,6 +100,7 @@ type App struct {
 	sessionInfoCache             map[string]sessionInfoCacheEntry
 	updateMu                     sync.RWMutex
 	updateURL                    string
+	configWriteMu                sync.Mutex
 	visionProbeMu                sync.Mutex
 	visionProbeRunMu             sync.Mutex
 	visionProbing                map[string]bool
@@ -406,6 +407,7 @@ func backgroundRestoreShouldMaximise(goos string, wasMaximised bool) bool {
 func (a *App) restoreOrBuildTabs() {
 	ctx := a.ctx
 	ensureWorkspace()
+	leakedTestTopics := a.cleanupLeakedBootReviewSessions()
 	defer a.scheduleConfiguredVisionProbes()
 	if assistantMemoryFeatureAvailable("") {
 		defer func() { a.schedulePendingAssistantMemories() }()
@@ -423,6 +425,19 @@ func (a *App) restoreOrBuildTabs() {
 	}
 
 	f := loadTabsFile()
+	if len(leakedTestTopics) > 0 {
+		kept := f.Tabs[:0]
+		for _, entry := range f.Tabs {
+			if _, leaked := leakedTestTopics[entry.TopicID]; leaked {
+				if f.ActiveTab == entry.ID {
+					f.ActiveTab = ""
+				}
+				continue
+			}
+			kept = append(kept, entry)
+		}
+		f.Tabs = kept
+	}
 	a.mu.Lock()
 	a.recentPrefs = f.RecentConversationPrefs
 	a.recentPrefs.PromptMode = normalizeProductPromptMode(a.recentPrefs.PromptMode, a.recentPrefs.EnhancedMode)
@@ -4487,6 +4502,13 @@ func (a *App) SavePastedImage(dataURL string) (string, error) {
 // workspace .deepseek-orca/attachments and returns the relative @-reference path.
 func (a *App) SaveClipboardImage() (string, error) {
 	return a.withActiveWorkspace(control.SaveClipboardImage)
+}
+
+// ReadClipboardFilePaths returns all file paths currently exposed by the native
+// clipboard (CF_HDROP on Windows). WebView clipboard APIs frequently expose
+// only the first file from an Explorer multi-selection.
+func (a *App) ReadClipboardFilePaths() ([]string, error) {
+	return readClipboardFilePaths()
 }
 
 // SavePastedFile stores a dropped non-image file (the browser exposes its bytes

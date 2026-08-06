@@ -85,6 +85,7 @@ type DesktopConfig struct {
 	ActivityIndicator     bool     `toml:"activity_indicator_enabled"`      // show the optional animated process activity mark
 	VisionEnabled         bool     `toml:"vision_enabled"`                  // send attached image bytes to the selected model
 	VisionMode            string   `toml:"vision_mode"`                     // off|auto|on; vision_enabled is retained for legacy configs
+	UIScale               int      `toml:"ui_scale"`                        // 0 = automatic; otherwise 80..125 in five-percent increments
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
 	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"` // inject assistant memories before assistant-mode turns; nil = enabled
 }
@@ -110,6 +111,17 @@ func (c *Config) DesktopVisionMode() string {
 	default:
 		return VisionModeAuto
 	}
+}
+
+func (c *Config) DesktopUIScale() int {
+	if c == nil {
+		return 0
+	}
+	scale := c.Desktop.UIScale
+	if scale >= 80 && scale <= 125 && scale%5 == 0 {
+		return scale
+	}
+	return 0
 }
 
 // DesktopProcessDisplayMode normalizes the two-state desktop process view.
@@ -1105,7 +1117,7 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 5,
+		ConfigVersion: 6,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
 		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto},
@@ -1213,6 +1225,11 @@ func LoadForRoot(root string) (*Config, error) {
 		return nil, err
 	}
 	cfg.Plugins = plugins
+	providers, err := mergeTOMLProviders(tomlSources, cfg.Providers)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Providers = providers
 
 	// Claude Code's .mcp.json (project root) is read last and merged into
 	// [[plugins]], so a server configured for Claude works here unchanged.
@@ -1239,6 +1256,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeDesktopUpdatePreference(cfg)
 	normalizeDesktopVisionPreference(cfg)
 	normalizeAutomationPreference(cfg)
+	normalizeDesktopUIScale(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1330,6 +1348,50 @@ func mergeTOMLPlugins(paths []string) ([]PluginEntry, error) {
 	return merged, nil
 }
 
+// mergeTOMLProviders merges provider entries by name across the user and
+// project sources. TOML array decoding replaces the whole slice, which made a
+// project-local provider block hide unrelated account-level providers. A later
+// source still wins for the same provider name, preserving explicit project
+// overrides without dropping the rest of the catalog.
+func mergeTOMLProviders(paths []string, fallback []ProviderEntry) ([]ProviderEntry, error) {
+	merged := append([]ProviderEntry(nil), fallback...)
+	index := make(map[string]int, len(merged))
+	seeded := false
+	for i, p := range merged {
+		if strings.TrimSpace(p.Name) != "" {
+			index[p.Name] = i
+		}
+	}
+	for _, path := range paths {
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		var f Config
+		if _, err := toml.DecodeFile(path, &f); err != nil {
+			return nil, fmt.Errorf("config %s: %w", path, err)
+		}
+		if len(f.Providers) == 0 {
+			continue
+		}
+		// A source with providers is authoritative for the default catalog: start
+		// with the first such source, then merge later sources by name.
+		if !seeded {
+			merged = nil
+			index = map[string]int{}
+			seeded = true
+		}
+		for _, p := range f.Providers {
+			if i, ok := index[p.Name]; ok {
+				merged[i] = p
+				continue
+			}
+			index[p.Name] = len(merged)
+			merged = append(merged, p)
+		}
+	}
+	return merged, nil
+}
+
 // LoadForEdit returns a config to seed the `deepseek-orca setup` wizard when reconfiguring:
 // the built-in defaults with the file at path (if present) decoded on top, so a
 // reconfigure preserves the user's existing providers and agent settings instead
@@ -1354,6 +1416,7 @@ func LoadForEdit(path string) *Config {
 	normalizeDesktopUpdatePreference(cfg)
 	normalizeDesktopVisionPreference(cfg)
 	normalizeAutomationPreference(cfg)
+	normalizeDesktopUIScale(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
 }
@@ -1410,6 +1473,19 @@ func normalizeDesktopVisionPreference(c *Config) {
 func normalizeAutomationPreference(c *Config) {
 	if c != nil && c.ConfigVersion < 5 {
 		c.ConfigVersion = 5
+	}
+}
+
+// V6 adds application-level UI density on top of the OS DPI scale. Existing
+// installations default to automatic sizing without changing their old text-size
+// preference.
+func normalizeDesktopUIScale(c *Config) {
+	if c == nil {
+		return
+	}
+	c.Desktop.UIScale = c.DesktopUIScale()
+	if c.ConfigVersion < 6 {
+		c.ConfigVersion = 6
 	}
 }
 

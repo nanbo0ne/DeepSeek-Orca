@@ -42,9 +42,11 @@ export function UserMessage({
   const t = useT();
   const { text: displayText, attachments } = parseAttachmentRefsForDisplay(text);
   const orderedAttachments = sortDisplayAttachments(attachments);
+  const imageAttachments = orderedAttachments.filter((attachment) => attachment.kind === "image");
+  const fileAttachments = orderedAttachments.filter((attachment) => attachment.kind !== "image");
   const [imagePreviews, setImagePreviews] = useState<Record<string, string>>({});
-  const imagePreviewKey = orderedAttachments
-    .filter((attachment) => attachment.kind === "image" && attachment.source === "attachment")
+  const imagePreviewKey = imageAttachments
+    .filter((attachment) => attachment.source === "attachment")
     .map((attachment) => attachment.path)
     .join("\n");
 
@@ -65,32 +67,50 @@ export function UserMessage({
       cancelled = true;
     };
   }, [imagePreviewKey]);
+
   return (
     <div className={`msg msg--user${failed ? " msg--user-failed" : ""}`} id={anchorId} data-question-anchor={anchorId} data-turn={turn}>
       <div className="msg__user-stack">
-        <div className="msg__body">
-        {displayText && <div className="msg__text">{displayText}</div>}
-        {failed && <div className="msg__send-failed">{t("msg.sendFailed")}</div>}
         {orderedAttachments.length > 0 && (
           <div className="msg-attachments" aria-label={t("msg.attachments")}>
-            {orderedAttachments.map((attachment, index) => (
-              <div className={`msg-attachment msg-attachment--${attachment.kind}`} key={`${attachment.path}:${index}`} title={attachment.path}>
-                <span className={`msg-attachment__icon msg-attachment__icon--${attachment.kind}`} aria-hidden="true">
-                  {attachment.kind === "image" && imagePreviews[attachment.path] ? <img src={imagePreviews[attachment.path]} alt="" draggable={false} /> : attachmentIcon(attachment.kind)}
-                </span>
-                <span className="msg-attachment__main">
-                  <span className="msg-attachment__name">{attachment.name}</span>
-                  <span className="msg-attachment__meta">
-                    {attachment.kind === "folder"
-                      ? t("msg.folderReference")
-                      : `${attachment.ext || t("msg.fileAttachment")} · ${attachment.source === "workspace" ? t("msg.workspaceReference") : attachment.kind === "image" ? t("msg.imageAttachment") : t("msg.fileAttachment")}`}
-                  </span>
-                </span>
+            {imageAttachments.length > 0 && (
+              <div className="msg-attachments__images">
+                {imageAttachments.map((attachment, index) => (
+                  <div className="msg-attachment msg-attachment--image" key={`${attachment.path}:${index}`} title={attachment.path}>
+                    {imagePreviews[attachment.path]
+                      ? <img src={imagePreviews[attachment.path]} alt={attachment.name} draggable={false} />
+                      : <span className="msg-attachment__image-placeholder" aria-hidden="true">{attachmentIcon("image")}</span>}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            {fileAttachments.length > 0 && (
+              <div className="msg-attachments__files">
+                {fileAttachments.map((attachment, index) => (
+                  <div className={`msg-attachment msg-attachment--${attachment.kind}`} key={`${attachment.path}:${index}`} title={attachment.path}>
+                    <span className={`msg-attachment__icon msg-attachment__icon--${attachment.kind}`} aria-hidden="true">
+                      {attachmentIcon(attachment.kind)}
+                    </span>
+                    <span className="msg-attachment__main">
+                      <span className="msg-attachment__name">{attachment.name}</span>
+                      <span className="msg-attachment__meta">
+                        {attachment.kind === "folder"
+                          ? t("msg.folderReference")
+                          : `${attachment.ext || t("msg.fileAttachment")} · ${attachment.source === "workspace" ? t("msg.workspaceReference") : t("msg.fileAttachment")}`}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        </div>
+        {(displayText || failed) && (
+          <div className="msg__body">
+            {displayText && <div className="msg__text">{displayText}</div>}
+            {failed && <div className="msg__send-failed">{t("msg.sendFailed")}</div>}
+          </div>
+        )}
         <div className="msg__actions msg__actions--user">
           <CopyButton text={displayText || text} label={t("msg.copy")} showLabel={false} className="msg__copy msg__copy--user" />
           <Tooltip label={t("common.edit")}>
@@ -297,6 +317,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   const processOnly = Boolean(item.reasoning) && !hasText;
   const processWithText = Boolean(item.reasoning) && hasText;
   const [reasoningOpen, setReasoningOpen] = useState(defaultExpanded);
+  useEffect(() => setReasoningOpen(defaultExpanded), [defaultExpanded]);
   return (
     <div className={`msg msg--assistant${processOnly ? " msg--process-only" : ""}${processWithText ? " msg--process-with-text" : ""}`}>
       {item.reasoning && (

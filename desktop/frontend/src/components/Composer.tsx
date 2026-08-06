@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, Brain, Check, ChevronDown, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, Brain, Check, ChevronDown, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -25,10 +25,18 @@ import { ModelSwitcher } from "./ModelSwitcher";
 import { Tooltip } from "./Tooltip";
 
 interface Attachment {
-  path: string;
+  id: string;
+  path?: string;
   previewUrl?: string;
   displayName?: string;
+  status: "pending" | "ready" | "failed";
+  error?: string;
+  source?: File;
 }
+
+export type AttachmentStatus = Attachment["status"];
+export interface AttachmentBatchItem extends Attachment {}
+export interface AttachmentBatch { id: string; items: AttachmentBatchItem[] }
 
 interface AttachmentDedupKey {
   hash: string;
@@ -68,7 +76,7 @@ function baseName(path: string): string {
 }
 
 function attachmentName(attachment: Attachment): string {
-  return (attachment.displayName || baseName(attachment.path) || "attachment").trim();
+  return (attachment.displayName || baseName(attachment.path || "") || "attachment").trim();
 }
 
 function attachmentExt(name: string): string {
@@ -85,11 +93,7 @@ function formatAttachmentDisplayReference(attachment: Attachment): string {
 }
 
 function sortComposerAttachments(items: Attachment[]): Attachment[] {
-  return [...items].sort((a, b) => {
-    const ai = a.previewUrl ? 0 : 1;
-    const bi = b.previewUrl ? 0 : 1;
-    return ai - bi;
-  });
+  return items;
 }
 
 function workspaceReferenceKey(ref: WorkspaceReference): string {
@@ -346,6 +350,7 @@ export function Composer({
   onSwitchModel,
   onSetEffort,
   insertRequest,
+  pasteRequest = 0,
   disabled,
   decisionPending = false,
   ready,
@@ -388,6 +393,7 @@ export function Composer({
   onSwitchModel: (name: string) => void;
   onSetEffort: (level: string) => void;
   insertRequest?: ComposerInsertRequest | null;
+  pasteRequest?: number;
   disabled?: boolean;
   decisionPending?: boolean;
   // ready/cwd/running re-trigger the command fetch: Commands() returns only
@@ -407,6 +413,7 @@ export function Composer({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [workspaceRefs, setWorkspaceRefs] = useState<WorkspaceReference[]>([]);
   const [pendingPaste, setPendingPaste] = useState(0);
+  const attachmentSequenceRef = useRef(0);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -420,6 +427,7 @@ export function Composer({
   const [moreMenuClosing, setMoreMenuClosing] = useState(false);
   const [promptModeMenuOpen, setPromptModeMenuOpen] = useState(false);
   const [promptModeMenuClosing, setPromptModeMenuClosing] = useState(false);
+  const [approvalMenuOpen, setApprovalMenuOpen] = useState(false);
   const [showPastChats, setShowPastChats] = useState(false);
   const [pastChats, setPastChats] = useState<SessionMeta[]>([]);
   const [pastChatQuery, setPastChatQuery] = useState("");
@@ -432,6 +440,7 @@ export function Composer({
   const intentMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const moreMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const promptModeMenuAnchorRef = useRef<HTMLButtonElement>(null);
+  const approvalMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const intentCloseTimerRef = useRef<number | null>(null);
@@ -441,6 +450,7 @@ export function Composer({
   const lastCompositionEndAt = useRef(0);
   const lastSelectionRef = useRef({ start: 0, end: 0 });
   const consumedInsertIdRef = useRef(0);
+  const consumedPasteRequestRef = useRef(0);
   const lastTransientDismissSignal = useRef(transientDismissSignal);
   const submittingRef = useRef(false);
   const nativeClipboardPasteTimerRef = useRef<number | null>(null);
@@ -770,8 +780,12 @@ export function Composer({
   };
 
   const removeAttachment = (path: string) => {
-    forgetAttachment(path);
-    setAttachments((prev) => prev.filter((x) => x.path !== path));
+    setAttachments((prev) => {
+      const target = prev.find((x) => x.id === path || x.path === path);
+      if (target?.path) forgetAttachment(target.path);
+      if (target) forgetAttachment(target.id);
+      return prev.filter((x) => x.id !== path && x.path !== path);
+    });
     requestAnimationFrame(() => taRef.current?.focus());
   };
 
@@ -866,7 +880,8 @@ export function Composer({
     if (disabled || submittingRef.current) return;
     const trimmedText = text.trim();
     if (pendingPaste > 0) return;
-    if (!trimmedText && attachments.length === 0 && workspaceRefs.length === 0 && sessionRefs.length === 0) {
+    const readyAttachments = attachments.filter((attachment) => attachment.status === "ready" && attachment.path);
+    if (!trimmedText && readyAttachments.length === 0 && workspaceRefs.length === 0 && sessionRefs.length === 0) {
       if (goalModeOn && !activeGoal) {
         setComposerPrompt(t("composer.goalInputRequired"));
         requestAnimationFrame(() => taRef.current?.focus());
@@ -877,10 +892,10 @@ export function Composer({
     submittingRef.current = true;
     setSubmitting(true);
     try {
-    const orderedAttachments = sortComposerAttachments(attachments);
+    const orderedAttachments = sortComposerAttachments(readyAttachments);
     const refs = [
       ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
-      ...orderedAttachments.map((a) => `@${a.path}`),
+      ...orderedAttachments.map((a) => `@${a.path!}`),
     ].join(" ");
     const displayRefs = [
       ...workspaceRefs.map((ref) => formatWorkspaceReference(ref.path, ref.isDir)),
@@ -892,7 +907,12 @@ export function Composer({
     // original prompt in the input preview). With no refs we keep the original
     // submitText verbatim — no header, no rewording, byte-identical to pre-PR-B.
     const sessionContext = sessionRefs.length === 0 ? "" : await buildSessionContext(sessionRefs);
-    const baseSubmitText = [trimmedText, refs].filter(Boolean).join(trimmedText && refs ? " " : "");
+    const attachmentManifest = orderedAttachments.length === 0 ? "" : [
+      `<attachments count="${orderedAttachments.length}">`,
+      ...orderedAttachments.map((attachment, index) => `  <attachment index="${index + 1}" name="${attachmentName(attachment).replace(/["<>]/g, " ")}" path="${attachment.path}" />`),
+      "</attachments>",
+    ].join("\n");
+    const baseSubmitText = [attachmentManifest, trimmedText, refs].filter(Boolean).join("\n");
     const submitText = sessionContext ? `${sessionContext}${baseSubmitText}` : baseSubmitText;
     if (running && guide) {
       if (onGuide) onGuide(displayText, submitText);
@@ -918,68 +938,82 @@ export function Composer({
       reader.readAsDataURL(file);
     });
 
-  const attachImageFiles = async (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    if (images.length === 0) return;
-    for (const file of images) {
-      setPendingPaste((n) => n + 1);
-      try {
-        const key = await fileDedupKey(file);
-        if (attachmentDedupRef.current.seen(key.hash, key.source)) continue;
-        const dataUrl = await readFileAsDataURL(file);
-        const path = await app.SavePastedImage(dataUrl);
-        const previewUrl = await app.AttachmentDataURL(path);
-        rememberAttachment(path, key);
-        setAttachments((prev) => [...prev, { path, previewUrl, displayName: file.name }]);
-      } catch (error) {
-        console.warn("[composer] failed to attach pasted image", error);
-        showToast(t("composer.attachImageFailed"), "warn");
-        // non-fatal: a failed image attach must not block normal text input
-      } finally {
-        setPendingPaste((n) => Math.max(0, n - 1));
+  const updateAttachment = (id: string, update: Partial<Attachment>) => {
+    setAttachments((prev) => prev.map((item) => item.id === id ? { ...item, ...update } : item));
+  };
+
+  const processAttachment = async (item: Attachment): Promise<void> => {
+    const file = item.source;
+    if (!file) return;
+    try {
+      const key = await fileDedupKey(file);
+      const dataUrl = await readFileAsDataURL(file);
+      let path: string;
+      let previewUrl: string | undefined;
+      if (file.type.startsWith("image/")) {
+        path = await app.SavePastedImage(dataUrl);
+        previewUrl = await app.AttachmentDataURL(path);
+      } else {
+        path = await app.SavePastedFile(file.name, dataUrl);
       }
+      rememberAttachment(path, key);
+      attachmentDedupKeysRef.current[item.id] = key;
+      updateAttachment(item.id, { path, previewUrl, status: "ready", error: undefined });
+    } catch (error) {
+      console.warn("[composer] failed to attach file", item.displayName, error);
+      updateAttachment(item.id, { status: "failed", error: String((error as Error)?.message || t("composer.attachImageFailed")) });
+      showToast(t("composer.attachImageFailed"), "warn");
+    } finally {
+      setPendingPaste((n) => Math.max(0, n - 1));
     }
   };
 
   // Non-image pastes (PDFs, docs): the clipboard hands us bytes, not a path, so
   // the kernel stores them and we reference the saved path — attached, not ignored.
-  const attachOtherFiles = async (files: File[]) => {
-    const others = files.filter((f) => !f.type.startsWith("image/"));
-    if (others.length === 0) return;
-    for (const file of others) {
-      setPendingPaste((n) => n + 1);
-      try {
-        const key = await fileDedupKey(file);
-        if (attachmentDedupRef.current.seen(key.hash, key.source)) continue;
-        const dataUrl = await readFileAsDataURL(file);
-        const path = await app.SavePastedFile(file.name, dataUrl);
-        rememberAttachment(path, key);
-        setAttachments((prev) => [...prev, { path, displayName: file.name }]);
-      } catch {
-        // non-fatal: a failed attach must not block normal text input
-      } finally {
-        setPendingPaste((n) => Math.max(0, n - 1));
-      }
-    }
-  };
-
   const attachFiles = (files: File[]) => {
-    void attachImageFiles(files);
-    void attachOtherFiles(files);
+    const accepted: Attachment[] = [];
+    for (const file of files) {
+      const source = `file:${file.name}:${file.type}:${file.size}:${file.lastModified}`;
+      if (attachmentDedupRef.current.seen("", source)) continue;
+      const item: Attachment = {
+        id: `attachment-${Date.now()}-${attachmentSequenceRef.current++}`,
+        displayName: file.name,
+        status: "pending",
+        source: file,
+      };
+      attachmentDedupRef.current.add("", source);
+      attachmentDedupKeysRef.current[item.id] = { hash: "", source };
+      accepted.push(item);
+    }
+    if (accepted.length === 0) return;
+    setAttachments((prev) => [...prev, ...accepted]);
+    setPendingPaste((n) => n + accepted.length);
+    void (async () => {
+      for (const item of accepted) await processAttachment(item);
+    })();
   };
 
-  const attachNativeClipboardImage = async (notifyOnError: boolean) => {
+  const retryAttachment = (item: Attachment) => {
+    if (item.status !== "failed" || !item.source) return;
+    updateAttachment(item.id, { status: "pending", error: undefined });
+    setPendingPaste((n) => n + 1);
+    void processAttachment(item);
+  };
+
+  const attachNativeClipboardImage = async (notifyOnError: boolean): Promise<boolean> => {
     setPendingPaste((n) => n + 1);
     try {
       const path = await app.SaveClipboardImage();
       const previewUrl = await app.AttachmentDataURL(path);
       const key = { hash: await dataURLHash(previewUrl), source: `native-clipboard:${path}` };
-      if (attachmentDedupRef.current.seen(key.hash, key.source)) return;
+      if (attachmentDedupRef.current.seen(key.hash, key.source)) return true;
       rememberAttachment(path, key);
-      setAttachments((prev) => [...prev, { path, previewUrl }]);
+      setAttachments((prev) => [...prev, { id: `attachment-${Date.now()}-${attachmentSequenceRef.current++}`, path, previewUrl, status: "ready" }]);
+      return true;
     } catch (error) {
       console.warn("[composer] failed to read native clipboard image", error);
       if (notifyOnError) showToast(t("composer.pasteImageFailed"), "warn");
+      return false;
     } finally {
       setPendingPaste((n) => Math.max(0, n - 1));
     }
@@ -990,8 +1024,8 @@ export function Composer({
   // workspace @reference or a stored attachment.
   const attachDroppedPaths = async (paths: string[]) => {
     setDragOver(false);
+    setPendingPaste((n) => n + paths.length);
     for (const path of paths) {
-      setPendingPaste((n) => n + 1);
       try {
         const key = { hash: "", source: `path:${path}` };
         if (attachmentDedupRef.current.seen(key.hash, key.source)) continue;
@@ -1000,7 +1034,7 @@ export function Composer({
           addWorkspaceReference({ path: item.path, isDir: item.isDir });
         } else {
           rememberAttachment(item.path, key);
-          setAttachments((prev) => [...prev, { path: item.path, previewUrl: item.previewUrl, displayName: baseName(path) }]);
+          setAttachments((prev) => [...prev, { id: `attachment-${Date.now()}-${attachmentSequenceRef.current++}`, path: item.path, previewUrl: item.previewUrl, displayName: baseName(path), status: "ready" }]);
         }
       } catch {
         // non-fatal: a failed drop attach must not block normal text input
@@ -1014,12 +1048,84 @@ export function Composer({
     return onFilesDropped((paths) => void attachDroppedPaths(paths));
   }, []);
 
+  const replacePlainTextAtCaret = (pasted: string) => {
+    const ta = taRef.current;
+    const start = ta ? (ta.selectionStart ?? text.length) : Math.min(lastSelectionRef.current.start, text.length);
+    const end = ta ? (ta.selectionEnd ?? start) : Math.min(lastSelectionRef.current.end, text.length);
+    const next = text.slice(0, start) + pasted + text.slice(end);
+    const caret = start + pasted.length;
+    setText(next);
+    requestAnimationFrame(() => {
+      const node = taRef.current;
+      if (!node) return;
+      node.focus();
+      node.selectionStart = node.selectionEnd = caret;
+      lastSelectionRef.current = { start: caret, end: caret };
+    });
+  };
+
+  const pasteFromContextMenu = async () => {
+    try {
+      const paths = await app.ReadClipboardFilePaths();
+      if (paths.length > 0) {
+        await attachDroppedPaths(paths);
+        return;
+      }
+    } catch {
+      // Continue with WebView and native image clipboard fallbacks.
+    }
+
+    try {
+      const pasted = await navigator.clipboard?.readText();
+      if (pasted) {
+        replacePlainTextAtCaret(pasted);
+        return;
+      }
+    } catch {
+      // Some WebView builds deny readText while still exposing image formats.
+    }
+
+    const richClipboard = navigator.clipboard as Clipboard & { read?: () => Promise<ClipboardItem[]> };
+    if (typeof richClipboard?.read === "function") {
+      try {
+        const clipboardItems = await richClipboard.read();
+        const imageFiles: File[] = [];
+        for (const item of clipboardItems) {
+          const imageType = item.types.find((type) => type.startsWith("image/"));
+          if (!imageType) continue;
+          const blob = await item.getType(imageType);
+          const subtype = imageType.slice("image/".length).replace("jpeg", "jpg").replace(/[^a-z0-9]+/gi, "") || "png";
+          imageFiles.push(new File([blob], `clipboard-${Date.now()}-${imageFiles.length + 1}.${subtype}`, { type: imageType }));
+        }
+        if (imageFiles.length > 0) {
+          attachFiles(imageFiles);
+          return;
+        }
+      } catch {
+        // Native clipboard access below covers Wails WebView permission gaps.
+      }
+    }
+
+    await attachNativeClipboardImage(true);
+  };
+
+  useEffect(() => {
+    if (pasteRequest <= 0 || consumedPasteRequestRef.current === pasteRequest) return;
+    consumedPasteRequestRef.current = pasteRequest;
+    void pasteFromContextMenu();
+  }, [pasteRequest]);
+
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     clearNativeClipboardPasteTimer();
     const files = clipboardFiles(e.clipboardData);
     if (files.length > 0) {
       e.preventDefault();
       attachFiles(files);
+      void app.ReadClipboardFilePaths().then((paths) => {
+        const names = new Set(files.map((file) => file.name.toLowerCase()));
+        const additional = paths.filter((path) => !names.has(baseName(path).toLowerCase()));
+        if (additional.length > 0) void attachDroppedPaths(additional);
+      }).catch(() => {});
       return;
     }
 
@@ -1031,7 +1137,15 @@ export function Composer({
 
     const hasImageHint = clipboardHasImageHint(e.clipboardData);
     e.preventDefault();
-    void attachNativeClipboardImage(hasImageHint);
+    void app.ReadClipboardFilePaths().then((paths) => {
+      if (paths.length > 0) {
+        void attachDroppedPaths(paths);
+      } else if (hasImageHint) {
+        void attachNativeClipboardImage(true);
+      }
+    }).catch(() => {
+      if (hasImageHint) void attachNativeClipboardImage(true);
+    });
   };
 
   const hasWorkspaceReferenceDrag = (dataTransfer: DataTransfer): boolean =>
@@ -1462,13 +1576,14 @@ export function Composer({
   const draftGoal = text.trim();
   const { hasDraftContent, hasSendableContent } = composerDraftState({
     text,
-    attachmentCount: attachments.length,
+    attachmentCount: attachments.filter((attachment) => attachment.status === "ready").length,
     workspaceReferenceCount: workspaceRefs.length,
     sessionReferenceCount: sessionRefs.length,
     pendingPasteCount: pendingPaste,
   });
   void onSetMode;
   const chooseApprovalMode = (nextMode: ToolApprovalMode) => {
+    setApprovalMenuOpen(false);
     onSetToolApprovalMode(nextMode);
     requestAnimationFrame(() => taRef.current?.focus());
   };
@@ -1692,6 +1807,30 @@ export function Composer({
               <span />
             </span>
           </button>
+        </div>
+      </AnchoredPopover>
+      <AnchoredPopover
+        open={approvalMenuOpen && !disabled}
+        anchorRef={approvalMenuAnchorRef}
+        onClose={() => setApprovalMenuOpen(false)}
+        className="composer-access-menu composer-approval-menu"
+        align="start"
+      >
+        <div className="composer-access-menu__section" role="menu" aria-label={t("composer.accessMenuTitle")}>
+          {(["ask", "auto", "yolo"] as ToolApprovalMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="menuitemradio"
+              aria-checked={toolApprovalMode === mode}
+              className={`composer-access-menu__item${toolApprovalMode === mode ? " composer-access-menu__item--active" : ""}`}
+              onClick={() => chooseApprovalMode(mode)}
+            >
+              {mode === "ask" ? <Shield size={16} /> : mode === "auto" ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+              <span className="composer-access-menu__copy"><span className="composer-access-menu__title">{mode === "ask" ? t("composer.modeAsk") : mode === "auto" ? t("composer.modeNormal") : t("composer.modeYolo")}</span></span>
+              {toolApprovalMode === mode && <Check size={13} />}
+            </button>
+          ))}
         </div>
       </AnchoredPopover>
       <AnchoredPopover
@@ -1924,15 +2063,19 @@ export function Composer({
       {(attachments.length > 0 || workspaceRefs.length > 0 || sessionRefs.length > 0) && (
         <div className="composer-context" aria-label={t("composer.contextItems")}>
           {sortComposerAttachments(attachments).map((a) => {
-            const imageOnly = Boolean(a.previewUrl) && attachments.every((item) => item.previewUrl) && workspaceRefs.length === 0 && sessionRefs.length === 0;
+            const imageOnly = a.status === "ready" && Boolean(a.previewUrl) && attachments.every((item) => item.status === "ready" && item.previewUrl) && workspaceRefs.length === 0 && sessionRefs.length === 0;
             return (
             <div
-              className={`composer-context__item${a.previewUrl ? " composer-context__item--image" : " composer-context__item--attachment"}${imageOnly ? " composer-context__item--image-only" : ""}`}
-              key={a.path}
+              className={`composer-context__item${a.previewUrl ? " composer-context__item--image" : " composer-context__item--attachment"}${a.status !== "ready" ? ` composer-context__item--${a.status}` : ""}${imageOnly ? " composer-context__item--image-only" : ""}`}
+              key={a.id}
             >
-              <Tooltip label={a.path}>
+              <Tooltip label={a.error || a.path || attachmentName(a)}>
                 <span className="composer-context__label">
-                  {a.previewUrl ? (
+                  {a.status === "pending" ? (
+                    <><span className="composer-context__fileicon composer-context__fileicon--pending"><FileText size={20} /></span><span className="composer-context__main"><span className="composer-context__name">{attachmentName(a)}</span><span className="composer-context__meta">{t("common.loading")}</span></span></>
+                  ) : a.status === "failed" ? (
+                    <><span className="composer-context__fileicon composer-context__fileicon--failed"><X size={18} /></span><span className="composer-context__main"><span className="composer-context__name">{attachmentName(a)}</span><span className="composer-context__meta">{a.error || t("composer.attachImageFailed")}</span></span></>
+                  ) : a.previewUrl ? (
                     <span className="composer-context__thumb">
                       <img src={a.previewUrl} alt="" draggable={false} />
                     </span>
@@ -1949,11 +2092,14 @@ export function Composer({
                   )}
                 </span>
               </Tooltip>
+              {a.status === "failed" && (
+                <button className="composer-context__retry" type="button" onClick={() => retryAttachment(a)} aria-label={t("composer.retryAttachment")}><RefreshCw size={13} /></button>
+              )}
               <Tooltip label={t("composer.removeImage")} className="composer-context__remove-trigger">
                 <button
                   className="composer-context__remove"
                   type="button"
-                  onClick={() => removeAttachment(a.path)}
+                  onClick={() => removeAttachment(a.id)}
                 >
                   <X size={14} />
                 </button>
@@ -2082,7 +2228,7 @@ export function Composer({
               </Tooltip>
             </div>
             <div className="composer-meta__control composer-meta__control--approval">
-              <div className="composer-modebar composer-modebar--approval" data-mode={toolApprovalMode} title={t("composer.accessMenuTitle")}>
+              <div className="composer-modebar composer-modebar--approval composer-approval-full" data-mode={toolApprovalMode} title={t("composer.accessMenuTitle")}>
                 <span className="composer-modebar__thumb" aria-hidden="true" />
                 <button
                   type="button"
@@ -2118,6 +2264,19 @@ export function Composer({
                   <span>{t("composer.modeYolo")}</span>
                 </button>
               </div>
+              <button
+                ref={approvalMenuAnchorRef}
+                type="button"
+                className={`composer-approval-compact composer-approval-compact--${toolApprovalMode}${approvalMenuOpen ? " composer-approval-compact--open" : ""}`}
+                onClick={() => setApprovalMenuOpen((open) => !open)}
+                disabled={disabled}
+                aria-haspopup="menu"
+                aria-expanded={approvalMenuOpen}
+                aria-label={t("composer.accessMenuTitle")}
+                title={t("composer.accessMenuTitle")}
+              >
+                {toolApprovalMode === "ask" ? <Shield size={16} /> : toolApprovalMode === "auto" ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+              </button>
             </div>
             <div className="composer-meta__control composer-meta__control--model">
               <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />

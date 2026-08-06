@@ -1,5 +1,6 @@
 import { initialState, reducer, type Item } from "../lib/useController";
-import { activityIndicatorPhase, buildTimelineSegments, timelineKinds } from "../lib/transcriptTimeline";
+import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, timelineKinds } from "../lib/transcriptTimeline";
+import { readFileSync } from "node:fs";
 
 let failed = 0;
 
@@ -127,6 +128,8 @@ equal("running tool activity rotates counterclockwise", activityIndicatorPhase(a
 equal("disabled activity mark stays hidden", activityIndicatorPhase(chronology, false, true, false), undefined);
 equal("paused activity mark stays hidden", activityIndicatorPhase(chronology, true, true, true), undefined);
 equal("completed activity mark stays hidden", activityIndicatorPhase(failedStats, true, false, false), undefined);
+equal("latest hidden warm turn needs one page", requiredWarmPage(12, 11, 5), 1);
+equal("older warm turn requests enough pages before jumping", requiredWarmPage(12, 2, 5), 2);
 
 const active = reducer(initialState, { type: "event", e: { kind: "turn_started" } });
 const done = reducer(active, { type: "event", e: { kind: "turn_done" } });
@@ -136,5 +139,11 @@ const backgroundNotice = reducer(done, {
 });
 equal("background notice does not reactivate running state", backgroundNotice.running, false);
 equal("background notice does not reactivate the turn", backgroundNotice.turnActive, false);
+
+const transcriptSource = readFileSync(new URL("../components/Transcript.tsx", import.meta.url), "utf8");
+equal("process group no longer nests an outer ProcessCard", transcriptSource.includes("<ProcessCard\n      tone=\"default\""), false);
+equal("completed timeline has a flat container", transcriptSource.includes('className="completed-turn__timeline"'), true);
+equal("detailed mode controls completed turn expansion", transcriptSource.includes('setOpen(mode === "detailed")'), true);
+equal("question rail does not scroll the transcript via scrollIntoView", transcriptSource.includes('el?.scrollIntoView({ block: "nearest" })'), false);
 
 if (failed > 0) process.exit(1);

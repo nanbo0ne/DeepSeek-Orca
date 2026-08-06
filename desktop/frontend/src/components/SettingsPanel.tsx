@@ -7,6 +7,7 @@ import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from ".
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
+import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP, applyUIScale, effectiveUIScale, getUIScale } from "../lib/uiScale";
 import { checkDesktopUpdate } from "../lib/updateCheck";
 import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView, VisionCapability } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
@@ -40,11 +41,19 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
   const [err, setErr] = useState<string | null>(null);
   const [textSize, setTextSizeState] = useState<TextSize>(getTextSize());
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(getFontFamily());
+  const [uiScale, setUIScaleState] = useState(getUIScale());
   const [tab, setTab] = useState<SettingsTab>(normalizeInitialSettingsTab(initialTab));
   // Play the modal exit animation, then let the parent unmount us.
   const { status, requestClose } = useDeferredClose(onClose, 240);
 
-  const reload = async () => setS(normalizeSettingsView(await app.Settings().catch(() => null)));
+  const reload = async () => {
+    const next = normalizeSettingsView(await app.Settings().catch(() => null));
+    setS(next);
+    if (next) {
+      applyUIScale(next.uiScale);
+      setUIScaleState(next.uiScale);
+    }
+  };
   useEffect(() => {
     void reload();
     if (initialTab) setTab(normalizeInitialSettingsTab(initialTab));
@@ -127,8 +136,15 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
                 {tab === "appearance" && s && (
                   <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}>
                     <AppearanceSection
+                      busy={busy}
+                      uiScale={uiScale}
                       textSize={textSize}
                       fontFamily={fontFamily}
+                      onUIScale={(scale) => {
+                        applyUIScale(scale);
+                        setUIScaleState(scale);
+                        void apply(() => app.SetDesktopUIScale(scale));
+                      }}
                       onTextSize={(size) => {
                         applyTextSize(size);
                         setTextSizeState(size);
@@ -515,6 +531,8 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
   agent.maxSteps = Number.isFinite(agent.maxSteps) ? Math.max(0, Math.trunc(agent.maxSteps)) : 0;
   return {
     ...view,
+    uiScale: view.uiScale === 0 || (view.uiScale >= UI_SCALE_MIN && view.uiScale <= UI_SCALE_MAX && view.uiScale % UI_SCALE_STEP === 0) ? view.uiScale : 0,
+    effectiveUIScale: effectiveUIScale(view.uiScale),
     providers: asArray(view.providers).map((p) => ({
       ...p,
       builtIn: Boolean(p.builtIn),
@@ -1712,6 +1730,12 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
       setProbingVision(null);
     }
   };
+  const setVisionOverride = async (modelRef: string, override: string) => {
+    await backgroundApply(async () => {
+      const result = await app.SetVisionCapabilityOverride(modelRef, override);
+      setVisionCapabilities((current) => [...current.filter((item) => item.modelRef !== modelRef), result]);
+    });
+  };
   const agent = normalizeAgentView(s.agent);
   const setAgentParams = (patch: Partial<typeof agent>) => {
     const next = normalizeAgentView({ ...agent, ...patch });
@@ -1751,7 +1775,7 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
           const models = mergedFetchedProviderModels(provider.models, fetched, { preserveCurated: true });
           const currentDefault = providerDefaultModel(provider.default, models);
           if (sameStringList(provider.models, models) && provider.default === currentDefault) continue;
-          await app.SaveProvider({ ...provider, models, default: currentDefault });
+          await app.UpdateProviderModels(provider.name, models, currentDefault);
         } catch {
           // Background discovery is opportunistic; manual refresh shows errors.
         }
@@ -1866,16 +1890,29 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
                         <span>{statusLabel} · {checked}</span>
                         {capability?.reason && <small title={capability.reason}>{capability.reason}</small>}
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn--ghost settings-vision-capabilities__probe"
-                        disabled={busy || isProbing}
-                        onClick={() => void probeVision(ref)}
-                        title={t("settings.visionProbe")}
-                      >
-                        <RefreshCw size={14} className={isProbing ? "settings-vision-capabilities__spin" : undefined} />
-                        <span>{t("settings.visionProbe")}</span>
-                      </button>
+                      <div className="settings-vision-capabilities__actions">
+                        <select
+                          className="settings-vision-capabilities__override"
+                          value={capability?.override || "auto"}
+                          disabled={busy}
+                          onChange={(event) => void setVisionOverride(ref, event.target.value)}
+                          aria-label={t("settings.visionOverride")}
+                        >
+                          <option value="auto">{t("settings.visionOverride.auto")}</option>
+                          <option value="supported">{t("settings.visionOverride.supported")}</option>
+                          <option value="unsupported">{t("settings.visionOverride.unsupported")}</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn--ghost settings-vision-capabilities__probe"
+                          disabled={busy || isProbing}
+                          onClick={() => void probeVision(ref)}
+                          title={t("settings.visionProbe")}
+                        >
+                          <RefreshCw size={14} className={isProbing ? "settings-vision-capabilities__spin" : undefined} />
+                          <span>{t("settings.visionProbe")}</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -3470,19 +3507,54 @@ function SandboxSection({ s, busy, apply }: SectionProps) {
 }
 
 function AppearanceSection({
+  busy,
+  uiScale,
   textSize,
   fontFamily,
+  onUIScale,
   onTextSize,
   onFontFamily,
 }: {
+  busy: boolean;
+  uiScale: number;
   textSize: TextSize;
   fontFamily: FontFamily;
+  onUIScale: (scale: number) => void;
   onTextSize: (size: TextSize) => void;
   onFontFamily: (font: FontFamily) => void;
 }) {
   const t = useT();
+  const effective = effectiveUIScale(uiScale);
   return (
     <SettingsSection title={t("settings.appearance")}>
+      <SettingsField label={t("settings.uiScale")}>
+        <div className="set-ui-scale">
+          <div className="set-ui-scale__head">
+            <button
+              type="button"
+              className={`set-ui-scale__auto${uiScale === 0 ? " set-ui-scale__auto--on" : ""}`}
+              disabled={busy}
+              onClick={() => onUIScale(0)}
+            >
+              {t("settings.uiScaleAuto")}
+            </button>
+            <output className="set-ui-scale__value">{effective}%</output>
+          </div>
+          <input
+            className="set-ui-scale__range"
+            type="range"
+            min={UI_SCALE_MIN}
+            max={UI_SCALE_MAX}
+            step={UI_SCALE_STEP}
+            value={uiScale || effective}
+            disabled={busy}
+            aria-label={t("settings.uiScale")}
+            onChange={(event) => onUIScale(Number(event.target.value))}
+          />
+          <div className="set-ui-scale__marks" aria-hidden="true"><span>80%</span><span>100%</span><span>125%</span></div>
+          <p className="set-ui-scale__hint">{t("settings.uiScaleHint")}</p>
+        </div>
+      </SettingsField>
       <SettingsField label={t("settings.textSize")}>
         <div className="set-seg">
           {TEXT_SIZES.map((size) => (

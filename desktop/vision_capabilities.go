@@ -55,8 +55,8 @@ func (a *App) ProbeModelVision(modelRef string) (VisionCapability, error) {
 	defer func() { a.visionProbeMu.Lock(); delete(a.visionProbing, key); a.visionProbeMu.Unlock() }()
 	a.visionProbeRunMu.Lock()
 	defer a.visionProbeRunMu.Unlock()
-	current := store.Get(entry)
-	_ = store.Put(VisionCapability{ModelRef: visioncap.ModelRef(entry), Key: key, Status: visioncap.Probing, Attempts: current.Attempts})
+	current := store.Stored(entry)
+	_ = store.Put(VisionCapability{ModelRef: visioncap.ModelRef(entry), Key: key, Status: visioncap.Probing, Attempts: current.Attempts, Source: current.Source, Override: current.Override})
 	finishUnknown := func(reason error) (VisionCapability, error) {
 		result := VisionCapability{
 			ModelRef:  visioncap.ModelRef(entry),
@@ -65,6 +65,8 @@ func (a *App) ProbeModelVision(modelRef string) (VisionCapability, error) {
 			Reason:    "vision probe failed",
 			Attempts:  current.Attempts + 1,
 			CheckedAt: time.Now().UnixMilli(),
+			Source:    visioncap.SourceProbe,
+			Override:  current.Override,
 		}
 		if reason != nil {
 			result.Reason = reason.Error()
@@ -81,6 +83,7 @@ func (a *App) ProbeModelVision(modelRef string) (VisionCapability, error) {
 	ctx, cancel := context.WithTimeout(a.bootContext(), 25*time.Second)
 	defer cancel()
 	result := visioncap.Probe(ctx, prov, entry)
+	result.Override = current.Override
 	result.Attempts = current.Attempts + 1
 	if result.Status != visioncap.Unknown {
 		result.Attempts = 0
@@ -91,7 +94,41 @@ func (a *App) ProbeModelVision(modelRef string) (VisionCapability, error) {
 	if cfg.DesktopVisionMode() == config.VisionModeAuto && current.Status != result.Status && a.activeVisionCapabilityKey(cfg) == key {
 		a.refreshVisionRoutingWhenIdle()
 	}
+	if result.Override == visioncap.Supported || result.Override == visioncap.Unsupported {
+		result.Status = result.Override
+		result.Source = visioncap.SourceManual
+	}
 	return result, nil
+}
+
+// SetVisionCapabilityOverride records a per-model routing override without
+// changing the global off|auto|on vision mode. "auto" clears the override.
+func (a *App) SetVisionCapabilityOverride(modelRef, override string) (VisionCapability, error) {
+	modelRef = strings.TrimSpace(modelRef)
+	override = strings.ToLower(strings.TrimSpace(override))
+	if override != visioncap.OverrideAuto && override != visioncap.Supported && override != visioncap.Unsupported {
+		return VisionCapability{}, fmt.Errorf("vision override %q is invalid", override)
+	}
+	cfg, err := config.LoadForRoot(a.activeWorkspaceRoot())
+	if err != nil {
+		return VisionCapability{}, err
+	}
+	entry, ok := cfg.ResolveModel(modelRef)
+	if !ok {
+		return VisionCapability{}, fmt.Errorf("unknown model %q", modelRef)
+	}
+	store := visioncap.Load("")
+	stored := store.Stored(entry)
+	stored.Override = override
+	if err := store.Put(stored); err != nil {
+		return stored, err
+	}
+	effective := stored
+	if override == visioncap.Supported || override == visioncap.Unsupported {
+		effective.Status = override
+		effective.Source = visioncap.SourceManual
+	}
+	return effective, nil
 }
 
 func (a *App) activeVisionCapabilityKey(cfg *config.Config) string {

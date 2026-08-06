@@ -21,6 +21,7 @@ import (
 
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/documentextract"
 	fileenc "deepseek-orca/internal/fileutil/encoding"
 	"deepseek-orca/internal/notify"
 	"deepseek-orca/internal/proc"
@@ -1771,25 +1772,29 @@ func (d documentExtract) Execute(_ context.Context, args json.RawMessage) (strin
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".txt", ".md", ".json", ".csv", ".tsv", ".xml", ".html", ".log", ".go", ".ts", ".tsx", ".js", ".py":
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return "", err
-		}
-		if int64(len(b)) > p.MaxBytes {
-			b = b[:p.MaxBytes]
-		}
-		return decodeOutput(b), nil
+		return extractTextFile(path, p.MaxBytes)
 	case ".pdf":
 		return runDocPython(path, "pdf")
 	case ".docx":
-		return runDocPython(path, "docx")
+		return documentextract.Extract(path, p.MaxBytes)
 	case ".xlsx":
-		return runDocPython(path, "xlsx")
+		return documentextract.Extract(path, p.MaxBytes)
 	case ".pptx":
-		return runDocPython(path, "pptx")
+		return documentextract.Extract(path, p.MaxBytes)
 	default:
 		return "", fmt.Errorf("unsupported extension %q; use python_repl_exec for custom extraction", ext)
 	}
+}
+
+func extractTextFile(path string, maxBytes int64) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if int64(len(b)) > maxBytes {
+		b = b[:maxBytes]
+	}
+	return decodeOutput(b), nil
 }
 
 func runDocPython(path, kind string) (string, error) {

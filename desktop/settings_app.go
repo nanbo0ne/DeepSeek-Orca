@@ -16,6 +16,7 @@ import (
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/visioncap"
 )
 
 // settings_app.go is the desktop Settings panel's command surface: it reads the
@@ -161,6 +162,8 @@ type SettingsView struct {
 	ActivityIndicator  bool            `json:"activityIndicatorEnabled"`
 	VisionEnabled      bool            `json:"visionEnabled"`
 	VisionMode         string          `json:"visionMode"`
+	UIScale            int             `json:"uiScale"`
+	EffectiveUIScale   int             `json:"effectiveUIScale"`
 	ConfigPath         string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -343,6 +346,8 @@ func (a *App) Settings() SettingsView {
 			ActivityIndicator:  false,
 			VisionEnabled:      false,
 			VisionMode:         config.VisionModeAuto,
+			UIScale:            0,
+			EffectiveUIScale:   100,
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -392,10 +397,17 @@ func (a *App) Settings() SettingsView {
 		ActivityIndicator:  cfg.Desktop.ActivityIndicator,
 		VisionEnabled:      cfg.Desktop.VisionEnabled,
 		VisionMode:         cfg.DesktopVisionMode(),
-		ConfigPath:         cfgPath,
-		ProviderKinds:      nonNil(provider.Kinds()),
-		AutoApproveTools:   ctrl != nil && ctrl.AutoApproveTools(),
-		Bypass:             ctrl != nil && ctrl.AutoApproveTools(),
+		UIScale:            cfg.DesktopUIScale(),
+		EffectiveUIScale: func() int {
+			if scale := cfg.DesktopUIScale(); scale != 0 {
+				return scale
+			}
+			return 100
+		}(),
+		ConfigPath:       cfgPath,
+		ProviderKinds:    nonNil(provider.Kinds()),
+		AutoApproveTools: ctrl != nil && ctrl.AutoApproveTools(),
+		Bypass:           ctrl != nil && ctrl.AutoApproveTools(),
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	v.OfficialProviders = officialProviderViews(officialProviderAddedSet(cfg))
@@ -492,6 +504,9 @@ func botDomainOrDefault(domain string) string {
 // keys are account-level, not per-project: writing them to the global config
 // rather than the cwd's deepseek-orca.toml is what lets them survive a workspace switch.
 func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
+	a.configWriteMu.Lock()
+	defer a.configWriteMu.Unlock()
+
 	cfg, path, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
 		return err
@@ -506,6 +521,9 @@ func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
 }
 
 func (a *App) applyConfigOnly(mutate func(*config.Config) error) error {
+	a.configWriteMu.Lock()
+	defer a.configWriteMu.Unlock()
+
 	cfg, path, err := a.loadDesktopUserConfigForEdit()
 	if err != nil {
 		return err
@@ -921,6 +939,46 @@ func (a *App) SaveProvider(p ProviderView) error {
 	return err
 }
 
+// UpdateProviderModels updates only the model selection for an existing
+// provider. Background discovery must not write a stale ProviderView over
+// fields that the user may have changed while the request was in flight.
+func (a *App) UpdateProviderModels(name string, models []string, defaultModel string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("update provider models: empty provider name")
+	}
+	err := a.applyConfigChange(func(c *config.Config) error {
+		p, ok := c.Provider(name)
+		if !ok {
+			return fmt.Errorf("update provider models: provider %q not found", name)
+		}
+		models = chatProviderModels(models)
+		if len(models) == 0 {
+			return fmt.Errorf("update provider models: provider %q returned no chat models", name)
+		}
+		p.Model = models[0]
+		p.Models = nil
+		p.Default = ""
+		if len(models) > 1 {
+			p.Models = append([]string(nil), models...)
+			p.Default = providerDefaultForModels(defaultModel, models)
+			if p.Default == "" {
+				p.Default = providerDefaultForModels(p.DefaultModel(), models)
+			}
+		}
+		addProviderAccess(c, name)
+		return nil
+	})
+	if err == nil {
+		refs := make([]string, 0, len(models))
+		for _, model := range models {
+			refs = append(refs, name+"/"+model)
+		}
+		a.scheduleVisionProbes(refs)
+	}
+	return err
+}
+
 // AddOfficialProviderAccess adds one curated desktop provider template to the
 // Settings > Model > Access list. The runtime default providers still exist
 // independently; this only records the user's explicit access setup.
@@ -953,15 +1011,38 @@ func (a *App) AddOfficialProviderAccess(kind, key string) error {
 func (a *App) FetchProviderModels(p ProviderView) ([]string, error) {
 	e := config.ProviderEntry{
 		Name:      p.Name,
+		Kind:      p.Kind,
 		BaseURL:   p.BaseURL,
 		ModelsURL: p.ModelsURL,
 		APIKeyEnv: p.APIKeyEnv,
 	}
 	ctx, cancel := context.WithTimeout(a.reqCtx(), 15*time.Second)
 	defer cancel()
-	models, err := e.FetchModels(ctx)
+	metadata, err := e.FetchModelMetadata(ctx)
 	if err != nil {
 		return []string{}, err
+	}
+	models := make([]string, 0, len(metadata))
+	store := visioncap.Load("")
+	for _, item := range metadata {
+		models = append(models, item.ID)
+		if item.Vision == nil {
+			continue
+		}
+		entry := e
+		entry.Model = item.ID
+		current := store.Stored(&entry)
+		status := visioncap.Unsupported
+		if *item.Vision {
+			status = visioncap.Supported
+		}
+		current.ModelRef = visioncap.ModelRef(&entry)
+		current.Key = visioncap.Key(&entry)
+		current.Status = status
+		current.Source = visioncap.SourceMetadata
+		current.Reason = "provider model metadata: " + item.VisionReason
+		current.CheckedAt = time.Now().UnixMilli()
+		_ = store.Put(current)
 	}
 	return nonNil(chatProviderModels(models)), nil
 }
@@ -1352,6 +1433,10 @@ func (a *App) SetTrayLocale(locale string) error {
 // rebuild the active controller and must stay out of provider-visible requests.
 func (a *App) SetDesktopAppearance(theme, style string) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopAppearance("light", "slate") })
+}
+
+func (a *App) SetDesktopUIScale(scale int) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopUIScale(scale) })
 }
 
 // SetDesktopCheckUpdates updates only the desktop startup update-check

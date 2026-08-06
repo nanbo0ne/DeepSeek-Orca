@@ -21,10 +21,14 @@ import (
 )
 
 const (
-	Supported   = "supported"
-	Unsupported = "unsupported"
-	Unknown     = "unknown"
-	Probing     = "probing"
+	Supported      = "supported"
+	Unsupported    = "unsupported"
+	Unknown        = "unknown"
+	Probing        = "probing"
+	OverrideAuto   = "auto"
+	SourceProbe    = "probe"
+	SourceMetadata = "metadata"
+	SourceManual   = "manual"
 )
 
 type Capability struct {
@@ -34,6 +38,8 @@ type Capability struct {
 	CheckedAt int64  `json:"checkedAt,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 	Attempts  int    `json:"attempts,omitempty"`
+	Source    string `json:"source,omitempty"`
+	Override  string `json:"override,omitempty"`
 }
 
 type Store struct {
@@ -96,6 +102,17 @@ func ModelRef(e *config.ProviderEntry) string {
 }
 
 func (s *Store) Get(e *config.ProviderEntry) Capability {
+	c := s.Stored(e)
+	if c.Override == Supported || c.Override == Unsupported {
+		c.Status = c.Override
+		c.Source = SourceManual
+	}
+	return c
+}
+
+// Stored returns the last automatic result without applying a manual override.
+// Callers that update or clear the override need this underlying value.
+func (s *Store) Stored(e *config.ProviderEntry) Capability {
 	k := Key(e)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -103,7 +120,7 @@ func (s *Store) Get(e *config.ProviderEntry) Capability {
 		c.ModelRef = ModelRef(e)
 		return c
 	}
-	return Capability{ModelRef: ModelRef(e), Key: k, Status: Unknown}
+	return Capability{ModelRef: ModelRef(e), Key: k, Status: Unknown, Override: OverrideAuto}
 }
 
 func (s *Store) Put(c Capability) error {
@@ -169,7 +186,7 @@ func Probe(ctx context.Context, p provider.Provider, e *config.ProviderEntry) Ca
 }
 
 func probeWithImage(ctx context.Context, p provider.Provider, e *config.ProviderEntry, code, data string) Capability {
-	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli()}
+	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli(), Source: SourceProbe, Override: OverrideAuto}
 	req := provider.Request{Temperature: 0, MaxTokens: 32, Messages: []provider.Message{{Role: provider.RoleUser, Content: "Read the four digits in this test image. Reply with the digits only.", Images: []provider.ImageContent{{Name: "vision-probe.png", MediaType: "image/png", Data: data}}}}}
 	ch, err := p.Stream(ctx, req)
 	if err != nil {
@@ -189,7 +206,7 @@ func probeWithImage(ctx context.Context, p provider.Provider, e *config.Provider
 		}
 	}
 	answer := strings.TrimSpace(b.String())
-	if answer == code {
+	if probeAnswerMatches(answer, code) {
 		c.Status = Supported
 		return c
 	}
@@ -200,6 +217,28 @@ func probeWithImage(ctx context.Context, p provider.Provider, e *config.Provider
 		c.Reason = "model accepted the request but did not read the probe code"
 	}
 	return c
+}
+
+func probeAnswerMatches(answer, code string) bool {
+	answer = strings.TrimSpace(answer)
+	if answer == code {
+		return true
+	}
+	// Providers occasionally wrap a correct short answer in punctuation or a
+	// sentence despite the digits-only instruction. Require a standalone match
+	// so unrelated numbers in a refusal cannot produce a false positive.
+	for i := 0; i+len(code) <= len(answer); i++ {
+		if answer[i:i+len(code)] != code {
+			continue
+		}
+		leftDigit := i > 0 && answer[i-1] >= '0' && answer[i-1] <= '9'
+		right := i + len(code)
+		rightDigit := right < len(answer) && answer[right] >= '0' && answer[right] <= '9'
+		if !leftDigit && !rightDigit {
+			return true
+		}
+	}
+	return false
 }
 
 func statusForProbeError(err error) string {
@@ -214,7 +253,7 @@ func statusForProbeError(err error) string {
 		}
 	}
 	mentionsImage := strings.Contains(message, "image") || strings.Contains(message, "vision") || strings.Contains(message, "multimodal")
-	explicitRejection := strings.Contains(message, "not support") || strings.Contains(message, "unsupported") || strings.Contains(message, "does not accept") || strings.Contains(message, "invalid content type") || strings.Contains(message, "text only")
+	explicitRejection := strings.Contains(message, "not support") || strings.Contains(message, "unsupported") || strings.Contains(message, "doesn't support") || strings.Contains(message, "does not accept") || strings.Contains(message, "invalid content type") || strings.Contains(message, "text only") || strings.Contains(message, "no endpoints found")
 	if mentionsImage && explicitRejection {
 		return Unsupported
 	}
