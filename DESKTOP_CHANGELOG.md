@@ -8,6 +8,7 @@
 - Added per-session execution leases so desktop and mobile controllers cannot concurrently write the same transcript, and waiting controllers refresh newer history before continuing.
 - Preserved legacy Assistant sessions and memory stores while migrating them into a canonical profile without deleting the source data. Fixed automation-root indexing so it is not treated as an ordinary project.
 - Updated automation capability tests, routing prompt coverage, broker ownership checks, and desktop/frontend layout regression checks.
+- Fixed the running Composer action so typed or attached follow-up content replaces Stop with a same-size blue queued-send button, then restores Stop after the draft is queued.
 
 ## V2.0.30 - 2026-08-01
 

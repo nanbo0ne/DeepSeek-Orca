@@ -356,6 +356,7 @@ export const en = {
   "composer.removeCurrentProjectDisabled": "Current project cannot be removed",
   "composer.resize": "Drag to resize composer, double-click to reset",
   "composer.send": "Send (Enter)",
+  "composer.sendShort": "Send",
   "composer.shellMode": "Shell mode: prefix input with !",
   "composer.shellModeOn": "Shell mode on: click to remove !",
   "composer.stop": "Stop (Esc)",

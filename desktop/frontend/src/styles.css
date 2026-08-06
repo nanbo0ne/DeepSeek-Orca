@@ -12638,7 +12638,7 @@ a[href] {
 }
 
 .composer-runstatus__pause span,
-.composer-runstatus__stop span {
+.composer-runstatus__primary-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -12660,38 +12660,68 @@ a[href] {
   border-color: var(--border-soft);
 }
 
-.composer-runstatus__stop {
+.composer-runstatus__primary {
   --wails-draggable: no-drag;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
+  width: 58px;
+  min-width: 58px;
+  max-width: 58px;
   height: 26px;
-  padding: 0 9px;
-  border: 1px solid color-mix(in srgb, var(--err) 42%, transparent);
+  padding: 0 7px;
   border-radius: 7px;
-  background: color-mix(in srgb, var(--err) 14%, var(--bg-elev-2));
-  color: var(--err);
   font: inherit;
   font-weight: 620;
 }
 
-.composer-runstatus__stop:hover,
-.composer-runstatus__stop:focus-visible {
+.composer-runstatus__primary-icon {
+  flex: 0 0 14px;
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.composer-runstatus__primary--stop {
+  border: 1px solid color-mix(in srgb, var(--err) 42%, transparent);
+  background: color-mix(in srgb, var(--err) 14%, var(--bg-elev-2));
+  color: var(--err);
+}
+
+.composer-runstatus__primary--stop:hover,
+.composer-runstatus__primary--stop:focus-visible {
   color: var(--fg);
   background: color-mix(in srgb, var(--err) 38%, var(--bg-elev-2));
   border-color: color-mix(in srgb, var(--err) 70%, var(--border));
 }
-.composer-runstatus__stop:disabled {
+
+.composer-runstatus__primary--send {
+  border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border));
+  background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+  color: var(--accent-fg);
+  box-shadow: 0 6px 16px -9px var(--accent);
+}
+
+.composer-runstatus__primary--send:hover,
+.composer-runstatus__primary--send:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 88%, var(--border));
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 94%, #fff), var(--accent-strong));
+}
+
+.composer-runstatus__primary:disabled {
   cursor: not-allowed;
   opacity: 0.48;
   color: var(--fg-faint);
   background: var(--button-bg);
   border-color: var(--border-soft);
+  box-shadow: none;
 }
-.composer-runstatus__stop:disabled:hover,
-.composer-runstatus__stop:disabled:focus-visible {
+.composer-runstatus__primary:disabled:hover,
+.composer-runstatus__primary:disabled:focus-visible {
   color: var(--fg-faint);
   background: var(--button-bg);
   border-color: var(--border-soft);
@@ -12714,8 +12744,7 @@ a[href] {
     max-width: 58px;
   }
 
-  .composer-runstatus__pause,
-  .composer-runstatus__stop {
+  .composer-runstatus__pause {
     padding-inline: 7px;
   }
 }
@@ -12764,14 +12793,15 @@ a[href] {
   .composer-runstatus__dot,
   .composer-runstatus__text,
   .composer-runstatus__pause span,
-  .composer-runstatus__stop span {
+  .composer-runstatus__primary-label {
     display: none;
   }
 
   .composer-runstatus__pause,
-  .composer-runstatus__stop {
+  .composer-runstatus__primary {
     width: 28px;
     min-width: 28px;
+    max-width: 28px;
     padding: 0;
   }
 }
@@ -20033,7 +20063,7 @@ a[href] {
 .composer-enhanced__button,
 .composer-runstatus,
 .composer-runstatus__pause,
-.composer-runstatus__stop,
+.composer-runstatus__primary,
 .composer__btn {
   flex-shrink: 0;
 }
@@ -20195,14 +20225,15 @@ a[href] {
   .composer-runstatus__text,
   .composer-runstatus__dot,
   .composer-runstatus__pause span,
-  .composer-runstatus__stop span {
+  .composer-runstatus__primary-label {
     display: none;
   }
 
   .composer-runstatus__pause,
-  .composer-runstatus__stop {
+  .composer-runstatus__primary {
     width: 28px;
     min-width: 28px;
+    max-width: 28px;
     padding-inline: 0;
   }
 }

@@ -7,6 +7,7 @@ import { DedupIndex, sha256 } from "../lib/attachDedup";
 import { app, onFilesDropped } from "../lib/bridge";
 import { SPINNER_WORDS, useI18n } from "../lib/i18n";
 import { clearLayoutSize, loadOptionalLayoutSize, saveLayoutSize } from "../lib/layoutPreferences";
+import { composerDraftState } from "../lib/composerRunningAction";
 import { useToast } from "../lib/toast";
 import { type CollaborationMode, type CommandInfo, type ComposerInsertRequest, type DirEntry, type EffortInfo, type HistoryMessage, type Mode, type PromptMode, type SessionMeta, type SessionReference, type SlashArgItem, type SlashArgsResult, type ToolApprovalMode } from "../lib/types";
 import {
@@ -865,7 +866,7 @@ export function Composer({
     if (disabled || submittingRef.current) return;
     const trimmedText = text.trim();
     if (pendingPaste > 0) return;
-    if (!trimmedText && attachments.length === 0 && workspaceRefs.length === 0) {
+    if (!trimmedText && attachments.length === 0 && workspaceRefs.length === 0 && sessionRefs.length === 0) {
       if (goalModeOn && !activeGoal) {
         setComposerPrompt(t("composer.goalInputRequired"));
         requestAnimationFrame(() => taRef.current?.focus());
@@ -1459,6 +1460,13 @@ export function Composer({
     : undefined;
   const composerAutoExpanded = composerHeight === null && textareaAutoHeight !== null && textareaAutoHeight > 40;
   const draftGoal = text.trim();
+  const { hasDraftContent, hasSendableContent } = composerDraftState({
+    text,
+    attachmentCount: attachments.length,
+    workspaceReferenceCount: workspaceRefs.length,
+    sessionReferenceCount: sessionRefs.length,
+    pendingPasteCount: pendingPaste,
+  });
   void onSetMode;
   const chooseApprovalMode = (nextMode: ToolApprovalMode) => {
     onSetToolApprovalMode(nextMode);
@@ -2195,10 +2203,18 @@ export function Composer({
               </Tooltip>
               <span className="composer-runstatus__dot" />
               <span className="composer-runstatus__text">{runActivity}</span>
-              <Tooltip label={t("composer.stop")}>
-                <button className="composer-runstatus__stop" type="button" onClick={handleCancel} disabled={decisionPending}>
-                  <Square size={10} fill="currentColor" />
-                  <span>{t("composer.stopShort")}</span>
+              <Tooltip label={hasDraftContent ? t("composer.send") : t("composer.stop")}>
+                <button
+                  className={`composer-runstatus__primary composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}`}
+                  type="button"
+                  onClick={hasDraftContent ? () => void submit() : handleCancel}
+                  disabled={decisionPending || (hasDraftContent && (disabled || submitting || pendingPaste > 0 || !hasSendableContent))}
+                  aria-label={hasDraftContent ? t("composer.send") : t("composer.stop")}
+                >
+                  <span className="composer-runstatus__primary-icon" aria-hidden="true">
+                    {hasDraftContent ? <ArrowUp size={13} /> : <Square size={10} fill="currentColor" />}
+                  </span>
+                  <span className="composer-runstatus__primary-label">{hasDraftContent ? t("composer.sendShort") : t("composer.stopShort")}</span>
                 </button>
               </Tooltip>
             </div>

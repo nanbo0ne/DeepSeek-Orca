@@ -84,6 +84,17 @@ check(
   "narrow Composer retains model access and collapses mode trigger to one icon",
 );
 check(
+    composer.includes('composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}') &&
+    composer.includes("onClick={hasDraftContent ? () => void submit() : handleCancel}") &&
+    composer.includes("hasDraftContent && (disabled || submitting || pendingPaste > 0 || !hasSendableContent)") &&
+    composer.includes('hasDraftContent ? <ArrowUp size={13} /> : <Square size={10} fill="currentColor" />') &&
+    css.includes(".composer-runstatus__primary {\n  --wails-draggable: no-drag;") &&
+    css.includes("width: 58px;\n  min-width: 58px;\n  max-width: 58px;\n  height: 26px;") &&
+    css.includes(".composer-runstatus__primary--send {") &&
+    composerContract.includes(".composer-runstatus__primary {\n    width: 28px;\n    min-width: 28px;\n    max-width: 28px;"),
+  "running send replaces stop without changing the primary action geometry",
+);
+check(
   composer.includes("Plain text always follows the textarea's native paste path") &&
     composer.includes('if (pasted !== "") return;') &&
     !composer.includes("shouldFoldPaste") &&
