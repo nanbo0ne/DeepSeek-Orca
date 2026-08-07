@@ -1,6 +1,6 @@
 import type { Item } from "./useController";
 
-export type TimelineProcessItem = Exclude<Item, { kind: "user" | "steer" | "turn_stats" }>;
+export type TimelineProcessItem = Exclude<Item, { kind: "user" | "turn_stats" }>;
 
 export type TimelineSegment =
   | { kind: "user"; item: Extract<Item, { kind: "user" }> }
@@ -32,7 +32,7 @@ export function visibleWarmStart(warmTurnCount: number, page: number, pageSize: 
 function visibleProcessItem(item: Item): item is TimelineProcessItem {
   if (item.kind === "assistant") return Boolean(item.reasoning) || item.streaming;
   if (item.kind === "tool") return !item.parentId && item.name !== "todo_write" && item.name !== "exit_plan_mode";
-  return item.kind === "notice" || item.kind === "phase" || item.kind === "compaction";
+  return item.kind === "notice" || item.kind === "phase" || item.kind === "compaction" || item.kind === "steer";
 }
 
 function pushProcess(out: TimelineSegment[], item: TimelineProcessItem, completed: boolean) {
@@ -89,23 +89,45 @@ function buildTurn(items: readonly Item[], completed: boolean): TimelineSegment[
   }
   if (stats) out.push({ kind: "stats", item: stats });
 
-  for (const item of items) {
-    if (item.kind === "user" || item.kind === "turn_stats") continue;
-    if (item.kind === "assistant") {
-      if (visibleProcessItem(item)) {
-        pushProcess(out, { ...item, text: "" }, completed);
-      }
-      if (item.text.trim() !== "" || item.streaming) {
-        out.push({ kind: "assistant", item: { ...item, reasoning: "" } });
-      }
-      continue;
+  let lastNonAssistantProcessIndex = -1;
+  items.forEach((item, index) => {
+    if (item.kind !== "assistant" && visibleProcessItem(item)) lastNonAssistantProcessIndex = index;
+  });
+  let finalAssistantIndex = -1;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (index > lastNonAssistantProcessIndex && item.kind === "assistant" && (item.text.trim() !== "" || item.streaming)) {
+      finalAssistantIndex = index;
+      break;
     }
-    if (item.kind === "steer") {
-      out.push({ kind: "steer", item });
-      continue;
-    }
-    if (visibleProcessItem(item)) pushProcess(out, item, completed);
   }
+
+  const processItems: TimelineProcessItem[] = [];
+  let finalAssistant: Extract<Item, { kind: "assistant" }> | undefined;
+  items.forEach((item, index) => {
+    if (item.kind === "user" || item.kind === "turn_stats") return;
+    if (item.kind === "assistant") {
+      const isFinal = index === finalAssistantIndex;
+      if (item.reasoning || item.streaming) processItems.push({ ...item, text: "" });
+      if (isFinal) {
+        finalAssistant = { ...item, reasoning: "" };
+      } else if (item.text.trim() !== "") {
+        processItems.push({ ...item, reasoning: "" });
+      }
+      return;
+    }
+    if (visibleProcessItem(item)) processItems.push(item);
+  });
+
+  if (processItems.length > 0) {
+    out.push({
+      kind: "process",
+      id: `process-${processItems[0].id}`,
+      items: processItems,
+      completed,
+    });
+  }
+  if (finalAssistant) out.push({ kind: "assistant", item: finalAssistant });
   return out;
 }
 

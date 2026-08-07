@@ -131,7 +131,7 @@ export const ToolCard = memo(function ToolCard({ item, subcalls, livePulse = fal
       {summary && <div className="tool__summary">{summary}</div>}
 
       {diffs.map((d, i) => (
-        <div className="tool__body" key={i}>
+        <div className="tool__body" data-ui-surface="content" key={i}>
           {d.label && <div className="tool__difflabel">{d.label}</div>}
           <DiffView original={d.original} modified={d.modified} language={d.lang} maxHeight={260} />
         </div>
@@ -147,7 +147,7 @@ export const ToolCard = memo(function ToolCard({ item, subcalls, livePulse = fal
 
       {/* Shell output: always visible (auto-open), with preview/show-all toggle */}
       {shellPreview && (
-        <div className="tool__body">
+        <div className="tool__body" data-ui-surface="content">
           <CodeViewer value={showAll ? shellOutput! : shellPreview.preview} maxHeight={showAll ? 480 : 260} />
           {shellPreview.hasMore && !showAll && (
             <button className="tool__showall" onClick={() => setShowAll(true)}>
@@ -160,7 +160,7 @@ export const ToolCard = memo(function ToolCard({ item, subcalls, livePulse = fal
 
       {/* Non-shell body: args + output, gated by open */}
       {!shellPreview && hasArgsOrOutput && (
-        <div className="tool__body">
+        <div className="tool__body" data-ui-surface="content">
           {item.args && <CodeViewer value={pretty(item.args)} language="json" maxHeight={180} />}
           {item.output && (
             <>
@@ -171,7 +171,7 @@ export const ToolCard = memo(function ToolCard({ item, subcalls, livePulse = fal
         </div>
       )}
 
-      {item.error && <div className="tool__err">{item.error}</div>}
+      {item.error && <div className="tool__err" data-ui-surface="content">{item.error}</div>}
     </ProcessCard>
   );
 });

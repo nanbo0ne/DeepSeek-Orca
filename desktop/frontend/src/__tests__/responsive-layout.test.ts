@@ -10,6 +10,9 @@ const composer = readFileSync(join(root, "components", "Composer.tsx"), "utf8");
 const settings = readFileSync(join(root, "components", "SettingsPanel.tsx"), "utf8");
 const processCard = readFileSync(join(root, "components", "ProcessCard.tsx"), "utf8");
 const transcript = readFileSync(join(root, "components", "Transcript.tsx"), "utf8");
+const todoPanel = readFileSync(join(root, "components", "TodoPanel.tsx"), "utf8");
+const promptShelf = readFileSync(join(root, "components", "PromptShelf.tsx"), "utf8");
+const toolCard = readFileSync(join(root, "components", "ToolCard.tsx"), "utf8");
 const controller = readFileSync(join(root, "lib", "useController.ts"), "utf8");
 
 let passed = 0;
@@ -153,6 +156,25 @@ check(
     css.includes(".footer-shelves") &&
     css.includes("background: transparent;"),
   "footer shelves remain transparent outside their individual cards",
+);
+check(
+  !todoPanel.includes("AnchoredPopover") &&
+    todoPanel.includes('className="todobar__surface"') &&
+    todoPanel.includes('data-ui-surface="panel"') &&
+    todoPanel.includes('className="todobar__details"'),
+  "Todo expands inside one in-flow footer surface",
+);
+check(
+  promptShelf.includes('data-ui-surface="panel"') &&
+    transcript.includes('data-ui-surface="panel"') &&
+    !processCard.includes('data-ui-surface="panel"') &&
+    !toolCard.includes('data-ui-surface="panel"'),
+  "panel ownership stays on the shelf or turn while process and tool rows remain flat",
+);
+check(
+  toolCard.includes('data-ui-surface="content"') &&
+    css.includes(":root[data-theme-style] .process-activity-rail .process-card__body {\n  padding: 0 4px 8px 25px;\n  border-top: 0;\n  background: transparent;"),
+  "only tool output surfaces retain contained backgrounds inside the activity rail",
 );
 check(
   transcript.includes("transcript--hydrating") &&

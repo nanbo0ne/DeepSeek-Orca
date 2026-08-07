@@ -25,7 +25,11 @@ export function PromptShelf({
   actionsWrap?: boolean;
 }) {
   return (
-    <div className={`prompt-shelf${actionsWrap ? " prompt-shelf--actions-wrap" : ""}`} aria-live="polite">
+    <div
+      className={`prompt-shelf${actionsWrap ? " prompt-shelf--actions-wrap" : ""}`}
+      aria-live="polite"
+      data-ui-surface="panel"
+    >
       <div
         ref={barRef}
         className="prompt-shelf__bar"

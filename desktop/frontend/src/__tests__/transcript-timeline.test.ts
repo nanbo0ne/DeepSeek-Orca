@@ -22,9 +22,9 @@ const chronology: Item[] = [
 ];
 
 equal(
-  "assistant text and tools preserve insertion order",
+  "a live turn keeps intermediate text and tools in one process panel",
   timelineKinds(buildTimelineSegments(chronology, true)),
-  ["user", "assistant", "process:tool:read", "assistant", "process:tool:bash"],
+  ["user", "process:assistant,tool:read,assistant,tool:bash"],
 );
 
 const adjacent: Item[] = [
@@ -37,9 +37,9 @@ const adjacent: Item[] = [
 ];
 
 equal(
-  "adjacent process items merge but never cross assistant text",
+  "reasoning, progress text, notices, and tools share one turn process panel",
   timelineKinds(buildTimelineSegments(adjacent, true)),
-  ["user", "process:assistant,tool:read,notice", "assistant", "process:tool:bash"],
+  ["user", "process:assistant,tool:read,notice,assistant,tool:bash"],
 );
 
 const withStats: Item[] = [
@@ -73,13 +73,13 @@ const failedStats: Item[] = [
 equal(
   "failed turn keeps its diagnostic timeline visible",
   timelineKinds(buildTimelineSegments(failedStats, false)),
-  ["user", "stats", "assistant", "process:tool:read", "assistant", "process:tool:bash,notice"],
+  ["user", "stats", "process:assistant,tool:read,assistant,tool:bash,notice"],
 );
 
 equal(
   "final legacy turn without completion evidence remains expanded",
   timelineKinds(buildTimelineSegments(chronology, false)),
-  ["user", "assistant", "process:tool:read", "assistant", "process:tool:bash"],
+  ["user", "process:assistant,tool:read,assistant,tool:bash"],
 );
 
 const legacyHistory: Item[] = [
@@ -145,7 +145,8 @@ equal("background notice does not reactivate the turn", backgroundNotice.turnAct
 
 const transcriptSource = readFileSync(new URL("../components/Transcript.tsx", import.meta.url), "utf8");
 equal("process group no longer nests an outer ProcessCard", transcriptSource.includes("<ProcessCard\n      tone=\"default\""), false);
-equal("completed timeline has a flat container", transcriptSource.includes('className="completed-turn__timeline"'), true);
+equal("completed timeline has a flat activity rail", transcriptSource.includes('className="completed-turn__timeline process-activity-rail"'), true);
+equal("completed process details do not create a nested process panel", transcriptSource.includes("<TimelineProcessGroup\n                      key={segment.id}"), false);
 equal("detailed mode controls completed turn expansion", transcriptSource.includes('setOpen(mode === "detailed")'), true);
 equal("question rail does not scroll the transcript via scrollIntoView", transcriptSource.includes('el?.scrollIntoView({ block: "nearest" })'), false);
 equal("warm pagination renders from the hidden-turn boundary", transcriptSource.includes("warmStartTurn = shownWarmStart"), true);

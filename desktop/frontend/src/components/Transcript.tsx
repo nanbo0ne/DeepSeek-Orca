@@ -36,9 +36,12 @@ function renderProcessItem(
 ): ReactNode {
   switch (item.kind) {
     case "assistant":
-      if (!item.reasoning) return null;
-      if (item.streaming) return <LiveReasoningMessage key={item.id} item={item} />;
-      return <AssistantMessage key={item.id} item={{ ...item, text: "" }} defaultExpanded={defaultExpandThinking} />;
+      return [
+        item.reasoning && (item.streaming
+          ? <LiveReasoningMessage key={`${item.id}-reasoning`} item={item} />
+          : <AssistantMessage key={`${item.id}-reasoning`} item={{ ...item, text: "" }} defaultExpanded={defaultExpandThinking} />),
+        item.text.trim() !== "" && <div className="process-progress-row" key={`${item.id}-progress`}>{item.text}</div>,
+      ];
     case "tool":
       if (item.parentId || item.name === "todo_write" || item.name === "exit_plan_mode") return null;
       return <ToolCard key={item.id} item={item} subcalls={subcalls.get(item.id)} livePulse={item.id === liveToolID} />;
@@ -48,6 +51,8 @@ function renderProcessItem(
       return <NoticeCard key={item.id} level={item.level} text={item.text} />;
     case "compaction":
       return <CompactionCard key={item.id} item={item} />;
+    case "steer":
+      return <SteerCard key={item.id} text={item.text} />;
     default:
       return null;
   }
@@ -122,6 +127,7 @@ function TimelineProcessGroup({
   completed,
   open,
   onOpenChange,
+  activityPhase,
 }: {
   items: TimelineProcessItem[];
   subcalls: ReadonlyMap<string, ToolItem[]>;
@@ -130,19 +136,12 @@ function TimelineProcessGroup({
   completed: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  activityPhase?: ActivityIndicatorPhase;
 }) {
   const t = useT();
   const live = useContext(LiveStreamContext);
   const visible = items.filter(isProcessItem);
   if (visible.length === 0) return null;
-
-  if (!completed && mode !== "compact") {
-    return (
-      <div className="timeline-process-live process-activity-rail">
-        {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, mode === "detailed"))}
-      </div>
-    );
-  }
 
   let label = t("process.compact.thinking");
   const runningTool = [...visible].reverse().find((item): item is ToolItem => item.kind === "tool" && item.status === "running");
@@ -160,6 +159,7 @@ function TimelineProcessGroup({
     <div
       className={`timeline-process-group${mode === "compact" ? " timeline-process-group--compact" : ""}`}
       data-open={open}
+      data-ui-surface="panel"
     >
       <button
         type="button"
@@ -185,6 +185,7 @@ function TimelineProcessGroup({
           {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
         </div>
       )}
+      {activityPhase && <ProcessActivityMark phase={activityPhase} />}
     </div>
   );
 }
@@ -234,9 +235,9 @@ function lastRunningToolID(items: Item[]): string {
 }
 
 function isProcessItem(item: Item): boolean {
-  if (item.kind === "assistant") return Boolean(item.reasoning);
+  if (item.kind === "assistant") return Boolean(item.reasoning) || item.text.trim() !== "" || item.streaming;
   if (item.kind === "tool") return !item.parentId && item.name !== "todo_write" && item.name !== "exit_plan_mode";
-  return item.kind === "notice" || item.kind === "phase" || item.kind === "compaction";
+  return item.kind === "notice" || item.kind === "phase" || item.kind === "compaction" || item.kind === "steer";
 }
 
 function isProcessItemRunning(item: Item): boolean {
@@ -296,18 +297,15 @@ function CompletedTurn({
 }) {
   const t = useT();
   const [open, setOpen] = useState(mode === "detailed");
-  const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
   useEffect(() => {
     setOpen(mode === "detailed");
-    setProcessOpenOverrides(new Map());
   }, [mode]);
   const tokenLabel = typeof stats.tokens === "number" && stats.tokens > 0
     ? t("process.timeline.tokens", { n: stats.tokens.toLocaleString() })
     : t("process.timeline.tokensPending");
-  const details = useMemo(() => buildTimelineSegments(hidden, false), [hidden]);
   return (
     <>
-      <div className={`turn-stats-row${open ? " turn-stats-row--open" : ""}`}>
+      <div className={`turn-stats-row turn-process-panel${open ? " turn-stats-row--open" : ""}`} data-ui-surface="panel">
         <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <span>{turnStatsLabel(t, stats)}</span>
           <ChevronRight size={12} aria-hidden="true" />
@@ -315,39 +313,8 @@ function CompletedTurn({
         {open && (
           <div className="completed-turn__details">
             <div className="turn-stats-row__tokens">{tokenLabel}</div>
-            <div className="completed-turn__timeline">
-              {details.map((segment) => {
-                if (segment.kind === "assistant") {
-                  return (
-                    <AssistantMessage
-                      key={`${segment.item.id}-hidden`}
-                      item={segment.item}
-                      defaultExpanded={mode === "detailed"}
-                    />
-                  );
-                }
-                if (segment.kind === "process") {
-                  const segmentOpen = processOpenOverrides.get(segment.id) ?? mode === "detailed";
-                  return (
-                    <TimelineProcessGroup
-                      key={segment.id}
-                      items={segment.items}
-                      subcalls={subcalls}
-                      liveToolID={liveToolID}
-                      mode={mode}
-                      completed={false}
-                      open={segmentOpen}
-                      onOpenChange={(nextOpen) => setProcessOpenOverrides((current) => {
-                        const next = new Map(current);
-                        next.set(segment.id, nextOpen);
-                        return next;
-                      })}
-                    />
-                  );
-                }
-                if (segment.kind === "steer") return <SteerCard key={segment.item.id} text={segment.item.text} />;
-                return null;
-              })}
+            <div className="completed-turn__timeline process-activity-rail">
+              {hidden.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
             </div>
           </div>
         )}
@@ -500,6 +467,10 @@ function TimelineItems({
   const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
   useEffect(() => setProcessOpenOverrides(new Map()), [processDisplayMode]);
   const activityPhase = activityIndicatorPhase(items, activityIndicatorEnabled, running, paused);
+  const currentTurnStart = segments.reduce((last, segment, index) => segment.kind === "user" ? index : last, -1);
+  const activeProcessSegment = activityPhase
+    ? [...segments.slice(currentTurnStart + 1)].reverse().find((segment) => segment.kind === "process")
+    : undefined;
   const nodes: ReactNode[] = [];
   let activeTurn: number | undefined;
   let actionText = "";
@@ -596,6 +567,7 @@ function TimelineItems({
                 next.set(segment.id, nextOpen);
                 return next;
               })}
+              activityPhase={activeProcessSegment?.kind === "process" && activeProcessSegment.id === segment.id ? activityPhase : undefined}
             />
           </div>,
         );
@@ -609,10 +581,12 @@ function TimelineItems({
         break;
     }
   }
-  if (activityPhase) {
+  if (activityPhase && activeProcessSegment?.kind !== "process") {
     nodes.push(
       <div className="timeline-entry timeline-entry--activity" data-transcript-anchor="current-turn-activity" key="current-turn-activity">
-        <ProcessActivityMark phase={activityPhase} />
+        <div className="timeline-process-group timeline-process-group--activity-only" data-ui-surface="panel">
+          <ProcessActivityMark phase={activityPhase} />
+        </div>
       </div>,
     );
   }

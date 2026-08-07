@@ -1,5 +1,12 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.34 - 2026-08-07
+
+- Moved the Todo expansion into the footer's normal layout flow so its height is measured and the transcript always moves clear of the task list instead of being covered by a fixed popover.
+- Consolidated Todo, queued prompts, approvals, plan confirmation, questions, and context cleanup into one visual surface per bottom panel with flat internal rows and dividers.
+- Aggregated each turn's reasoning, progress text, tools, notices, compaction, and subagent activity into one process panel while keeping the final answer independent.
+- Added explicit panel/content surface markers and regression coverage for nested-panel prevention, transparent process rows, stable compact/detailed behavior, and responsive overflow safeguards.
+
 ## V2.0.33 - 2026-08-07
 
 - Added automatic interface scaling based on the DPI-adjusted usable display size plus an immediate 80%-125% manual scale control, and rebuilt Composer permission controls so they remain usable at narrow content widths.

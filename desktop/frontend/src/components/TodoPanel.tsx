@@ -3,7 +3,6 @@ import { Check, ChevronUp, Circle, CircleDot, Pin, X } from "lucide-react";
 import { useT } from "../lib/i18n";
 import { createTodoPanelState, isTodoPanelOpen, reduceTodoPanelState } from "../lib/todoPanelState";
 import type { Todo } from "../lib/tools";
-import { AnchoredPopover } from "./AnchoredPopover";
 import { Tooltip } from "./Tooltip";
 
 const CLOSE_DELAY_MS = 180;
@@ -11,7 +10,6 @@ const CLOSE_DELAY_MS = 180;
 export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos: Todo[]; onDismiss: () => void }) {
   const t = useT();
   const [panel, dispatch] = useReducer(reduceTodoPanelState, todoId, createTodoPanelState);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const currentRef = useRef<HTMLLIElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const open = isTodoPanelOpen(panel);
@@ -54,83 +52,81 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
 
   return (
     <div
-      className="todobar"
+      className={`todobar${open ? " todobar--open" : ""}`}
       onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
       onMouseLeave={scheduleTransientClose}
+      onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleTransientClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.preventDefault();
+          dispatch({ type: "close" });
+        }
+      }}
     >
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`todobar__trigger${panel.pinned ? " todobar__trigger--pinned" : ""}`}
-        aria-expanded={open}
-        aria-controls="todo-popover"
-        aria-label={`${activeText}. ${progressText}`}
-        title={activeText}
-        onClick={() => dispatch({ type: "toggle-pin" })}
-        onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
-        onBlur={scheduleTransientClose}
+      <section
+        className="todobar__surface"
+        data-ui-surface="panel"
+        aria-label={t("todo.title")}
       >
-        <span className="todobar__progress-track" aria-hidden="true">
-          <span className="todobar__progress-fill" style={{ width: `${Math.round((done / todos.length) * 100)}%` }} />
-        </span>
-        <span className="todobar__active-text">{activeText}</span>
-        <span className="todobar__progress-label" aria-hidden="true">{activeIndex}/{todos.length}</span>
-        <ChevronUp size={13} aria-hidden="true" />
-      </button>
-
-      <AnchoredPopover
-        open={open}
-        anchorRef={triggerRef}
-        onClose={() => dispatch({ type: "close" })}
-        className="todobar__popover"
-        align="center"
-        offset={6}
-      >
-        <section
-          id="todo-popover"
-          className="todobar__panel"
-          aria-label={t("todo.title")}
-          onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
-          onMouseLeave={scheduleTransientClose}
-          onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
-          onBlur={scheduleTransientClose}
+        <button
+          type="button"
+          className={`todobar__trigger${panel.pinned ? " todobar__trigger--pinned" : ""}`}
+          aria-expanded={open}
+          aria-controls="todo-details"
+          aria-label={`${activeText}. ${progressText}`}
+          title={activeText}
+          onClick={() => dispatch({ type: "toggle-pin" })}
         >
-          <header className="todobar__head">
-            <div className="todobar__heading">
-              <span className="todobar__title">{t("todo.title")}</span>
-              <span className="todobar__count">{done}/{todos.length}</span>
-            </div>
-            <div className="todobar__actions">
-              {panel.pinned && <Pin size={12} className="todobar__pin" aria-label={t("todo.pinned")} />}
-              <Tooltip label={t("todo.dismiss")}>
-                <button type="button" className="todobar__close" onClick={onDismiss}>
-                  <X size={13} />
-                </button>
-              </Tooltip>
-            </div>
-          </header>
-          <ul className="todobar__list">
-            {todos.map((todo, index) => (
-              <li
-                key={`${todo.content}-${index}`}
-                ref={todo.status === "in_progress" ? currentRef : undefined}
-                className={`todobar__item todobar__item--${todo.status}${todo.level ? " todobar__item--sub" : ""}`}
-              >
-                {todo.status === "completed" ? (
-                  <Check size={14} className="todobar__ico todobar__ico--done" />
-                ) : todo.status === "in_progress" ? (
-                  <CircleDot size={14} className="todobar__ico todobar__ico--active" />
-                ) : (
-                  <Circle size={14} className="todobar__ico" />
-                )}
-                <span className="todobar__text">
-                  {todo.status === "in_progress" && todo.activeForm ? todo.activeForm : todo.content}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </AnchoredPopover>
+          <span className="todobar__progress-track" aria-hidden="true">
+            <span className="todobar__progress-fill" style={{ width: `${Math.round((done / todos.length) * 100)}%` }} />
+          </span>
+          <span className="todobar__active-text">{activeText}</span>
+          <span className="todobar__progress-label" aria-hidden="true">{activeIndex}/{todos.length}</span>
+          <ChevronUp size={13} aria-hidden="true" />
+        </button>
+
+        {open && (
+          <div id="todo-details" className="todobar__details">
+            <header className="todobar__head">
+              <div className="todobar__heading">
+                <span className="todobar__title">{t("todo.title")}</span>
+                <span className="todobar__count">{done}/{todos.length}</span>
+              </div>
+              <div className="todobar__actions">
+                {panel.pinned && <Pin size={12} className="todobar__pin" aria-label={t("todo.pinned")} />}
+                <Tooltip label={t("todo.dismiss")}>
+                  <button type="button" className="todobar__close" onClick={onDismiss}>
+                    <X size={13} />
+                  </button>
+                </Tooltip>
+              </div>
+            </header>
+            <ul className="todobar__list">
+              {todos.map((todo, index) => (
+                <li
+                  key={`${todo.content}-${index}`}
+                  ref={todo.status === "in_progress" ? currentRef : undefined}
+                  className={`todobar__item todobar__item--${todo.status}${todo.level ? " todobar__item--sub" : ""}`}
+                >
+                  {todo.status === "completed" ? (
+                    <Check size={14} className="todobar__ico todobar__ico--done" />
+                  ) : todo.status === "in_progress" ? (
+                    <CircleDot size={14} className="todobar__ico todobar__ico--active" />
+                  ) : (
+                    <Circle size={14} className="todobar__ico" />
+                  )}
+                  <span className="todobar__text">
+                    {todo.status === "in_progress" && todo.activeForm ? todo.activeForm : todo.content}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

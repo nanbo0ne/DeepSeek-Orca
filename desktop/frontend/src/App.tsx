@@ -2773,7 +2773,7 @@ export default function App() {
           <footer className="footer" ref={footerRef}>
             <div className="footer-shelves">
               {activeQueuedPrompts.length > 0 && (
-                <div className="queued-prompts" aria-label={t("queuedPrompts.title")}>
+                <div className="queued-prompts" aria-label={t("queuedPrompts.title")} data-ui-surface="panel">
                 <div className="queued-prompts__head">
                   <span>{t("queuedPrompts.title")}</span>
                   <strong>{activeQueuedPrompts.length}</strong>
