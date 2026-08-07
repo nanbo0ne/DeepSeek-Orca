@@ -7,10 +7,10 @@
 - Fixed user and project provider configuration merging and protected provider/model saves from stale background refreshes, empty catalog responses, and concurrent settings snapshots.
 - Improved vision capability detection with provider metadata, protocol-specific probes, tolerant verification parsing, and per-model automatic/supported/unsupported overrides.
 - Separated image thumbnails and file chips from the blue user text bubble, enlarged the completed-turn summary, and replaced nested process cards with a flat chronological activity rail.
-- Synchronized Compact and Detailed switching across completed turns and reasoning rows, and fixed the question navigation rail so cold history is mounted before an immediate stable jump.
+- Synchronized Compact and Detailed switching across completed turns and reasoning rows, and fixed the question navigation rail so cold history is paged in the correct direction, mounted before an immediate stable jump, and triggered only once per pointer action.
 - Added image support to the custom right-click Paste command and kept native text, file, mixed clipboard, attachment failure, retry, and ordering behavior consistent.
 - Stopped the boot subagent test from writing `first review` fixtures into the real Windows profile and added a strict startup cleanup that removes only the exact leaked fixture signature.
-- Muted the empty Composer send arrow across themed styles, and made automatic proxy mode bypass loopback addresses so local model endpoints and provider tests are never routed through the Windows system proxy.
+- Muted the empty Composer send arrow across themed styles, kept failed-only attachment batches disabled, and made automatic proxy mode bypass loopback addresses so local model endpoints and provider tests are never routed through the Windows system proxy.
 
 ## V2.0.31 - 2026-08-02
 

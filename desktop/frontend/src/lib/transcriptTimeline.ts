@@ -23,6 +23,12 @@ export function requiredWarmPage(warmTurnCount: number, questionTurn: number, pa
   return Math.max(1, Math.ceil((warmTurnCount - Math.max(0, questionTurn)) / pageSize));
 }
 
+export function visibleWarmStart(warmTurnCount: number, page: number, pageSize: number): number {
+  if (warmTurnCount <= 0) return 0;
+  if (page <= 0 || pageSize <= 0) return warmTurnCount;
+  return Math.max(0, warmTurnCount - page * pageSize);
+}
+
 function visibleProcessItem(item: Item): item is TimelineProcessItem {
   if (item.kind === "assistant") return Boolean(item.reasoning) || item.streaming;
   if (item.kind === "tool") return !item.parentId && item.name !== "todo_write" && item.name !== "exit_plan_mode";

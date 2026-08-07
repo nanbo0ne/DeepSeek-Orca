@@ -1,5 +1,5 @@
 import { initialState, reducer, type Item } from "../lib/useController";
-import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, timelineKinds } from "../lib/transcriptTimeline";
+import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, timelineKinds, visibleWarmStart } from "../lib/transcriptTimeline";
 import { readFileSync } from "node:fs";
 
 let failed = 0;
@@ -130,6 +130,9 @@ equal("paused activity mark stays hidden", activityIndicatorPhase(chronology, tr
 equal("completed activity mark stays hidden", activityIndicatorPhase(failedStats, true, false, false), undefined);
 equal("latest hidden warm turn needs one page", requiredWarmPage(12, 11, 5), 1);
 equal("older warm turn requests enough pages before jumping", requiredWarmPage(12, 2, 5), 2);
+equal("cold history starts fully hidden", visibleWarmStart(70, 0, 20), 70);
+equal("one page reveals the newest warm turns", visibleWarmStart(70, 1, 20), 50);
+equal("enough pages reveal the oldest warm turn", visibleWarmStart(70, 4, 20), 0);
 
 const active = reducer(initialState, { type: "event", e: { kind: "turn_started" } });
 const done = reducer(active, { type: "event", e: { kind: "turn_done" } });
@@ -145,5 +148,7 @@ equal("process group no longer nests an outer ProcessCard", transcriptSource.inc
 equal("completed timeline has a flat container", transcriptSource.includes('className="completed-turn__timeline"'), true);
 equal("detailed mode controls completed turn expansion", transcriptSource.includes('setOpen(mode === "detailed")'), true);
 equal("question rail does not scroll the transcript via scrollIntoView", transcriptSource.includes('el?.scrollIntoView({ block: "nearest" })'), false);
+equal("warm pagination renders from the hidden-turn boundary", transcriptSource.includes("warmStartTurn = shownWarmStart"), true);
+equal("question marker mouse events do not bubble into the rail", transcriptSource.includes("e.stopPropagation();"), true);
 
 if (failed > 0) process.exit(1);

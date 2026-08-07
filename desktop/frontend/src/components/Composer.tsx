@@ -2383,7 +2383,7 @@ export function Composer({
                 <button
                   className="composer__btn composer__btn--send"
                   onClick={() => void submit()}
-                  disabled={submitting || pendingPaste > 0 || ((!text.trim() && attachments.length === 0 && workspaceRefs.length === 0) && !(goalModeOn && !activeGoal)) || disabled}
+                  disabled={submitting || pendingPaste > 0 || (!hasSendableContent && !(goalModeOn && !activeGoal)) || disabled}
                 >
                   <ArrowUp size={16} />
                 </button>

@@ -1,7 +1,7 @@
 ﻿import { createContext, memo, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Item, LiveStream } from "../lib/useController";
 import type { CheckpointMeta, JobView, ProcessDisplayMode } from "../lib/types";
-import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, type ActivityIndicatorPhase, type TimelineProcessItem } from "../lib/transcriptTimeline";
+import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, visibleWarmStart, type ActivityIndicatorPhase, type TimelineProcessItem } from "../lib/transcriptTimeline";
 import { useLayoutEffect } from "react";
 import { useT } from "../lib/i18n";
 import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
@@ -835,7 +835,7 @@ export function Transcript({
 
   // How many turns are in the cold zone (not yet shown).
   const warmTurnCount = turnGroups.length - Math.min(turnGroups.length, HOT_TURNS);
-  const shownWarmStart = Math.max(0, warmTurnCount - coldPage * WARM_PAGE_SIZE);
+  const shownWarmStart = visibleWarmStart(warmTurnCount, coldPage, WARM_PAGE_SIZE);
   const coldTurnCount = shownWarmStart;
   // The turn action menu
   const [openAction, setOpenAction] = useState<OpenTurnAction | null>(null);
@@ -1055,7 +1055,7 @@ const WarmZone = memo(function WarmZone({
   // 2. Warm zone: collapsed/expanded warm turn cards.
   let warmStartTurn = 0;
   if (turnGroups.length > HOT_TURNS) {
-    warmStartTurn = turnGroups.length - HOT_TURNS - shownWarmStart;
+    warmStartTurn = shownWarmStart;
     for (let g = warmStartTurn; g < turnGroups.length - HOT_TURNS; g++) {
       const group = turnGroups[g];
       if (!group) continue;
@@ -1323,7 +1323,7 @@ function QuestionJumpBar({
         setShowPreview(false);
       }}
     >
-      <div className="jump-scroll" onMouseDown={onRailMouseDown} onClick={onRailMouseDown}>
+      <div className="jump-scroll" onMouseDown={onRailMouseDown}>
         {questions.map((question, index) => (
           <button
             className="jump-item"
@@ -1331,7 +1331,10 @@ function QuestionJumpBar({
             type="button"
             data-turn={question.turn}
             aria-label={t("questionNav.jump", { n: question.turn + 1 })}
-            onMouseDown={(e) => onItemMouseDown(e, question)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onItemMouseDown(e, question);
+            }}
             onClick={(e) => {
               e.stopPropagation();
               if (e.detail === 0) scrollTo(question);

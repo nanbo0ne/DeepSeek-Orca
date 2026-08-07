@@ -115,6 +115,11 @@ check(
   "themed disabled send button stays muted",
 );
 check(
+  composer.includes("!hasSendableContent && !(goalModeOn && !activeGoal)") &&
+    !composer.includes("!text.trim() && attachments.length === 0 && workspaceRefs.length === 0"),
+  "failed attachments cannot leave the ordinary send button falsely enabled",
+);
+check(
   composer.includes("const COMPOSER_AUTO_MAX_LINES = 10") &&
     composer.includes("composerAutoInputMaxHeight(node)") &&
     composer.includes("node.scrollHeight > maxHeight + 1") &&
