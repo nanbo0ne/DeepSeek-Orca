@@ -123,3 +123,28 @@ func TestNormalizeDesktopOfficialProviderAccessEnsuresMimoAPI(t *testing.T) {
 		t.Fatalf("provider_access = %+v, want mimo-api", got)
 	}
 }
+
+func TestResolveModelBareNameHonorsMimoProviderAccess(t *testing.T) {
+	t.Setenv("MIMO_API_KEY", "test-key")
+	c := &Config{
+		DefaultModel: "mimo-api/mimo-v2.5-pro",
+		Desktop:      DesktopConfig{ProviderAccess: []string{"mimo-api"}},
+		Providers: []ProviderEntry{
+			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_API_KEY"},
+			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_API_KEY"},
+			{Name: "mimo-api", Kind: "openai", BaseURL: "https://api.xiaomimimo.com/v1", Models: []string{"mimo-v2.5", "mimo-v2.5-pro"}, Default: "mimo-v2.5-pro", APIKeyEnv: "MIMO_API_KEY"},
+		},
+	}
+
+	entry, ok := c.ResolveModel("mimo-v2.5")
+	if !ok || entry.Name != "mimo-api" || entry.BaseURL != "https://api.xiaomimimo.com/v1" {
+		t.Fatalf("bare MiMo model resolved to %+v, want mimo-api", entry)
+	}
+	ref, fallback, ok := c.ResolveModelWithFallback("mimo-flash/mimo-v2.5")
+	if !ok || !fallback || ref != "mimo-api/mimo-v2.5" {
+		t.Fatalf("legacy MiMo ref resolved to %q fallback=%v ok=%v", ref, fallback, ok)
+	}
+	if _, ok := c.ResolveModel("mimo-pro/mimo-v2.5-pro"); ok {
+		t.Fatal("disabled Mimo Token Plan alias must not resolve")
+	}
+}

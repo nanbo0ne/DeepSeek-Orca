@@ -109,6 +109,20 @@ func TestProviderViewFromEntry_FiltersNonChatModels(t *testing.T) {
 	}
 }
 
+func TestMimoAPITemplateEnablesRegularAndProModels(t *testing.T) {
+	entries, _, err := officialProviderTemplate("mimo-api")
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("officialProviderTemplate(mimo-api) = %+v, %v", entries, err)
+	}
+	want := []string{"mimo-v2.5", "mimo-v2.5-pro"}
+	if got := entries[0].ModelList(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Mimo API models = %v, want %v", got, want)
+	}
+	if got := entries[0].DefaultModel(); got != "mimo-v2.5-pro" {
+		t.Fatalf("Mimo API default = %q, want mimo-v2.5-pro", got)
+	}
+}
+
 func TestFetchProviderModelsFiltersNonChatModels(t *testing.T) {
 	t.Setenv("TEST_PROVIDER_KEY", "test-key")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -342,7 +356,7 @@ func TestVisionCapabilityOverrideCanReturnToAutomaticResult(t *testing.T) {
 	e := &cfg.Providers[0]
 	if err := visioncap.Load("").Put(visioncap.Capability{
 		ModelRef: visioncap.ModelRef(e), Key: visioncap.Key(e), Status: visioncap.Unsupported,
-		Source: visioncap.SourceProbe, Override: visioncap.OverrideAuto,
+		Source: visioncap.SourceProbe, Override: visioncap.OverrideAuto, ProbeVersion: visioncap.CurrentProbeVersion,
 	}); err != nil {
 		t.Fatal(err)
 	}

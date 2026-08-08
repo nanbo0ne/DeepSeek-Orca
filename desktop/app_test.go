@@ -673,11 +673,13 @@ func TestModelsForTabListsMimoAPIPaidAccess(t *testing.T) {
 
 	models := NewApp().Models()
 	refs := modelRefsFromView(models)
-	if !refs["mimo-api/mimo-v2.5-pro"] {
-		t.Fatalf("Models() refs = %+v, missing mimo-api/mimo-v2.5-pro", models)
+	for _, ref := range []string{"mimo-api/mimo-v2.5", "mimo-api/mimo-v2.5-pro"} {
+		if !refs[ref] {
+			t.Fatalf("Models() refs = %+v, missing %s", models, ref)
+		}
 	}
-	if len(models) != 1 {
-		t.Fatalf("Models() len = %d, want 1: %+v", len(models), models)
+	if len(models) != 2 {
+		t.Fatalf("Models() len = %d, want 2: %+v", len(models), models)
 	}
 }
 

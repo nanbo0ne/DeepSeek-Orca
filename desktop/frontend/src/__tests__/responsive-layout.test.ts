@@ -167,9 +167,15 @@ check(
 check(
   promptShelf.includes('data-ui-surface="panel"') &&
     transcript.includes('data-ui-surface="panel"') &&
+    !transcript.includes('className={`turn-stats-row turn-process-panel${open ? " turn-stats-row--open" : ""}`} data-ui-surface="panel"') &&
     !processCard.includes('data-ui-surface="panel"') &&
     !toolCard.includes('data-ui-surface="panel"'),
   "panel ownership stays on the shelf or turn while process and tool rows remain flat",
+);
+check(
+  css.includes(".turn-process-panel {\n  width: min(100%, 820px);\n  overflow: visible;\n  border: 0;\n  border-radius: 0;\n  background: transparent;") &&
+    !css.includes(".turn-process-panel > button"),
+  "completed-turn summary uses the original transparent inline treatment",
 );
 check(
   toolCard.includes('data-ui-surface="content"') &&

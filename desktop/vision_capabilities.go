@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,9 @@ import (
 )
 
 type VisionCapability = visioncap.Capability
+
+//go:embed build/appicon.png
+var visionProbeIconPNG []byte
 
 func (a *App) GetVisionCapabilities() []VisionCapability {
 	cfg, err := config.LoadForRoot(a.activeWorkspaceRoot())
@@ -56,17 +60,18 @@ func (a *App) ProbeModelVision(modelRef string) (VisionCapability, error) {
 	a.visionProbeRunMu.Lock()
 	defer a.visionProbeRunMu.Unlock()
 	current := store.Stored(entry)
-	_ = store.Put(VisionCapability{ModelRef: visioncap.ModelRef(entry), Key: key, Status: visioncap.Probing, Attempts: current.Attempts, Source: current.Source, Override: current.Override})
+	_ = store.Put(VisionCapability{ModelRef: visioncap.ModelRef(entry), Key: key, Status: visioncap.Probing, Attempts: current.Attempts, Source: visioncap.SourceProbe, Override: current.Override, ProbeVersion: visioncap.CurrentProbeVersion})
 	finishUnknown := func(reason error) (VisionCapability, error) {
 		result := VisionCapability{
-			ModelRef:  visioncap.ModelRef(entry),
-			Key:       key,
-			Status:    visioncap.Unknown,
-			Reason:    "vision probe failed",
-			Attempts:  current.Attempts + 1,
-			CheckedAt: time.Now().UnixMilli(),
-			Source:    visioncap.SourceProbe,
-			Override:  current.Override,
+			ModelRef:     visioncap.ModelRef(entry),
+			Key:          key,
+			Status:       visioncap.Unknown,
+			Reason:       "vision probe failed",
+			Attempts:     current.Attempts + 1,
+			CheckedAt:    time.Now().UnixMilli(),
+			Source:       visioncap.SourceProbe,
+			Override:     current.Override,
+			ProbeVersion: visioncap.CurrentProbeVersion,
 		}
 		if reason != nil {
 			result.Reason = reason.Error()
@@ -80,9 +85,9 @@ func (a *App) ProbeModelVision(modelRef string) (VisionCapability, error) {
 	if err != nil {
 		return finishUnknown(err)
 	}
-	ctx, cancel := context.WithTimeout(a.bootContext(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(a.bootContext(), 45*time.Second)
 	defer cancel()
-	result := visioncap.Probe(ctx, prov, entry)
+	result := visioncap.Probe(ctx, prov, entry, visionProbeIconPNG)
 	result.Override = current.Override
 	result.Attempts = current.Attempts + 1
 	if result.Status != visioncap.Unknown {
@@ -199,6 +204,29 @@ func (a *App) scheduleVisionProbes(modelRefs []string) {
 			_, _ = a.ProbeModelVision(ref)
 		}()
 	}
+}
+
+func (a *App) scheduleVisionProbesForKeyEnv(apiKeyEnv string) {
+	apiKeyEnv = strings.TrimSpace(apiKeyEnv)
+	if apiKeyEnv == "" {
+		return
+	}
+	cfg, err := config.LoadForRoot(a.activeWorkspaceRoot())
+	if err != nil {
+		return
+	}
+	access := providerAccessSet(cfg.Desktop.ProviderAccess)
+	refs := make([]string, 0)
+	for i := range cfg.Providers {
+		entry := &cfg.Providers[i]
+		if entry.APIKeyEnv != apiKeyEnv || !modelProviderAccessAllowed(access, entry.Name) {
+			continue
+		}
+		for _, model := range entry.ChatModelList() {
+			refs = append(refs, entry.Name+"/"+model)
+		}
+	}
+	a.scheduleVisionProbes(refs)
 }
 
 func shouldAutoProbeVision(c visioncap.Capability, now time.Time) bool {

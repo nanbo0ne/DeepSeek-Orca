@@ -9,23 +9,10 @@ export function isUIScale(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && (value === UI_SCALE_AUTO || (value >= UI_SCALE_MIN && value <= UI_SCALE_MAX && value % UI_SCALE_STEP === 0));
 }
 
-export function automaticUIScale(width: number, height: number): number {
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return 100;
-  const ratio = Math.min(width / 1920, height / 1080);
-  const rounded = Math.round((ratio * 100) / UI_SCALE_STEP) * UI_SCALE_STEP;
-  return Math.min(110, Math.max(90, rounded));
-}
-
-export function currentScreenSize(): { width: number; height: number } {
-  if (typeof window === "undefined") return { width: 1920, height: 1080 };
-  return {
-    width: window.screen?.availWidth || window.innerWidth || 1920,
-    height: window.screen?.availHeight || window.innerHeight || 1080,
-  };
-}
-
-export function effectiveUIScale(preference: number, size = currentScreenSize()): number {
-  return preference === UI_SCALE_AUTO ? automaticUIScale(size.width, size.height) : isUIScale(preference) ? preference : 100;
+export function effectiveUIScale(preference: number): number {
+  // Wails is PerMonitorV2-aware, so Windows has already applied the current
+  // monitor's DPI. Automatic mode must not add a second resolution-based zoom.
+  return preference === UI_SCALE_AUTO ? 100 : isUIScale(preference) ? preference : 100;
 }
 
 export function getUIScale(): number {
@@ -54,15 +41,4 @@ export function applyUIScale(preference: number): number {
 
 export function initUIScale(): void {
   applyUIScale(getUIScale());
-  if (typeof window === "undefined") return;
-  let lastWidth = window.screen?.availWidth;
-  let lastHeight = window.screen?.availHeight;
-  window.addEventListener("resize", () => {
-    const width = window.screen?.availWidth;
-    const height = window.screen?.availHeight;
-    if (width === lastWidth && height === lastHeight) return;
-    lastWidth = width;
-    lastHeight = height;
-    if (getUIScale() === UI_SCALE_AUTO) applyUIScale(UI_SCALE_AUTO);
-  });
 }

@@ -305,7 +305,7 @@ function CompletedTurn({
     : t("process.timeline.tokensPending");
   return (
     <>
-      <div className={`turn-stats-row turn-process-panel${open ? " turn-stats-row--open" : ""}`} data-ui-surface="panel">
+      <div className={`turn-stats-row turn-process-panel${open ? " turn-stats-row--open" : ""}`}>
         <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <span>{turnStatsLabel(t, stats)}</span>
           <ChevronRight size={12} aria-hidden="true" />

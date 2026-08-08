@@ -1,5 +1,13 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.35 - 2026-08-08
+
+- Restored completed-turn summaries to the lightweight transparent elapsed-time row, with expanded reasoning and tools rendered directly beneath it rather than inside a rounded outer panel.
+- Changed automatic interface scaling to follow Windows PerMonitorV2 DPI at native size on every resolution; manual 80%-125% scaling remains available as a relative override.
+- Rebuilt automatic vision probing around an isolated, history-free request containing the Orca icon and a random four-digit verification code, with per-endpoint/model caching and automatic checks for newly configured models.
+- Fixed model resolution so enabled full provider/model references remain stable across switching, controller rebuilds, effort changes, restoration, and background refresh, preventing Mimo API from being replaced by the hidden Mimo Token Plan compatibility provider.
+- Enabled both `mimo-v2.5` and `mimo-v2.5-pro` by default in the Mimo API template while preserving PRO as the default model and respecting later user selections.
+
 ## V2.0.34 - 2026-08-07
 
 - Moved the Todo expansion into the footer's normal layout flow so its height is measured and the transcript always moves clear of the task list instead of being covered by a fixed popover.

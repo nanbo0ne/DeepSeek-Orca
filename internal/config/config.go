@@ -1746,7 +1746,7 @@ func ensureMimoAPIProvider(c *Config) {
 		Name:          "mimo-api",
 		Kind:          "openai",
 		BaseURL:       "https://api.xiaomimimo.com/v1",
-		Models:        []string{"mimo-v2.5-pro"},
+		Models:        []string{"mimo-v2.5", "mimo-v2.5-pro"},
 		Default:       "mimo-v2.5-pro",
 		APIKeyEnv:     "MIMO_API_KEY",
 		ContextWindow: 1_048_576,
@@ -2101,32 +2101,60 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 	if ref == "" {
 		return nil, false
 	}
-	if access := desktopProviderAccessMap(c.Desktop.ProviderAccess); len(access) > 0 {
+	access := desktopProviderAccessMap(c.Desktop.ProviderAccess)
+	if len(access) > 0 {
 		ref = retargetDesktopOfficialRef(ref, access)
+	}
+	allowed := func(e *ProviderEntry) bool {
+		return e != nil && (len(access) == 0 || access[canonicalDesktopOfficialProviderName(e.Name)])
+	}
+	resolved := func(e *ProviderEntry, model string) (*ProviderEntry, bool) {
+		if !allowed(e) || !e.HasModel(model) {
+			return nil, false
+		}
+		cp := *e
+		cp.Model = model
+		applyResolvedModelPricing(&cp)
+		return &cp, true
 	}
 	// "provider/model"
 	if prov, model, ok := strings.Cut(ref, "/"); ok {
-		if e, found := c.Provider(prov); found && e.HasModel(model) {
-			cp := *e
-			cp.Model = model
-			applyResolvedModelPricing(&cp)
-			return &cp, true
+		if e, found := c.Provider(prov); found {
+			if entry, ok := resolved(e, model); ok {
+				return entry, true
+			}
 		}
 	}
 	// a provider name -> its default model
-	if e, found := c.Provider(ref); found {
+	if e, found := c.Provider(ref); found && allowed(e) {
 		cp := *e
 		cp.Model = e.DefaultModel()
 		applyResolvedModelPricing(&cp)
 		return &cp, true
 	}
-	// a bare model name -> the provider that lists it
+	// A bare model name must prefer the currently selected desktop provider.
+	// Legacy aliases may list the same model against another endpoint and must
+	// never hijack a tab when that provider is not in provider_access.
+	if len(access) > 0 {
+		if prov, _, ok := strings.Cut(strings.TrimSpace(c.DefaultModel), "/"); ok {
+			if e, found := c.Provider(prov); found {
+				if entry, ok := resolved(e, ref); ok {
+					return entry, true
+				}
+			}
+		}
+		for _, name := range c.Desktop.ProviderAccess {
+			name = canonicalDesktopOfficialProviderName(name)
+			if e, found := c.Provider(name); found {
+				if entry, ok := resolved(e, ref); ok {
+					return entry, true
+				}
+			}
+		}
+	}
 	for i := range c.Providers {
-		if c.Providers[i].HasModel(ref) {
-			cp := c.Providers[i]
-			cp.Model = ref
-			applyResolvedModelPricing(&cp)
-			return &cp, true
+		if entry, ok := resolved(&c.Providers[i], ref); ok {
+			return entry, true
 		}
 	}
 	return nil, false
@@ -2140,6 +2168,23 @@ func (c *Config) ResolveModelWithFallback(ref string) (resolvedRef string, fallb
 		if e, found := c.ResolveModel(ref); found {
 			return e.Name + "/" + e.Model, false, true
 		}
+		if _, model, hasModel := strings.Cut(ref, "/"); hasModel {
+			if e, found := c.ResolveModel(model); found {
+				return e.Name + "/" + e.Model, true, true
+			}
+		}
+	}
+	access := desktopProviderAccessMap(c.Desktop.ProviderAccess)
+	if len(access) > 0 {
+		for _, name := range c.Desktop.ProviderAccess {
+			name = canonicalDesktopOfficialProviderName(name)
+			p, found := c.Provider(name)
+			if !found || len(p.ModelList()) == 0 || !p.Configured() {
+				continue
+			}
+			return p.Name + "/" + p.DefaultModel(), true, true
+		}
+		return "", false, false
 	}
 	for i := range c.Providers {
 		p := &c.Providers[i]

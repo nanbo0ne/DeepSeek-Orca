@@ -6,11 +6,11 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.34)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -37,7 +37,7 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ### 多模态识图
 
-“设置 > 模型”中的识图模式分为 **关闭 / 自动 / 开启**。新安装默认使用“自动”：软件会针对每个 Provider 类型、接口地址和模型执行一次很小的独立探测，只向已确认支持视觉的模型发送图片字节。设置页会显示能力状态、检测时间、失败原因和“重新检测”入口。DeepSeek 被识别为不支持图片是正常结果，不影响其文本能力，也不属于版本验收失败。
+“设置 > 模型”中的识图模式分为 **关闭 / 自动 / 开启**。新安装默认使用“自动”：每个新接入模型会收到一次不写入历史的独立探测，其中包含 Orca 图标和随机验证码；只有正确读出验证码才确认支持视觉。能力按 Provider 类型、接口地址和模型分别缓存，设置页会显示状态、检测时间、失败原因和“重新检测”入口。DeepSeek 被识别为不支持图片是正常结果，不影响其文本能力，也不属于版本验收失败。
 
 输入框粘贴、拖入图片或工作区 `@` 引用支持 PNG、JPEG、WebP、GIF；每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。文本主模型只会得到图片引用，并可在确有需要时把本轮已验证图片交给支持视觉的 subagent。会话只保存路径、名称和 MIME，不保存 base64；目标模型能力未知或不支持时会明确报错，不能假装看过图片。当前版本不包含截图自动化或完整 computer-use。
 
@@ -77,7 +77,7 @@ QQ 和微信与桌面端共享自动化对话历史和助手画像。手机第�
 
 ## 安装后配置
 
-首次启动后打开“设置”，依次检查模型与 Provider、工作区和沙箱、工具库与 MCP、识图、过程展示、更新检查、外观和权限。设置页会显示当前配置路径；项目级指令文件可放在工作区支持的位置。
+首次启动后打开“设置”，依次检查模型与 Provider、工作区和沙箱、工具库与 MCP、识图、过程展示、更新检查、外观和权限。界面缩放默认“跟随 Windows”，完全使用系统 PerMonitorV2 DPI 后的原生大小；手动 `80%–125%` 倍率则在该大小上相对调整。设置页会显示当前配置路径；项目级指令文件可放在工作区支持的位置。
 
 ## 常见问题
 

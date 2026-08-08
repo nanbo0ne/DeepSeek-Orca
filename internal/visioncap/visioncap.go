@@ -21,25 +21,27 @@ import (
 )
 
 const (
-	Supported      = "supported"
-	Unsupported    = "unsupported"
-	Unknown        = "unknown"
-	Probing        = "probing"
-	OverrideAuto   = "auto"
-	SourceProbe    = "probe"
-	SourceMetadata = "metadata"
-	SourceManual   = "manual"
+	Supported           = "supported"
+	Unsupported         = "unsupported"
+	Unknown             = "unknown"
+	Probing             = "probing"
+	OverrideAuto        = "auto"
+	SourceProbe         = "probe"
+	SourceMetadata      = "metadata"
+	SourceManual        = "manual"
+	CurrentProbeVersion = 2
 )
 
 type Capability struct {
-	ModelRef  string `json:"modelRef"`
-	Key       string `json:"key"`
-	Status    string `json:"status"`
-	CheckedAt int64  `json:"checkedAt,omitempty"`
-	Reason    string `json:"reason,omitempty"`
-	Attempts  int    `json:"attempts,omitempty"`
-	Source    string `json:"source,omitempty"`
-	Override  string `json:"override,omitempty"`
+	ModelRef     string `json:"modelRef"`
+	Key          string `json:"key"`
+	Status       string `json:"status"`
+	CheckedAt    int64  `json:"checkedAt,omitempty"`
+	Reason       string `json:"reason,omitempty"`
+	Attempts     int    `json:"attempts,omitempty"`
+	Source       string `json:"source,omitempty"`
+	Override     string `json:"override,omitempty"`
+	ProbeVersion int    `json:"probeVersion,omitempty"`
 }
 
 type Store struct {
@@ -80,6 +82,12 @@ func Load(path string) *Store {
 		if item.Status == Probing {
 			item.Status = Unknown
 			item.Reason = "previous vision probe was interrupted"
+			s.Items[key] = item
+		}
+		if item.Source == SourceProbe && item.ProbeVersion < CurrentProbeVersion {
+			item.Status = Unknown
+			item.Reason = "vision probe needs refresh"
+			item.Attempts = 0
 			s.Items[key] = item
 		}
 	}
@@ -175,9 +183,9 @@ func (s *Store) List(cfg *config.Config) []Capability {
 
 // Probe sends a generated high-contrast digit image. It is intentionally
 // independent of desktop/Wails so fake providers can test every outcome.
-func Probe(ctx context.Context, p provider.Provider, e *config.ProviderEntry) Capability {
-	code, data, err := probeImage()
-	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli()}
+func Probe(ctx context.Context, p provider.Provider, e *config.ProviderEntry, iconPNG []byte) Capability {
+	code, data, err := probeImage(iconPNG)
+	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli(), Source: SourceProbe, ProbeVersion: CurrentProbeVersion}
 	if err != nil {
 		c.Reason = err.Error()
 		return c
@@ -186,8 +194,8 @@ func Probe(ctx context.Context, p provider.Provider, e *config.ProviderEntry) Ca
 }
 
 func probeWithImage(ctx context.Context, p provider.Provider, e *config.ProviderEntry, code, data string) Capability {
-	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli(), Source: SourceProbe, Override: OverrideAuto}
-	req := provider.Request{Temperature: 0, MaxTokens: 32, Messages: []provider.Message{{Role: provider.RoleUser, Content: "Read the four digits in this test image. Reply with the digits only.", Images: []provider.ImageContent{{Name: "vision-probe.png", MediaType: "image/png", Data: data}}}}}
+	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli(), Source: SourceProbe, Override: OverrideAuto, ProbeVersion: CurrentProbeVersion}
+	req := provider.Request{Temperature: 0, MaxTokens: 1024, Messages: []provider.Message{{Role: provider.RoleUser, Content: "Inspect the attached DeepSeek-Orca icon test image. Read the four-digit code printed below the icon and reply with the digits only.", Images: []provider.ImageContent{{Name: "orca-vision-probe.png", MediaType: "image/png", Data: data}}}}}
 	ch, err := p.Stream(ctx, req)
 	if err != nil {
 		c.Status = statusForProbeError(err)
@@ -210,13 +218,28 @@ func probeWithImage(ctx context.Context, p provider.Provider, e *config.Provider
 		c.Status = Supported
 		return c
 	}
-	c.Status = Unsupported
+	if explicitlyRejectsImageAnswer(answer) {
+		c.Status = Unsupported
+		c.Reason = "model explicitly stated that it cannot inspect images"
+		return c
+	}
+	c.Status = Unknown
 	if answer == "" {
-		c.Reason = "model returned no readable image result"
+		c.Reason = "probe completed without a verifiable final answer"
 	} else {
-		c.Reason = "model accepted the request but did not read the probe code"
+		c.Reason = "probe response did not contain the test code"
 	}
 	return c
+}
+
+func explicitlyRejectsImageAnswer(answer string) bool {
+	message := strings.ToLower(strings.TrimSpace(answer))
+	if message == "" {
+		return false
+	}
+	mentionsImage := strings.Contains(message, "image") || strings.Contains(message, "vision") || strings.Contains(message, "图片") || strings.Contains(message, "图像")
+	rejects := strings.Contains(message, "cannot") || strings.Contains(message, "can't") || strings.Contains(message, "unable") || strings.Contains(message, "not support") || strings.Contains(message, "无法") || strings.Contains(message, "不支持")
+	return mentionsImage && rejects
 }
 
 func probeAnswerMatches(answer, code string) bool {
@@ -279,31 +302,48 @@ var digitRows = [10][7]string{
 	{"111", "101", "101", "111", "101", "101", "111"}, {"111", "101", "101", "111", "001", "001", "111"},
 }
 
-func probeImage() (string, string, error) {
+func probeImage(iconPNG []byte) (string, string, error) {
 	raw := make([]byte, 4)
 	if _, err := rand.Read(raw); err != nil {
 		return "", "", err
 	}
 	code := fmt.Sprintf("%d%d%d%d", raw[0]%10, raw[1]%10, raw[2]%10, raw[3]%10)
-	img := image.NewRGBA(image.Rect(0, 0, 220, 100))
+	img := image.NewRGBA(image.Rect(0, 0, 320, 230))
 	white := color.RGBA{255, 255, 255, 255}
 	black := color.RGBA{15, 23, 42, 255}
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 220; x++ {
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
 			img.Set(x, y, white)
+		}
+	}
+	if len(iconPNG) > 0 {
+		icon, _, decodeErr := image.Decode(bytes.NewReader(iconPNG))
+		if decodeErr != nil {
+			return "", "", fmt.Errorf("decode probe icon: %w", decodeErr)
+		}
+		src := icon.Bounds()
+		const iconSize = 128
+		const iconX = (320 - iconSize) / 2
+		const iconY = 10
+		for y := 0; y < iconSize; y++ {
+			for x := 0; x < iconSize; x++ {
+				sx := src.Min.X + x*src.Dx()/iconSize
+				sy := src.Min.Y + y*src.Dy()/iconSize
+				img.Set(iconX+x, iconY+y, icon.At(sx, sy))
+			}
 		}
 	}
 	for i, ch := range code {
 		d := int(ch - '0')
-		ox := 18 + i*50
+		ox := 46 + i*58
 		for row, bits := range digitRows[d] {
 			for col, bit := range bits {
 				if bit != '1' {
 					continue
 				}
-				for yy := 0; yy < 10; yy++ {
-					for xx := 0; xx < 10; xx++ {
-						img.Set(ox+col*10+xx, 15+row*10+yy, black)
+				for yy := 0; yy < 12; yy++ {
+					for xx := 0; xx < 12; xx++ {
+						img.Set(ox+col*12+xx, 145+row*12+yy, black)
 					}
 				}
 			}

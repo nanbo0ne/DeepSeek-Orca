@@ -840,7 +840,7 @@ func officialProviderTemplate(kind string) ([]config.ProviderEntry, string, erro
 			Name:          "mimo-api",
 			Kind:          "openai",
 			BaseURL:       "https://api.xiaomimimo.com/v1",
-			Models:        []string{"mimo-v2.5-pro"},
+			Models:        []string{"mimo-v2.5", "mimo-v2.5-pro"},
 			Default:       "mimo-v2.5-pro",
 			APIKeyEnv:     "MIMO_API_KEY",
 			ContextWindow: 1_048_576,
@@ -992,7 +992,7 @@ func (a *App) AddOfficialProviderAccess(kind, key string) error {
 			return err
 		}
 	}
-	return a.applyConfigChange(func(c *config.Config) error {
+	err = a.applyConfigChange(func(c *config.Config) error {
 		names := make([]string, 0, len(entries))
 		for _, e := range entries {
 			if err := c.UpsertProvider(e); err != nil {
@@ -1003,6 +1003,17 @@ func (a *App) AddOfficialProviderAccess(kind, key string) error {
 		addProviderAccess(c, names...)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	refs := make([]string, 0)
+	for _, entry := range entries {
+		for _, model := range entry.ChatModelList() {
+			refs = append(refs, entry.Name+"/"+model)
+		}
+	}
+	a.scheduleVisionProbes(refs)
+	return nil
 }
 
 // FetchProviderModels probes the provider's OpenAI-compatible model-list
@@ -1273,7 +1284,11 @@ func (a *App) SetProviderKey(apiKeyEnv, value string) error {
 	if err := upsertDotEnv(apiKeyEnv, value); err != nil {
 		return err
 	}
-	return a.rebuild()
+	if err := a.rebuild(); err != nil {
+		return err
+	}
+	a.scheduleVisionProbesForKeyEnv(apiKeyEnv)
+	return nil
 }
 
 // ClearProviderKey removes a provider secret from the global credentials file

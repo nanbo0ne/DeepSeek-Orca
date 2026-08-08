@@ -2499,14 +2499,10 @@ a[href] {
 }
 .turn-process-panel {
   width: min(100%, 820px);
-  overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--bg-elev);
-}
-.turn-process-panel > button {
-  width: 100%;
-  padding: 7px 9px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .turn-stats-row > button {
   display: inline-flex;
@@ -2531,8 +2527,8 @@ a[href] {
   color: var(--fg-faint);
 }
 .turn-process-panel .turn-stats-row__tokens {
-  margin: 0;
-  padding: 6px 10px 0;
+  margin: 0 0 4px;
+  padding: 0;
 }
 .transcript-follow {
   position: absolute;
@@ -18974,16 +18970,16 @@ a[href] {
   border-left-color: var(--border-soft);
 }
 .completed-turn__details {
-  margin-top: 0;
-  width: 100%;
-  border-top: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
+  margin-top: 3px;
+  width: min(100%, 820px);
+  border-top: 0;
 }
 .completed-turn__timeline {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding: 3px 0 5px 18px;
+  padding: 0 0 5px 2px;
 }
 .completed-turn__timeline > .msg {
   margin: 4px 0;

@@ -4,11 +4,11 @@ This is the desktop-focused English entry point. The current build is the engine
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.34)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
+- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
 
 ## Scope
 
@@ -18,7 +18,7 @@ Normal mode handles routine conversation, research, writing, analysis, and every
 
 Phone messages automatically create or restore an automation topic. A low-token no-tool check separates conversations after 30 minutes of inactivity, while `/continue` and `/new` provide explicit control. Remote mappings, one-time onboarding state, and shared session history persist across restarts; desktop and mobile turns targeting one transcript are serialized.
 
-Vision defaults to Auto. The app probes capability per model and endpoint with one small isolated request, sends images only to confirmed visual models, and can route selected current-turn images from a text-only main model to a visual subagent. DeepSeek being detected as unsupported is expected. Session files keep references, not image base64.
+Vision defaults to Auto. Each newly configured model is probed independently with a history-free Orca-icon verification image, images are sent only to confirmed visual models, and selected current-turn images can be routed from a text-only main model to a visual subagent. DeepSeek being detected as unsupported is expected. Session files keep references, not image base64. Interface scaling follows Windows DPI by default, with an optional relative 80%-125% override.
 
 Process display can be Compact or Detailed and defaults to Compact. Compact process rows can be repeatedly expanded and collapsed, while an optional theme-blue spinner appears below the current turn when enabled. It rotates clockwise for model activity and counterclockwise for tool activity. Successful turns collapse to elapsed time and the final answer; expanding restores the flat chronological activity rail. Failed, cancelled, interrupted, and active turns remain expanded. Conversation history paints before auxiliary status during switches, plain text pastes directly into the composer, and the input grows automatically for up to ten lines. Normal mode always retains the complete built-in engineering prompt and requires relevant post-write verification.
 

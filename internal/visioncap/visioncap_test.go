@@ -1,8 +1,12 @@
 package visioncap
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
+	"image"
+	"image/png"
 	"path/filepath"
 	"testing"
 
@@ -47,7 +51,7 @@ func TestProbeWithImageSupported(t *testing.T) {
 	if p.req.Messages[0].Images[0].Data != "TEST_IMAGE_DATA" {
 		t.Fatalf("probe image data = %q", p.req.Messages[0].Images[0].Data)
 	}
-	if len(p.req.Tools) != 0 || p.req.Temperature != 0 || p.req.MaxTokens != 32 {
+	if len(p.req.Tools) != 0 || p.req.Temperature != 0 || p.req.MaxTokens != 1024 {
 		t.Fatalf("probe request = %+v", p.req)
 	}
 }
@@ -65,12 +69,47 @@ func TestProbeAcceptsWrappedStandaloneCode(t *testing.T) {
 	}
 }
 
+func TestProbeImageComposesIconAndRandomCode(t *testing.T) {
+	var icon bytes.Buffer
+	if err := png.Encode(&icon, image.NewRGBA(image.Rect(0, 0, 8, 8))); err != nil {
+		t.Fatal(err)
+	}
+	code, encoded, err := probeImage(icon.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(code) != 4 {
+		t.Fatalf("probe code length = %d, want 4", len(code))
+	}
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	composite, err := png.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := composite.Bounds().Size(); got.X != 320 || got.Y != 230 {
+		t.Fatalf("probe image size = %v, want 320x230", got)
+	}
+}
+
 func TestProbeWithImageUnsupported(t *testing.T) {
-	for _, answer := range []string{"", "I cannot inspect images"} {
+	for _, answer := range []string{"I cannot inspect images", "我无法查看图片"} {
 		p := &fakeProvider{chunks: []provider.Chunk{{Type: provider.ChunkText, Text: answer}, {Type: provider.ChunkDone}}}
 		got := probeWithImage(context.Background(), p, testEntry(), "4821", "data")
 		if got.Status != Unsupported || got.Reason == "" {
 			t.Fatalf("answer %q capability = %+v, want unsupported with reason", answer, got)
+		}
+	}
+}
+
+func TestProbeWithoutVerifiableAnswerStaysUnknown(t *testing.T) {
+	for _, answer := range []string{"", "The icon is blue"} {
+		p := &fakeProvider{chunks: []provider.Chunk{{Type: provider.ChunkText, Text: answer}, {Type: provider.ChunkDone}}}
+		got := probeWithImage(context.Background(), p, testEntry(), "4821", "data")
+		if got.Status != Unknown || got.Reason == "" {
+			t.Fatalf("answer %q capability = %+v, want unknown with reason", answer, got)
 		}
 	}
 }
@@ -104,7 +143,7 @@ func TestManualOverrideMasksStoredProbeResult(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "vision.json")
 	store := Load(path)
 	e := testEntry()
-	if err := store.Put(Capability{Key: Key(e), Status: Unsupported, Source: SourceProbe, Override: Supported}); err != nil {
+	if err := store.Put(Capability{Key: Key(e), Status: Unsupported, Source: SourceProbe, Override: Supported, ProbeVersion: CurrentProbeVersion}); err != nil {
 		t.Fatal(err)
 	}
 	if got := Load(path).Get(e); got.Status != Supported || got.Source != SourceManual {
@@ -145,5 +184,18 @@ func TestParallelStoreInstancesMergeResults(t *testing.T) {
 	loaded := Load(path)
 	if len(loaded.Items) != 2 || loaded.Items["a"].Status != Supported || loaded.Items["b"].Status != Unsupported {
 		t.Fatalf("merged items = %+v", loaded.Items)
+	}
+}
+
+func TestOldProbeResultIsInvalidated(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vision.json")
+	store := Load(path)
+	e := testEntry()
+	if err := store.Put(Capability{Key: Key(e), Status: Unsupported, Source: SourceProbe, ProbeVersion: 1}); err != nil {
+		t.Fatal(err)
+	}
+	got := Load(path).Stored(e)
+	if got.Status != Unknown || got.Attempts != 0 || got.Reason != "vision probe needs refresh" {
+		t.Fatalf("legacy probe result = %+v, want fresh unknown", got)
 	}
 }

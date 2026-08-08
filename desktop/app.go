@@ -3805,6 +3805,11 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	}
 	entry, ok := cfg.ResolveModel(name)
 	if !ok {
+		if providerName, _, hasModel := strings.Cut(name, "/"); hasModel {
+			if providerEntry, found := cfg.Provider(providerName); found && !modelProviderAccessAllowed(providerAccessSet(cfg.Desktop.ProviderAccess), providerEntry.Name) {
+				return fmt.Errorf("model %q is not available because provider %q is not added", name, providerEntry.Name)
+			}
+		}
 		return fmt.Errorf("unknown model %q", name)
 	}
 	if !modelProviderAccessAllowed(providerAccessSet(cfg.Desktop.ProviderAccess), entry.Name) {

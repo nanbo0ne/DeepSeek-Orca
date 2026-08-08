@@ -6,11 +6,11 @@ This repository's desktop product is the **engineering edition**. It exposes two
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.34/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.34)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -37,7 +37,7 @@ Use DeepSeek, OpenAI-compatible providers, and Anthropic-compatible providers. C
 
 ### Vision attachments
 
-Vision under Settings > Models offers **Off**, **Auto**, and **On**. New installations default to Auto: provider model metadata is used when available, otherwise each configured model is checked with one small, isolated request, and image bytes are sent only to models confirmed to support vision. Capability is tracked per provider type, endpoint, and model, with automatic, manually supported, and manually unsupported choices plus recheck controls in Settings. DeepSeek being marked unsupported is expected and does not affect text use.
+Vision under Settings > Models offers **Off**, **Auto**, and **On**. New installations default to Auto: provider model metadata is used when available, otherwise each newly configured model is checked by a history-free request containing the Orca icon and a random verification code. Image bytes are sent only to models confirmed to support vision. Capability is tracked independently per provider type, endpoint, and model, with automatic, manually supported, and manually unsupported choices plus recheck controls in Settings. DeepSeek being marked unsupported is expected and does not affect text use.
 
 Pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files remain limited to 8 images per turn, 20 MB total, and 10 MB per image. A text-only main model receives references rather than image bytes and may explicitly delegate selected current-turn images to a confirmed vision-capable subagent. Sessions store paths, names, and MIME types, never image base64; an unsupported or unknown target returns a clear error instead of pretending it saw the image. Screenshot automation and full computer-use are outside this edition.
 
@@ -83,7 +83,7 @@ Tool execution is visible in the transcript. Approval, sandbox, workspace roots,
 
 ## Configuration
 
-After first launch, open Settings and configure models and providers, workspace and sandbox behavior, Tool Library and MCP servers, vision, process display, update checks, language, appearance, automatic or manual 80%-125% interface scaling, permissions, and approval defaults. The app exposes the active configuration path in Settings. Project-local instructions can be supplied through the supported instruction files in the workspace.
+After first launch, open Settings and configure models and providers, workspace and sandbox behavior, Tool Library and MCP servers, vision, process display, update checks, language, appearance, permissions, and approval defaults. Interface scaling follows Windows and its PerMonitorV2 DPI handling by default; an optional 80%-125% manual scale is applied relative to that native size. The app exposes the active configuration path in Settings. Project-local instructions can be supplied through the supported instruction files in the workspace.
 
 ## Troubleshooting
 

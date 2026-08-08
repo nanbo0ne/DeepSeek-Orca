@@ -2332,7 +2332,7 @@ function ProvidersSection({ s, busy, apply }: SectionProps) {
     if (!draft || !provider || models.length === 0) return;
     let saved = false;
     await apply(async () => {
-      await app.SaveProvider({ ...provider, models, default: providerDefaultModel(provider.default, models) });
+      await app.UpdateProviderModels(provider.name, models, providerDefaultModel(provider.default, models));
       saved = true;
     });
     if (!saved) return;
