@@ -91,7 +91,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		}
 		fmt.Fprintf(&b, "close_behavior = %q   # desktop: quit|background when the window close button is clicked\n", c.DesktopCloseBehavior())
 		fmt.Fprintf(&b, "check_updates = %v   # desktop: check for new versions on startup\n", c.DesktopCheckUpdates())
-		fmt.Fprintf(&b, "ui_scale = %d   # desktop: 0 = automatic; otherwise 80..125 in five-percent increments\n", c.DesktopUIScale())
+		fmt.Fprintf(&b, "ui_scale = %d   # desktop: 0 = follow Windows DPI; otherwise 80..125 in five-percent increments\n", c.DesktopUIScale())
 		if len(c.Desktop.ProviderAccess) > 0 {
 			fmt.Fprintf(&b, "provider_access = %s   # desktop settings: providers shown on Settings > Model > Access\n", renderStringArray(c.Desktop.ProviderAccess))
 		}
@@ -102,6 +102,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "vision_enabled = %v   # legacy compatibility; true maps to on\n", c.DesktopVisionMode() == VisionModeOn)
 		fmt.Fprintf(&b, "assistant_auto_memory_enabled = %v   # desktop: assistant mode silently updates profile memories when leaving a conversation\n", c.DesktopAssistantAutoMemoryEnabled())
 		fmt.Fprintf(&b, "assistant_memory_recall_enabled = %v   # desktop: assistant mode injects assistant memories before each turn\n", c.DesktopAssistantMemoryRecallEnabled())
+		fmt.Fprintf(&b, "automation_full_access_approved = %v   # desktop: one-time consent for trusted Automation Workspace tool execution\n", c.Desktop.AutomationFullAccess)
 		b.WriteString("\n")
 
 		b.WriteString("[notifications]\n")

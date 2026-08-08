@@ -11,7 +11,6 @@ import (
 
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/event"
 )
 
@@ -27,7 +26,11 @@ type botSessionUpdatedEvent struct {
 }
 
 func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg bot.InboundMessage) (bot.SessionChoice, error) {
-	topicID := newTopicID()
+	mainTopic, err := a.ensureAutomationMainTopic()
+	if err != nil {
+		return bot.SessionChoice{}, err
+	}
+	topicID := mainTopic.ID
 	root := automationWorkspaceRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return bot.SessionChoice{}, err
@@ -37,14 +40,7 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 		return bot.SessionChoice{}, err
 	}
 
-	title := "自动化新对话"
-	if err := setTopicTitleWithSource(root, topicID, title, topicTitleSourceAuto); err != nil {
-		return bot.SessionChoice{}, err
-	}
-	_ = setTopicCreatedAt(root, topicID, time.Now().UnixMilli())
-	f := loadProjectsFile()
-	f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
-	_ = saveProjectsFile(f)
+	title := automationMainTopicTitle
 
 	path := agent.NewSessionPath(dir, "bot")
 	sess := agent.NewSession("")
@@ -75,29 +71,11 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 }
 
 func (a *App) restoreDesktopBotSession(_ context.Context, remoteKey string, msg bot.InboundMessage) (bot.SessionChoice, bool, error) {
-	cfg, err := config.Load()
+	mainTopic, err := a.ensureAutomationMainTopic()
 	if err != nil {
 		return bot.SessionChoice{}, false, err
 	}
-	provider := strings.ToLower(strings.TrimSpace(string(msg.Platform)))
-	topicID := ""
-	for _, connection := range cfg.Bot.Connections {
-		if strings.ToLower(strings.TrimSpace(connection.Provider)) != provider {
-			continue
-		}
-		for _, mapping := range connection.SessionMappings {
-			if strings.TrimSpace(mapping.RemoteID) == strings.TrimSpace(remoteKey) {
-				topicID = strings.TrimSpace(mapping.SessionID)
-				break
-			}
-		}
-		if topicID != "" {
-			break
-		}
-	}
-	if topicID == "" {
-		return bot.SessionChoice{}, false, nil
-	}
+	topicID := mainTopic.ID
 	path, _ := a.findKnownTopicSession(topicID)
 	if strings.TrimSpace(path) == "" {
 		return bot.SessionChoice{}, false, nil
@@ -112,10 +90,8 @@ func (a *App) restoreDesktopBotSession(_ context.Context, remoteKey string, msg 
 			lastActivity = stat.ModTime()
 		}
 	}
-	title := strings.TrimSpace(meta.TopicTitle)
-	if title == "" {
-		title = topicTitleForTab(scopeAutomation, automationWorkspaceRoot(), topicID)
-	}
+	title := automationMainTopicTitle
+	_ = a.rememberBotAutomationSession(msg.Platform, remoteKey, topicID)
 	return bot.SessionChoice{
 		TopicID: topicID, Path: path, Title: title, Location: "自动化工作区",
 		WorkspaceRoot: automationWorkspaceRoot(), LastActivity: lastActivity,
@@ -186,6 +162,10 @@ func (a *App) openTabForSession(sessionPath string) *WorkspaceTab {
 	if want == "" {
 		return nil
 	}
+	topicID := ""
+	if meta, ok, _ := agent.LoadBranchMeta(sessionPath); ok && meta.Scope == scopeAutomation {
+		topicID = strings.TrimSpace(meta.TopicID)
+	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	for _, tab := range a.tabs {
@@ -194,6 +174,13 @@ func (a *App) openTabForSession(sessionPath string) *WorkspaceTab {
 		}
 		if canonicalBotSessionPath(tab.currentSessionPath()) == want {
 			return tab
+		}
+	}
+	if topicID != "" {
+		for _, tab := range a.tabs {
+			if tab != nil && tab.Scope == scopeAutomation && strings.TrimSpace(tab.TopicID) == topicID {
+				return tab
+			}
 		}
 	}
 	return nil

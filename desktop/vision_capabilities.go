@@ -27,7 +27,10 @@ func (a *App) GetVisionCapabilities() []VisionCapability {
 	defer a.visionProbeMu.Unlock()
 	for i := range items {
 		if a.visionProbing[items[i].Key] {
-			items[i].Status = visioncap.Probing
+			items[i].AutomaticStatus = visioncap.Probing
+			if items[i].Override == "" || items[i].Override == visioncap.OverrideAuto {
+				items[i].Status = visioncap.Probing
+			}
 			items[i].Reason = ""
 		}
 	}
@@ -251,9 +254,10 @@ func (a *App) scheduleConfiguredVisionProbes() {
 			return
 		}
 		refs := make([]string, 0)
+		access := providerAccessSet(cfg.Desktop.ProviderAccess)
 		for i := range cfg.Providers {
 			providerEntry := &cfg.Providers[i]
-			if !providerEntry.Configured() {
+			if !providerEntry.Configured() || !modelProviderAccessAllowed(access, providerEntry.Name) {
 				continue
 			}
 			for _, model := range providerEntry.ChatModelList() {

@@ -29,19 +29,20 @@ const (
 	SourceProbe         = "probe"
 	SourceMetadata      = "metadata"
 	SourceManual        = "manual"
-	CurrentProbeVersion = 2
+	CurrentProbeVersion = 3
 )
 
 type Capability struct {
-	ModelRef     string `json:"modelRef"`
-	Key          string `json:"key"`
-	Status       string `json:"status"`
-	CheckedAt    int64  `json:"checkedAt,omitempty"`
-	Reason       string `json:"reason,omitempty"`
-	Attempts     int    `json:"attempts,omitempty"`
-	Source       string `json:"source,omitempty"`
-	Override     string `json:"override,omitempty"`
-	ProbeVersion int    `json:"probeVersion,omitempty"`
+	ModelRef        string `json:"modelRef"`
+	Key             string `json:"key"`
+	Status          string `json:"status"`
+	AutomaticStatus string `json:"automaticStatus,omitempty"`
+	CheckedAt       int64  `json:"checkedAt,omitempty"`
+	Reason          string `json:"reason,omitempty"`
+	Attempts        int    `json:"attempts,omitempty"`
+	Source          string `json:"source,omitempty"`
+	Override        string `json:"override,omitempty"`
+	ProbeVersion    int    `json:"probeVersion,omitempty"`
 }
 
 type Store struct {
@@ -111,6 +112,7 @@ func ModelRef(e *config.ProviderEntry) string {
 
 func (s *Store) Get(e *config.ProviderEntry) Capability {
 	c := s.Stored(e)
+	c.AutomaticStatus = c.Status
 	if c.Override == Supported || c.Override == Unsupported {
 		c.Status = c.Override
 		c.Source = SourceManual
@@ -126,6 +128,9 @@ func (s *Store) Stored(e *config.ProviderEntry) Capability {
 	defer s.mu.Unlock()
 	if c, ok := s.Items[k]; ok {
 		c.ModelRef = ModelRef(e)
+		if c.AutomaticStatus == "" {
+			c.AutomaticStatus = c.Status
+		}
 		return c
 	}
 	return Capability{ModelRef: ModelRef(e), Key: k, Status: Unknown, Override: OverrideAuto}
@@ -195,35 +200,49 @@ func Probe(ctx context.Context, p provider.Provider, e *config.ProviderEntry, ic
 
 func probeWithImage(ctx context.Context, p provider.Provider, e *config.ProviderEntry, code, data string) Capability {
 	c := Capability{ModelRef: ModelRef(e), Key: Key(e), Status: Unknown, CheckedAt: time.Now().UnixMilli(), Source: SourceProbe, Override: OverrideAuto, ProbeVersion: CurrentProbeVersion}
-	req := provider.Request{Temperature: 0, MaxTokens: 1024, Messages: []provider.Message{{Role: provider.RoleUser, Content: "Inspect the attached DeepSeek-Orca icon test image. Read the four-digit code printed below the icon and reply with the digits only.", Images: []provider.ImageContent{{Name: "orca-vision-probe.png", MediaType: "image/png", Data: data}}}}}
+	req := provider.Request{Temperature: 0, MaxTokens: 1024, Messages: []provider.Message{{Role: provider.RoleUser, Content: "Inspect the attached Orca test image. Report the four-digit code, the color of the large marker, and its position. Reply as: CODE COLOR POSITION.", Images: []provider.ImageContent{{Name: "orca-vision-probe.png", MediaType: "image/png", Data: data}}}}}
 	ch, err := p.Stream(ctx, req)
 	if err != nil {
 		c.Status = statusForProbeError(err)
+		c.AutomaticStatus = c.Status
 		c.Reason = summarizeError(err)
 		return c
 	}
-	var b strings.Builder
+	var visible strings.Builder
+	var reasoning strings.Builder
 	for chunk := range ch {
 		if chunk.Type == provider.ChunkText {
-			b.WriteString(chunk.Text)
+			visible.WriteString(chunk.Text)
+		}
+		if chunk.Type == provider.ChunkReasoning {
+			reasoning.WriteString(chunk.Text)
 		}
 		if chunk.Type == provider.ChunkError && chunk.Err != nil {
 			c.Status = statusForProbeError(chunk.Err)
+			c.AutomaticStatus = c.Status
 			c.Reason = summarizeError(chunk.Err)
 			return c
 		}
 	}
-	answer := strings.TrimSpace(b.String())
+	answer := strings.TrimSpace(visible.String())
 	if probeAnswerMatches(answer, code) {
 		c.Status = Supported
+		c.AutomaticStatus = Supported
+		return c
+	}
+	if answer == "" && probeAnswerMatches(reasoning.String(), code) {
+		c.Status = Supported
+		c.AutomaticStatus = Supported
 		return c
 	}
 	if explicitlyRejectsImageAnswer(answer) {
 		c.Status = Unsupported
+		c.AutomaticStatus = Unsupported
 		c.Reason = "model explicitly stated that it cannot inspect images"
 		return c
 	}
 	c.Status = Unknown
+	c.AutomaticStatus = Unknown
 	if answer == "" {
 		c.Reason = "probe completed without a verifiable final answer"
 	} else {
@@ -244,6 +263,16 @@ func explicitlyRejectsImageAnswer(answer string) bool {
 
 func probeAnswerMatches(answer, code string) bool {
 	answer = strings.TrimSpace(answer)
+	if strings.Contains(code, "|") {
+		normalized := strings.ToUpper(answer)
+		for _, part := range strings.Split(code, "|") {
+			part = strings.TrimSpace(strings.ToUpper(part))
+			if part != "" && !strings.Contains(normalized, part) {
+				return false
+			}
+		}
+		return true
+	}
 	if answer == code {
 		return true
 	}
@@ -303,12 +332,23 @@ var digitRows = [10][7]string{
 }
 
 func probeImage(iconPNG []byte) (string, string, error) {
-	raw := make([]byte, 4)
+	raw := make([]byte, 6)
 	if _, err := rand.Read(raw); err != nil {
 		return "", "", err
 	}
 	code := fmt.Sprintf("%d%d%d%d", raw[0]%10, raw[1]%10, raw[2]%10, raw[3]%10)
-	img := image.NewRGBA(image.Rect(0, 0, 320, 230))
+	colors := []struct {
+		name  string
+		value color.RGBA
+	}{{"BLUE", color.RGBA{37, 99, 235, 255}}, {"RED", color.RGBA{220, 38, 38, 255}}, {"GREEN", color.RGBA{22, 163, 74, 255}}, {"PURPLE", color.RGBA{147, 51, 234, 255}}}
+	positions := []struct {
+		name string
+		x, y int
+	}{{"TOP-LEFT", 22, 22}, {"TOP-RIGHT", 378, 22}, {"BOTTOM-LEFT", 22, 218}, {"BOTTOM-RIGHT", 378, 218}}
+	markerColor := colors[int(raw[4])%len(colors)]
+	markerPosition := positions[int(raw[5])%len(positions)]
+	challenge := code + "|" + markerColor.name + "|" + markerPosition.name
+	img := image.NewRGBA(image.Rect(0, 0, 480, 320))
 	white := color.RGBA{255, 255, 255, 255}
 	black := color.RGBA{15, 23, 42, 255}
 	for y := 0; y < img.Bounds().Dy(); y++ {
@@ -322,9 +362,9 @@ func probeImage(iconPNG []byte) (string, string, error) {
 			return "", "", fmt.Errorf("decode probe icon: %w", decodeErr)
 		}
 		src := icon.Bounds()
-		const iconSize = 128
-		const iconX = (320 - iconSize) / 2
-		const iconY = 10
+		const iconSize = 132
+		const iconX = (480 - iconSize) / 2
+		const iconY = 18
 		for y := 0; y < iconSize; y++ {
 			for x := 0; x < iconSize; x++ {
 				sx := src.Min.X + x*src.Dx()/iconSize
@@ -333,17 +373,22 @@ func probeImage(iconPNG []byte) (string, string, error) {
 			}
 		}
 	}
+	for y := 0; y < 80; y++ {
+		for x := 0; x < 80; x++ {
+			img.Set(markerPosition.x+x, markerPosition.y+y, markerColor.value)
+		}
+	}
 	for i, ch := range code {
 		d := int(ch - '0')
-		ox := 46 + i*58
+		ox := 104 + i*70
 		for row, bits := range digitRows[d] {
 			for col, bit := range bits {
 				if bit != '1' {
 					continue
 				}
-				for yy := 0; yy < 12; yy++ {
-					for xx := 0; xx < 12; xx++ {
-						img.Set(ox+col*12+xx, 145+row*12+yy, black)
+				for yy := 0; yy < 14; yy++ {
+					for xx := 0; xx < 14; xx++ {
+						img.Set(ox+col*14+xx, 190+row*14+yy, black)
 					}
 				}
 			}
@@ -353,5 +398,5 @@ func probeImage(iconPNG []byte) (string, string, error) {
 	if err := png.Encode(&buf, img); err != nil {
 		return "", "", err
 	}
-	return code, base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+	return challenge, base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }

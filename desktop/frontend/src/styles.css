@@ -4105,6 +4105,34 @@ a[href] {
   margin: 0 auto 8px;
   background: transparent;
 }
+
+.automation-access-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.automation-access-prompt__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.automation-access-prompt__copy strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.automation-access-prompt__copy span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
 .footer-shelves:empty {
   display: none;
   margin: 0;

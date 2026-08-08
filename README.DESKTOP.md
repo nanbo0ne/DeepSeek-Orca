@@ -4,19 +4,19 @@ This is the desktop-focused English entry point. The current build is the engine
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-linux-amd64.deb)
+- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.36)
 
 ## Scope
 
 DeepSeek-Orca Desktop provides project, independent, and Automation workspaces, persistent sessions, forks, checkpoints, rollback, multi-provider models, optional vision attachments, tool approval and sandbox controls, MCP, Skills, CodeGraph, memory, Plan/Todo/Goal workflows, background jobs, bots, and chronological process display.
 
-Normal mode handles routine conversation, research, writing, analysis, and everyday development. Enhanced mode handles complex coding, architecture, long tasks, reviews, and active repository changes. Both use the `DeepSeek-Orca` engineering identity. Automation Workspace conversations use the retained Assistant profile with a locked mode selector and a canonical profile shared with QQ and Weixin. They can selectively read or dispatch to ordinary engineering conversations through explicit conversation tools without changing the target's model, workspace, prompt, or approval policy.
+Normal mode handles routine conversation, research, writing, analysis, and everyday development. Enhanced mode handles complex coding, architecture, long tasks, reviews, and active repository changes. Both use the `DeepSeek-Orca` engineering identity. Automation Workspace contains one fixed **Orca** main conversation shared by desktop, QQ, and Weixin, with a dedicated model, the retained Assistant profile, canonical memory, and selective conversation tools. Legacy automation topics remain read-only.
 
-Phone messages automatically create or restore an automation topic. A low-token no-tool check separates conversations after 30 minutes of inactivity, while `/continue` and `/new` provide explicit control. Remote mappings, one-time onboarding state, and shared session history persist across restarts; desktop and mobile turns targeting one transcript are serialized.
+The 30-minute continuity check, `/new`, and `/continue` create or select logical context segments inside Orca without creating sidebar conversations. Every channel shares one current segment and execution queue. Trusted automation access is confirmed once on desktop and can be revoked; unconfirmed sessions can chat without per-tool approval cards, while confirmed sessions automatically continue policy-allowed tools and plans. Four cached home suggestions are refreshed every 24 hours from limited conversation summaries.
 
 Vision defaults to Auto. Each newly configured model is probed independently with a history-free Orca-icon verification image, images are sent only to confirmed visual models, and selected current-turn images can be routed from a text-only main model to a visual subagent. DeepSeek being detected as unsupported is expected. Session files keep references, not image base64. Interface scaling follows Windows DPI by default, with an optional relative 80%-125% override.
 

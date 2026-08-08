@@ -1,5 +1,14 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.36 - 2026-08-09
+
+- Consolidated desktop, Weixin, and QQ automation into one protected Orca main conversation. Thirty-minute continuation decisions and `/new` now create logical segments inside Orca instead of additional sidebar topics, while legacy automation topics remain available as read-only history.
+- Added one-time, revocable trusted automation access. Before authorization Orca can chat but protected tools are declined without per-command approval cards; after authorization, allowed tools and plan execution proceed automatically while Ask questions and explicit deny rules remain effective.
+- Added a dedicated automation model shared by Orca and remote channels, with full provider/model references, stale Mimo alias migration, bidirectional desktop selection, and idle handover so an active task finishes on its original model.
+- Strengthened per-model vision probing with an isolated Orca-icon challenge containing a random code, color, and position marker; automatic and effective capability states are now shown separately and probes run for newly enabled models.
+- Added four cached, model-generated home suggestions refreshed every 24 hours from limited local conversation summaries without creating hidden conversations or modifying assistant memory.
+- Added the current desktop version to General settings and updated all Chinese and English download documentation for V2.0.36.
+
 ## V2.0.35 - 2026-08-08
 
 - Restored completed-turn summaries to the lightweight transparent elapsed-time row, with expanded reasoning and tools rendered directly beneath it rather than inside a rounded outer panel.

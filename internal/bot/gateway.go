@@ -41,6 +41,10 @@ type GatewayConfig struct {
 	ExternalApprove      ExternalApprovalRouter
 	ExternalAnswer       ExternalAnswerRouter
 	ExternalStop         ExternalStopRouter
+	// SharedAutomationSession makes every remote channel use one logical
+	// automation segment. Selecting or creating a segment switches all remotes
+	// together, while the desktop may still render older segments as history.
+	SharedAutomationSession bool
 }
 
 // AllowlistConfig controls which remote users/groups can invoke the bot.
@@ -58,12 +62,13 @@ type BotGateway struct {
 	adapters map[Platform]Adapter
 	sessions *SessionManager
 
-	mu             sync.Mutex
-	controllers    map[string]*sessionState
-	remoteStates   map[string]*remoteSessionState
-	allowlist      map[Platform]map[string]bool
-	groupAllowlist map[Platform]map[string]bool
-	guideSent      map[Platform]bool
+	mu                sync.Mutex
+	controllers       map[string]*sessionState
+	remoteStates      map[string]*remoteSessionState
+	sharedRemoteState *remoteSessionState
+	allowlist         map[Platform]map[string]bool
+	groupAllowlist    map[Platform]map[string]bool
+	guideSent         map[Platform]bool
 
 	logger *slog.Logger
 }
@@ -274,7 +279,6 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 		gw.handleSlashCommand(ctx, adapter, remoteKey, msg)
 		return
 	}
-
 	sessionKey, err := gw.ensureAutomationSession(ctx, remoteKey, msg)
 	if err != nil {
 		gw.logger.Warn("prepare automation session failed", "err", err)
@@ -295,8 +299,13 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 }
 
 func (gw *BotGateway) ensureAutomationSession(ctx context.Context, remoteKey string, msg InboundMessage) (string, error) {
+	forceNewSegment := false
 	gw.mu.Lock()
 	remote := gw.remoteStates[remoteKey]
+	if remote == nil && gw.cfg.SharedAutomationSession && gw.sharedRemoteState != nil {
+		remote = gw.sharedRemoteState
+		gw.remoteStates[remoteKey] = remote
+	}
 	if remote != nil && remote.mode == remoteModeInSession && remote.selectedKey != "" {
 		key := remote.selectedKey
 		idle := time.Since(remote.lastActive)
@@ -318,10 +327,11 @@ func (gw *BotGateway) ensureAutomationSession(ctx context.Context, remoteKey str
 			gw.mu.Unlock()
 			return key, nil
 		}
+		forceNewSegment = true
 	} else {
 		gw.mu.Unlock()
 	}
-	if gw.cfg.RestoreSession != nil {
+	if !forceNewSegment && gw.cfg.RestoreSession != nil {
 		choice, ok, err := gw.cfg.RestoreSession(ctx, remoteKey, msg)
 		if err != nil {
 			gw.logger.Warn("restore automation session failed", "remote", remoteKey, "err", err)
@@ -483,7 +493,7 @@ func (gw *BotGateway) selectSession(ctx context.Context, remoteKey string, choic
 		previous = old.previous
 	}
 	gw.controllers[sessionKey] = state
-	gw.remoteStates[remoteKey] = &remoteSessionState{
+	nextRemote := &remoteSessionState{
 		mode:          remoteModeInSession,
 		selectedKey:   sessionKey,
 		selectedPath:  choice.Path,
@@ -492,6 +502,13 @@ func (gw *BotGateway) selectSession(ctx context.Context, remoteKey string, choic
 		lastListed:    nil,
 		previous:      previous,
 		lastActive:    time.Now(),
+	}
+	gw.remoteStates[remoteKey] = nextRemote
+	if gw.cfg.SharedAutomationSession {
+		gw.sharedRemoteState = nextRemote
+		for key := range gw.remoteStates {
+			gw.remoteStates[key] = nextRemote
+		}
 	}
 	gw.mu.Unlock()
 	return nil
@@ -681,8 +698,8 @@ func botHelpText() string {
 		"/new [消息] - 开始新的自动化对话段\n" +
 		"/continue [消息] - 强制继续上一段对话\n" +
 		"/stop - 停止当前任务\n" +
-		"/approve <id> - 批准操作\n" +
-		"/deny <id> - 拒绝操作\n" +
+		"/approve <id> - 兼容旧客户端的批准命令\n" +
+		"/deny <id> - 兼容旧客户端的拒绝命令\n" +
 		"/answer <id> <选项> - 回答 ask 问题\n" +
 		"/status - 查看当前状态\n" +
 		"/hi - 显示帮助（/help 兼容）"

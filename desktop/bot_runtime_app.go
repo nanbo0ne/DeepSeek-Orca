@@ -35,6 +35,48 @@ func (a *App) restartDesktopBotGateway() {
 	a.startDesktopBotGateway(cfg)
 }
 
+func (a *App) restartDesktopBotGatewayWhenIdle() {
+	a.mu.Lock()
+	gw := a.botGateway
+	if gw == nil || gw.ActiveCount() == 0 {
+		a.mu.Unlock()
+		a.restartDesktopBotGateway()
+		return
+	}
+	if a.botGatewayRestartPending {
+		a.mu.Unlock()
+		return
+	}
+	a.botGatewayRestartPending = true
+	a.mu.Unlock()
+
+	go func(current *bot.BotGateway) {
+		ticker := time.NewTicker(150 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if current.ActiveCount() != 0 {
+					continue
+				}
+				a.mu.Lock()
+				stillCurrent := a.botGateway == current
+				a.botGatewayRestartPending = false
+				a.mu.Unlock()
+				if stillCurrent {
+					a.restartDesktopBotGateway()
+				}
+				return
+			case <-a.bootContext().Done():
+				a.mu.Lock()
+				a.botGatewayRestartPending = false
+				a.mu.Unlock()
+				return
+			}
+		}
+	}(gw)
+}
+
 func (a *App) startDesktopBotGatewayOnStartup() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -94,6 +136,9 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	if modelName == "" {
 		modelName = cfg.DefaultModel
 	}
+	if resolved, _, ok := cfg.ResolveModelWithFallback(modelName); ok {
+		modelName = resolved
+	}
 	workspaceRoot := strings.TrimSpace(cfg.Bot.WorkspaceRoot)
 	if workspaceRoot == "" {
 		workspaceRoot = config.BotWorkspaceDir()
@@ -124,14 +169,20 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 			if meta, ok, _ := agent.LoadBranchMeta(choice.Path); ok {
 				topicID = meta.TopicID
 			}
-			return boot.Build(ctx, boot.Options{
+			ctrl, err := boot.Build(ctx, boot.Options{
 				Model: modelName, PromptMode: promptModeAssistant, MemoryProfile: memory.ProfileAssistant,
 				AssistantMemoryStoreDir: store.Dir, MaxSteps: cfg.Bot.MaxSteps, RequireKey: true, Sink: sink,
 				WorkspaceRoot: workspaceRoot, SessionDir: filepath.Dir(choice.Path),
-				ExtraTools:  a.conversationBroker.Tools("bot:"+topicID, topicID),
+				ExtraTools:  append(a.conversationBroker.Tools("bot:"+topicID, topicID), automationHistoryTool{topicID: topicID}),
 				TurnContext: func() string { return a.conversationBroker.Index(topicID) },
 				TurnLease:   a.sessionGate.Acquire, RefreshOnLease: true,
 			})
+			if err != nil {
+				return nil, err
+			}
+			ctrl.EnableInteractiveApproval()
+			ctrl.SetTrustedAutomationAccess(cfg.Desktop.AutomationFullAccess)
+			return ctrl, nil
 		},
 		MirrorEvent:    a.mirrorBotEventToOpenTab,
 		MirrorUser:     a.mirrorBotUserToOpenTab,
@@ -146,8 +197,9 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 		ExternalApprove: func(id string, allow bool) bool {
 			return a.conversationBroker.Approve(id, allow, false, false)
 		},
-		ExternalAnswer: a.conversationBroker.Answer,
-		ExternalStop:   a.conversationBroker.CancelActive,
+		ExternalAnswer:          a.conversationBroker.Answer,
+		ExternalStop:            a.conversationBroker.CancelActive,
+		SharedAutomationSession: true,
 	}, adapters, logger)
 	if err := gw.Start(ctx); err != nil {
 		cancel()

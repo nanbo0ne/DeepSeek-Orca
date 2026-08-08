@@ -88,6 +88,50 @@ func TestAutoApproveToolsStillAutoPlansAndRequiresPlanApproval(t *testing.T) {
 	}
 }
 
+func TestTrustedAutomationAccessIncludesPlanApproval(t *testing.T) {
+	var approvalEvents int
+	c := New(Options{Sink: event.FuncSink(func(e event.Event) {
+		if e.Kind == event.ApprovalRequest {
+			approvalEvents++
+		}
+	})})
+	c.SetTrustedAutomationAccess(true)
+	for _, toolName := range []string{"bash", planApprovalTool} {
+		allow, _, err := c.requestApproval(context.Background(), toolName, "test")
+		if err != nil || !allow {
+			t.Fatalf("trusted automation approval for %s: allow=%v err=%v", toolName, allow, err)
+		}
+	}
+	if approvalEvents != 0 {
+		t.Fatalf("trusted automation emitted %d approval events", approvalEvents)
+	}
+}
+
+func TestPendingAutomationAccessBlocksToolsWithoutApprovalCard(t *testing.T) {
+	var approvals, notices int
+	c := New(Options{Sink: event.FuncSink(func(e event.Event) {
+		switch e.Kind {
+		case event.ApprovalRequest:
+			approvals++
+		case event.Notice:
+			notices++
+		}
+	})})
+	c.SetTrustedAutomationAccess(false)
+	for range 2 {
+		allow, _, err := c.requestApproval(context.Background(), "bash", "echo test")
+		if err != nil || allow {
+			t.Fatalf("pending automation approval: allow=%v err=%v", allow, err)
+		}
+	}
+	if approvals != 0 {
+		t.Fatalf("pending automation emitted %d approval cards", approvals)
+	}
+	if notices != 1 {
+		t.Fatalf("pending automation emitted %d notices, want one per turn", notices)
+	}
+}
+
 // TestRequestApprovalHonorsAutoApproveTools guards the underlying gate: ordinary
 // tool approvals must return allow immediately without emitting anything under
 // tool auto-approval.

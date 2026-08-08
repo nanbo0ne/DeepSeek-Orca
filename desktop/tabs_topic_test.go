@@ -38,6 +38,19 @@ func TestProjectTreeAlwaysIncludesAutomationWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if topic.Title != automationMainTopicTitle {
+		t.Fatalf("automation topic title = %q, want %q", topic.Title, automationMainTopicTitle)
+	}
+	again, err := app.CreateTopic(scopeAutomation, "", "another")
+	if err != nil || again.ID != topic.ID {
+		t.Fatalf("second automation topic = %+v, %v; want canonical %q", again, err, topic.ID)
+	}
+	if err := app.RenameTopic(topic.ID, "renamed"); err == nil {
+		t.Fatal("canonical Orca topic should not be renameable")
+	}
+	if err := app.DeleteTopic(topic.ID); err == nil {
+		t.Fatal("canonical Orca topic should not be deleteable")
+	}
 	nodes = app.ListProjectTree()
 	automation = findProjectNodeByKind(nodes, "automation_folder")
 	if automation == nil || len(automation.Children) != 1 || automation.Children[0].Kind != "automation_topic" || automation.Children[0].TopicID != topic.ID {

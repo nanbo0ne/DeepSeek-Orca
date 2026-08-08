@@ -45,6 +45,7 @@ type WorkspaceTab struct {
 	Label         string              // model label (for the tab badge)
 	Ready         bool                // true once boot.Build completes
 	StartupErr    string              // build error, surfaced to the frontend
+	ReadOnly      bool                // historical automation topics cannot be continued
 	sink          *tabEventSink       // routes events with this tab's ID
 
 	ActivityStatus string // transient project-tree status for the in-flight turn
@@ -609,6 +610,7 @@ type TabMeta struct {
 	Goal              string `json:"goal,omitempty"`
 	GoalStatus        string `json:"goalStatus,omitempty"`
 	StartupErr        string `json:"startupErr,omitempty"`
+	ReadOnly          bool   `json:"readOnly,omitempty"`
 	Active            bool   `json:"active"`
 	Cwd               string `json:"cwd"`
 }
@@ -633,6 +635,7 @@ func (a *App) tabMeta(tab *WorkspaceTab, active bool) TabMeta {
 		Goal:              currentTabGoal(tab),
 		GoalStatus:        currentTabGoalStatus(tab),
 		StartupErr:        tab.StartupErr,
+		ReadOnly:          tab.ReadOnly,
 		Active:            active,
 		Cwd:               tab.WorkspaceRoot,
 	}
@@ -786,12 +789,17 @@ func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 		return TabMeta{}, fmt.Errorf("automation workspace is unavailable")
 	}
 	if strings.TrimSpace(topicID) == "" {
-		topic, err := a.CreateTopic(scopeAutomation, root, "")
+		topic, err := a.ensureAutomationMainTopic()
 		if err != nil {
 			return TabMeta{}, err
 		}
 		topicID = topic.ID
 	}
+	mainTopic, err := a.ensureAutomationMainTopic()
+	if err != nil {
+		return TabMeta{}, err
+	}
+	readOnly := strings.TrimSpace(topicID) != mainTopic.ID
 
 	a.mu.Lock()
 	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
@@ -816,6 +824,7 @@ func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 		WorkspaceRoot:    root,
 		TopicID:          topicID,
 		TopicTitle:       topicTitleForTab(scopeAutomation, root, topicID),
+		ReadOnly:         readOnly,
 		mode:             "normal",
 		promptMode:       promptModeAssistant,
 		toolApprovalMode: control.ToolApprovalAsk,
@@ -824,8 +833,13 @@ func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 	a.applyRecentPrefsToNewTabLocked(tab)
 	tab.promptMode = promptModeAssistant
 	tab.enhancedMode = false
-	if cfg, err := config.LoadForRoot(root); err == nil && strings.TrimSpace(cfg.Bot.Model) != "" {
-		tab.model = strings.TrimSpace(cfg.Bot.Model)
+	if cfg, err := config.LoadForRoot(root); err == nil {
+		if resolved, _, ok := cfg.ResolveModelWithFallback(strings.TrimSpace(cfg.Bot.Model)); ok {
+			tab.model = resolved
+		}
+		if cfg.Desktop.AutomationFullAccess {
+			tab.toolApprovalMode = control.ToolApprovalYolo
+		}
 	}
 	tab.sink = &tabEventSink{tabID: tabID, app: a}
 	a.tabs[tabID] = tab
@@ -1165,6 +1179,9 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	promoteProviderKeysToCredentials(cfg)
 
 	model := strings.TrimSpace(tab.model)
+	if tab.Scope == scopeAutomation && strings.TrimSpace(cfg.Bot.Model) != "" {
+		model = strings.TrimSpace(cfg.Bot.Model)
+	}
 	if model == "" {
 		model = cfg.DefaultModel
 	}
@@ -1270,6 +1287,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			extraTools = a.conversationBroker.Tools(tab.ID, tab.TopicID)
 			turnContext = func() string { return a.conversationBroker.Index(tab.TopicID) }
 		}
+		extraTools = append(extraTools, automationHistoryTool{topicID: tab.TopicID})
 	}
 	ctrl, err := boot.Build(buildCtx, boot.Options{
 		Model:                   model,
@@ -1299,7 +1317,13 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	a.bindControllerDisplayRecorder(ctrl)
 	ctrl.EnableInteractiveApproval()
 	applyTabModeToController(ctrl, tab.mode)
+	if tab.Scope == scopeAutomation && cfg.Desktop.AutomationFullAccess {
+		tab.toolApprovalMode = control.ToolApprovalYolo
+	}
 	applyTabToolApprovalModeToController(ctrl, tab.toolApprovalMode)
+	if tab.Scope == scopeAutomation {
+		ctrl.SetTrustedAutomationAccess(cfg.Desktop.AutomationFullAccess)
+	}
 	ctrl.SetAskWorkflow(tab.askWorkflow)
 	ctrl.SetStepThinking(tab.stepThinking)
 	ctrl.SetGoal(tab.goal)
@@ -1845,6 +1869,9 @@ func topicTitleFromText(text string) string {
 const desktopProjectsFile = "desktop-projects.json"
 const tabsFileName = "desktop-tabs.json"
 const desktopGlobalOrderToken = "__global__"
+const automationMainTopicTitle = "Orca"
+
+var automationMainTopicMu sync.Mutex
 
 type desktopProject struct {
 	Root   string   `json:"root"`
@@ -1854,12 +1881,13 @@ type desktopProject struct {
 }
 
 type desktopProjectFile struct {
-	GlobalTitle      string           `json:"globalTitle,omitempty"`
-	GlobalColor      string           `json:"globalColor,omitempty"`
-	GlobalTopics     []string         `json:"globalTopics,omitempty"`
-	AutomationTopics []string         `json:"automationTopics,omitempty"`
-	SidebarOrder     []string         `json:"sidebarOrder,omitempty"`
-	Projects         []desktopProject `json:"projects"`
+	GlobalTitle           string           `json:"globalTitle,omitempty"`
+	GlobalColor           string           `json:"globalColor,omitempty"`
+	GlobalTopics          []string         `json:"globalTopics,omitempty"`
+	AutomationMainTopicID string           `json:"automationMainTopicId,omitempty"`
+	AutomationTopics      []string         `json:"automationTopics,omitempty"`
+	SidebarOrder          []string         `json:"sidebarOrder,omitempty"`
+	Projects              []desktopProject `json:"projects"`
 }
 
 type desktopTabEntry struct {
@@ -1997,6 +2025,55 @@ func saveProjectsFile(f desktopProjectFile) error {
 	return os.Rename(tmp, path)
 }
 
+// ensureAutomationMainTopic creates the one writable automation topic. Older
+// automation topics remain indexed as read-only history.
+func (a *App) ensureAutomationMainTopic() (TopicMeta, error) {
+	automationMainTopicMu.Lock()
+	defer automationMainTopicMu.Unlock()
+
+	root := automationWorkspaceRoot()
+	if root == "" {
+		return TopicMeta{}, fmt.Errorf("automation workspace is unavailable")
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return TopicMeta{}, err
+	}
+	f := loadProjectsFile()
+	topicID := strings.TrimSpace(f.AutomationMainTopicID)
+	createdAt := int64(0)
+	if topicID == "" {
+		topicID = newTopicID()
+		createdAt = time.Now().UnixMilli()
+		f.AutomationMainTopicID = topicID
+	}
+	if err := setTopicTitleWithSource(root, topicID, automationMainTopicTitle, topicTitleSourceManual); err != nil {
+		return TopicMeta{}, err
+	}
+	if createdAt == 0 {
+		createdAt = loadTopicCreatedAts(root)[topicID]
+	}
+	if createdAt == 0 {
+		createdAt = time.Now().UnixMilli()
+		if err := setTopicCreatedAt(root, topicID, createdAt); err != nil {
+			return TopicMeta{}, err
+		}
+	}
+	f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
+	if err := saveProjectsFile(f); err != nil {
+		return TopicMeta{}, err
+	}
+	return TopicMeta{ID: topicID, Title: automationMainTopicTitle, CreatedAt: createdAt}, nil
+}
+
+func automationMainTopicID() string {
+	return strings.TrimSpace(loadProjectsFile().AutomationMainTopicID)
+}
+
+func isAutomationMainTopic(topicID string) bool {
+	mainID := automationMainTopicID()
+	return mainID != "" && strings.TrimSpace(topicID) == mainID
+}
+
 func normalizeProjectRoot(root string) string {
 	root = strings.TrimSpace(root)
 	if root == "" {
@@ -2010,10 +2087,14 @@ func normalizeProjectRoot(root string) string {
 
 func normalizeProjectsFile(f desktopProjectFile) desktopProjectFile {
 	out := desktopProjectFile{
-		GlobalTitle:      strings.TrimSpace(f.GlobalTitle),
-		GlobalColor:      normalizeProjectColor(f.GlobalColor),
-		GlobalTopics:     uniqueStrings(f.GlobalTopics),
-		AutomationTopics: uniqueStrings(f.AutomationTopics),
+		GlobalTitle:           strings.TrimSpace(f.GlobalTitle),
+		GlobalColor:           normalizeProjectColor(f.GlobalColor),
+		GlobalTopics:          uniqueStrings(f.GlobalTopics),
+		AutomationMainTopicID: strings.TrimSpace(f.AutomationMainTopicID),
+		AutomationTopics:      uniqueStrings(f.AutomationTopics),
+	}
+	if out.AutomationMainTopicID != "" {
+		out.AutomationTopics = prependUniqueString(out.AutomationTopics, out.AutomationMainTopicID)
 	}
 	index := map[string]int{}
 	for _, p := range f.Projects {
@@ -2658,6 +2739,8 @@ type ProjectNode struct {
 	Running        bool          `json:"running,omitempty"`
 	Status         string        `json:"status,omitempty"`
 	Pinned         bool          `json:"pinned,omitempty"`
+	ReadOnly       bool          `json:"readOnly,omitempty"`
+	Primary        bool          `json:"primary,omitempty"`
 	ProjectPath    *string       `json:"projectPath,omitempty"`
 	Children       []ProjectNode `json:"children,omitempty"`
 }
@@ -2926,6 +3009,9 @@ type TopicMeta struct {
 
 // CreateTopic creates a new topic under a project workspace and returns its metadata.
 func (a *App) CreateTopic(scope, workspaceRoot, title string) (TopicMeta, error) {
+	if scope == scopeAutomation {
+		return a.ensureAutomationMainTopic()
+	}
 	trimmedTitle := strings.TrimSpace(title)
 	titleSource := topicTitleSourceManual
 	if trimmedTitle == "" {
@@ -3044,6 +3130,9 @@ func (a *App) ReorderProjects(workspaceRoots []string) error {
 
 // RenameTopic updates a topic's display title.
 func (a *App) RenameTopic(topicID, title string) error {
+	if isAutomationMainTopic(topicID) {
+		return fmt.Errorf("Orca 主对话不能重命名")
+	}
 	trimmed := strings.TrimSpace(title)
 	// Find which workspace this topic belongs to by scanning all project topic titles.
 	f := loadProjectsFile()
@@ -3202,6 +3291,9 @@ func (a *App) emitProjectTreeChanged() {
 
 // DeleteTopic removes a topic and its title metadata.
 func (a *App) DeleteTopic(topicID string) error {
+	if isAutomationMainTopic(topicID) {
+		return fmt.Errorf("Orca 主对话不能删除")
+	}
 	f := loadProjectsFile()
 	found := false
 	for _, p := range f.Projects {
@@ -3267,6 +3359,9 @@ func (a *App) DeleteTopic(topicID string) error {
 func (a *App) TrashTopic(topicID string) error {
 	if strings.TrimSpace(topicID) == "" {
 		return fmt.Errorf("topicID is required")
+	}
+	if isAutomationMainTopic(topicID) {
+		return fmt.Errorf("Orca 主对话不能移入回收站")
 	}
 
 	type topicTab struct {
@@ -3509,7 +3604,9 @@ func (a *App) ListProjectTree() []ProjectNode {
 	automationTitles := loadTopicTitles(automationRoot)
 	automationCreated := loadTopicCreatedAts(automationRoot)
 	automationIDs := orderedTopicIDs(f.AutomationTopics, automationTitles)
-	automationChildren := make([]ProjectNode, 0, len(automationIDs))
+	automationChildren := make([]ProjectNode, 0, 2)
+	automationHistory := make([]ProjectNode, 0, len(automationIDs))
+	mainAutomationID := strings.TrimSpace(f.AutomationMainTopicID)
 	for _, id := range automationIDs {
 		title := strings.TrimSpace(automationTitles[id])
 		if title == "" {
@@ -3517,27 +3614,38 @@ func (a *App) ListProjectTree() []ProjectNode {
 		}
 		summary := topicSummaries[topicSummaryKey(scopeAutomation, automationRoot, id)]
 		status := openTopics[topicSummaryKey(scopeAutomation, automationRoot, id)]
-		automationChildren = append(automationChildren, ProjectNode{
+		node := ProjectNode{
 			Key: "automation_topic_" + id, Kind: "automation_topic", Label: title, Root: automationRoot,
 			TopicID: id, ProjectColor: "#4d8dff", Turns: summary.turns, CreatedAt: automationCreated[id],
 			LastActivityAt: summary.lastActivityAt, Open: status.open, Running: status.running, Status: status.status,
-			Pinned: summary.pinned,
-		})
+			Pinned: summary.pinned, ReadOnly: id != mainAutomationID, Primary: id == mainAutomationID,
+		}
+		if node.Primary {
+			automationChildren = append(automationChildren, node)
+		} else {
+			automationHistory = append(automationHistory, node)
+		}
 	}
 	if len(automationChildren) > 0 || automationRoot != "" {
-		sort.SliceStable(automationChildren, func(i, j int) bool {
-			ai, aj := automationChildren[i].LastActivityAt, automationChildren[j].LastActivityAt
+		sort.SliceStable(automationHistory, func(i, j int) bool {
+			ai, aj := automationHistory[i].LastActivityAt, automationHistory[j].LastActivityAt
 			if ai == 0 {
-				ai = automationChildren[i].CreatedAt
+				ai = automationHistory[i].CreatedAt
 			}
 			if aj == 0 {
-				aj = automationChildren[j].CreatedAt
+				aj = automationHistory[j].CreatedAt
 			}
 			if ai == aj {
-				return automationChildren[i].Label < automationChildren[j].Label
+				return automationHistory[i].Label < automationHistory[j].Label
 			}
 			return ai > aj
 		})
+		if len(automationHistory) > 0 {
+			automationChildren = append(automationChildren, ProjectNode{
+				Key: "automation_history_folder", Kind: "automation_history_folder", Label: "历史对话",
+				Root: automationRoot, ProjectColor: "#8b95a7", ReadOnly: true, Children: automationHistory,
+			})
+		}
 		out = append(out, ProjectNode{Key: "automation_folder", Kind: "automation_folder", Label: "自动化工作区", Root: automationRoot, ProjectColor: "#4d8dff", Children: automationChildren})
 	}
 

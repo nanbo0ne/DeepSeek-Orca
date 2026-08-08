@@ -80,12 +80,13 @@ type App struct {
 	mediaTokens *mediaTokenStore
 	botInstalls map[string]*botInstallSession
 
-	botGateway         *bot.BotGateway
-	botGatewayCancel   context.CancelFunc
-	botRuntimeStatus   string
-	botRuntimeErr      string
-	conversationBroker *ConversationBroker
-	sessionGate        *sessionExecutionGate
+	botGateway               *bot.BotGateway
+	botGatewayCancel         context.CancelFunc
+	botGatewayRestartPending bool
+	botRuntimeStatus         string
+	botRuntimeErr            string
+	conversationBroker       *ConversationBroker
+	sessionGate              *sessionExecutionGate
 
 	sideChatMu      sync.Mutex
 	sideChatCancels map[string]sideChatCancel
@@ -320,6 +321,7 @@ func (a *App) startup(ctx context.Context) {
 
 	go a.restoreOrBuildTabs()
 	go a.startDesktopBotGatewayOnStartup()
+	go a.runWelcomeSuggestionScheduler()
 }
 
 func (a *App) beforeClose(ctx context.Context) bool {
@@ -413,10 +415,13 @@ func (a *App) restoreOrBuildTabs() {
 		defer func() { a.schedulePendingAssistantMemories() }()
 	}
 
+	mainAutomationTopic, _ := a.ensureAutomationMainTopic()
+	var startupConfig config.Config
 	// Load i18n from the first available config.
 	// Prefer DesktopLanguage (desktop UI setting) over Language (CLI setting),
 	// so the user's language choice in desktop settings takes effect.
 	if cfg, err := config.Load(); err == nil {
+		startupConfig = *cfg
 		lang := cfg.DesktopLanguage()
 		if lang == "" {
 			lang = cfg.Language
@@ -453,6 +458,7 @@ func (a *App) restoreOrBuildTabs() {
 			var tab *WorkspaceTab
 			if entry.Scope == scopeAutomation {
 				tab = a.createTabEntryWithID(scopeAutomation, automationWorkspaceRoot(), entry.TopicID, id)
+				tab.ReadOnly = strings.TrimSpace(entry.TopicID) != strings.TrimSpace(mainAutomationTopic.ID)
 			} else if entry.Scope == "project" {
 				tab = a.createTabEntryWithID(entry.Scope, entry.WorkspaceRoot, entry.TopicID, id)
 			} else {
@@ -467,6 +473,15 @@ func (a *App) restoreOrBuildTabs() {
 				tab = a.createTabEntryWithID("global", workspaceRoot, topicID, id)
 			}
 			tab.model = entry.Model
+			if tab.Scope == scopeAutomation {
+				requested := strings.TrimSpace(startupConfig.Bot.Model)
+				if requested == "" {
+					requested = strings.TrimSpace(entry.Model)
+				}
+				if resolved, _, ok := startupConfig.ResolveModelWithFallback(requested); ok {
+					tab.model = resolved
+				}
+			}
 			tab.effort = cloneStringPtr(entry.Effort)
 			tab.mode = persistedTabMode(entry.Mode)
 			tab.goal = strings.TrimSpace(entry.Goal)
@@ -478,6 +493,9 @@ func (a *App) restoreOrBuildTabs() {
 			tab.stepThinking = entry.StepThinking
 			if tab.Scope == scopeAutomation {
 				tab.promptMode = promptModeAssistant
+				if startupConfig.Desktop.AutomationFullAccess {
+					tab.toolApprovalMode = control.ToolApprovalYolo
+				}
 			} else {
 				tab.promptMode = normalizeProductPromptMode(entry.PromptMode, entry.EnhancedMode)
 			}
@@ -534,7 +552,9 @@ func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *Wo
 	if scope == scopeAutomation {
 		workspaceRoot = automationWorkspaceRoot()
 		if strings.TrimSpace(topicID) == "" {
-			topicID = newTopicID()
+			if mainTopic, err := a.ensureAutomationMainTopic(); err == nil {
+				topicID = mainTopic.ID
+			}
 		}
 	} else if scope != "project" {
 		scope = "global"
@@ -561,6 +581,7 @@ func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *Wo
 	if scope == scopeAutomation {
 		tab.promptMode = promptModeAssistant
 		tab.enhancedMode = false
+		tab.ReadOnly = !isAutomationMainTopic(topicID)
 	}
 	return tab
 }
@@ -714,6 +735,10 @@ func (a *App) Submit(input string) {
 }
 
 func (a *App) SubmitToTab(tabID, input string) {
+	if tab := a.tabByID(tabID); tab != nil && tab.ReadOnly {
+		a.noticeForTab(tab.ID, "此自动化历史为只读，请在 Orca 主对话中继续。")
+		return
+	}
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "/effort" || strings.HasPrefix(trimmed, "/effort ") {
 		a.runEffortCommandForTab(tabID, trimmed)
@@ -731,6 +756,10 @@ func (a *App) RunShell(command string) {
 }
 
 func (a *App) RunShellForTab(tabID, command string) {
+	if tab := a.tabByID(tabID); tab != nil && tab.ReadOnly {
+		a.noticeForTab(tab.ID, "此自动化历史为只读，请在 Orca 主对话中继续。")
+		return
+	}
 	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
 		ctrl.RunShell(command)
 	}
@@ -743,6 +772,10 @@ func (a *App) SubmitDisplay(display, input string) {
 }
 
 func (a *App) SubmitDisplayToTab(tabID, display, input string) {
+	if tab := a.tabByID(tabID); tab != nil && tab.ReadOnly {
+		a.noticeForTab(tab.ID, "此自动化历史为只读，请在 Orca 主对话中继续。")
+		return
+	}
 	ctrl := a.ctrlByTabID(tabID)
 	if ctrl == nil {
 		return
@@ -1834,6 +1867,30 @@ func (a *App) HistoryForTab(tabID string) []HistoryMessage {
 	if ctrl == nil {
 		return []HistoryMessage{}
 	}
+	tab := a.tabByID(tabID)
+	if tab != nil && tab.Scope == scopeAutomation && isAutomationMainTopic(tab.TopicID) {
+		segments := automationTopicSegments(tab.TopicID)
+		if len(segments) > 1 {
+			out := make([]HistoryMessage, 0)
+			currentPath := filepath.Clean(ctrl.SessionPath())
+			for index, segment := range segments {
+				if index > 0 {
+					out = append(out, HistoryMessage{Role: "phase", Content: fmt.Sprintf("Orca 新对话段 · %s", segment.CreatedAt.Local().Format("01-02 15:04"))})
+				}
+				var messages []provider.Message
+				if strings.EqualFold(filepath.Clean(segment.Path), currentPath) {
+					messages = ctrl.History()
+				} else if session, err := agent.LoadSession(segment.Path); err == nil {
+					messages = session.Snapshot()
+				}
+				if len(messages) == 0 {
+					continue
+				}
+				out = append(out, historyMessages(messages, sessionDisplayResolver(filepath.Dir(segment.Path), segment.Path))...)
+			}
+			return out
+		}
+	}
 	msgs := ctrl.History()
 	return historyMessages(msgs, sessionDisplayResolver(controllerSessionDir(ctrl), ctrl.SessionPath()))
 }
@@ -2286,21 +2343,23 @@ func (a *App) jobsForCtrl(ctrl *control.Controller, out []JobView) []JobView {
 
 // Meta describes the session for the frontend's header and status line.
 type Meta struct {
-	Label            string `json:"label"`
-	Ready            bool   `json:"ready"`
-	StartupErr       string `json:"startupErr,omitempty"`
-	EventChannel     string `json:"eventChannel"`
-	Cwd              string `json:"cwd"`
-	AutoApproveTools bool   `json:"autoApproveTools"`
-	Bypass           bool   `json:"bypass"` // legacy JSON key for YOLO/full-access tool auto-approval
-	ToolApprovalMode string `json:"toolApprovalMode"`
-	AskWorkflow      bool   `json:"askWorkflowEnabled"`
-	StepThinking     bool   `json:"stepThinkingEnabled"`
-	PromptMode       string `json:"promptMode"`
-	EnhancedMode     bool   `json:"enhancedModeEnabled"`
-	Paused           bool   `json:"paused"`
-	Goal             string `json:"goal,omitempty"`
-	GoalStatus       string `json:"goalStatus,omitempty"`
+	Label                        string `json:"label"`
+	Ready                        bool   `json:"ready"`
+	StartupErr                   string `json:"startupErr,omitempty"`
+	EventChannel                 string `json:"eventChannel"`
+	Cwd                          string `json:"cwd"`
+	AutoApproveTools             bool   `json:"autoApproveTools"`
+	Bypass                       bool   `json:"bypass"` // legacy JSON key for YOLO/full-access tool auto-approval
+	ToolApprovalMode             string `json:"toolApprovalMode"`
+	AskWorkflow                  bool   `json:"askWorkflowEnabled"`
+	StepThinking                 bool   `json:"stepThinkingEnabled"`
+	PromptMode                   string `json:"promptMode"`
+	EnhancedMode                 bool   `json:"enhancedModeEnabled"`
+	Paused                       bool   `json:"paused"`
+	Goal                         string `json:"goal,omitempty"`
+	GoalStatus                   string `json:"goalStatus,omitempty"`
+	ReadOnly                     bool   `json:"readOnly,omitempty"`
+	AutomationFullAccessApproved bool   `json:"automationFullAccessApproved"`
 }
 
 // Meta reports the model label, readiness, any startup error, the working
@@ -2323,22 +2382,28 @@ func (a *App) MetaForTab(tabID string) Meta {
 	toolApprovalMode := currentTabToolApprovalMode(tab)
 	goal := currentTabGoal(tab)
 	goalStatus := currentTabGoalStatus(tab)
+	automationApproved := false
+	if cfg, err := config.Load(); err == nil {
+		automationApproved = cfg.Desktop.AutomationFullAccess
+	}
 	return Meta{
-		Label:            tab.Label,
-		Ready:            tab.Ready,
-		StartupErr:       tab.StartupErr,
-		EventChannel:     eventChannel,
-		Cwd:              cwd,
-		AutoApproveTools: autoApproveTools,
-		Bypass:           autoApproveTools,
-		ToolApprovalMode: toolApprovalMode,
-		AskWorkflow:      tab.askWorkflow,
-		StepThinking:     tab.stepThinking,
-		PromptMode:       currentTabPromptMode(tab),
-		EnhancedMode:     tabPromptModeIsEnhanced(tab),
-		Paused:           tab.Ctrl != nil && tab.Ctrl.Paused(),
-		Goal:             goal,
-		GoalStatus:       goalStatus,
+		Label:                        tab.Label,
+		Ready:                        tab.Ready,
+		StartupErr:                   tab.StartupErr,
+		EventChannel:                 eventChannel,
+		Cwd:                          cwd,
+		AutoApproveTools:             autoApproveTools,
+		Bypass:                       autoApproveTools,
+		ToolApprovalMode:             toolApprovalMode,
+		AskWorkflow:                  tab.askWorkflow,
+		StepThinking:                 tab.stepThinking,
+		PromptMode:                   currentTabPromptMode(tab),
+		EnhancedMode:                 tabPromptModeIsEnhanced(tab),
+		Paused:                       tab.Ctrl != nil && tab.Ctrl.Paused(),
+		Goal:                         goal,
+		GoalStatus:                   goalStatus,
+		ReadOnly:                     tab.ReadOnly,
+		AutomationFullAccessApproved: automationApproved,
 	}
 }
 
@@ -3798,6 +3863,9 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	}
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
 		return fmt.Errorf("finish or cancel the current turn before changing model")
+	}
+	if tab.Scope == scopeAutomation {
+		return a.SetAutomationModel(name)
 	}
 	cfg, err := config.LoadForRoot(tab.WorkspaceRoot)
 	if err != nil {

@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import logoWordmark from "../assets/logo-wordmark.png";
+import { app, onWelcomeSuggestions } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 
 // Welcome is the empty-state landing: a one-liner, the input affordances
@@ -7,7 +9,23 @@ import { useT } from "../lib/i18n";
 
 export function Welcome({ onPrompt }: { onPrompt: (text: string) => void }) {
   const t = useT();
-  const examples = [t("welcome.ex1"), t("welcome.ex2"), t("welcome.ex3"), t("welcome.ex4")];
+  const fallbackExamples = [t("welcome.ex1"), t("welcome.ex2"), t("welcome.ex3"), t("welcome.ex4")];
+  const [generatedExamples, setGeneratedExamples] = useState<string[]>([]);
+  const examples = generatedExamples.length === 4 ? generatedExamples : fallbackExamples;
+
+  useEffect(() => {
+    let active = true;
+    void app.GetWelcomeSuggestions().then((prompts) => {
+      if (active && prompts.length === 4) setGeneratedExamples(prompts);
+    }).catch(() => undefined);
+    const off = onWelcomeSuggestions((prompts) => {
+      if (prompts.length === 4) setGeneratedExamples(prompts);
+    });
+    return () => {
+      active = false;
+      off();
+    };
+  }, []);
   return (
     <div className="welcome welcome--brand">
       <span className="welcome__brand">
@@ -24,7 +42,7 @@ export function Welcome({ onPrompt }: { onPrompt: (text: string) => void }) {
           <kbd>@</kbd> {t("welcome.hintFiles")}
         </span>
         <span>
-          <kbd>⏎</kbd> {t("welcome.hintSend")}
+          <kbd>Enter</kbd> {t("welcome.hintSend")}
         </span>
       </div>
 

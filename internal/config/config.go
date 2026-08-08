@@ -85,9 +85,10 @@ type DesktopConfig struct {
 	ActivityIndicator     bool     `toml:"activity_indicator_enabled"`      // show the optional animated process activity mark
 	VisionEnabled         bool     `toml:"vision_enabled"`                  // send attached image bytes to the selected model
 	VisionMode            string   `toml:"vision_mode"`                     // off|auto|on; vision_enabled is retained for legacy configs
-	UIScale               int      `toml:"ui_scale"`                        // 0 = automatic; otherwise 80..125 in five-percent increments
+	UIScale               int      `toml:"ui_scale"`                        // 0 = follow Windows DPI; otherwise 80..125 in five-percent increments
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
 	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"` // inject assistant memories before assistant-mode turns; nil = enabled
+	AutomationFullAccess  bool     `toml:"automation_full_access_approved"` // one-time consent for trusted automation turns
 }
 
 const (
@@ -1117,7 +1118,7 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 6,
+		ConfigVersion: 7,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
 		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto},
@@ -1257,6 +1258,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeDesktopVisionPreference(cfg)
 	normalizeAutomationPreference(cfg)
 	normalizeDesktopUIScale(cfg)
+	normalizeAutomationFullAccess(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1417,6 +1419,7 @@ func LoadForEdit(path string) *Config {
 	normalizeDesktopVisionPreference(cfg)
 	normalizeAutomationPreference(cfg)
 	normalizeDesktopUIScale(cfg)
+	normalizeAutomationFullAccess(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
 }
@@ -1486,6 +1489,15 @@ func normalizeDesktopUIScale(c *Config) {
 	c.Desktop.UIScale = c.DesktopUIScale()
 	if c.ConfigVersion < 6 {
 		c.ConfigVersion = 6
+	}
+}
+
+// V7 records the explicit one-time consent required before automation turns
+// may bypass ordinary tool and plan approvals. Existing installations remain
+// unapproved until the user confirms in the desktop UI.
+func normalizeAutomationFullAccess(c *Config) {
+	if c != nil && c.ConfigVersion < 7 {
+		c.ConfigVersion = 7
 	}
 }
 
@@ -1836,6 +1848,7 @@ func firstKnownModel(current string, models []string, fallback string) string {
 
 func retargetDesktopOfficialRefs(c *Config, access map[string]bool) {
 	c.DefaultModel = retargetDesktopOfficialRef(c.DefaultModel, access)
+	c.Bot.Model = retargetDesktopOfficialRef(c.Bot.Model, access)
 	c.Agent.PlannerModel = retargetDesktopOfficialRef(c.Agent.PlannerModel, access)
 	c.Agent.SubagentModel = retargetDesktopOfficialRef(c.Agent.SubagentModel, access)
 	c.Agent.AutoPlanClassifier = retargetDesktopOfficialRef(c.Agent.AutoPlanClassifier, access)
@@ -1868,13 +1881,16 @@ func retargetDesktopOfficialRef(ref string, access map[string]bool) string {
 		}
 		return "deepseek/" + model
 	case "mimo-pro":
-		if !access["mimo-token-plan"] {
-			return ref
-		}
 		if !hasModel || strings.TrimSpace(model) == "" {
 			model = "mimo-v2.5-pro"
 		}
-		return "mimo-token-plan/" + model
+		if access["mimo-token-plan"] {
+			return "mimo-token-plan/" + model
+		}
+		if access["mimo-api"] {
+			return "mimo-api/" + model
+		}
+		return ref
 	case "mimo", "xiaomi-mimo", "xiaomi_mimo":
 		if !access["mimo-api"] {
 			return ref
@@ -1884,13 +1900,16 @@ func retargetDesktopOfficialRef(ref string, access map[string]bool) string {
 		}
 		return "mimo-api/" + model
 	case "mimo-flash":
-		if !access["mimo-token-plan"] {
-			return ref
-		}
 		if !hasModel || strings.TrimSpace(model) == "" {
 			model = "mimo-v2.5"
 		}
-		return "mimo-token-plan/" + model
+		if access["mimo-token-plan"] {
+			return "mimo-token-plan/" + model
+		}
+		if access["mimo-api"] {
+			return "mimo-api/" + model
+		}
+		return ref
 	default:
 		return ref
 	}

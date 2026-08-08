@@ -8,11 +8,11 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.36)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -65,11 +65,11 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 自动化与远程连接
 
-顶层 **自动化工作区** 与项目工作区、独立工作区并列。自动化对话固定使用保留的助手模式，右下角模式选择器可见但不可切换。助手会先在当前模型回合内判断是否需要已有工程对话：普通问题直接回答；确有依赖时才列出、读取、新建、派发、等待、查询或取消普通/增强对话中的任务。目标对话继续使用自己的模型、工作区、提示词和审批规则，自动化对话之间禁止递归派发。
+顶层 **自动化工作区** 只保留一个固定、不可删除或重命名的主对话 **Orca**。桌面、QQ 和微信都写入 Orca，并共享助手模式、自动化专用模型和 canonical 助手画像。旧自动化 topic 不会被删除，会收纳到只读历史区域。助手会先判断请求是否依赖已有工程对话；确有依赖时才按需列出、读取、派发、等待、查询或取消普通/增强会话中的任务，且不能递归派发自动化对话。
 
-QQ 和微信与桌面端共享自动化对话历史和助手画像。手机第一次发送普通消息时会自动创建或恢复自动化 topic；闲置超过 30 分钟后，通过一次无工具、低 token 的轻量请求判断是否延续上一段。`/continue` 强制继续，`/new` 新建一段，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer`。首轮成功回复后会单独发送一次使用指南；连接映射和指南状态跨重启保存。同一会话使用执行锁，避免手机和桌面同时写入同一 JSONL。
+闲置超过 30 分钟后，一次无工具、低 token 的判断只决定是否加载上一段上下文；无论续接还是新开始，内容都继续显示在同一个 Orca Transcript 中。`/new` 在 Orca 内开始新段，`/continue` 强制沿用上一段上下文，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer` 兼容命令。所有渠道共用当前段和串行执行队列，不会在侧栏生成新的手机对话。
 
-此外仍支持定时自动化、任务状态和本地后台任务。后台任务完成只更新状态；依赖结果的工作必须显式等待，不会偷偷创建新的模型轮次。
+Orca 的完全访问权限需要在桌面端确认一次，并可在设置中随时撤销。确认前仍可聊天，但受保护工具会被拒绝且不会发送逐项审批卡；确认后，权限策略允许的工具和计划确认自动继续，Ask 问题与显式 deny 规则仍然有效。首页四条建议由自动化模型每 24 小时根据有限的本地会话摘要后台整理，失败时保留上一版，不创建隐藏会话，也不写入助手记忆。
 
 ## 隐私与安全
 

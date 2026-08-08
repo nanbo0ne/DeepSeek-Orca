@@ -124,7 +124,7 @@ function collapsibleFolderKeys(nodes: ProjectNode[], depth = 0): string[] {
   for (const node of nodes) {
     if (!node) continue;
     const children = asArray(node.children);
-  if ((node.kind === "project" || node.kind === "global_folder" || node.kind === "automation_folder" || node.kind === "pinned_folder") && children.length > 0) {
+  if ((node.kind === "project" || node.kind === "global_folder" || node.kind === "automation_folder" || node.kind === "automation_history_folder" || node.kind === "pinned_folder") && children.length > 0) {
       keys.push(projectNodeKey(node, depth));
     }
     keys.push(...collapsibleFolderKeys(children, depth + 1));
@@ -622,7 +622,7 @@ export function ProjectTree({
         setMenuTopic(topicId);
         setConfirmAction(null);
       };
-      const topicMenuItems: ContextMenuItem[] = [
+      const topicMenuItems: ContextMenuItem[] = node.readOnly || node.primary ? [] : [
         {
           key: "pin",
           icon: node.pinned ? <PinOff size={13} /> : <Pin size={13} />,
@@ -684,9 +684,9 @@ export function ProjectTree({
       return (
         <div
           key={key}
-          className={`project-tree__topic${scopeClass}${active ? " project-tree__topic--active" : ""}${node.running || loading ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${meta ? " project-tree__topic--has-meta" : ""}`}
+          className={`project-tree__topic${scopeClass}${active ? " project-tree__topic--active" : ""}${node.readOnly ? " project-tree__topic--readonly" : ""}${node.primary ? " project-tree__topic--primary" : ""}${node.running || loading ? " project-tree__topic--running" : ""}${status ? ` project-tree__topic--status-${status}` : ""}${topicMenuOpen ? " project-tree__topic--menu-open" : ""}${meta ? " project-tree__topic--has-meta" : ""}`}
           style={accentStyle}
-          onContextMenu={openTopicMenu}
+          onContextMenu={node.readOnly || node.primary ? undefined : openTopicMenu}
         >
           <button
             type="button"
@@ -726,7 +726,8 @@ export function ProjectTree({
     }
 
     const isPinnedFolder = node.kind === "pinned_folder";
-    const scope = node.kind === "automation_folder" ? "automation" : node.kind === "global_folder" ? "global" : "project";
+    const isAutomationHistoryFolder = node.kind === "automation_history_folder";
+    const scope = node.kind === "automation_folder" || isAutomationHistoryFolder ? "automation" : node.kind === "global_folder" ? "global" : "project";
     const scopeClass = scope === "automation" ? " project-tree__folder--automation" : scope === "global" ? " project-tree__folder--global" : " project-tree__folder--project";
     const accentStyle = projectAccentStyle(node.projectColor, scope === "global" ? "var(--project-tree-global-accent)" : undefined);
     const projectRoot = scope === "global" ? "" : node.root ?? "";
@@ -777,7 +778,7 @@ export function ProjectTree({
       setMenuProject({ key, root: projectRoot, path: projectPath, scope, label: projectLabel });
       setConfirmRemoveProject(null);
     };
-    const projectMenuItems: ContextMenuItem[] = isPinnedFolder ? [] : [
+    const projectMenuItems: ContextMenuItem[] = isPinnedFolder || isAutomationHistoryFolder ? [] : [
       {
         key: "new-session",
         icon: <Plus size={13} />,

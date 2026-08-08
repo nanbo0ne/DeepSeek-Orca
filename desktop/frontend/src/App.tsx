@@ -866,6 +866,7 @@ export default function App() {
     ? stepThinkingsByTab[activeTabId] ?? Boolean(state.meta?.stepThinkingEnabled ?? activeTab?.stepThinkingEnabled)
     : false;
   const automationConversation = (state.meta?.scope ?? activeTab?.scope) === "automation";
+  const automationAccessRequired = automationConversation && state.meta?.automationFullAccessApproved !== true && !state.meta?.readOnly;
   const promptMode = automationConversation
     ? "assistant"
     : activeTabId
@@ -2772,6 +2773,21 @@ export default function App() {
 
           <footer className="footer" ref={footerRef}>
             <div className="footer-shelves">
+              {automationAccessRequired && (
+                <div className="automation-access-prompt" data-ui-surface="panel" role="alert">
+                  <div className="automation-access-prompt__copy">
+                    <strong>{t("automation.access.title")}</strong>
+                    <span>{t("automation.access.hint")}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--primary"
+                    onClick={() => void app.SetAutomationFullAccess(true).then(() => refreshMeta()).then(() => refreshTabMetas())}
+                  >
+                    {t("automation.access.confirm")}
+                  </button>
+                </div>
+              )}
               {activeQueuedPrompts.length > 0 && (
                 <div className="queued-prompts" aria-label={t("queuedPrompts.title")} data-ui-surface="panel">
                 <div className="queued-prompts__head">
@@ -2865,7 +2881,7 @@ export default function App() {
               onSetEffort={(level) => void switchEffort(level)}
               insertRequest={composerInsertRequest}
               pasteRequest={composerPasteRequest}
-              disabled={state.meta?.ready === false || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
+              disabled={state.meta?.ready === false || state.meta?.readOnly === true || state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               decisionPending={state.messageAction != null || state.approval != null || state.ask != null || clearContextPending}
               ready={state.meta?.ready === true}
               turnStartAt={state.turnStartAt}

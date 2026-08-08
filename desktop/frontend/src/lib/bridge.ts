@@ -209,7 +209,10 @@ export interface AppBindings {
   SetAssistantMemorySettings(settings: AssistantMemorySettings): Promise<void>;
   ClearAssistantMemories(): Promise<void>;
   Settings(): Promise<SettingsView>;
+  GetWelcomeSuggestions(): Promise<string[]>;
   SetDefaultModel(ref: string): Promise<void>;
+  SetAutomationModel(ref: string): Promise<void>;
+  SetAutomationFullAccess(enabled: boolean): Promise<void>;
   SetPlannerModel(ref: string): Promise<void>;
   SetSubagentModel(ref: string): Promise<void>;
   SetSubagentEffort(level: string): Promise<void>;
@@ -399,6 +402,13 @@ export function onReady(cb: () => void): () => void {
 export function onProjectTreeChanged(cb: () => void): () => void {
   if (realApp() && typeof window !== "undefined" && window.runtime) {
     return window.runtime.EventsOn("project-tree:changed", () => cb());
+  }
+  return () => {};
+}
+
+export function onWelcomeSuggestions(cb: (prompts: string[]) => void): () => void {
+  if (realApp() && typeof window !== "undefined" && window.runtime) {
+    return window.runtime.EventsOn("welcome:suggestions", (payload) => cb(Array.isArray(payload) ? payload as string[] : []));
   }
   return () => {};
 }
@@ -668,6 +678,7 @@ function makeMockApp(): AppBindings {
   // Mutable settings so the Settings panel's edits are observable in browser dev.
   const settings: SettingsView = {
     defaultModel: "deepseek",
+    automationModel: "deepseek/deepseek-v4-flash",
     plannerModel: "",
     subagentModel: "",
     subagentEffort: "",
@@ -740,6 +751,7 @@ function makeMockApp(): AppBindings {
     visionMode: "auto",
     uiScale: 0,
     effectiveUIScale: 100,
+    automationFullAccessApproved: false,
     configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
@@ -1600,6 +1612,8 @@ function makeMockApp(): AppBindings {
             paused: active?.paused ?? false,
             goal: active?.goal ?? "",
             goalStatus: active?.goalStatus ?? (active?.goal ? "running" : "stopped"),
+            readOnly: active?.readOnly ?? false,
+            automationFullAccessApproved: settings.automationFullAccessApproved,
           };
         },
         async MetaForTab(tabID) {
@@ -1621,6 +1635,8 @@ function makeMockApp(): AppBindings {
             paused: tab?.paused ?? false,
             goal: tab?.goal ?? "",
             goalStatus: tab?.goalStatus ?? (tab?.goal ? "running" : "stopped"),
+            readOnly: tab?.readOnly ?? false,
+            automationFullAccessApproved: settings.automationFullAccessApproved,
           };
         },
     async Commands() {
@@ -2016,9 +2032,19 @@ function makeMockApp(): AppBindings {
     async Settings() {
       return JSON.parse(JSON.stringify(settings)) as SettingsView;
     },
-    async SetDefaultModel(ref: string) {
-      settings.defaultModel = ref;
+    async GetWelcomeSuggestions() {
+      return [];
     },
+        async SetDefaultModel(ref: string) {
+          settings.defaultModel = ref;
+        },
+        async SetAutomationModel(ref: string) {
+          settings.automationModel = ref;
+          settings.bot.model = ref;
+        },
+        async SetAutomationFullAccess(enabled: boolean) {
+          settings.automationFullAccessApproved = enabled;
+        },
     async SetPlannerModel(ref: string) {
       settings.plannerModel = ref;
     },

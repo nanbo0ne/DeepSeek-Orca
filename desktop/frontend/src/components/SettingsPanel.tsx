@@ -619,6 +619,10 @@ function reasoningProtocolLabel(protocol: string, t: ReturnType<typeof useT>): s
 function GeneralSection({ s, busy, apply }: SectionProps) {
   const { t, setPref } = useI18n();
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [currentVersion, setCurrentVersion] = useState("");
+  useEffect(() => {
+    void app.Version().then(setCurrentVersion).catch(() => setCurrentVersion(""));
+  }, []);
   const closeBehavior = normalizeCloseBehavior(s.closeBehavior);
   const autoPlan = normalizeAutoPlan(s.autoPlan);
   const languagePref = normalizeLangPref(s.desktopLanguage);
@@ -679,6 +683,9 @@ function GeneralSection({ s, busy, apply }: SectionProps) {
           </button>
           {updateStatus && <span className="settings-update-control__status" role="status">{updateStatus}</span>}
         </div>
+      </SettingsField>
+      <SettingsField label={t("settings.currentVersion")}>
+        <span className="settings-update-control__status">{currentVersion || "-"}</span>
       </SettingsField>
       <SettingsField label={t("settings.processDisplay")} hint={t("settings.processDisplayHint")}>
         <div className="set-seg">
@@ -1817,6 +1824,16 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
               />
             </SettingsField>
 
+            <SettingsField label={t("settings.automationModel")} hint={t("settings.automationModelHint")}>
+              <ModelPicker
+                s={s}
+                refs={refs}
+                value={toRef(s.automationModel, s)}
+                disabled={busy}
+                onPick={(ref) => void apply(() => app.SetAutomationModel(ref))}
+              />
+            </SettingsField>
+
             <SettingsField label={t("settings.plannerModel")}>
               <ModelPicker
                 s={s}
@@ -1879,6 +1896,8 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
                   const capability = capabilityByRef.get(ref);
                   const status = capability?.status || "unknown";
                   const statusLabel = t(`settings.visionStatus.${status}` as DictKey);
+                  const automaticStatus = capability?.automaticStatus || (capability?.override && capability.override !== "auto" ? "unknown" : status);
+                  const automaticStatusLabel = t(`settings.visionStatus.${automaticStatus}` as DictKey);
                   const checked = capability?.checkedAt
                     ? new Date(capability.checkedAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")
                     : t("settings.visionNotChecked");
@@ -1887,7 +1906,7 @@ function ModelsSection({ s, busy, apply, backgroundApply }: ModelsSectionProps) 
                     <div className="settings-vision-capabilities__row" key={ref}>
                       <div className="settings-vision-capabilities__model">
                         <strong title={ref}>{ref}</strong>
-                        <span>{statusLabel} · {checked}</span>
+                        <span>{t("settings.visionAutomatic")}: {automaticStatusLabel} · {t("settings.visionEffective")}: {statusLabel} · {checked}</span>
                         {capability?.reason && <small title={capability.reason}>{capability.reason}</small>}
                       </div>
                       <div className="settings-vision-capabilities__actions">
@@ -3346,6 +3365,13 @@ function PermissionsSection({ s, busy, apply }: SectionProps) {
   return (
     <>
     <SettingsSection title={t("settings.permissions")} description={t("settings.permissionsModeHint")}>
+      <SettingsField label={t("settings.automationFullAccess")} hint={t("settings.automationFullAccessHint")}>
+        <ToggleSegment
+          value={s.automationFullAccessApproved}
+          disabled={busy}
+          onChange={(enabled) => void apply(() => app.SetAutomationFullAccess(enabled))}
+        />
+      </SettingsField>
       <SettingsField label={t("settings.writerMode")}>
         <select
           className="mem-select set-grow"

@@ -8,11 +8,11 @@ This repository's desktop product is the **engineering edition**. It exposes two
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.36)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -71,11 +71,11 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 
 ### Automation and remote connections
 
-The top-level **Automation Workspace** is available beside project and independent workspaces. Its conversations always use the retained Assistant profile; the mode selector stays visible but locked. The Assistant can answer directly or, when the request genuinely depends on existing engineering context, list, read, create, dispatch to, wait for, inspect, or cancel work in Normal and Enhanced conversations. Dispatched conversations retain their own model, workspace, prompt, and approval policy, and automation conversations cannot recursively dispatch to automation.
+The top-level **Automation Workspace** contains one fixed main conversation named **Orca**. Desktop, QQ, and Weixin all write to Orca and share its Assistant profile, dedicated automation model, and canonical memory. Legacy automation topics remain available in a collapsed read-only history area. Orca answers directly unless a request genuinely depends on engineering context, in which case it can selectively read or dispatch to Normal and Enhanced conversations without recursively dispatching automation.
 
-QQ and Weixin use the same Automation Workspace history and profile. The first ordinary phone message creates or restores an automation topic automatically. After 30 minutes of inactivity, one small no-tool request decides whether a new message continues the previous segment; `/continue` forces continuation and `/new` starts a clean segment. `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain available. The first successful reply is followed by a separate one-time guide. Session mappings and guide state persist across restarts, and a per-session execution lease prevents desktop and phone controllers from writing the same transcript concurrently.
+After 30 minutes of inactivity, a small no-tool check decides only whether the next turn should load the previous segment's context. Related and unrelated turns remain visible in the same Orca transcript. `/new` starts a clean logical segment inside Orca and `/continue` forces previous-context continuation; `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain for compatibility. Every channel shares the current segment and one serial execution queue, so phone use never creates another sidebar conversation.
 
-The application also includes scheduled automation, task status, and local background jobs. Background jobs do not silently start a new model turn after completion; work that depends on a result must explicitly collect it.
+Trusted automation access is confirmed once on desktop and can be revoked in Settings. Before confirmation Orca can still chat, but protected tools are declined without per-command approval cards. After confirmation, policy-allowed tools and plan execution proceed automatically; Ask questions and explicit deny rules still apply. The four home suggestions are refreshed every 24 hours by the automation model from limited local conversation summaries, with cached fallback and no hidden conversation or memory side effects.
 
 ## Privacy and Safety
 

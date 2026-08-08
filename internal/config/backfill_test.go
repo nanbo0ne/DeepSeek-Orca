@@ -114,6 +114,7 @@ func TestNormalizeDesktopOfficialProviderAccessCanonicalizesLegacyIDs(t *testing
 func TestNormalizeDesktopOfficialProviderAccessEnsuresMimoAPI(t *testing.T) {
 	c := Default()
 	c.DefaultModel = "mimo-api/mimo-v2.5-pro"
+	c.Bot.Model = "mimo-flash/mimo-v2.5"
 	c.Desktop.ProviderAccess = []string{"mimo-api"}
 	normalizeDesktopOfficialProviderAccess(c)
 	if _, ok := c.Provider("mimo-api"); !ok {
@@ -121,6 +122,9 @@ func TestNormalizeDesktopOfficialProviderAccessEnsuresMimoAPI(t *testing.T) {
 	}
 	if got := c.Desktop.ProviderAccess; len(got) != 1 || got[0] != "mimo-api" {
 		t.Fatalf("provider_access = %+v, want mimo-api", got)
+	}
+	if got := c.Bot.Model; got != "mimo-api/mimo-v2.5" {
+		t.Fatalf("bot.model = %q, want migrated Mimo API reference", got)
 	}
 }
 
@@ -141,10 +145,10 @@ func TestResolveModelBareNameHonorsMimoProviderAccess(t *testing.T) {
 		t.Fatalf("bare MiMo model resolved to %+v, want mimo-api", entry)
 	}
 	ref, fallback, ok := c.ResolveModelWithFallback("mimo-flash/mimo-v2.5")
-	if !ok || !fallback || ref != "mimo-api/mimo-v2.5" {
+	if !ok || fallback || ref != "mimo-api/mimo-v2.5" {
 		t.Fatalf("legacy MiMo ref resolved to %q fallback=%v ok=%v", ref, fallback, ok)
 	}
-	if _, ok := c.ResolveModel("mimo-pro/mimo-v2.5-pro"); ok {
-		t.Fatal("disabled Mimo Token Plan alias must not resolve")
+	if migrated, ok := c.ResolveModel("mimo-pro/mimo-v2.5-pro"); !ok || migrated.Name != "mimo-api" {
+		t.Fatalf("legacy Mimo PRO alias resolved to %+v, want enabled Mimo API", migrated)
 	}
 }

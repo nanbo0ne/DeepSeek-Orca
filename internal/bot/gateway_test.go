@@ -407,6 +407,10 @@ func TestGatewayContinuityDecisionAfterIdle(t *testing.T) {
 		gw := NewGateway(GatewayConfig{
 			Allowlist:         AllowlistConfig{AllowAll: true},
 			ContinuityDecider: func(context.Context, SessionChoice, string) (bool, error) { return related, decisionErr },
+			RestoreSession: func(context.Context, string, InboundMessage) (SessionChoice, bool, error) {
+				t.Fatal("idle unrelated messages must create a fresh logical segment instead of restoring the old one")
+				return SessionChoice{}, false, nil
+			},
 			CreateSession: func(context.Context, string, InboundMessage) (SessionChoice, error) {
 				created++
 				return SessionChoice{TopicID: "new", Path: newPath, Title: "新段", WorkspaceRoot: dir}, nil
@@ -428,6 +432,35 @@ func TestGatewayContinuityDecisionAfterIdle(t *testing.T) {
 	key, err = gw.ensureAutomationSession(context.Background(), "qq:chat", InboundMessage{Text: "新话题"})
 	if err != nil || key != controllerKeyForSession(newPath) || *created != 1 {
 		t.Fatalf("new key=%q created=%d err=%v", key, *created, err)
+	}
+}
+
+func TestGatewaySharedAutomationSessionSwitchesEveryRemote(t *testing.T) {
+	dir := t.TempDir()
+	firstPath := filepath.Join(dir, "first.jsonl")
+	secondPath := filepath.Join(dir, "second.jsonl")
+	for _, path := range []string{firstPath, secondPath} {
+		if err := agent.NewSession("sys").Save(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gw := NewGateway(GatewayConfig{
+		SharedAutomationSession: true,
+		BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+			return control.New(control.Options{Runner: gatewayRunnerFunc(func(context.Context, string) error { return nil }), SessionPath: choice.Path, Sink: sink}), nil
+		},
+	}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := gw.selectSession(context.Background(), "weixin:one", SessionChoice{TopicID: "orca", Path: firstPath, Title: "Orca"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.selectSession(context.Background(), "qq:two", SessionChoice{TopicID: "orca", Path: secondPath, Title: "Orca"}); err != nil {
+		t.Fatal(err)
+	}
+	want := controllerKeyForSession(secondPath)
+	for _, remote := range []string{"weixin:one", "qq:two"} {
+		if got, ok := gw.activeControllerKey(remote); !ok || got != want {
+			t.Fatalf("remote %s selected %q, want shared %q", remote, got, want)
+		}
 	}
 }
 

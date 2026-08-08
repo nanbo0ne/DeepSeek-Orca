@@ -144,13 +144,14 @@ export interface TabMeta {
   goal?: string;
   goalStatus?: GoalStatus;
   startupErr?: string;
+  readOnly?: boolean;
   active: boolean;
   cwd: string;
 }
 
 export interface ProjectNode {
   key: string;
-  kind: "project" | "topic" | "global_folder" | "global_topic" | "automation_folder" | "automation_topic" | "pinned_folder";
+  kind: "project" | "topic" | "global_folder" | "global_topic" | "automation_folder" | "automation_history_folder" | "automation_topic" | "pinned_folder";
   label: string;
   root?: string;
   topicId?: string;
@@ -162,6 +163,8 @@ export interface ProjectNode {
   running?: boolean;
   status?: ProjectTopicStatus;
   pinned?: boolean;
+  readOnly?: boolean;
+  primary?: boolean;
   projectPath?: string | null;
   children?: ProjectNode[];
 }
@@ -335,6 +338,8 @@ export interface Meta {
   paused?: boolean;
   goal?: string;
   goalStatus?: GoalStatus;
+  readOnly?: boolean;
+  automationFullAccessApproved?: boolean;
 }
 
 export type CollaborationMode = "normal" | "plan" | "goal";
@@ -347,6 +352,7 @@ export interface VisionCapability {
   modelRef: string;
   key: string;
   status: VisionCapabilityStatus;
+  automaticStatus?: VisionCapabilityStatus;
   checkedAt?: number;
   reason?: string;
   attempts?: number;
@@ -833,6 +839,7 @@ export interface BotRuntimeStatusView {
 
 export interface SettingsView {
   defaultModel: string;
+  automationModel: string;
   plannerModel: string;
   subagentModel: string;
   subagentEffort: string;
@@ -854,8 +861,9 @@ export interface SettingsView {
   activityIndicatorEnabled: boolean;
   visionEnabled: boolean;
   visionMode: VisionMode;
-  uiScale: number; // 0 = automatic; otherwise 80..125
+  uiScale: number; // 0 = follow Windows DPI; otherwise 80..125
   effectiveUIScale: number;
+  automationFullAccessApproved: boolean;
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;

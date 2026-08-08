@@ -5,6 +5,9 @@
 import type { DictKey } from "./en";
 
 export const zh: Record<DictKey, string> = {
+  "automation.access.title": "允许 Orca 管理这台电脑",
+  "automation.access.hint": "确认后，Orca 与手机机器人可自动使用工具和派发任务；拒绝规则和系统权限仍然有效。可随时在设置 > 权限中撤销。",
+  "automation.access.confirm": "确认完全访问",
   // 通用动词 / 框架
   "common.close": "关闭",
   "common.cancel": "取消",
@@ -680,6 +683,8 @@ export const zh: Record<DictKey, string> = {
   "settings.visionMode.auto": "自动",
   "settings.visionMode.on": "开启",
   "settings.visionCapabilities": "模型视觉能力",
+  "settings.visionAutomatic": "自动结果",
+  "settings.visionEffective": "当前生效",
   "settings.visionCapabilitiesHint": "能力按模型和接口分别记录。自动模式只发送给已确认支持视觉的模型。",
   "settings.visionCapabilitiesEmpty": "请先添加模型。",
   "settings.visionStatus.supported": "支持识图",
@@ -732,6 +737,8 @@ export const zh: Record<DictKey, string> = {
   "settings.modelList": "模型列表",
   "settings.modelsRequireKey": "填写密钥后才可选择这些模型。",
   "settings.defaultModel": "默认模型",
+  "settings.automationModel": "自动化模型",
+  "settings.automationModelHint": "用于 Orca 主对话、微信、QQ、每日建议和自动化历史判断。",
   "settings.plannerModel": "独立规划模型",
   "settings.plannerNone": "使用当前模型（单模型）",
   "settings.subagentDefaults": "subagent 默认值",
@@ -931,6 +938,8 @@ export const zh: Record<DictKey, string> = {
   "settings.botWeixinGroups": "微信群",
   "settings.botListPlaceholder": "每行一个 ID，也可用逗号分隔",
   "settings.permissions": "权限",
+  "settings.automationFullAccess": "Orca 自动化完全访问",
+  "settings.automationFullAccessHint": "确认一次后，Orca 和手机机器人将自动批准工具与计划；系统拒绝规则仍然优先。关闭后手机端会提示回到桌面授权。",
   "settings.writerMode": "写操作模式",
   "settings.modeAsk": "ask（写操作前询问）",
   "settings.modeAllow": "allow（自动执行写操作）",
@@ -1093,6 +1102,7 @@ export const zh: Record<DictKey, string> = {
   "todo.progress": "第 {current} / {total} 步",
   "todo.pinned": "已固定展开",
   "settings.autoCheckUpdates": "自动检查更新",
+  "settings.currentVersion": "当前版本",
   "settings.autoCheckUpdatesHint": "启动后和每 24 小时检查一次；不会自动下载或安装。",
   "settings.checkUpdatesNow": "立即检查",
   "settings.checkUpdatesNowHint": "仅访问官方 GitHub Release，不会下载任何文件。",

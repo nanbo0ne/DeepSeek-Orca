@@ -158,6 +158,12 @@ type Controller struct {
 	// writer fallback while preserving ask/deny rules, and "yolo" skips every
 	// tool approval prompt except plan approval. It never answers AskRequest.
 	toolApprovalMode string
+	// trustedAutomationAccess is a persisted, automation-only grant. Unlike the
+	// regular yolo mode it also clears the plan gate, while AskRequest remains a
+	// separate user decision and deny rules still run before approval handling.
+	trustedAutomationAccess     bool
+	trustedAutomationConfigured bool
+	automationAccessNoticeTurn  int
 
 	// autoApproveTools is "YOLO/full access" mode: while set, every tool approval
 	// request is auto-allowed for the rest of the session (writers and bash run
@@ -349,47 +355,48 @@ func New(opts Options) *Controller {
 		pluginCtx = context.Background()
 	}
 	c := &Controller{
-		runner:           opts.Runner,
-		executor:         opts.Executor,
-		sink:             sink,
-		policy:           opts.Policy,
-		label:            opts.Label,
-		systemPrompt:     opts.SystemPrompt,
-		sessionDir:       opts.SessionDir,
-		sessionPath:      opts.SessionPath,
-		host:             opts.Host,
-		commands:         opts.Commands,
-		skills:           opts.Skills,
-		allSkills:        opts.AllSkills,
-		skillStore:       opts.SkillStore,
-		allSkillStore:    opts.AllSkillStore,
-		hooks:            opts.Hooks,
-		mem:              opts.Memory,
-		enhancedMode:     opts.EnhancedMode,
-		memoryReminder:   opts.MemoryReminder,
-		turnContext:      opts.TurnContext,
-		askWorkflow:      opts.AskWorkflow,
-		stepThinking:     opts.StepThinking,
-		visionEnabled:    opts.VisionEnabled,
-		visionMode:       opts.VisionMode,
-		visionModels:     opts.VisionModels,
-		cleanup:          opts.Cleanup,
-		autoPlan:         normalizeAutoPlan(opts.AutoPlan),
-		classifier:       classifier,
-		onRemember:       opts.OnRemember,
-		turnLease:        opts.TurnLease,
-		refreshOnLease:   opts.RefreshOnLease,
-		balanceURL:       opts.BalanceURL,
-		balanceKey:       opts.BalanceKey,
-		balanceClient:    opts.BalanceClient,
-		jobs:             opts.Jobs,
-		reg:              opts.Registry,
-		pluginCtx:        pluginCtx,
-		cpRoot:           opts.WorkspaceRoot,
-		toolApprovalMode: ToolApprovalAsk,
-		approvals:        map[string]pendingApproval{},
-		asks:             map[string]pendingAsk{},
-		granted:          map[string]bool{},
+		runner:                     opts.Runner,
+		executor:                   opts.Executor,
+		sink:                       sink,
+		policy:                     opts.Policy,
+		label:                      opts.Label,
+		systemPrompt:               opts.SystemPrompt,
+		sessionDir:                 opts.SessionDir,
+		sessionPath:                opts.SessionPath,
+		host:                       opts.Host,
+		commands:                   opts.Commands,
+		skills:                     opts.Skills,
+		allSkills:                  opts.AllSkills,
+		skillStore:                 opts.SkillStore,
+		allSkillStore:              opts.AllSkillStore,
+		hooks:                      opts.Hooks,
+		mem:                        opts.Memory,
+		enhancedMode:               opts.EnhancedMode,
+		memoryReminder:             opts.MemoryReminder,
+		turnContext:                opts.TurnContext,
+		askWorkflow:                opts.AskWorkflow,
+		stepThinking:               opts.StepThinking,
+		visionEnabled:              opts.VisionEnabled,
+		visionMode:                 opts.VisionMode,
+		visionModels:               opts.VisionModels,
+		cleanup:                    opts.Cleanup,
+		autoPlan:                   normalizeAutoPlan(opts.AutoPlan),
+		classifier:                 classifier,
+		onRemember:                 opts.OnRemember,
+		turnLease:                  opts.TurnLease,
+		refreshOnLease:             opts.RefreshOnLease,
+		balanceURL:                 opts.BalanceURL,
+		balanceKey:                 opts.BalanceKey,
+		balanceClient:              opts.BalanceClient,
+		jobs:                       opts.Jobs,
+		reg:                        opts.Registry,
+		pluginCtx:                  pluginCtx,
+		cpRoot:                     opts.WorkspaceRoot,
+		toolApprovalMode:           ToolApprovalAsk,
+		approvals:                  map[string]pendingApproval{},
+		asks:                       map[string]pendingAsk{},
+		granted:                    map[string]bool{},
+		automationAccessNoticeTurn: -1,
 	}
 	// Checkpoints: bind a store to the session and route writer pre-edits into it.
 	c.rebindCheckpoints(opts.SessionPath)
@@ -2629,6 +2636,31 @@ func (c *Controller) SetAutoApproveTools(on bool) {
 	c.SetToolApprovalMode(ToolApprovalAsk)
 }
 
+// SetTrustedAutomationAccess applies the one-time Orca automation grant. It is
+// intentionally separate from normal session yolo mode so desktop engineering
+// conversations keep their interactive plan confirmation semantics.
+func (c *Controller) SetTrustedAutomationAccess(on bool) {
+	c.mu.Lock()
+	c.trustedAutomationConfigured = true
+	c.trustedAutomationAccess = on
+	pending := make([]chan approvalReply, 0, len(c.approvals))
+	if on {
+		for id, approval := range c.approvals {
+			delete(c.approvals, id)
+			pending = append(pending, approval.reply)
+		}
+	}
+	c.mu.Unlock()
+	if on {
+		c.SetToolApprovalMode(ToolApprovalYolo)
+		for _, reply := range pending {
+			reply <- approvalReply{allow: true}
+		}
+		return
+	}
+	c.SetToolApprovalMode(ToolApprovalAsk)
+}
+
 // SetBypass is the legacy name for SetAutoApproveTools. Keep it for existing
 // desktop/serve bindings and CLI code that still uses the bypass wording.
 func (c *Controller) SetBypass(on bool) {
@@ -3011,6 +3043,15 @@ func parseRewind(args string, cps []checkpoint.Meta) (int, RewindScope, error) {
 // short-circuits. promptMu serialises outstanding prompts.
 func (c *Controller) requestApproval(ctx context.Context, tool, subject string) (bool, bool, error) {
 	c.mu.Lock()
+	if c.trustedAutomationConfigured && !c.trustedAutomationAccess {
+		notify := c.automationAccessNoticeTurn != c.turn
+		c.automationAccessNoticeTurn = c.turn
+		c.mu.Unlock()
+		if notify {
+			c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "Orca automation access is not enabled. Confirm full access once in the desktop app to use computer tools."})
+		}
+		return false, false, nil
+	}
 	// YOLO/full access and the just-approved-plan execution window auto-allow
 	// approval-gated tools without prompting. Plan approval is a user decision,
 	// not a tool permission, so it deliberately stays interactive.
@@ -3068,7 +3109,7 @@ func (c *Controller) requestApproval(ctx context.Context, tool, subject string) 
 }
 
 func (c *Controller) approvalBypassAllowsLocked(tool string) bool {
-	return tool != planApprovalTool && (c.toolApprovalMode == ToolApprovalYolo || c.approvedPlanAutoApproveTools)
+	return c.trustedAutomationAccess || (tool != planApprovalTool && (c.toolApprovalMode == ToolApprovalYolo || c.approvedPlanAutoApproveTools))
 }
 
 func (c *Controller) autoApprovalWouldAllowLocked(tool, subject string) bool {

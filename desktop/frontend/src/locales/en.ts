@@ -4,6 +4,9 @@
 // it at compile time), so adding a key here makes the build fail until zh has it.
 
 export const en = {
+  "automation.access.title": "Allow Orca to manage this computer",
+  "automation.access.hint": "After confirmation, Orca and mobile bots can use tools and dispatch tasks automatically. Deny rules and OS permissions still apply.",
+  "automation.access.confirm": "Confirm full access",
   // shared verbs / chrome
   "common.close": "Close",
   "common.cancel": "Cancel",
@@ -678,6 +681,8 @@ export const en = {
   "settings.visionMode.auto": "Auto",
   "settings.visionMode.on": "On",
   "settings.visionCapabilities": "Model vision capability",
+  "settings.visionAutomatic": "Automatic result",
+  "settings.visionEffective": "Effective",
   "settings.visionCapabilitiesHint": "Capability is tracked per model and endpoint. Auto sends only to models confirmed to support vision.",
   "settings.visionCapabilitiesEmpty": "Add a model first.",
   "settings.visionStatus.supported": "Vision supported",
@@ -730,6 +735,8 @@ export const en = {
   "settings.modelList": "Model list",
   "settings.modelsRequireKey": "Set a key before selecting these models.",
   "settings.defaultModel": "Default model",
+  "settings.automationModel": "Automation model",
+  "settings.automationModelHint": "Used by Orca, WeChat, QQ, daily suggestions, and automation history decisions.",
   "settings.plannerModel": "Dedicated planner model",
   "settings.plannerNone": "Use current model (single model)",
   "settings.subagentDefaults": "Subagent defaults",
@@ -929,6 +936,8 @@ export const en = {
   "settings.botWeixinGroups": "WeChat groups",
   "settings.botListPlaceholder": "One ID per line, or comma-separated",
   "settings.permissions": "Permissions",
+  "settings.automationFullAccess": "Orca full automation access",
+  "settings.automationFullAccessHint": "After one confirmation, Orca and mobile bots approve tools and plans automatically. System deny rules still take precedence.",
   "settings.writerMode": "Writer mode",
   "settings.modeAsk": "ask (prompt before writers)",
   "settings.modeAllow": "allow (auto-run writers)",
@@ -1091,6 +1100,7 @@ export const en = {
   "todo.progress": "Step {current} / {total}",
   "todo.pinned": "Pinned open",
   "settings.autoCheckUpdates": "Check for updates automatically",
+  "settings.currentVersion": "Current version",
   "settings.autoCheckUpdatesHint": "Checks after startup and every 24 hours. It never downloads or installs automatically.",
   "settings.checkUpdatesNow": "Check now",
   "settings.checkUpdatesNowHint": "Only checks the official GitHub Release. No files are downloaded.",

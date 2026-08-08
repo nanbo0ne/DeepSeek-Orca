@@ -140,31 +140,33 @@ type BotSettingsView struct {
 
 // SettingsView is the whole Settings panel payload.
 type SettingsView struct {
-	DefaultModel       string          `json:"defaultModel"`
-	PlannerModel       string          `json:"plannerModel"`
-	SubagentModel      string          `json:"subagentModel"`
-	SubagentEffort     string          `json:"subagentEffort"`
-	AutoPlan           string          `json:"autoPlan"`
-	Providers          []ProviderView  `json:"providers"`
-	OfficialProviders  []ProviderView  `json:"officialProviders"`
-	Permissions        PermissionsView `json:"permissions"`
-	Sandbox            SandboxView     `json:"sandbox"`
-	Network            NetworkView     `json:"network"`
-	Agent              AgentView       `json:"agent"`
-	Bot                BotSettingsView `json:"bot"`
-	DesktopLanguage    string          `json:"desktopLanguage"`
-	DesktopTheme       string          `json:"desktopTheme"`
-	DesktopThemeStyle  string          `json:"desktopThemeStyle"`
-	CloseBehavior      string          `json:"closeBehavior"`
-	CheckUpdates       bool            `json:"checkUpdates"`
-	ExpandThinking     bool            `json:"expandThinking"`
-	ProcessDisplayMode string          `json:"processDisplayMode"`
-	ActivityIndicator  bool            `json:"activityIndicatorEnabled"`
-	VisionEnabled      bool            `json:"visionEnabled"`
-	VisionMode         string          `json:"visionMode"`
-	UIScale            int             `json:"uiScale"`
-	EffectiveUIScale   int             `json:"effectiveUIScale"`
-	ConfigPath         string          `json:"configPath"`
+	DefaultModel         string          `json:"defaultModel"`
+	AutomationModel      string          `json:"automationModel"`
+	PlannerModel         string          `json:"plannerModel"`
+	SubagentModel        string          `json:"subagentModel"`
+	SubagentEffort       string          `json:"subagentEffort"`
+	AutoPlan             string          `json:"autoPlan"`
+	Providers            []ProviderView  `json:"providers"`
+	OfficialProviders    []ProviderView  `json:"officialProviders"`
+	Permissions          PermissionsView `json:"permissions"`
+	Sandbox              SandboxView     `json:"sandbox"`
+	Network              NetworkView     `json:"network"`
+	Agent                AgentView       `json:"agent"`
+	Bot                  BotSettingsView `json:"bot"`
+	DesktopLanguage      string          `json:"desktopLanguage"`
+	DesktopTheme         string          `json:"desktopTheme"`
+	DesktopThemeStyle    string          `json:"desktopThemeStyle"`
+	CloseBehavior        string          `json:"closeBehavior"`
+	CheckUpdates         bool            `json:"checkUpdates"`
+	ExpandThinking       bool            `json:"expandThinking"`
+	ProcessDisplayMode   string          `json:"processDisplayMode"`
+	ActivityIndicator    bool            `json:"activityIndicatorEnabled"`
+	VisionEnabled        bool            `json:"visionEnabled"`
+	VisionMode           string          `json:"visionMode"`
+	UIScale              int             `json:"uiScale"`
+	EffectiveUIScale     int             `json:"effectiveUIScale"`
+	AutomationFullAccess bool            `json:"automationFullAccessApproved"`
+	ConfigPath           string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
 	// kinds that resolve — selecting an unregistered one would fail the rebuild.
@@ -333,21 +335,22 @@ func (a *App) Settings() SettingsView {
 				Ask:   []string{},
 				Deny:  []string{},
 			},
-			Sandbox:            SandboxView{Bash: "enforce", AllowWrite: []string{}},
-			Agent:              AgentView{PlannerMaxSteps: 12, SoftCompactRatio: 0.5, CompactRatio: 0.8, CompactForceRatio: 0.9},
-			Bot:                botSettingsView(config.BotConfig{}),
-			AutoPlan:           "off",
-			DesktopTheme:       "light",
-			DesktopThemeStyle:  "slate",
-			CloseBehavior:      "background",
-			CheckUpdates:       true,
-			ExpandThinking:     false,
-			ProcessDisplayMode: config.ProcessDisplayCompact,
-			ActivityIndicator:  false,
-			VisionEnabled:      false,
-			VisionMode:         config.VisionModeAuto,
-			UIScale:            0,
-			EffectiveUIScale:   100,
+			Sandbox:              SandboxView{Bash: "enforce", AllowWrite: []string{}},
+			Agent:                AgentView{PlannerMaxSteps: 12, SoftCompactRatio: 0.5, CompactRatio: 0.8, CompactForceRatio: 0.9},
+			Bot:                  botSettingsView(config.BotConfig{}),
+			AutoPlan:             "off",
+			DesktopTheme:         "light",
+			DesktopThemeStyle:    "slate",
+			CloseBehavior:        "background",
+			CheckUpdates:         true,
+			ExpandThinking:       false,
+			ProcessDisplayMode:   config.ProcessDisplayCompact,
+			ActivityIndicator:    false,
+			VisionEnabled:        false,
+			VisionMode:           config.VisionModeAuto,
+			UIScale:              0,
+			EffectiveUIScale:     100,
+			AutomationFullAccess: false,
 		}
 	}
 	ctrl := a.activeCtrl()
@@ -357,6 +360,7 @@ func (a *App) Settings() SettingsView {
 	}
 	v := SettingsView{
 		DefaultModel:      cfg.DefaultModel,
+		AutomationModel:   cfg.Bot.Model,
 		PlannerModel:      cfg.Agent.PlannerModel,
 		SubagentModel:     cfg.Agent.SubagentModel,
 		SubagentEffort:    cfg.Agent.SubagentEffort,
@@ -404,10 +408,16 @@ func (a *App) Settings() SettingsView {
 			}
 			return 100
 		}(),
-		ConfigPath:       cfgPath,
-		ProviderKinds:    nonNil(provider.Kinds()),
-		AutoApproveTools: ctrl != nil && ctrl.AutoApproveTools(),
-		Bypass:           ctrl != nil && ctrl.AutoApproveTools(),
+		AutomationFullAccess: cfg.Desktop.AutomationFullAccess,
+		ConfigPath:           cfgPath,
+		ProviderKinds:        nonNil(provider.Kinds()),
+		AutoApproveTools:     ctrl != nil && ctrl.AutoApproveTools(),
+		Bypass:               ctrl != nil && ctrl.AutoApproveTools(),
+	}
+	if resolved, _, ok := cfg.ResolveModelWithFallback(v.AutomationModel); ok {
+		v.AutomationModel = resolved
+	} else {
+		v.AutomationModel = cfg.DefaultModel
 	}
 	added := providerAccessSet(cfg.Desktop.ProviderAccess)
 	v.OfficialProviders = officialProviderViews(officialProviderAddedSet(cfg))
@@ -1458,6 +1468,124 @@ func (a *App) SetDesktopUIScale(scale int) error {
 // preference. Manual checks in Settings are unaffected.
 func (a *App) SetDesktopCheckUpdates(enabled bool) error {
 	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopCheckUpdates(enabled) })
+}
+
+func (a *App) SetAutomationFullAccess(enabled bool) error {
+	if err := a.applyConfigOnly(func(c *config.Config) error {
+		c.Desktop.AutomationFullAccess = enabled
+		return nil
+	}); err != nil {
+		return err
+	}
+	mode := control.ToolApprovalAsk
+	if enabled {
+		mode = control.ToolApprovalYolo
+	}
+	a.mu.Lock()
+	for _, tab := range a.tabs {
+		if tab == nil || tab.Scope != scopeAutomation || tab.ReadOnly {
+			continue
+		}
+		tab.toolApprovalMode = mode
+		if tab.Ctrl != nil {
+			tab.Ctrl.SetTrustedAutomationAccess(enabled)
+		}
+	}
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	a.restartDesktopBotGatewayWhenIdle()
+	a.emitReady(a.ctx)
+	return nil
+}
+
+func (a *App) SetAutomationModel(modelRef string) error {
+	modelRef = strings.TrimSpace(modelRef)
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	entry, ok := cfg.ResolveModel(modelRef)
+	if !ok || !modelProviderAccessAllowed(providerAccessSet(cfg.Desktop.ProviderAccess), entry.Name) {
+		return fmt.Errorf("unknown or unavailable automation model %q", modelRef)
+	}
+	modelRef = entry.Name + "/" + entry.Model
+	if err := a.applyConfigOnly(func(c *config.Config) error {
+		c.Bot.Model = modelRef
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	type automationTabModelChange struct {
+		tab     *WorkspaceTab
+		ctrl    *control.Controller
+		running bool
+	}
+	var tabs []automationTabModelChange
+	a.mu.RLock()
+	for _, tab := range a.tabs {
+		if tab == nil || tab.Scope != scopeAutomation || tab.ReadOnly {
+			continue
+		}
+		ctrl := tab.Ctrl
+		tabs = append(tabs, automationTabModelChange{tab: tab, ctrl: ctrl, running: ctrl != nil && ctrl.Running()})
+	}
+	a.mu.RUnlock()
+	for _, item := range tabs {
+		if item.running {
+			go a.rebuildAutomationTabModelWhenIdle(item.tab, modelRef, item.ctrl)
+			continue
+		}
+		a.rebuildAutomationTabModel(item.tab, modelRef, item.ctrl)
+	}
+	a.restartDesktopBotGatewayWhenIdle()
+	return nil
+}
+
+func (a *App) rebuildAutomationTabModelWhenIdle(tab *WorkspaceTab, modelRef string, ctrl *control.Controller) {
+	ticker := time.NewTicker(150 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if ctrl.Running() {
+				continue
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				return
+			}
+			latest, _, ok := cfg.ResolveModelWithFallback(cfg.Bot.Model)
+			if !ok || latest != modelRef {
+				return
+			}
+			a.rebuildAutomationTabModel(tab, modelRef, ctrl)
+			return
+		case <-a.bootContext().Done():
+			return
+		}
+	}
+}
+
+func (a *App) rebuildAutomationTabModel(tab *WorkspaceTab, modelRef string, expected *control.Controller) {
+	a.mu.Lock()
+	if tab == nil || tab.Scope != scopeAutomation || tab.ReadOnly || tab.Ctrl != expected || (tab.Ctrl != nil && tab.Ctrl.Running()) {
+		a.mu.Unlock()
+		return
+	}
+	oldCtrl := tab.Ctrl
+	tab.Ctrl = nil
+	tab.model = modelRef
+	tab.Label = modelRef
+	tab.Ready = false
+	tab.StartupErr = ""
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	if oldCtrl != nil {
+		_ = oldCtrl.Snapshot()
+		oldCtrl.Close()
+	}
+	a.startTabControllerBuild(tab)
 }
 
 // SetExpandThinking sets whether reasoning text is expanded by default on

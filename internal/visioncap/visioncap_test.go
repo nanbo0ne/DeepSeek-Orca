@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/png"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"deepseek-orca/internal/config"
@@ -78,8 +79,9 @@ func TestProbeImageComposesIconAndRandomCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(code) != 4 {
-		t.Fatalf("probe code length = %d, want 4", len(code))
+	parts := strings.Split(code, "|")
+	if len(parts) != 3 || len(parts[0]) != 4 {
+		t.Fatalf("probe challenge = %q, want CODE|COLOR|POSITION", code)
 	}
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
@@ -89,8 +91,16 @@ func TestProbeImageComposesIconAndRandomCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := composite.Bounds().Size(); got.X != 320 || got.Y != 230 {
-		t.Fatalf("probe image size = %v, want 320x230", got)
+	if got := composite.Bounds().Size(); got.X != 480 || got.Y != 320 {
+		t.Fatalf("probe image size = %v, want 480x320", got)
+	}
+}
+
+func TestProbeAcceptsReasoningAnswerWhenVisibleOutputIsEmpty(t *testing.T) {
+	p := &fakeProvider{chunks: []provider.Chunk{{Type: provider.ChunkReasoning, Text: "4821 BLUE TOP-LEFT"}, {Type: provider.ChunkDone}}}
+	got := probeWithImage(context.Background(), p, testEntry(), "4821|BLUE|TOP-LEFT", "data")
+	if got.Status != Supported {
+		t.Fatalf("capability = %+v, want supported from reasoning", got)
 	}
 }
 
