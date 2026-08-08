@@ -24,4 +24,4 @@ Process display can be Compact or Detailed and defaults to Compact. Compact proc
 
 Updates are notification-only: the app checks stable official releases, caches successful checks for 24 hours, and opens the release page in a browser after the user clicks the update entry. It does not auto-download, auto-install, or force upgrades.
 
-See [README.md](README.md) for the complete feature, safety, configuration, troubleshooting, and development documentation.
+See [README.en.md](README.en.md) for the complete feature, safety, configuration, troubleshooting, and development documentation.

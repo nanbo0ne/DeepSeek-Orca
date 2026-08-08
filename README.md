@@ -1,102 +1,97 @@
-# DeepSeek-Orca Desktop
+**简体中文** | [English](README.en.md)
 
-DeepSeek-Orca is a local desktop engineering workspace for using AI models on real projects. It combines multi-provider chat, project-scoped sessions, inspectable tools, planning, memory, MCP, skills, CodeGraph, and reversible execution in one Windows, macOS, and Linux application.
+# DeepSeek-Orca 桌面工程版
 
-This repository's desktop product is the **engineering edition**. It exposes two user-facing prompt modes: **Normal** and **Enhanced**. The future Orca personal-assistant edition is kept behind an internal product boundary and is documented separately in [docs/ORCA_ASSISTANT_APP_HANDOFF.md](docs/ORCA_ASSISTANT_APP_HANDOFF.md).
+DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph 和可回溯执行。当前仓库发布的是 **工程版**，用户可见模式只有 **普通模式** 和 **增强模式**。
 
-## Download
+未来独立的 Orca 助手应用会复用部分 Go 内核和前端组件，但不会与工程版共享可写数据。拆分边界、迁移方案和保留的助手代码入口见 [docs/ORCA_ASSISTANT_APP_HANDOFF.md](docs/ORCA_ASSISTANT_APP_HANDOFF.md)。
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
+## 下载
+
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-darwin-universal.dmg)
 - [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.35/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.35)
 
-The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
+应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
-## What It Provides
+## 核心能力
 
-### Engineering modes
+### 普通模式与增强模式
 
-- **Normal mode**: general conversation, research, writing, analysis, everyday coding, and regular tasks. Its complete built-in engineering instructions stay active even when custom instructions are configured, and file-changing work requires a relevant verification after the last write.
-- **Enhanced mode**: complex coding, architecture work, long-running tasks, reviews, repository changes, and more agentic execution.
+- **普通模式**：适合常规对话、查询、研究、写作、分析和普通开发任务。即使配置了自定义提示词，完整的内置工程规则仍会保留；修改文件后，最后一次写入之后必须完成一次相关验证。
+- **增强模式**：适合复杂代码、架构分析、长任务、代码审查和更主动的工程执行。
 
-The mode is stored per conversation. Switching mode rebuilds only the controller while preserving session history, model, effort, approvals, plan state, goal state, and session path. Both modes identify the product as `DeepSeek-Orca` to the model.
+模式按会话保存。切换模式会重建当前控制器，但保留历史、模型、思考强度、审批状态、计划、目标和会话路径。两种模式对模型的身份均为 `DeepSeek-Orca`。
 
-### Providers and models
+### 模型与 Provider
 
-Use DeepSeek, OpenAI-compatible providers, and Anthropic-compatible providers. Configure endpoints, API keys, model lists, context windows, reasoning effort, pricing metadata, planner models, and optional executor/planner separation from Settings. User and project provider entries are merged by name, and background model refresh preserves manually curated providers and models. Balance information loads asynchronously so a slow provider does not block opening a conversation.
+支持 DeepSeek、OpenAI 兼容 Provider 和 Anthropic 兼容 Provider。可以配置 API 地址、模型列表、Key 环境变量、上下文窗口、思考强度、价格信息，以及可选的规划模型和执行模型。余额查询异步进行，不会阻塞会话打开和历史恢复。
 
-### Workspaces and sessions
+### 工作区与会话
 
-- Project workspaces bind conversations to real repository directories.
-- Independent topics receive isolated working directories and session data.
-- Sessions support tabs, pinning, renaming, previews, restore, forks, checkpoints, rollback, trash, and export.
-- Long sessions can be compacted while preserving a durable summary and searchable local history.
-- Main transcript JSONL stays local and does not contain provider secrets.
+- 项目工作区绑定真实仓库目录，适合持续开发。
+- 独立主题拥有隔离的工作目录和会话数据。
+- 支持多标签、固定、重命名、预览、恢复、分支、检查点、回滚、回收站和导出。
+- 长会话支持上下文压缩，并可按需检索较早的本地会话内容。
+- 主会话 JSONL 保持本地，不写入 Provider 密钥。
 
-### Vision attachments
+### 多模态识图
 
-Vision under Settings > Models offers **Off**, **Auto**, and **On**. New installations default to Auto: provider model metadata is used when available, otherwise each newly configured model is checked by a history-free request containing the Orca icon and a random verification code. Image bytes are sent only to models confirmed to support vision. Capability is tracked independently per provider type, endpoint, and model, with automatic, manually supported, and manually unsupported choices plus recheck controls in Settings. DeepSeek being marked unsupported is expected and does not affect text use.
+“设置 > 模型”中的识图模式分为 **关闭 / 自动 / 开启**。新安装默认使用“自动”：每个新接入模型会收到一次不写入历史的独立探测，其中包含 Orca 图标和随机验证码；只有正确读出验证码才确认支持视觉。能力按 Provider 类型、接口地址和模型分别缓存，设置页会显示状态、检测时间、失败原因和“重新检测”入口。DeepSeek 被识别为不支持图片是正常结果，不影响其文本能力，也不属于版本验收失败。
 
-Pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files remain limited to 8 images per turn, 20 MB total, and 10 MB per image. A text-only main model receives references rather than image bytes and may explicitly delegate selected current-turn images to a confirmed vision-capable subagent. Sessions store paths, names, and MIME types, never image base64; an unsupported or unknown target returns a clear error instead of pretending it saw the image. Screenshot automation and full computer-use are outside this edition.
+输入框粘贴、拖入图片或工作区 `@` 引用支持 PNG、JPEG、WebP、GIF；每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。文本主模型只会得到图片引用，并可在确有需要时把本轮已验证图片交给支持视觉的 subagent。会话只保存路径、名称和 MIME，不保存 base64；目标模型能力未知或不支持时会明确报错，不能假装看过图片。当前版本不包含截图自动化或完整 computer-use。
 
-### Tools and local execution
+### 工具、权限与本地执行
 
-The Tool Library controls groups for web search, host operations, Node/Python runtimes, document inspection, thread utilities, and conversation search. A disabled group is removed from both the registry and the model-visible routing policy. The built-in shell remains available for builds, tests, Git, and package managers. Tool approval modes make permission boundaries visible before execution; sandbox and write-root settings further constrain local operations.
+工具库可管理联网搜索、主机操作、Node/Python 运行时、文档检查、线程工具和会话检索等工具组。关闭工具组后，注册表和模型可见的工具路由都会同步移除对应能力。Shell 用于构建、测试、Git 和包管理。审批模式、沙箱、工作区写入范围和只读工具分别控制执行边界。
 
-### MCP, Skills, and CodeGraph
+### MCP、Skill 与 CodeGraph
 
-- MCP settings manage servers, authorization, connection status, retries, and exposed tools.
-- Skills provide reusable workflows that load on demand.
-- CodeGraph exposes project symbol and call-relationship tools through the configured MCP server.
-- The slash menu combines built-in commands, skills, and MCP prompts.
+MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 按需加载专业工作流；CodeGraph 可通过配置的 MCP Server 提供符号和调用关系分析；斜杠菜单统一显示内置命令、Skill 和 MCP prompt。
 
-### Memory
+### 记忆
 
-Normal and Enhanced use the `shared-agent` memory profile. Existing memory documents and tool-based `remember` / `forget` workflows remain available. Automation Workspace conversations use a separate canonical Assistant profile shared by desktop automation tabs, QQ, and Weixin. Legacy Assistant stores are imported once without deleting their source files; proactive profile updates run only after foreground conversations and dispatched work are idle.
+工程版普通和增强模式使用 `shared-agent` 记忆分区。原有记忆文档以及 `remember` / `forget` 工具继续可用。自动化工作区、QQ 和微信共同使用独立的 canonical 助手画像；旧助手记忆只导入一次且不删除源文件。主动画像任务只会在所有前台回复和派发任务空闲后运行。
 
-### Planning and process visibility
+### 计划、Todo、目标与过程展示
 
-- Plan mode presents a reviewable plan before execution.
-- Todo uses a compact centered progress control that expands upward on hover or keyboard focus and can be pinned without pushing the composer.
-- Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
-- Process display offers Compact and Detailed levels, with Compact as the default. Reasoning, tools, notices, and subagents use a flat chronological activity rail instead of nested cards; compact rows can be repeatedly expanded and collapsed.
-- An optional, off-by-default theme-blue spinner can appear below the current turn. It rotates clockwise while the model is active and counterclockwise while tools are running, respects reduced-motion settings, and disappears when work pauses or ends.
-- A successfully completed turn automatically collapses to its user message, elapsed-time row, and final answer. Expanding the elapsed row restores every intermediate event in its original order and shows token usage; failed, cancelled, interrupted, and active turns stay open for diagnosis.
-- The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
-- Conversation switches reuse cached transcript structure, paint history before auxiliary status, and skip replaying entrance animations for restored messages. Plain-text paste remains directly editable, right-click paste accepts images, multi-file paste/drop keeps the complete ordered batch, and the composer grows automatically for up to ten lines before scrolling.
+计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时向上展开，也可以点击固定，不会推挤输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示提供精简、详细两档并默认精简；精简过程条可反复展开和收拢。思考、工具、通知和 subagent 使用扁平的时间活动轨道，不再层层嵌套白色卡片。用户还可开启默认关闭的主题蓝动态运行标志，它固定显示在当前最后一个过程条目的下方左侧，并在暂停或结束后消失。
 
-### Automation and remote connections
+成功完成的回合会自动收起，只保留用户消息、`已处理 ...` 行和最终回答。点击耗时行会按原始顺序恢复全部中间过程，并在顶部显示 token；失败、取消、中断和仍在运行的回合保持展开，方便排查。
 
-The top-level **Automation Workspace** is available beside project and independent workspaces. Its conversations always use the retained Assistant profile; the mode selector stays visible but locked. The Assistant can answer directly or, when the request genuinely depends on existing engineering context, list, read, create, dispatch to, wait for, inspect, or cancel work in Normal and Enhanced conversations. Dispatched conversations retain their own model, workspace, prompt, and approval policy, and automation conversations cannot recursively dispatch to automation.
+对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。切换长会话时优先显示历史，再在后台补齐上下文、任务、检查点和余额，并复用已计算的时间线。后台任务完成只更新状态，不会偷偷创建新的模型轮次。粘贴文本会直接进入输入框，输入框在十行内随内容自动增高，超过后再滚动。
 
-QQ and Weixin use the same Automation Workspace history and profile. The first ordinary phone message creates or restores an automation topic automatically. After 30 minutes of inactivity, one small no-tool request decides whether a new message continues the previous segment; `/continue` forces continuation and `/new` starts a clean segment. `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain available. The first successful reply is followed by a separate one-time guide. Session mappings and guide state persist across restarts, and a per-session execution lease prevents desktop and phone controllers from writing the same transcript concurrently.
+### 自动化与远程连接
 
-The application also includes scheduled automation, task status, and local background jobs. Background jobs do not silently start a new model turn after completion; work that depends on a result must explicitly collect it.
+顶层 **自动化工作区** 与项目工作区、独立工作区并列。自动化对话固定使用保留的助手模式，右下角模式选择器可见但不可切换。助手会先在当前模型回合内判断是否需要已有工程对话：普通问题直接回答；确有依赖时才列出、读取、新建、派发、等待、查询或取消普通/增强对话中的任务。目标对话继续使用自己的模型、工作区、提示词和审批规则，自动化对话之间禁止递归派发。
 
-## Privacy and Safety
+QQ 和微信与桌面端共享自动化对话历史和助手画像。手机第一次发送普通消息时会自动创建或恢复自动化 topic；闲置超过 30 分钟后，通过一次无工具、低 token 的轻量请求判断是否延续上一段。`/continue` 强制继续，`/new` 新建一段，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer`。首轮成功回复后会单独发送一次使用指南；连接映射和指南状态跨重启保存。同一会话使用执行锁，避免手机和桌面同时写入同一 JSONL。
 
-DeepSeek-Orca is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when the selected vision mode permits the target model and a turn includes the image. Vision probing itself makes one very small request to the configured provider. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
+此外仍支持定时自动化、任务状态和本地后台任务。后台任务完成只更新状态；依赖结果的工作必须显式等待，不会偷偷创建新的模型轮次。
 
-Tool execution is visible in the transcript. Approval, sandbox, workspace roots, read-only tools, and background-task status are separate controls. Cancel, pause, rollback, checkpoints, and session trash provide recovery paths for long tasks.
+## 隐私与安全
 
-## Configuration
+软件本地运行，但消息会发送给用户选择的 Provider。使用敏感数据前请核对 Provider、地址、代理、识图、工具和审批设置。只有当前识图模式允许目标模型且本轮包含图片时，图片字节才会上传；能力探测本身也会向对应 Provider 发起一次很小的请求。API Key 通过环境变量或本地凭据流程读取，不会写入会话消息。
 
-After first launch, open Settings and configure models and providers, workspace and sandbox behavior, Tool Library and MCP servers, vision, process display, update checks, language, appearance, permissions, and approval defaults. Interface scaling follows Windows and its PerMonitorV2 DPI handling by default; an optional 80%-125% manual scale is applied relative to that native size. The app exposes the active configuration path in Settings. Project-local instructions can be supplied through the supported instruction files in the workspace.
+工具调用会显示在时间线中。用户可以暂停、取消、回滚、使用检查点或从回收站恢复会话。长任务仍应通过审批、沙箱和工作区写入范围控制风险。
 
-## Troubleshooting
+## 安装后配置
 
-- **The model is unavailable**: check the provider endpoint, selected model, API-key environment variable, and proxy settings.
-- **A conversation opens slowly**: balance lookup is independent; inspect provider/network status and local workspace size if history itself is slow.
-- **An image is rejected**: inspect the model's vision status in Settings. In Auto, choose a confirmed vision-capable model or subagent; DeepSeek being unsupported is normal. On forces an attempt but cannot add capability to a text-only model.
-- **A tool asks for approval repeatedly**: review the approval mode, sandbox, and tool-group settings rather than retrying blindly.
-- **A window is narrow**: keep the application above its supported minimum width. Composer controls progressively hide labels while keeping model selection and core actions accessible.
-- **An update is not shown**: automatic checks are cached for 24 hours and use official stable GitHub Releases. Manual checking is available next to the update toggle in Settings.
+首次启动后打开“设置”，依次检查模型与 Provider、工作区和沙箱、工具库与 MCP、识图、过程展示、更新检查、外观和权限。界面缩放默认“跟随 Windows”，完全使用系统 PerMonitorV2 DPI 后的原生大小；手动 `80%–125%` 倍率则在该大小上相对调整。设置页会显示当前配置路径；项目级指令文件可放在工作区支持的位置。
 
-## Build From Source
+## 常见问题
 
-Requirements: a Go toolchain compatible with `go.mod`, Node.js/npm, and Wails CLI v2.
+- **模型不可用**：检查 Provider 地址、模型名、Key 环境变量和代理。
+- **图片发送失败**：先查看设置中的模型视觉状态。自动模式下请选择已确认支持视觉的主模型或 subagent；DeepSeek 显示不支持是正常情况。“开启”只能强制尝试发送，不能让纯文本模型凭空获得识图能力。
+- **工具反复请求审批**：检查审批模式、沙箱和工具组，不要盲目重复执行。
+- **窗口过窄**：保持在软件支持的最小窗口宽度以上。输入框会逐步隐藏文字，但保留模型选择和核心操作。
+- **没有看到更新**：自动检查结果缓存 24 小时，且只查询官方稳定 GitHub Release；设置中可在自动检查开关旁手动检查。
+
+## 从源码构建
+
+需要 Go、Node.js/npm 和 Wails CLI v2。
 
 ```powershell
 cd desktop/frontend
@@ -108,12 +103,11 @@ cd ../..
 go test ./...
 ```
 
-Generate Wails bindings after changing exported `desktop.App` methods:
+修改导出的 Wails App 方法后，在 `desktop` 目录运行：
 
 ```powershell
-cd desktop
 wails generate module
 wails build
 ```
 
-Release-specific procedures and signing configuration are intentionally kept outside this stable product overview.
+更新记录不放在 README 中，统一维护于 [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md)。
