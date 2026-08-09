@@ -261,6 +261,50 @@ func TestGatewayStartReportsEmptySessions(t *testing.T) {
 	}
 }
 
+func TestGatewaySharedStartRestoresOrcaWithoutListingEngineeringSessions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "orca.jsonl")
+	if err := agent.NewSession("sys").Save(path); err != nil {
+		t.Fatal(err)
+	}
+	fa := newFakeAdapter(PlatformWeixin, "fake-weixin")
+	listed := false
+	restored := false
+	gw := NewGateway(GatewayConfig{
+		SharedAutomationSession: true,
+		Allowlist:               AllowlistConfig{AllowAll: true},
+		SessionLister: func(int) ([]sessionChoice, error) {
+			listed = true
+			return nil, nil
+		},
+		RestoreSession: func(context.Context, string, InboundMessage) (SessionChoice, bool, error) {
+			restored = true
+			return SessionChoice{TopicID: "orca", Path: path, Title: "Orca", WorkspaceRoot: dir}, true, nil
+		},
+		BuildSession: func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
+			return control.New(control.Options{SessionDir: dir, SessionPath: choice.Path, Sink: sink}), nil
+		},
+	}, map[Platform]Adapter{PlatformWeixin: fa}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	gw.handleMessage(context.Background(), PlatformWeixin, fa, InboundMessage{
+		ChatType: ChatDM, ChatID: "chat", UserID: "user", Text: "/start",
+	})
+
+	if listed {
+		t.Fatal("shared /start must not list or select engineering conversations")
+	}
+	if !restored {
+		t.Fatal("shared /start did not restore Orca")
+	}
+	if got, ok := gw.activeControllerKey(BuildSessionKey(SessionSource{Platform: PlatformWeixin, ChatType: ChatDM, ChatID: "chat", UserID: "user"})); !ok || got != controllerKeyForSession(path) {
+		t.Fatalf("active shared session = %q, %v; want Orca", got, ok)
+	}
+	sent := fa.sentMessages()
+	if len(sent) != 1 || !strings.Contains(sent[0].Text, "Orca 主对话") {
+		t.Fatalf("shared /start response = %#v", sent)
+	}
+}
+
 func TestGatewaySelectsListedSessionAndShowsAssistantTail(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")

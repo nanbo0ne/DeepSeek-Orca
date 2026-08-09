@@ -269,6 +269,15 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 	remoteKey := BuildSessionKey(msg.Session())
 	text := strings.TrimSpace(msg.Text)
 	if strings.HasPrefix(text, "/start") {
+		if gw.cfg.SharedAutomationSession {
+			if err := gw.activateSharedAutomationSession(ctx, remoteKey, msg); err != nil {
+				gw.logger.Warn("activate shared automation session failed", "remote", remoteKey, "err", err)
+				_ = gw.sendText(ctx, adapter, msg, "无法进入 Orca 主对话："+err.Error())
+				return
+			}
+			_ = gw.sendText(ctx, adapter, msg, "已进入 Orca 主对话。直接发送自然语言即可；需要工程上下文时，Orca 会按需读取或调度已有对话。")
+			return
+		}
 		gw.showSessionList(ctx, adapter, remoteKey, msg)
 		return
 	}
@@ -296,6 +305,33 @@ func (gw *BotGateway) handleMessage(ctx context.Context, plat Platform, adapter 
 		return
 	}
 	gw.runTurn(ctx, adapter, remoteKey, sessionKey, msg)
+}
+
+func (gw *BotGateway) activateSharedAutomationSession(ctx context.Context, remoteKey string, msg InboundMessage) error {
+	gw.mu.Lock()
+	if gw.remoteStates[remoteKey] == nil && gw.sharedRemoteState != nil {
+		gw.remoteStates[remoteKey] = gw.sharedRemoteState
+	}
+	remote := gw.remoteStates[remoteKey]
+	active := remote != nil && remote.mode == remoteModeInSession && remote.selectedKey != ""
+	gw.mu.Unlock()
+	if active {
+		return nil
+	}
+	if gw.cfg.RestoreSession != nil {
+		choice, ok, err := gw.cfg.RestoreSession(ctx, remoteKey, msg)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return gw.selectSession(ctx, remoteKey, choice)
+		}
+	}
+	choice, err := gw.cfg.CreateSession(ctx, remoteKey, msg)
+	if err != nil {
+		return err
+	}
+	return gw.selectSession(ctx, remoteKey, choice)
 }
 
 func (gw *BotGateway) ensureAutomationSession(ctx context.Context, remoteKey string, msg InboundMessage) (string, error) {
@@ -694,7 +730,7 @@ func (gw *BotGateway) controllerState(key string, hasSession bool) (*sessionStat
 
 func botHelpText() string {
 	return "自动化工作区会直接处理请求，并在需要时读取或调度电脑上的工程对话。\n\n可用命令：\n" +
-		"/start - 回到会话列表，选择最近 15 条对话\n" +
+		"/start - 恢复并确认 Orca 主对话\n" +
 		"/new [消息] - 开始新的自动化对话段\n" +
 		"/continue [消息] - 强制继续上一段对话\n" +
 		"/stop - 停止当前任务\n" +

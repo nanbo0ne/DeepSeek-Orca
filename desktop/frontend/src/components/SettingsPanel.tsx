@@ -977,7 +977,6 @@ function BotsSection({ s, busy, apply, promptModes }: SectionProps & { promptMod
   const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
   const [testTargets, setTestTargets] = useState<Record<string, string>>({});
   const [runtime, setRuntime] = useState<{ status: string; message: string; channels: string[] } | null>(null);
-  const refs = allRefs(s);
 
   useEffect(() => {
     setDraft(normalizeBotSettings(s.bot, promptModes));
@@ -1136,31 +1135,6 @@ function BotsSection({ s, busy, apply, promptModes }: SectionProps & { promptMod
         <details className="bot-advanced">
           <summary>{t("settings.botAdvancedRuntime")}</summary>
           <div className="bot-advanced__body">
-            <SettingsField label={t("settings.botModel")} hint={t("settings.botModelHint")}>
-              <ModelPicker
-                s={s}
-                refs={refs}
-                value={toRef(draft.model, s)}
-                disabled={busy}
-                emptyOptionLabel={t("settings.botModelDefault")}
-                emptyOptionHint={settingsModelMeta(s, t)}
-                onPick={(model) => setDraft((prev) => ({ ...prev, model }))}
-              />
-            </SettingsField>
-            <SettingsField label={t("settings.botPromptMode")} hint={t("settings.botPromptModeHint")}>
-              <select
-                className="mem-select set-grow"
-                value={normalizePromptModeValue(draft.promptMode, promptModes)}
-                disabled={busy}
-                onChange={(e) => setDraft((prev) => ({ ...prev, promptMode: normalizePromptModeValue(e.target.value, promptModes) }))}
-              >
-                {promptModes.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {t(`composer.promptMode.${mode}` as DictKey)}
-                  </option>
-                ))}
-              </select>
-            </SettingsField>
             <SettingsField label={t("settings.botRuntime")}>
               <div className="settings-inline-controls">
                 <label className="set-label">{t("settings.botMaxSteps")}</label>
@@ -1182,16 +1156,6 @@ function BotsSection({ s, busy, apply, promptModes }: SectionProps & { promptMod
                   onChange={(e) => setDraft((prev) => ({ ...prev, debounceMs: parseNonNegativeInt(e.target.value) }))}
                 />
               </div>
-            </SettingsField>
-            <SettingsField label={t("settings.botWorkspaceRoot")} hint={t("settings.botWorkspaceRootHint")}>
-              <input
-                className="mem-input set-grow"
-                value={draft.workspaceRoot}
-                placeholder={t("settings.botWorkspaceRootDefault")}
-                disabled={busy}
-                spellCheck={false}
-                onChange={(e) => setDraft((prev) => ({ ...prev, workspaceRoot: e.target.value }))}
-              />
             </SettingsField>
           </div>
         </details>

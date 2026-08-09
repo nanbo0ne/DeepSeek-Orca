@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +21,14 @@ import (
 )
 
 const welcomeSuggestionInterval = 24 * time.Hour
+
+var (
+	welcomeSecretAssignment = regexp.MustCompile(`(?i)(api[_ -]?key|access[_ -]?token|authorization|password|secret)\s*[:=]\s*[^\s,;]+`)
+	welcomeBearerToken       = regexp.MustCompile(`(?i)bearer\s+[a-z0-9._~+/=-]+`)
+	welcomePrivateKey        = regexp.MustCompile(`(?i)\b(sk|pk|key)-[a-z0-9_-]{12,}\b`)
+	welcomeWindowsPath       = regexp.MustCompile(`(?i)\b[a-z]:\\[^\r\n\t"']+`)
+	welcomeUnixPath          = regexp.MustCompile(`(?:^|\s)/(?:[^\s/]+/)+[^\s,;]+`)
+)
 
 type welcomeSuggestionCache struct {
 	Prompts     []string `json:"prompts"`
@@ -110,9 +119,10 @@ func (a *App) generateWelcomeSuggestions() (welcomeSuggestionCache, error) {
 	}
 
 	type row struct {
-		Title   string `json:"title"`
-		Preview string `json:"preview"`
-		Updated int64  `json:"updated"`
+		Title     string `json:"title"`
+		Workspace string `json:"workspace,omitempty"`
+		Preview   string `json:"preview"`
+		Updated   int64  `json:"updated"`
 	}
 	rows := make([]row, 0, 80)
 	seen := map[string]bool{}
@@ -126,15 +136,19 @@ func (a *App) generateWelcomeSuggestions() (welcomeSuggestionCache, error) {
 				continue
 			}
 			seen[info.Path] = true
-			title := strings.TrimSpace(info.TopicTitle)
-			preview := strings.TrimSpace(info.Preview)
+			title := welcomeSuggestionText(info.TopicTitle)
+			preview := welcomeSuggestionText(info.Preview)
 			if title == "" && preview == "" {
 				continue
 			}
 			if len([]rune(preview)) > 280 {
 				preview = string([]rune(preview)[:280])
 			}
-			rows = append(rows, row{Title: title, Preview: preview, Updated: info.LastActivityAt.UnixMilli()})
+			workspace := strings.TrimSpace(filepath.Base(strings.TrimSpace(info.WorkspaceRoot)))
+			if workspace == "." || workspace == string(filepath.Separator) {
+				workspace = ""
+			}
+			rows = append(rows, row{Title: title, Workspace: welcomeSuggestionText(workspace), Preview: preview, Updated: info.LastActivityAt.UnixMilli()})
 		}
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Updated > rows[j].Updated })
@@ -162,6 +176,25 @@ func (a *App) generateWelcomeSuggestions() (welcomeSuggestionCache, error) {
 		return welcomeSuggestionCache{}, os.ErrInvalid
 	}
 	return welcomeSuggestionCache{Prompts: prompts, GeneratedAt: time.Now().UnixMilli(), ModelRef: modelRef, Fingerprint: fingerprint}, nil
+}
+
+func welcomeSuggestionText(raw string) string {
+	lines := strings.Split(strings.TrimSpace(raw), "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		if trimmed == "" || strings.Contains(lower, "referenced context") || strings.Contains(lower, ".deepseek-orca/attachments") || strings.Contains(lower, "snapshot path") || strings.Contains(lower, "<image ") {
+			continue
+		}
+		trimmed = welcomeBearerToken.ReplaceAllString(trimmed, "Bearer [REDACTED]")
+		trimmed = welcomeSecretAssignment.ReplaceAllString(trimmed, "$1=[REDACTED]")
+		trimmed = welcomePrivateKey.ReplaceAllString(trimmed, "[REDACTED]")
+		trimmed = welcomeWindowsPath.ReplaceAllString(trimmed, "[本地路径]")
+		trimmed = welcomeUnixPath.ReplaceAllString(trimmed, " [本地路径]")
+		kept = append(kept, strings.TrimSpace(trimmed))
+	}
+	return strings.TrimSpace(strings.Join(kept, " "))
 }
 
 func parseWelcomeSuggestions(raw string) []string {

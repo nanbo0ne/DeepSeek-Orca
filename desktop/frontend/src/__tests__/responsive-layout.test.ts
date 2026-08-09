@@ -49,7 +49,9 @@ check(
   "prompt modes come from product capabilities without descriptions or a help button",
 );
 check(
-  settings.includes("promptModes.map((mode)") &&
+  !settings.includes('<SettingsField label={t("settings.botModel")}') &&
+    !settings.includes('<SettingsField label={t("settings.botPromptMode")}') &&
+    !settings.includes('<SettingsField label={t("settings.botWorkspaceRoot")}') &&
     settings.includes("productCapabilities.automationWorkspaceEnabled === true"),
   "bot and memory settings follow the product capability boundary",
 );

@@ -219,33 +219,46 @@ func TestSetAgentParamsPersistsStepLimitsToUserConfig(t *testing.T) {
 	}
 }
 
-func TestSetBotSettingsPersistsPromptMode(t *testing.T) {
+func TestSetBotSettingsKeepsAssistantModeAndAutomationModel(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	cfg.Bot.Model = "deepseek/deepseek-v4-pro"
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
 	view := app.Settings()
 	bot := view.Bot
-	bot.Model = "deepseek/deepseek-v4-flash"
+	bot.Model = "stale-provider/stale-model"
 	bot.PromptMode = promptModeEnhanced
+	bot.WorkspaceRoot = t.TempDir()
 	if err := app.SetBotSettings(bot); err != nil {
 		t.Fatalf("SetBotSettings: %v", err)
 	}
 
 	got := app.Settings().Bot
-	if got.PromptMode != promptModeEnhanced {
-		t.Fatalf("Settings().Bot.PromptMode = %q, want %q", got.PromptMode, promptModeEnhanced)
+	if got.PromptMode != promptModeAssistant {
+		t.Fatalf("Settings().Bot.PromptMode = %q, want %q", got.PromptMode, promptModeAssistant)
 	}
-	cfg := config.LoadForEdit(config.UserConfigPath())
-	if cfg.Bot.PromptMode != promptModeEnhanced {
-		t.Fatalf("saved bot.prompt_mode = %q, want %q", cfg.Bot.PromptMode, promptModeEnhanced)
+	cfg = config.LoadForEdit(config.UserConfigPath())
+	if cfg.Bot.PromptMode != promptModeAssistant {
+		t.Fatalf("saved bot.prompt_mode = %q, want %q", cfg.Bot.PromptMode, promptModeAssistant)
+	}
+	if cfg.Bot.Model != "deepseek/deepseek-v4-pro" {
+		t.Fatalf("saved bot.model = %q, want dedicated automation model preserved", cfg.Bot.Model)
+	}
+	if cfg.Bot.WorkspaceRoot != "" {
+		t.Fatalf("saved bot.workspace_root = %q, want Automation Workspace root", cfg.Bot.WorkspaceRoot)
 	}
 }
 
-func TestEngineeringBotAssistantModeMigratesToNormal(t *testing.T) {
+func TestAutomationBotModeMigratesToAssistant(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	cfg := config.LoadForEdit(config.UserConfigPath())
-	cfg.Bot.PromptMode = promptModeAssistant
+	cfg.Bot.PromptMode = promptModeEnhanced
+	cfg.Bot.WorkspaceRoot = t.TempDir()
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatal(err)
 	}
@@ -253,8 +266,11 @@ func TestEngineeringBotAssistantModeMigratesToNormal(t *testing.T) {
 	app := NewApp()
 	app.migrateDesktopBotPromptMode()
 	got := config.LoadForEdit(config.UserConfigPath())
-	if got.Bot.PromptMode != promptModeNormal {
-		t.Fatalf("migrated bot.prompt_mode = %q, want %q", got.Bot.PromptMode, promptModeNormal)
+	if got.Bot.PromptMode != promptModeAssistant {
+		t.Fatalf("migrated bot.prompt_mode = %q, want %q", got.Bot.PromptMode, promptModeAssistant)
+	}
+	if got.Bot.WorkspaceRoot != "" {
+		t.Fatalf("migrated bot.workspace_root = %q, want empty legacy override", got.Bot.WorkspaceRoot)
 	}
 }
 

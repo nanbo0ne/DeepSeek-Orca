@@ -91,11 +91,13 @@ func (a *App) migrateDesktopBotPromptMode() {
 	if err != nil || cfg == nil {
 		return
 	}
-	normalized := normalizeProductPromptMode(cfg.Bot.PromptMode, false)
-	if normalized == strings.ToLower(strings.TrimSpace(cfg.Bot.PromptMode)) {
+	if strings.EqualFold(strings.TrimSpace(cfg.Bot.PromptMode), promptModeAssistant) && strings.TrimSpace(cfg.Bot.WorkspaceRoot) == "" {
 		return
 	}
-	cfg.Bot.PromptMode = normalized
+	cfg.Bot.PromptMode = promptModeAssistant
+	// V2.0.36 makes the canonical Automation Workspace the only bot execution
+	// root. Preserve legacy files on disk while ignoring custom root overrides.
+	cfg.Bot.WorkspaceRoot = ""
 	if err := cfg.SaveTo(path); err != nil {
 		slog.Warn("could not migrate desktop bot prompt mode", "error", err)
 	}
@@ -139,10 +141,7 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	if resolved, _, ok := cfg.ResolveModelWithFallback(modelName); ok {
 		modelName = resolved
 	}
-	workspaceRoot := strings.TrimSpace(cfg.Bot.WorkspaceRoot)
-	if workspaceRoot == "" {
-		workspaceRoot = config.BotWorkspaceDir()
-	}
+	workspaceRoot := automationWorkspaceRoot()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	gw := bot.NewGateway(bot.GatewayConfig{
@@ -169,11 +168,18 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 			if meta, ok, _ := agent.LoadBranchMeta(choice.Path); ok {
 				topicID = meta.TopicID
 			}
+			sessionWorkspaceRoot := strings.TrimSpace(choice.WorkspaceRoot)
+			if sessionWorkspaceRoot == "" {
+				sessionWorkspaceRoot = workspaceRoot
+			}
 			ctrl, err := boot.Build(ctx, boot.Options{
 				Model: modelName, PromptMode: promptModeAssistant, MemoryProfile: memory.ProfileAssistant,
 				AssistantMemoryStoreDir: store.Dir, MaxSteps: cfg.Bot.MaxSteps, RequireKey: true, Sink: sink,
-				WorkspaceRoot: workspaceRoot, SessionDir: filepath.Dir(choice.Path),
-				ExtraTools:  append(a.conversationBroker.Tools("bot:"+topicID, topicID), automationHistoryTool{topicID: topicID}),
+				WorkspaceRoot: sessionWorkspaceRoot, SessionDir: filepath.Dir(choice.Path),
+				ExtraTools: append(a.conversationBroker.Tools("bot:"+topicID, topicID), automationHistoryTool{
+					topicID:     topicID,
+					currentPath: func() string { return choice.Path },
+				}),
 				TurnContext: func() string { return a.conversationBroker.Index(topicID) },
 				TurnLease:   a.sessionGate.Acquire, RefreshOnLease: true,
 			})

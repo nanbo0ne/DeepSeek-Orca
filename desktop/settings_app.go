@@ -436,8 +436,8 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 	return BotSettingsView{
 		Enabled:       true,
 		Model:         b.Model,
-		PromptMode:    normalizeProductPromptMode(b.PromptMode, false),
-		WorkspaceRoot: orDefault(strings.TrimSpace(b.WorkspaceRoot), config.BotWorkspaceDir()),
+		PromptMode:    promptModeAssistant,
+		WorkspaceRoot: automationWorkspaceRoot(),
 		MaxSteps:      b.MaxSteps,
 		DebounceMs:    b.DebounceMs,
 		Allowlist: BotAllowlistView{
@@ -1363,9 +1363,10 @@ func (a *App) SetNetwork(n NetworkView) error {
 func (a *App) SetBotSettings(b BotSettingsView) error {
 	err := a.applyConfigOnly(func(c *config.Config) error {
 		c.Bot.Enabled = true
-		c.Bot.Model = strings.TrimSpace(b.Model)
-		c.Bot.PromptMode = normalizeProductPromptMode(b.PromptMode, false)
-		c.Bot.WorkspaceRoot = strings.TrimSpace(b.WorkspaceRoot)
+		// The automation model has one owner: Settings > Models / the Orca
+		// composer. Channel settings must not overwrite it with a stale draft.
+		c.Bot.PromptMode = promptModeAssistant
+		c.Bot.WorkspaceRoot = ""
 		c.Bot.MaxSteps = b.MaxSteps
 		c.Bot.DebounceMs = b.DebounceMs
 		c.Bot.Allowlist = config.BotAllowlist{

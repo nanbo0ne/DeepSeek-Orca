@@ -1287,7 +1287,10 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			extraTools = a.conversationBroker.Tools(tab.ID, tab.TopicID)
 			turnContext = func() string { return a.conversationBroker.Index(tab.TopicID) }
 		}
-		extraTools = append(extraTools, automationHistoryTool{topicID: tab.TopicID})
+		extraTools = append(extraTools, automationHistoryTool{
+			topicID:     tab.TopicID,
+			currentPath: func() string { return tab.currentSessionPath() },
+		})
 	}
 	ctrl, err := boot.Build(buildCtx, boot.Options{
 		Model:                   model,

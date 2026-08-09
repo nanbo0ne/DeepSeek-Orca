@@ -8,6 +8,8 @@
 - Strengthened per-model vision probing with an isolated Orca-icon challenge containing a random code, color, and position marker; automatic and effective capability states are now shown separately and probes run for newly enabled models.
 - Added four cached, model-generated home suggestions refreshed every 24 hours from limited local conversation summaries without creating hidden conversations or modifying assistant memory.
 - Added the current desktop version to General settings and updated all Chinese and English download documentation for V2.0.36.
+- Kept the shared `/start` command inside Orca instead of exposing ordinary engineering sessions, and fixed automation settings so stale channel drafts cannot replace the central automation model, Assistant mode, or canonical workspace.
+- Limited `automation_history` to previous logical segments and redacted credentials, attachment wrappers, and local paths before daily suggestion summaries are sent to the model.
 
 ## V2.0.35 - 2026-08-08
 

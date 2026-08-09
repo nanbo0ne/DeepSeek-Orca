@@ -58,7 +58,8 @@ func automationTopicSegments(topicID string) []automationSegment {
 }
 
 type automationHistoryTool struct {
-	topicID string
+	topicID     string
+	currentPath func() string
 }
 
 func (automationHistoryTool) Name() string { return "automation_history" }
@@ -87,7 +88,14 @@ func (t automationHistoryTool) Execute(_ context.Context, args json.RawMessage) 
 	}
 	results := make([]result, 0, input.Limit)
 	segments := automationTopicSegments(t.topicID)
+	currentPath := ""
+	if t.currentPath != nil {
+		currentPath = canonicalBotSessionPath(t.currentPath())
+	}
 	for segmentIndex := len(segments) - 1; segmentIndex >= 0 && len(results) < input.Limit; segmentIndex-- {
+		if currentPath != "" && canonicalBotSessionPath(segments[segmentIndex].Path) == currentPath {
+			continue
+		}
 		session, err := agent.LoadSession(segments[segmentIndex].Path)
 		if err != nil {
 			continue
