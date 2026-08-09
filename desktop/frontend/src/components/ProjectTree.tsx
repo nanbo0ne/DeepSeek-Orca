@@ -124,7 +124,7 @@ function collapsibleFolderKeys(nodes: ProjectNode[], depth = 0): string[] {
   for (const node of nodes) {
     if (!node) continue;
     const children = asArray(node.children);
-  if ((node.kind === "project" || node.kind === "global_folder" || node.kind === "automation_folder" || node.kind === "automation_history_folder" || node.kind === "pinned_folder") && children.length > 0) {
+    if ((node.kind === "project" || node.kind === "global_folder" || node.kind === "automation_folder" || node.kind === "pinned_folder") && children.length > 0) {
       keys.push(projectNodeKey(node, depth));
     }
     keys.push(...collapsibleFolderKeys(children, depth + 1));
@@ -726,8 +726,7 @@ export function ProjectTree({
     }
 
     const isPinnedFolder = node.kind === "pinned_folder";
-    const isAutomationHistoryFolder = node.kind === "automation_history_folder";
-    const scope = node.kind === "automation_folder" || isAutomationHistoryFolder ? "automation" : node.kind === "global_folder" ? "global" : "project";
+    const scope = node.kind === "automation_folder" ? "automation" : node.kind === "global_folder" ? "global" : "project";
     const scopeClass = scope === "automation" ? " project-tree__folder--automation" : scope === "global" ? " project-tree__folder--global" : " project-tree__folder--project";
     const accentStyle = projectAccentStyle(node.projectColor, scope === "global" ? "var(--project-tree-global-accent)" : undefined);
     const projectRoot = scope === "global" ? "" : node.root ?? "";
@@ -778,7 +777,7 @@ export function ProjectTree({
       setMenuProject({ key, root: projectRoot, path: projectPath, scope, label: projectLabel });
       setConfirmRemoveProject(null);
     };
-    const projectMenuItems: ContextMenuItem[] = isPinnedFolder || isAutomationHistoryFolder ? [] : [
+    const projectMenuItems: ContextMenuItem[] = isPinnedFolder ? [] : [
       {
         key: "new-session",
         icon: <Plus size={13} />,

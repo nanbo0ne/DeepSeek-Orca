@@ -8,11 +8,11 @@ This repository's desktop product is the **engineering edition**. It exposes two
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.36)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.37)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -71,11 +71,11 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 
 ### Automation and remote connections
 
-The top-level **Automation Workspace** contains one fixed main conversation named **Orca**. Desktop, QQ, and Weixin all write to Orca and share its Assistant profile, dedicated automation model, and canonical memory. Legacy automation topics remain available in a collapsed read-only history area. Orca answers directly unless a request genuinely depends on engineering context, in which case it can selectively read or dispatch to Normal and Enhanced conversations without recursively dispatching automation.
+The top-level **Automation Workspace** contains one fixed main conversation named **Orca**. Desktop, QQ, and Weixin all write to Orca and share its Assistant profile, dedicated automation model, and canonical memory. During upgrade, legacy automation topics and their transcripts move to ordinary independent workspaces instead of remaining in a separate history group. Orca answers directly unless a request genuinely depends on engineering context, in which case it can selectively read or dispatch to Normal and Enhanced conversations without recursively dispatching automation.
 
 After 30 minutes of inactivity, a small no-tool check decides only whether the next turn should load the previous segment's context. Related and unrelated turns remain visible in the same Orca transcript. `/new` starts a clean logical segment inside Orca and `/continue` forces previous-context continuation; `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain for compatibility. Every channel shares the current segment and one serial execution queue, so phone use never creates another sidebar conversation.
 
-Trusted automation access is confirmed once on desktop and can be revoked in Settings. Before confirmation Orca can still chat, but protected tools are declined without per-command approval cards. After confirmation, policy-allowed tools and plan execution proceed automatically; Ask questions and explicit deny rules still apply. The four home suggestions are refreshed every 24 hours by the automation model from limited local conversation summaries, with cached fallback and no hidden conversation or memory side effects.
+Trusted automation access is confirmed once on desktop and can be revoked in Settings. Before confirmation Orca can still chat, but protected tools are declined without per-command approval cards. After confirmation, policy-allowed tools and plan execution proceed automatically; Ask questions and explicit deny rules still apply. The four home suggestions are refreshed every 24 hours from limited local summaries and sanitized samples of the user's own phrasing, producing questions in the user's voice with cached fallback and no hidden conversation or memory side effects.
 
 ## Privacy and Safety
 

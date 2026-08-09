@@ -2857,6 +2857,7 @@ export default function App() {
               promptModes={automationConversation ? ["assistant"] : productCapabilities.promptModes}
               promptModeLocked={automationConversation}
               promptModeSwitching={promptModeSwitching}
+              showToolApprovalControls={!automationConversation}
               paused={Boolean(state.meta?.paused)}
               goal={goal}
               cwd={state.meta?.cwd}

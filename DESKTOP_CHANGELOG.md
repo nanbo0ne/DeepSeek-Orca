@@ -1,5 +1,11 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.37 - 2026-08-09
+
+- Removed the Automation Workspace history subgroup and migrated its existing conversations into ordinary independent workspaces while preserving transcripts, titles, display text, and source backups.
+- Simplified the Orca Composer by hiding its redundant approval selector and moving model controls into the newly available leading space.
+- Reworked daily welcome suggestions to learn from sanitized real user messages, imitate the user's phrasing, and reject assistant-style recommendation wording.
+
 ## V2.0.36 - 2026-08-09
 
 - Consolidated desktop, Weixin, and QQ automation into one protected Orca main conversation. Thirty-minute continuation decisions and `/new` now create logical segments inside Orca instead of additional sidebar topics, while legacy automation topics remain available as read-only history.

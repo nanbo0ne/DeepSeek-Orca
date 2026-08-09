@@ -327,6 +327,7 @@ export function Composer({
   promptModes = ["normal", "enhanced"],
   promptModeLocked = false,
   promptModeSwitching = false,
+  showToolApprovalControls = true,
   paused = false,
   goal,
   cwd,
@@ -368,6 +369,7 @@ export function Composer({
   promptModes?: PromptMode[];
   promptModeLocked?: boolean;
   promptModeSwitching?: boolean;
+  showToolApprovalControls?: boolean;
   paused?: boolean;
   goal?: string;
   cwd?: string;
@@ -435,6 +437,10 @@ export function Composer({
   const [loadingPastChats, setLoadingPastChats] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [composerPrompt, setComposerPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showToolApprovalControls) setApprovalMenuOpen(false);
+  }, [showToolApprovalControls]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerCardRef = useRef<HTMLDivElement>(null);
   const intentMenuAnchorRef = useRef<HTMLButtonElement>(null);
@@ -1809,30 +1815,32 @@ export function Composer({
           </button>
         </div>
       </AnchoredPopover>
-      <AnchoredPopover
-        open={approvalMenuOpen && !disabled}
-        anchorRef={approvalMenuAnchorRef}
-        onClose={() => setApprovalMenuOpen(false)}
-        className="composer-access-menu composer-approval-menu"
-        align="start"
-      >
-        <div className="composer-access-menu__section" role="menu" aria-label={t("composer.accessMenuTitle")}>
-          {(["ask", "auto", "yolo"] as ToolApprovalMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              role="menuitemradio"
-              aria-checked={toolApprovalMode === mode}
-              className={`composer-access-menu__item${toolApprovalMode === mode ? " composer-access-menu__item--active" : ""}`}
-              onClick={() => chooseApprovalMode(mode)}
-            >
-              {mode === "ask" ? <Shield size={16} /> : mode === "auto" ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
-              <span className="composer-access-menu__copy"><span className="composer-access-menu__title">{mode === "ask" ? t("composer.modeAsk") : mode === "auto" ? t("composer.modeNormal") : t("composer.modeYolo")}</span></span>
-              {toolApprovalMode === mode && <Check size={13} />}
-            </button>
-          ))}
-        </div>
-      </AnchoredPopover>
+      {showToolApprovalControls && (
+        <AnchoredPopover
+          open={approvalMenuOpen && !disabled}
+          anchorRef={approvalMenuAnchorRef}
+          onClose={() => setApprovalMenuOpen(false)}
+          className="composer-access-menu composer-approval-menu"
+          align="start"
+        >
+          <div className="composer-access-menu__section" role="menu" aria-label={t("composer.accessMenuTitle")}>
+            {(["ask", "auto", "yolo"] as ToolApprovalMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="menuitemradio"
+                aria-checked={toolApprovalMode === mode}
+                className={`composer-access-menu__item${toolApprovalMode === mode ? " composer-access-menu__item--active" : ""}`}
+                onClick={() => chooseApprovalMode(mode)}
+              >
+                {mode === "ask" ? <Shield size={16} /> : mode === "auto" ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+                <span className="composer-access-menu__copy"><span className="composer-access-menu__title">{mode === "ask" ? t("composer.modeAsk") : mode === "auto" ? t("composer.modeNormal") : t("composer.modeYolo")}</span></span>
+                {toolApprovalMode === mode && <Check size={13} />}
+              </button>
+            ))}
+          </div>
+        </AnchoredPopover>
+      )}
       <AnchoredPopover
         open={moreMenuOpen && !disabled}
         closing={moreMenuClosing}
@@ -2227,7 +2235,7 @@ export function Composer({
                 </button>
               </Tooltip>
             </div>
-            <div className="composer-meta__control composer-meta__control--approval">
+            {showToolApprovalControls && <div className="composer-meta__control composer-meta__control--approval">
               <div className="composer-modebar composer-modebar--approval composer-approval-full" data-mode={toolApprovalMode} title={t("composer.accessMenuTitle")}>
                 <span className="composer-modebar__thumb" aria-hidden="true" />
                 <button
@@ -2277,7 +2285,7 @@ export function Composer({
               >
                 {toolApprovalMode === "ask" ? <Shield size={16} /> : toolApprovalMode === "auto" ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
               </button>
-            </div>
+            </div>}
             <div className="composer-meta__control composer-meta__control--model">
               <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
             </div>

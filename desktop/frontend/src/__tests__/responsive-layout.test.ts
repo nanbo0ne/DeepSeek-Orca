@@ -58,16 +58,19 @@ check(
 check(
   app.includes('automationConversation ? ["assistant"]') &&
     app.includes("promptModeLocked={automationConversation}") &&
+    app.includes("showToolApprovalControls={!automationConversation}") &&
+    composer.includes("showToolApprovalControls && <div") &&
     composer.includes("disabled={disabled || promptModeLocked}"),
-  "automation conversations expose a visible but locked assistant mode",
+  "automation conversations lock assistant mode and hide the redundant approval selector",
 );
 const chooser = readFileSync(join(root, "components", "NewSessionChooser.tsx"), "utf8");
 const projectTree = readFileSync(join(root, "components", "ProjectTree.tsx"), "utf8").replace(/\r\n/g, "\n");
 check(
   chooser.includes('choose("automation", "", "automation")') &&
     projectTree.includes('node.kind === "automation_folder"') &&
-    projectTree.includes('node.kind === "automation_topic"'),
-  "automation workspace can be created and opened from the desktop tree",
+    projectTree.includes('node.kind === "automation_topic"') &&
+    !projectTree.includes("automation_history_folder"),
+  "automation workspace exposes Orca without a separate history group",
 );
 check(
   projectTree.includes('scope === "automation"\n        ? []') &&

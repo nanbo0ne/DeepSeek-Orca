@@ -781,25 +781,27 @@ func (a *App) OpenGlobalTab(topicID string) (TabMeta, error) {
 	return a.tabMeta(tab, true), nil
 }
 
-// OpenAutomationTab opens a topic in the shared automation workspace. These
-// tabs are permanently bound to the assistant prompt and assistant profile.
+// OpenAutomationTab opens the canonical Orca topic. Calls from stale frontends
+// that still reference a migrated automation topic are redirected to its new
+// independent-workspace location.
 func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 	root := automationWorkspaceRoot()
 	if root == "" {
 		return TabMeta{}, fmt.Errorf("automation workspace is unavailable")
 	}
-	if strings.TrimSpace(topicID) == "" {
-		topic, err := a.ensureAutomationMainTopic()
-		if err != nil {
-			return TabMeta{}, err
-		}
-		topicID = topic.ID
-	}
 	mainTopic, err := a.ensureAutomationMainTopic()
 	if err != nil {
 		return TabMeta{}, err
 	}
-	readOnly := strings.TrimSpace(topicID) != mainTopic.ID
+	topicID = strings.TrimSpace(topicID)
+	if topicID == "" {
+		topicID = mainTopic.ID
+	} else if topicID != mainTopic.ID {
+		if stringSliceHas(loadProjectsFile().GlobalTopics, topicID) {
+			return a.OpenGlobalTab(topicID)
+		}
+		topicID = mainTopic.ID
+	}
 
 	a.mu.Lock()
 	leave := a.assistantMemoryCandidateForTabLocked(a.activeTabLocked())
@@ -824,7 +826,6 @@ func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 		WorkspaceRoot:    root,
 		TopicID:          topicID,
 		TopicTitle:       topicTitleForTab(scopeAutomation, root, topicID),
-		ReadOnly:         readOnly,
 		mode:             "normal",
 		promptMode:       promptModeAssistant,
 		toolApprovalMode: control.ToolApprovalAsk,
@@ -852,6 +853,15 @@ func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 	a.startTabControllerBuild(tab)
 	a.emitProjectTreeChanged()
 	return a.tabMeta(tab, true), nil
+}
+
+func stringSliceHas(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
 }
 
 // EnsureBlankTab activates the existing blank tab for the target scope, or
@@ -1227,9 +1237,11 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	if topicID != "" {
 		if existingPath, dir := a.findKnownTopicSession(topicID); dir != "" {
 			if tab.Scope == "global" {
+				sourcePath := existingPath
 				if migratedPath, migratedDir, err := ensureGlobalTopicSessionInIndependentRoot(topicID, existingPath); err == nil {
 					if migratedPath != "" {
 						existingPath = migratedPath
+						a.rememberMigratedTabSessionPath(tab, sourcePath, migratedPath)
 					}
 					if migratedDir != "" {
 						dir = migratedDir
@@ -1244,7 +1256,6 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 					a.saveTabsLocked()
 					a.mu.Unlock()
 				}
-				_ = existingPath
 			}
 			sessionDir = dir
 		}
@@ -1401,6 +1412,16 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		loadTopicTitleSource(topicTitleRoot(tab.Scope, tab.WorkspaceRoot), tab.TopicID) == topicTitleSourceAuto {
 		go a.maybeAutoTitleTopic(tab)
 	}
+}
+
+func (a *App) rememberMigratedTabSessionPath(tab *WorkspaceTab, sourcePath, targetPath string) {
+	if tab == nil || strings.TrimSpace(sourcePath) == "" || strings.TrimSpace(targetPath) == "" {
+		return
+	}
+	if filepath.Clean(tab.SessionPath) != filepath.Clean(sourcePath) {
+		return
+	}
+	a.rememberTabSessionPath(tab, targetPath)
 }
 
 // --- active tab helpers -----------------------------------------------------
@@ -2029,7 +2050,7 @@ func saveProjectsFile(f desktopProjectFile) error {
 }
 
 // ensureAutomationMainTopic creates the one writable automation topic. Older
-// automation topics remain indexed as read-only history.
+// automation topics are migrated into ordinary independent workspaces.
 func (a *App) ensureAutomationMainTopic() (TopicMeta, error) {
 	automationMainTopicMu.Lock()
 	defer automationMainTopicMu.Unlock()
@@ -2062,10 +2083,97 @@ func (a *App) ensureAutomationMainTopic() (TopicMeta, error) {
 		}
 	}
 	f.AutomationTopics = prependUniqueString(f.AutomationTopics, topicID)
+	if err := migrateLegacyAutomationTopicsToGlobal(&f, root, topicID); err != nil {
+		return TopicMeta{}, err
+	}
 	if err := saveProjectsFile(f); err != nil {
 		return TopicMeta{}, err
 	}
 	return TopicMeta{ID: topicID, Title: automationMainTopicTitle, CreatedAt: createdAt}, nil
+}
+
+func migrateLegacyAutomationTopicsToGlobal(f *desktopProjectFile, automationRoot, mainTopicID string) error {
+	if f == nil {
+		return nil
+	}
+	mainTopicID = strings.TrimSpace(mainTopicID)
+	legacyIDs := make([]string, 0, len(f.AutomationTopics))
+	for _, topicID := range uniqueStrings(f.AutomationTopics) {
+		topicID = strings.TrimSpace(topicID)
+		if topicID != "" && topicID != mainTopicID {
+			legacyIDs = append(legacyIDs, topicID)
+		}
+	}
+	if len(legacyIDs) == 0 {
+		f.AutomationTopics = []string{mainTopicID}
+		return nil
+	}
+
+	automationTitles := loadTopicTitles(automationRoot)
+	automationSources := loadTopicTitleSources(automationRoot)
+	automationCreated := loadTopicCreatedAts(automationRoot)
+	globalTitles := loadTopicTitles("")
+	globalSources := loadTopicTitleSources("")
+	globalCreated := loadTopicCreatedAts("")
+	infos, listErr := agent.ListSessions(desktopSessionDir(automationRoot))
+	if listErr != nil && !os.IsNotExist(listErr) {
+		return listErr
+	}
+
+	for _, topicID := range legacyIDs {
+		title := strings.TrimSpace(automationTitles[topicID])
+		if title == "" {
+			title = defaultTopicTitle
+		}
+		if strings.TrimSpace(globalTitles[topicID]) == "" {
+			globalTitles[topicID] = title
+		}
+		if source := strings.TrimSpace(automationSources[topicID]); source != "" {
+			globalSources[topicID] = source
+		} else if strings.TrimSpace(globalSources[topicID]) == "" {
+			globalSources[topicID] = topicTitleSourceManual
+		}
+		if globalCreated[topicID] == 0 {
+			globalCreated[topicID] = automationCreated[topicID]
+		}
+		if globalCreated[topicID] == 0 {
+			globalCreated[topicID] = time.Now().UnixMilli()
+		}
+
+		independentRoot, err := ensureIndependentWorkspaceRoot(topicID)
+		if err != nil {
+			return err
+		}
+		for _, info := range infos {
+			if strings.TrimSpace(info.TopicID) != topicID {
+				continue
+			}
+			meta, ok, err := agent.LoadBranchMeta(info.Path)
+			if err != nil || !ok {
+				continue
+			}
+			meta.Scope = "global"
+			meta.WorkspaceRoot = independentRoot
+			meta.TopicID = topicID
+			meta.TopicTitle = title
+			if err := agent.SaveBranchMetaPreserveUpdated(info.Path, meta); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := saveTopicTitles("", globalTitles); err != nil {
+		return err
+	}
+	if err := saveTopicTitleSources("", globalSources); err != nil {
+		return err
+	}
+	if err := saveTopicCreatedAts("", globalCreated); err != nil {
+		return err
+	}
+	f.GlobalTopics = uniqueStrings(append(legacyIDs, f.GlobalTopics...))
+	f.AutomationTopics = []string{mainTopicID}
+	return nil
 }
 
 func automationMainTopicID() string {
@@ -3607,8 +3715,7 @@ func (a *App) ListProjectTree() []ProjectNode {
 	automationTitles := loadTopicTitles(automationRoot)
 	automationCreated := loadTopicCreatedAts(automationRoot)
 	automationIDs := orderedTopicIDs(f.AutomationTopics, automationTitles)
-	automationChildren := make([]ProjectNode, 0, 2)
-	automationHistory := make([]ProjectNode, 0, len(automationIDs))
+	automationChildren := make([]ProjectNode, 0, 1)
 	mainAutomationID := strings.TrimSpace(f.AutomationMainTopicID)
 	for _, id := range automationIDs {
 		title := strings.TrimSpace(automationTitles[id])
@@ -3621,34 +3728,13 @@ func (a *App) ListProjectTree() []ProjectNode {
 			Key: "automation_topic_" + id, Kind: "automation_topic", Label: title, Root: automationRoot,
 			TopicID: id, ProjectColor: "#4d8dff", Turns: summary.turns, CreatedAt: automationCreated[id],
 			LastActivityAt: summary.lastActivityAt, Open: status.open, Running: status.running, Status: status.status,
-			Pinned: summary.pinned, ReadOnly: id != mainAutomationID, Primary: id == mainAutomationID,
+			Pinned: summary.pinned, Primary: id == mainAutomationID,
 		}
 		if node.Primary {
 			automationChildren = append(automationChildren, node)
-		} else {
-			automationHistory = append(automationHistory, node)
 		}
 	}
 	if len(automationChildren) > 0 || automationRoot != "" {
-		sort.SliceStable(automationHistory, func(i, j int) bool {
-			ai, aj := automationHistory[i].LastActivityAt, automationHistory[j].LastActivityAt
-			if ai == 0 {
-				ai = automationHistory[i].CreatedAt
-			}
-			if aj == 0 {
-				aj = automationHistory[j].CreatedAt
-			}
-			if ai == aj {
-				return automationHistory[i].Label < automationHistory[j].Label
-			}
-			return ai > aj
-		})
-		if len(automationHistory) > 0 {
-			automationChildren = append(automationChildren, ProjectNode{
-				Key: "automation_history_folder", Kind: "automation_history_folder", Label: "历史对话",
-				Root: automationRoot, ProjectColor: "#8b95a7", ReadOnly: true, Children: automationHistory,
-			})
-		}
 		out = append(out, ProjectNode{Key: "automation_folder", Kind: "automation_folder", Label: "自动化工作区", Root: automationRoot, ProjectColor: "#4d8dff", Children: automationChildren})
 	}
 
@@ -4310,10 +4396,63 @@ func ensureGlobalTopicSessionInIndependentRoot(topicID, sessionPath string) (str
 	} else if err := backfillGlobalBranchWorkspace(targetPath, root, topicID); err != nil {
 		return "", "", err
 	}
-	if err := backfillGlobalBranchWorkspace(sessionPath, root, topicID); err != nil {
+	if err := copyMigratedSessionSidecars(sessionPath, targetPath); err != nil {
+		return "", "", err
+	}
+	if filepath.Clean(filepath.Dir(sessionPath)) == filepath.Clean(desktopSessionDir(automationWorkspaceRoot())) {
+		if err := markMigratedSessionBackup(sessionPath); err != nil {
+			return "", "", err
+		}
+	} else if err := backfillGlobalBranchWorkspace(sessionPath, root, topicID); err != nil {
 		return "", "", err
 	}
 	return targetPath, targetDir, nil
+}
+
+func copyMigratedSessionSidecars(sourcePath, targetPath string) error {
+	sourceDir, targetDir := filepath.Dir(sourcePath), filepath.Dir(targetPath)
+	sourceKey, targetKey := filepath.Base(sourcePath), filepath.Base(targetPath)
+
+	if sourceDisplay := loadSessionDisplays(sourceDir)[sourceKey]; sourceDisplay != nil {
+		targetDisplays := loadSessionDisplays(targetDir)
+		copied := make(map[string]string, len(sourceDisplay))
+		for key, value := range sourceDisplay {
+			copied[key] = value
+		}
+		targetDisplays[targetKey] = copied
+		if err := saveSessionDisplays(targetDir, targetDisplays); err != nil {
+			return err
+		}
+	}
+
+	if title := strings.TrimSpace(loadSessionTitles(sourceDir)[sourceKey]); title != "" {
+		targetTitles := loadSessionTitles(targetDir)
+		targetTitles[targetKey] = title
+		if err := saveSessionTitles(targetDir, targetTitles); err != nil {
+			return err
+		}
+	}
+
+	const telemetrySuffix = ".telemetry.json"
+	if data, err := os.ReadFile(sourcePath + telemetrySuffix); err == nil {
+		if err := os.WriteFile(targetPath+telemetrySuffix, data, 0o600); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func markMigratedSessionBackup(sessionPath string) error {
+	meta, err := agent.EnsureBranchMeta(sessionPath)
+	if err != nil {
+		return err
+	}
+	meta.Scope = "migration_backup"
+	meta.TopicID = ""
+	meta.TopicTitle = ""
+	return agent.SaveBranchMetaPreserveUpdated(sessionPath, meta)
 }
 
 func backfillGlobalBranchWorkspace(sessionPath, workspaceRoot, topicID string) error {

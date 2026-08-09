@@ -456,9 +456,18 @@ func (a *App) restoreOrBuildTabs() {
 			a.mu.Unlock()
 
 			var tab *WorkspaceTab
-			if entry.Scope == scopeAutomation {
+			if entry.Scope == scopeAutomation && strings.TrimSpace(entry.TopicID) != strings.TrimSpace(mainAutomationTopic.ID) {
+				topicID := strings.TrimSpace(entry.TopicID)
+				if topicID == "" {
+					topicID = newTopicID()
+				}
+				workspaceRoot := independentWorkspaceRoot(topicID)
+				if root, err := ensureIndependentWorkspaceRoot(topicID); err == nil {
+					workspaceRoot = root
+				}
+				tab = a.createTabEntryWithID("global", workspaceRoot, topicID, id)
+			} else if entry.Scope == scopeAutomation {
 				tab = a.createTabEntryWithID(scopeAutomation, automationWorkspaceRoot(), entry.TopicID, id)
-				tab.ReadOnly = strings.TrimSpace(entry.TopicID) != strings.TrimSpace(mainAutomationTopic.ID)
 			} else if entry.Scope == "project" {
 				tab = a.createTabEntryWithID(entry.Scope, entry.WorkspaceRoot, entry.TopicID, id)
 			} else {

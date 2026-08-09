@@ -151,7 +151,7 @@ export interface TabMeta {
 
 export interface ProjectNode {
   key: string;
-  kind: "project" | "topic" | "global_folder" | "global_topic" | "automation_folder" | "automation_history_folder" | "automation_topic" | "pinned_folder";
+  kind: "project" | "topic" | "global_folder" | "global_topic" | "automation_folder" | "automation_topic" | "pinned_folder";
   label: string;
   root?: string;
   topicId?: string;

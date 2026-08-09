@@ -58,6 +58,140 @@ func TestProjectTreeAlwaysIncludesAutomationWorkspace(t *testing.T) {
 	}
 }
 
+func TestLegacyAutomationTopicsMoveToIndependentWorkspace(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	mainTopic, err := app.ensureAutomationMainTopic()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	legacyID := "topic_legacy_automation"
+	legacyTitle := "旧手机会话"
+	root := automationWorkspaceRoot()
+	if err := setTopicTitleWithSource(root, legacyID, legacyTitle, topicTitleSourceManual); err != nil {
+		t.Fatal(err)
+	}
+	if err := setTopicCreatedAt(root, legacyID, time.Now().Add(-24*time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	dir := desktopSessionDir(root)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := writeTopicSession(t, dir, "legacy-automation.jsonl", legacyID, legacyTitle, root)
+	if err := recordSessionDisplay(dir, path, "hello", "旧自动化消息"); err != nil {
+		t.Fatal(err)
+	}
+	if err := setSessionTitle(dir, path, legacyTitle); err != nil {
+		t.Fatal(err)
+	}
+	meta, _, err := agent.LoadBranchMeta(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta.Scope = scopeAutomation
+	if err := agent.SaveBranchMetaPreserveUpdated(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	projects := loadProjectsFile()
+	projects.AutomationTopics = []string{mainTopic.ID, legacyID}
+	if err := saveProjectsFile(projects); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := app.ensureAutomationMainTopic(); err != nil {
+		t.Fatal(err)
+	}
+	projects = loadProjectsFile()
+	if len(projects.AutomationTopics) != 1 || projects.AutomationTopics[0] != mainTopic.ID {
+		t.Fatalf("automation topics = %#v, want only Orca", projects.AutomationTopics)
+	}
+	if !stringSliceContains(projects.GlobalTopics, legacyID) {
+		t.Fatalf("global topics = %#v, missing migrated topic", projects.GlobalTopics)
+	}
+	if got := loadTopicTitle("", legacyID); got != legacyTitle {
+		t.Fatalf("migrated title = %q, want %q", got, legacyTitle)
+	}
+
+	nodes := app.ListProjectTree()
+	automation := findProjectNodeByKind(nodes, "automation_folder")
+	if automation == nil || len(automation.Children) != 1 || automation.Children[0].TopicID != mainTopic.ID {
+		t.Fatalf("automation tree = %#v, want only Orca", automation)
+	}
+	global := findProjectNodeByKind(nodes, "global_folder")
+	if global == nil || !projectTreeContainsTopic(global.Children, legacyID) {
+		t.Fatalf("global tree = %#v, missing migrated history", global)
+	}
+
+	migratedMeta, ok, err := agent.LoadBranchMeta(path)
+	if err != nil || !ok {
+		t.Fatalf("load migrated meta: ok=%v err=%v", ok, err)
+	}
+	if migratedMeta.Scope != "global" || filepath.Clean(migratedMeta.WorkspaceRoot) != filepath.Clean(independentWorkspaceRoot(legacyID)) {
+		t.Fatalf("migrated meta = %+v", migratedMeta)
+	}
+
+	targetPath, targetDir, err := ensureGlobalTopicSessionInIndependentRoot(legacyID, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(targetDir) != filepath.Clean(desktopSessionDir(independentWorkspaceRoot(legacyID))) {
+		t.Fatalf("target dir = %q", targetDir)
+	}
+	loaded, err := agent.LoadSession(targetPath)
+	if err != nil || len(loaded.Messages) != 2 || loaded.Messages[0].Content != "hello" {
+		t.Fatalf("migrated transcript = %+v, err=%v", loaded, err)
+	}
+	if got := resolveSessionDisplay(targetDir, targetPath, "hello"); got != "旧自动化消息" {
+		t.Fatalf("migrated display text = %q", got)
+	}
+	if got := loadSessionTitles(targetDir)[filepath.Base(targetPath)]; got != legacyTitle {
+		t.Fatalf("migrated session title = %q, want %q", got, legacyTitle)
+	}
+	backupMeta, ok, err := agent.LoadBranchMeta(path)
+	if err != nil || !ok || backupMeta.Scope != "migration_backup" || backupMeta.TopicID != "" {
+		t.Fatalf("source backup meta = %+v, ok=%v err=%v", backupMeta, ok, err)
+	}
+}
+
+func projectTreeContainsTopic(nodes []ProjectNode, topicID string) bool {
+	for _, node := range nodes {
+		if node.TopicID == topicID || projectTreeContainsTopic(node.Children, topicID) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRememberMigratedTabSessionPathPreventsSecondCopy(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	sourcePath := filepath.Join(t.TempDir(), "legacy.jsonl")
+	targetPath := filepath.Join(t.TempDir(), "migrated.jsonl")
+	tab := &WorkspaceTab{ID: "tab_migration", SessionPath: sourcePath}
+	app := &App{tabs: map[string]*WorkspaceTab{tab.ID: tab}, tabOrder: []string{tab.ID}, activeTabID: tab.ID}
+
+	app.rememberMigratedTabSessionPath(tab, sourcePath, targetPath)
+	if filepath.Clean(tab.SessionPath) != filepath.Clean(targetPath) {
+		t.Fatalf("tab session path = %q, want migrated target %q", tab.SessionPath, targetPath)
+	}
+
+	otherTarget := filepath.Join(t.TempDir(), "other.jsonl")
+	app.rememberMigratedTabSessionPath(tab, sourcePath, otherTarget)
+	if filepath.Clean(tab.SessionPath) != filepath.Clean(targetPath) {
+		t.Fatalf("stale source replaced current migrated path: %q", tab.SessionPath)
+	}
+}
+
+func stringSliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 func findProjectNodeByKind(nodes []ProjectNode, kind string) *ProjectNode {
 	for i := range nodes {
 		if nodes[i].Kind == kind {

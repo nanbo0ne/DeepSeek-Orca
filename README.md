@@ -8,11 +8,11 @@ DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.36/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.36)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.37)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -65,11 +65,11 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 自动化与远程连接
 
-顶层 **自动化工作区** 只保留一个固定、不可删除或重命名的主对话 **Orca**。桌面、QQ 和微信都写入 Orca，并共享助手模式、自动化专用模型和 canonical 助手画像。旧自动化 topic 不会被删除，会收纳到只读历史区域。助手会先判断请求是否依赖已有工程对话；确有依赖时才按需列出、读取、派发、等待、查询或取消普通/增强会话中的任务，且不能递归派发自动化对话。
+顶层 **自动化工作区** 只保留一个固定、不可删除或重命名的主对话 **Orca**。桌面、QQ 和微信都写入 Orca，并共享助手模式、自动化专用模型和 canonical 助手画像。升级时，旧自动化 topic 会连同历史内容迁移到独立工作区，不再保留单独的“历史对话”分组。助手会先判断请求是否依赖已有工程对话；确有依赖时才按需列出、读取、派发、等待、查询或取消普通/增强会话中的任务，且不能递归派发自动化对话。
 
 闲置超过 30 分钟后，一次无工具、低 token 的判断只决定是否加载上一段上下文；无论续接还是新开始，内容都继续显示在同一个 Orca Transcript 中。`/new` 在 Orca 内开始新段，`/continue` 强制沿用上一段上下文，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer` 兼容命令。所有渠道共用当前段和串行执行队列，不会在侧栏生成新的手机对话。
 
-Orca 的完全访问权限需要在桌面端确认一次，并可在设置中随时撤销。确认前仍可聊天，但受保护工具会被拒绝且不会发送逐项审批卡；确认后，权限策略允许的工具和计划确认自动继续，Ask 问题与显式 deny 规则仍然有效。首页四条建议由自动化模型每 24 小时根据有限的本地会话摘要后台整理，失败时保留上一版，不创建隐藏会话，也不写入助手记忆。
+Orca 的完全访问权限需要在桌面端确认一次，并可在设置中随时撤销。确认前仍可聊天，但受保护工具会被拒绝且不会发送逐项审批卡；确认后，权限策略允许的工具和计划确认自动继续，Ask 问题与显式 deny 规则仍然有效。首页四条建议由自动化模型每 24 小时根据有限的本地会话摘要和脱敏后的真实用户措辞后台整理，以用户平时会说的话生成可直接发送的问题；失败时保留上一版，不创建隐藏会话，也不写入助手记忆。
 
 ## 隐私与安全
 
