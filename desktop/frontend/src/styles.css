@@ -2433,8 +2433,10 @@ a[href] {
   height: 18px;
   margin: 3px 0 8px 18px;
   opacity: 0.92;
-  animation: process-activity-fade-in 0.16s ease-out both;
 }
+.process-activity-mark--entering { animation: process-activity-fade-in 160ms ease-out both; }
+.process-activity-mark--steady { opacity: 0.92; }
+.process-activity-mark--exiting { animation: process-activity-fade-out 140ms ease-in both; }
 .timeline-process-group--activity-only {
   min-height: 34px;
   display: flex;
@@ -2456,13 +2458,14 @@ a[href] {
   animation: none !important;
   transition: none !important;
 }
-.process-activity-mark--tool {
-  --activity-spinner-color: color-mix(in srgb, var(--accent) 66%, var(--fg-faint));
-}
 .process-activity-spinner {
   width: 15px;
   height: 15px;
   border-radius: 50%;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+}
+.process-activity-spinner--model {
   background: conic-gradient(
     from 12deg,
     transparent 0deg 38deg,
@@ -2471,32 +2474,83 @@ a[href] {
     var(--activity-spinner-color) 332deg,
     transparent 360deg
   );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
-  animation: process-activity-spin 0.78s linear infinite;
+  animation: process-activity-spin-clockwise 0.78s linear infinite;
 }
-.process-activity-mark--tool .process-activity-spinner {
-  animation-direction: reverse;
-  animation-duration: 0.92s;
+.process-activity-spinner--tool {
+  --activity-spinner-color: color-mix(in srgb, var(--accent) 66%, var(--fg-faint));
+  background: conic-gradient(
+    from -12deg,
+    transparent 0deg 28deg,
+    var(--activity-spinner-color) 28deg,
+    color-mix(in srgb, var(--activity-spinner-color) 52%, transparent) 154deg,
+    color-mix(in srgb, var(--activity-spinner-color) 18%, transparent) 268deg,
+    transparent 322deg 360deg
+  );
+  animation: process-activity-spin-counterclockwise 0.92s linear infinite;
 }
-@keyframes process-activity-spin {
+@keyframes process-activity-spin-clockwise {
   to { transform: rotate(1turn); }
+}
+@keyframes process-activity-spin-counterclockwise {
+  to { transform: rotate(-1turn); }
 }
 @keyframes process-activity-fade-in {
   from { opacity: 0; }
   to { opacity: 0.92; }
+}
+@keyframes process-activity-fade-out {
+  from { opacity: 0.92; }
+  to { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .process-activity-mark,
   .process-activity-spinner {
     animation: none;
   }
+  .process-activity-mark--entering,
+  .process-activity-mark--steady { opacity: 0.92; }
+  .process-activity-mark--exiting { opacity: 0; }
 }
 .turn-stats-row {
   margin: 4px 0 8px;
   color: var(--fg-faint);
   font-size: 12.5px;
 }
+.mode-switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 5px 0 9px;
+  padding: 2px 0;
+  color: var(--fg-faint);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.mode-switch-row__icon {
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.mode-switch-row__label {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  font-weight: 600;
+}
+.mode-switch-row__route {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mode-switch-row--failed,
+.mode-switch-row--interrupted { color: var(--err); }
+.mode-switch-row--failed .mode-switch-row__icon,
+.mode-switch-row--interrupted .mode-switch-row__icon,
+.mode-switch-row--failed .mode-switch-row__label,
+.mode-switch-row--interrupted .mode-switch-row__label { color: var(--err); }
 .turn-process-panel {
   width: min(100%, 820px);
   overflow: visible;
@@ -4156,6 +4210,36 @@ a[href] {
   max-width: var(--maxw);
   margin: 0 auto;
 }
+.runtime-switch-progress {
+  position: absolute;
+  z-index: var(--z-local-raised);
+  top: -7px;
+  right: 8px;
+  width: min(180px, calc(100% - 16px));
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+  animation: runtime-switch-progress-in 120ms ease-out both;
+}
+.runtime-switch-progress__value {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform: scaleX(var(--runtime-switch-value, 0));
+  transform-origin: left center;
+  transition: transform 220ms ease-out, background 120ms ease;
+}
+.runtime-switch-progress--completed .runtime-switch-progress__value { background: var(--ok); }
+.runtime-switch-progress--failed { background: color-mix(in srgb, var(--err) 14%, transparent); }
+.runtime-switch-progress--failed .runtime-switch-progress__value { background: var(--err); }
+@keyframes runtime-switch-progress-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .composer-card {
   container-type: inline-size;
   position: relative;
@@ -4431,9 +4515,6 @@ a[href] {
 .composer-enhanced__button--switching:disabled {
   cursor: progress;
   opacity: 0.74;
-}
-.composer-enhanced__button--switching svg:first-child {
-  animation: spin 0.85s linear infinite;
 }
 .composer-enhanced__button span {
   min-width: 0;

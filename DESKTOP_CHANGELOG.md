@@ -1,5 +1,13 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.1.2 - 2026-08-11
+
+- Added standalone, persistent mode-switch timeline records with explicit switching, completed, failed, and interrupted states. Blank conversations stay visually clean, while unfinished records recover as interrupted without entering provider history or completed-turn folds.
+- Added generation-aware backend runtime-switch progress at preparing, building, restoring, swapping, and completed stages, shown in a compact Composer progress bar without reusing model-thinking feedback.
+- Reworked the activity indicator as one regenerating gradient ring: the current direction fades out and is removed before the opposite model/tool direction fades in, including rapid phase coalescing and reduced-motion handling.
+- Kept the mode selector icon static during controller rebuilds and aligned Pause, Resume, and Stop on the plain Lucide Pause, Play, and Square icon language.
+- Preserved the V10 provider configuration and existing Turn/Item protocol while extending telemetry to version 5 for runtime-switch history.
+
 ## V2.1.1 - 2026-08-10
 
 - Separated Mimo API and Mimo Token Plan into distinct provider identities, endpoints, model references, and credential slots. Exact Mimo references can no longer cross-resolve to the other source, and the V10 migration assigns a legacy shared key conservatively from the active model source with a backup before changes.

@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { asArray } from "./array";
-import { app, onEvent, onReady } from "./bridge";
+import { app, onEvent, onReady, onRuntimeSwitchProgress } from "./bridge";
 import { createRafBatch } from "./rafBatch";
 import { t } from "./i18n";
 import { modeHasAutoApproveTools } from "./types";
@@ -21,6 +21,9 @@ import type {
   Meta,
   Mode,
   QuestionAnswer,
+  PromptMode,
+  RuntimeSwitchPhase,
+  RuntimeSwitchProgress,
   SessionMeta,
   TabMeta,
   ToolApprovalMode,
@@ -52,6 +55,18 @@ export type Item = ItemLifecycle & (
   | { kind: "steer"; id: string; text: string }
   | { kind: "phase"; id: string; text: string }
   | { kind: "notice"; id: string; level: "info" | "warn"; text: string }
+  | {
+      kind: "mode_switch";
+      id: string;
+      fromMode: PromptMode;
+      toMode: PromptMode;
+      appliedMode?: PromptMode;
+      phase: RuntimeSwitchPhase;
+      progress: number;
+      startedAt: number;
+      completedAt?: number;
+      error?: string;
+    }
   | { kind: "turn_stats"; id: string; elapsedMs?: number; tokens?: number; success: boolean; outcome?: TurnOutcome; finalMessageId?: string }
   | {
       kind: "compaction";
@@ -117,6 +132,7 @@ interface State {
   sessionCost: number;
   sessionCurrency: string;
   retry?: { attempt: number; max: number };
+  runtimeSwitch?: RuntimeSwitchProgress;
   seq: number;
 }
 
@@ -210,6 +226,7 @@ type Action =
   | { type: "session_primary_loaded" }
   | { type: "session_hydrated" }
   | { type: "local_notice"; level: "info" | "warn"; text: string }
+  | { type: "runtime_switch"; progress: RuntimeSwitchProgress }
   | { type: "steer_sent"; text: string }
   | { type: "clearApproval" }
   | { type: "clearAsk" }
@@ -230,6 +247,22 @@ export function historyMessagesToItems(messages: HistoryMessage[], idPrefix: str
   const consumedToolIDs = new Set<string>();
   for (const m of messages) {
     if (m.role === "system") continue;
+    if (m.role === "mode_switch" && m.switchId && m.switchFromMode && m.switchToMode && m.switchPhase) {
+      items.push({
+        kind: "mode_switch",
+        id: m.switchId,
+        fromMode: m.switchFromMode,
+        toMode: m.switchToMode,
+        appliedMode: m.switchAppliedMode,
+        phase: m.switchPhase,
+        progress: m.switchProgress ?? 0,
+        startedAt: m.switchStartedAt ?? 0,
+        completedAt: m.switchCompletedAt,
+        error: m.switchError,
+      });
+      seq++;
+      continue;
+    }
     if (m.role === "phase") {
       if (m.content.trim() !== "") {
         items.push({ kind: "phase", id: `${idPrefix}${seq}`, text: m.content });
@@ -684,6 +717,30 @@ export function reducer(s: State, a: Action): State {
     case "session_primary_loaded": return { ...s, loading: false };
     case "session_hydrated": return s.hydrating ? { ...s, hydrating: false } : s;
     case "local_notice": return { ...s, running: false, turnActive: false, seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: a.level, text: a.text }] };
+    case "runtime_switch": {
+      const progress = a.progress;
+      if (s.runtimeSwitch && progress.generation < s.runtimeSwitch.generation) return s;
+      if (!progress.recorded) return { ...s, runtimeSwitch: progress };
+      const index = s.items.findIndex((item) => item.kind === "mode_switch" && item.id === progress.switchId);
+      const item: Item = {
+        kind: "mode_switch",
+        id: progress.switchId,
+        fromMode: progress.fromMode,
+        toMode: progress.toMode,
+        appliedMode: progress.appliedMode,
+        phase: progress.phase,
+        progress: progress.progress,
+        startedAt: progress.startedAt,
+        completedAt: progress.completedAt,
+        error: progress.error,
+      };
+      if (index < 0) {
+        return { ...s, runtimeSwitch: progress, items: [...s.items, item], seq: s.seq + 1 };
+      }
+      const items = [...s.items];
+      items[index] = item;
+      return { ...s, runtimeSwitch: progress, items };
+    }
     case "steer_sent": {
       const text = a.text.trim();
       if (!text) return s;
@@ -982,6 +1039,11 @@ export function useController() {
       }
     });
 
+    const offRuntimeSwitch = onRuntimeSwitchProgress((progress) => {
+      if (!progress.tabId || !progress.switchId) return;
+      dispatchTo(progress.tabId, { type: "runtime_switch", progress });
+    });
+
     const offReady = onReady(() => {
       const readyTabId = activeTabIdRef.current;
       if (readyTabId) {
@@ -998,7 +1060,7 @@ export function useController() {
     // and no way to stop (#3844).
     void app.ReplayPendingPrompts().catch(() => {});
 
-    return () => { textBatch.drain(); off(); offReady(); };
+    return () => { textBatch.drain(); off(); offRuntimeSwitch(); offReady(); };
   }, [dispatchTo, loadSessionDataForTab, refreshBalanceForTab, refreshCheckpoints, requestContextRefresh, syncActiveTabFromBackend]);
 
   useEffect(() => {
@@ -1393,6 +1455,7 @@ export function useController() {
 
   return {
     state: activeState,
+    runtimeSwitch: activeState.runtimeSwitch,
     activeTabId,
     send, runShell, steer, notice, cancel, approve, answerQuestion, setControllerMode, setCollaborationMode, setToolApprovalMode, setAskWorkflow, setStepThinking, setEnhancedMode, togglePause, setGoal, clearGoal,
     newSession, clearSession, listSessions, listTrashedSessions, resumeSession, previewSession, deleteSession, restoreSession, purgeTrashedSession, renameSession,

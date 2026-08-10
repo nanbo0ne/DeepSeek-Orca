@@ -269,6 +269,15 @@ export interface HistoryMessage {
   elapsedMs?: number;
   tokens?: number;
   finalMessageId?: string;
+  switchId?: string;
+  switchFromMode?: PromptMode;
+  switchToMode?: PromptMode;
+  switchAppliedMode?: PromptMode;
+  switchPhase?: RuntimeSwitchPhase;
+  switchProgress?: number;
+  switchStartedAt?: number;
+  switchCompletedAt?: number;
+  switchError?: string;
 }
 
 export interface HistoryToolCall {
@@ -370,11 +379,26 @@ export type CollaborationMode = "normal" | "plan" | "goal";
 export type ToolApprovalMode = "ask" | "auto" | "yolo";
 export type PromptMode = "coding" | "assistant";
 export interface CancelAck { accepted: boolean; turnId?: string }
+export type RuntimeSwitchPhase = "preparing" | "building" | "restoring" | "swapping" | "completed" | "failed" | "interrupted";
 export interface RuntimeSwitchResult {
   requestedMode: PromptMode;
   appliedMode?: PromptMode;
   generation?: number;
   completed: boolean;
+}
+export interface RuntimeSwitchProgress {
+  tabId: string;
+  switchId: string;
+  generation: number;
+  fromMode: PromptMode;
+  toMode: PromptMode;
+  appliedMode?: PromptMode;
+  phase: RuntimeSwitchPhase;
+  progress: number;
+  recorded: boolean;
+  startedAt: number;
+  completedAt?: number;
+  error?: string;
 }
 export type VisionMode = "off" | "auto" | "on";
 export type VisionCapabilityStatus = "supported" | "unsupported" | "unknown" | "probing";

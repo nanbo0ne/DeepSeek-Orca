@@ -41,6 +41,7 @@ import type {
   ProviderView,
   ProductCapabilities,
   PromptMode,
+  RuntimeSwitchProgress,
   QuestionAnswer,
   RuntimeSwitchResult,
   ServerView,
@@ -336,6 +337,7 @@ declare global {
 
 // Must match desktop/app.go's eventChannel constant.
 const EVENT_CHANNEL = "agent:event";
+const RUNTIME_SWITCH_EVENT_CHANNEL = "runtime:switch-progress";
 
 // Resolve the Wails binding at CALL time, not module-load time: in dev the Wails
 // runtime can inject window.go AFTER this module first evaluates, so snapshotting
@@ -357,6 +359,13 @@ export function onEvent(cb: (e: WireEvent) => void): () => void {
     return window.runtime.EventsOn(EVENT_CHANNEL, (payload) => cb(payload as WireEvent));
   }
   return mockSubscribe(cb);
+}
+
+export function onRuntimeSwitchProgress(cb: (progress: RuntimeSwitchProgress) => void): () => void {
+  if (realApp() && typeof window !== "undefined" && window.runtime) {
+    return window.runtime.EventsOn(RUNTIME_SWITCH_EVENT_CHANNEL, (payload) => cb(payload as RuntimeSwitchProgress));
+  }
+  return () => {};
 }
 
 

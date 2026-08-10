@@ -43,6 +43,38 @@ func TestTelemetryLoadsLegacyReadFileArray(t *testing.T) {
 	}
 }
 
+func TestRuntimeSwitchTelemetryInterruptsUnfinishedRecords(t *testing.T) {
+	records := []RuntimeSwitchRecord{
+		{ID: "active", FromMode: promptModeCoding, ToMode: promptModeAssistant, AppliedMode: promptModeCoding, Phase: RuntimeSwitchBuilding, Progress: 35, StartedAt: 1000},
+		{ID: "done", FromMode: promptModeAssistant, ToMode: promptModeCoding, AppliedMode: promptModeCoding, Phase: RuntimeSwitchCompleted, Progress: 100, StartedAt: 500, CompletedAt: 900},
+	}
+	got, changed := interruptRuntimeSwitches(records, 2000)
+	if !changed || got[0].Phase != RuntimeSwitchInterrupted || got[0].AppliedMode != promptModeCoding || got[0].CompletedAt != 2000 {
+		t.Fatalf("interrupted records = %+v, changed=%v", got, changed)
+	}
+	if got[1].Phase != RuntimeSwitchCompleted || got[1].CompletedAt != 900 {
+		t.Fatalf("completed switch changed during recovery: %+v", got[1])
+	}
+}
+
+func TestRuntimeSwitchTelemetryRoundTripsVersionFive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.jsonl.telemetry.json")
+	snapshot := tabTelemetrySnapshot{
+		RuntimeSwitches: []RuntimeSwitchRecord{{
+			ID: "switch-1", Generation: 4, FromMode: promptModeCoding, ToMode: promptModeAssistant,
+			AppliedMode: promptModeAssistant, Phase: RuntimeSwitchCompleted, Progress: 100,
+			MessageIndex: 3, StartedAt: 1000, CompletedAt: 1200,
+		}},
+	}
+	if err := saveTelemetry(path, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	got := loadTelemetry(path)
+	if got.Version != 5 || len(got.RuntimeSwitches) != 1 || got.RuntimeSwitches[0].ID != "switch-1" {
+		t.Fatalf("round-tripped telemetry = %+v", got)
+	}
+}
+
 func TestWorkspaceTabAggregatesSessionUsageTelemetry(t *testing.T) {
 	tab := &WorkspaceTab{}
 	start := time.Now().Add(-2 * time.Second).UnixMilli()

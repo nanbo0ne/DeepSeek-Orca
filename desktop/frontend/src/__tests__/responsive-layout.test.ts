@@ -110,7 +110,7 @@ check(
     composer.includes('composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}') &&
     composer.includes("onClick={hasDraftContent ? () => void submit() : handleCancel}") &&
     composer.includes("hasDraftContent ? (disabled || submitting || pendingPaste > 0 || !hasSendableContent) : cancelRequested") &&
-    composer.includes('hasDraftContent ? <ArrowUp size={13} /> : <Square size={10} fill="currentColor" />') &&
+    composer.includes('hasDraftContent ? <ArrowUp size={13} /> : <Square size={11} fill="currentColor" strokeWidth={1.8} />') &&
     css.includes(".composer-runstatus__primary {\n  --wails-draggable: no-drag;") &&
     css.includes("width: 34px;\n  min-width: 34px;\n  max-width: 34px;\n  height: 34px;") &&
     css.includes(".composer-runstatus__primary--send {") &&
@@ -165,11 +165,31 @@ check(
 check(
   css.includes(".process-activity-mark") &&
     css.includes("prefers-reduced-motion: reduce") &&
-    css.includes("process-activity-mark--tool") &&
-    css.includes("animation-direction: reverse") &&
+    css.includes("process-activity-spinner--tool") &&
+    css.includes("process-activity-spin-clockwise") &&
+    css.includes("process-activity-spin-counterclockwise") &&
+    !css.includes("animation-direction") &&
     transcript.includes("activityIndicatorPhase(items, activityIndicatorEnabled, running, paused)") &&
     transcript.includes("timeline-entry--activity"),
-  "optional activity spinner is direction-aware, reduced-motion safe, and follows the current turn",
+  "single activity ring regenerates for each direction and remains reduced-motion safe",
+);
+check(
+  !css.includes(".composer-enhanced__button--switching svg:first-child") &&
+    composer.includes("<RuntimeSwitchBar progress={runtimeSwitch} />") &&
+    css.includes("width: min(180px, calc(100% - 16px));") &&
+    css.includes("height: 3px;"),
+  "mode switching keeps the selector still and shows a right-aligned stage bar",
+);
+check(
+  composer.includes("<Pause size={15}") && composer.includes("<Play size={14}") &&
+    !composer.includes("PauseCircle") && !composer.includes("PlayCircle") &&
+    composer.includes('<Square size={11} fill="currentColor"'),
+  "pause, resume, and stop share a consistent plain-icon language",
+);
+check(
+  transcript.includes('case "mode_switch":') && transcript.includes("<ModeSwitchRow item={segment.item} />") &&
+    controller.includes('kind: "mode_switch"') && controller.includes('type: "runtime_switch"'),
+  "runtime mode switches render as standalone persistent timeline rows",
 );
 check(
   css.includes(".footer {\n  position: relative;") &&

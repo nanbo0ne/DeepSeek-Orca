@@ -48,6 +48,7 @@ import (
 // `kind` field discriminates — the desktop analogue of the serve transport's SSE
 // `data:` frames.
 const eventChannel = "agent:event"
+const runtimeSwitchEventChannel = "runtime:switch-progress"
 
 // singleInstanceID is used by Wails to route a second desktop launch back to the
 // running instance. Keep it stable across releases so launcher/Dock/taskbar
@@ -65,12 +66,13 @@ type App struct {
 
 	// mu protects the tab map, tabOrder, activeTabID, and per-tab fields that are read
 	// from bound methods. All bound methods that touch a controller use activeCtrl().
-	mu          sync.RWMutex
-	tabs        map[string]*WorkspaceTab
-	tabOrder    []string
-	activeTabID string
-	recentPrefs recentConversationPrefs
-	readyHook   func()
+	mu                sync.RWMutex
+	tabs              map[string]*WorkspaceTab
+	tabOrder          []string
+	activeTabID       string
+	recentPrefs       recentConversationPrefs
+	readyHook         func()
+	runtimeSwitchHook func(RuntimeSwitchProgress)
 
 	forceQuit           atomic.Bool
 	backgroundMaximised atomic.Bool
@@ -1893,26 +1895,35 @@ func (a *App) SwitchWorkspace(dir string) (string, error) {
 // HistoryMessage is one prior turn, for the frontend to repopulate its transcript
 // after a reload.
 type HistoryMessage struct {
-	Role           string            `json:"role"`
-	Content        string            `json:"content"`
-	Reasoning      string            `json:"reasoning,omitempty"`
-	Level          string            `json:"level,omitempty"`
-	ToolCalls      []HistoryToolCall `json:"toolCalls,omitempty"`
-	ToolCallID     string            `json:"toolCallId,omitempty"`
-	ToolName       string            `json:"toolName,omitempty"`
-	Pending        bool              `json:"pending,omitempty"`
-	Trigger        string            `json:"trigger,omitempty"`
-	Messages       int               `json:"messages,omitempty"`
-	Summary        string            `json:"summary,omitempty"`
-	Archive        string            `json:"archive,omitempty"`
-	TurnID         string            `json:"turnId,omitempty"`
-	ItemID         string            `json:"itemId,omitempty"`
-	MessageID      string            `json:"messageId,omitempty"`
-	Final          bool              `json:"final,omitempty"`
-	Outcome        event.TurnOutcome `json:"outcome,omitempty"`
-	ElapsedMs      int64             `json:"elapsedMs,omitempty"`
-	Tokens         int               `json:"tokens,omitempty"`
-	FinalMessageID string            `json:"finalMessageId,omitempty"`
+	Role              string             `json:"role"`
+	Content           string             `json:"content"`
+	Reasoning         string             `json:"reasoning,omitempty"`
+	Level             string             `json:"level,omitempty"`
+	ToolCalls         []HistoryToolCall  `json:"toolCalls,omitempty"`
+	ToolCallID        string             `json:"toolCallId,omitempty"`
+	ToolName          string             `json:"toolName,omitempty"`
+	Pending           bool               `json:"pending,omitempty"`
+	Trigger           string             `json:"trigger,omitempty"`
+	Messages          int                `json:"messages,omitempty"`
+	Summary           string             `json:"summary,omitempty"`
+	Archive           string             `json:"archive,omitempty"`
+	TurnID            string             `json:"turnId,omitempty"`
+	ItemID            string             `json:"itemId,omitempty"`
+	MessageID         string             `json:"messageId,omitempty"`
+	Final             bool               `json:"final,omitempty"`
+	Outcome           event.TurnOutcome  `json:"outcome,omitempty"`
+	ElapsedMs         int64              `json:"elapsedMs,omitempty"`
+	Tokens            int                `json:"tokens,omitempty"`
+	FinalMessageID    string             `json:"finalMessageId,omitempty"`
+	SwitchID          string             `json:"switchId,omitempty"`
+	SwitchFromMode    string             `json:"switchFromMode,omitempty"`
+	SwitchToMode      string             `json:"switchToMode,omitempty"`
+	SwitchAppliedMode string             `json:"switchAppliedMode,omitempty"`
+	SwitchPhase       RuntimeSwitchPhase `json:"switchPhase,omitempty"`
+	SwitchProgress    int                `json:"switchProgress,omitempty"`
+	SwitchStartedAt   int64              `json:"switchStartedAt,omitempty"`
+	SwitchCompletedAt int64              `json:"switchCompletedAt,omitempty"`
+	SwitchError       string             `json:"switchError,omitempty"`
 }
 
 type HistoryToolCall struct {
@@ -1950,15 +1961,15 @@ func (a *App) HistoryForTab(tabID string) []HistoryMessage {
 				if len(messages) == 0 {
 					continue
 				}
-				turns := loadTelemetry(segment.Path + ".telemetry.json").Turns
-				out = append(out, historyMessagesWithTurns(messages, sessionDisplayResolver(filepath.Dir(segment.Path), segment.Path), turns)...)
+				telemetry := loadTelemetry(segment.Path + ".telemetry.json")
+				out = append(out, historyMessagesWithTurnsAndSwitches(messages, sessionDisplayResolver(filepath.Dir(segment.Path), segment.Path), telemetry.Turns, telemetry.RuntimeSwitches)...)
 			}
 			return out
 		}
 	}
 	msgs := ctrl.History()
-	turns := loadTelemetry(ctrl.SessionPath() + ".telemetry.json").Turns
-	return historyMessagesWithTurns(msgs, sessionDisplayResolver(controllerSessionDir(ctrl), ctrl.SessionPath()), turns)
+	telemetry := loadTelemetry(ctrl.SessionPath() + ".telemetry.json")
+	return historyMessagesWithTurnsAndSwitches(msgs, sessionDisplayResolver(controllerSessionDir(ctrl), ctrl.SessionPath()), telemetry.Turns, telemetry.RuntimeSwitches)
 }
 
 func historyMessages(msgs []provider.Message, resolveUserContent func(string) string) []HistoryMessage {
@@ -1966,7 +1977,32 @@ func historyMessages(msgs []provider.Message, resolveUserContent func(string) st
 }
 
 func historyMessagesWithTurns(msgs []provider.Message, resolveUserContent func(string) string, turns []turnTelemetryRecord) []HistoryMessage {
+	return historyMessagesWithTurnsAndSwitches(msgs, resolveUserContent, turns, nil)
+}
+
+func historyMessagesWithTurnsAndSwitches(msgs []provider.Message, resolveUserContent func(string) string, turns []turnTelemetryRecord, runtimeSwitches []RuntimeSwitchRecord) []HistoryMessage {
 	out := make([]HistoryMessage, 0, len(msgs))
+	switches := append([]RuntimeSwitchRecord(nil), runtimeSwitches...)
+	sort.SliceStable(switches, func(i, j int) bool {
+		if switches[i].MessageIndex == switches[j].MessageIndex {
+			return switches[i].StartedAt < switches[j].StartedAt
+		}
+		return switches[i].MessageIndex < switches[j].MessageIndex
+	})
+	switchIndex := 0
+	appendSwitchesAt := func(messageIndex int) {
+		for switchIndex < len(switches) && switches[switchIndex].MessageIndex <= messageIndex {
+			record := switches[switchIndex]
+			out = append(out, HistoryMessage{
+				Role: "mode_switch", SwitchID: record.ID,
+				SwitchFromMode: record.FromMode, SwitchToMode: record.ToMode,
+				SwitchAppliedMode: record.AppliedMode, SwitchPhase: record.Phase,
+				SwitchProgress: record.Progress, SwitchStartedAt: record.StartedAt,
+				SwitchCompletedAt: record.CompletedAt, SwitchError: record.Error,
+			})
+			switchIndex++
+		}
+	}
 	turnIndex := -1
 	assistantOrdinal := 0
 	appendTurnStats := func() {
@@ -1979,7 +2015,7 @@ func historyMessagesWithTurns(msgs []provider.Message, resolveUserContent func(s
 		}
 		out = append(out, HistoryMessage{Role: "turn_stats", TurnID: turn.TurnID, Outcome: turn.Outcome, ElapsedMs: turn.ElapsedMs, Tokens: turn.Tokens, FinalMessageID: turn.FinalMessageID})
 	}
-	for _, m := range msgs {
+	for messageIndex, m := range msgs {
 		content := m.Content
 		if m.Role == provider.RoleUser {
 			content = resolveUserContent(m.Content)
@@ -1987,8 +2023,11 @@ func historyMessagesWithTurns(msgs []provider.Message, resolveUserContent func(s
 				continue
 			}
 			appendTurnStats()
+			appendSwitchesAt(messageIndex)
 			turnIndex++
 			assistantOrdinal = 0
+		} else {
+			appendSwitchesAt(messageIndex)
 		}
 		reasoning := ""
 		if m.Role == provider.RoleAssistant {
@@ -2023,6 +2062,7 @@ func historyMessagesWithTurns(msgs []provider.Message, resolveUserContent func(s
 		out = append(out, hm)
 	}
 	appendTurnStats()
+	appendSwitchesAt(len(msgs))
 	return out
 }
 
@@ -2683,7 +2723,45 @@ func (a *App) RequestConversationModeForTab(tabID string, mode string) (RuntimeS
 	return result, nil
 }
 
-func (a *App) SetConversationModeForTab(tabID string, mode string) error {
+func (a *App) emitRuntimeSwitchProgress(progress RuntimeSwitchProgress) {
+	if a.runtimeSwitchHook != nil {
+		a.runtimeSwitchHook(progress)
+		return
+	}
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, runtimeSwitchEventChannel, progress)
+	}
+}
+
+func (a *App) persistRuntimeSwitches(tab *WorkspaceTab) {
+	if tab == nil {
+		return
+	}
+	path := tab.currentSessionPath()
+	if path == "" {
+		return
+	}
+	_ = saveTelemetry(path+".telemetry.json", tab.telemetrySnapshot())
+}
+
+func messagesHaveVisibleConversationContent(messages []provider.Message) bool {
+	for _, message := range messages {
+		switch message.Role {
+		case provider.RoleUser:
+			content := strings.TrimSpace(message.Content)
+			if content != "" && !control.IsSyntheticUserMessage(content) {
+				return true
+			}
+		case provider.RoleAssistant:
+			if strings.TrimSpace(message.Content) != "" || strings.TrimSpace(message.ReasoningContent) != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *App) SetConversationModeForTab(tabID string, mode string) (retErr error) {
 	if tab := a.tabByID(tabID); tab != nil && tab.Scope == scopeAutomation {
 		if strings.ToLower(strings.TrimSpace(mode)) == promptModeOrca {
 			return nil
@@ -2722,9 +2800,66 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
 		return fmt.Errorf("conversation is still running; queue the mode change until the turn finishes")
 	}
+	oldCtrl := tab.Ctrl
+	fromMode := currentTabPromptMode(tab)
+	startedAt := time.Now().UnixMilli()
+	switchID := fmt.Sprintf("mode-switch-%s-%d-%d", tab.ID, generation, startedAt)
+	history := []provider.Message(nil)
+	if oldCtrl != nil {
+		history = oldCtrl.History()
+	}
+	recorded := messagesHaveVisibleConversationContent(history)
+	tab.telemMu.Lock()
+	checkpointTurn := tab.currentTelemetryTurn
+	tab.telemMu.Unlock()
+	if recorded {
+		tab.startRuntimeSwitch(RuntimeSwitchRecord{
+			ID: switchID, Generation: generation, FromMode: fromMode, ToMode: mode,
+			AppliedMode: fromMode, Phase: RuntimeSwitchPreparing, Progress: 10,
+			MessageIndex: len(history), CheckpointTurn: checkpointTurn, StartedAt: startedAt,
+		})
+		a.persistRuntimeSwitches(tab)
+	}
+	terminal := false
+	lastProgress := 10
+	emitPhase := func(phase RuntimeSwitchPhase, progress int, appliedMode, errorText string) {
+		if !runtimeSwitchTerminal(phase) {
+			lastProgress = progress
+		}
+		now := time.Now().UnixMilli()
+		completedAt := int64(0)
+		if runtimeSwitchTerminal(phase) {
+			completedAt = now
+			terminal = true
+		}
+		if recorded {
+			if updated, ok := tab.updateRuntimeSwitch(switchID, phase, progress, appliedMode, errorText, now); ok {
+				completedAt = updated.CompletedAt
+			}
+			a.persistRuntimeSwitches(tab)
+		}
+		a.emitRuntimeSwitchProgress(RuntimeSwitchProgress{
+			TabID: tab.ID, SwitchID: switchID, Generation: generation,
+			FromMode: fromMode, ToMode: mode, AppliedMode: appliedMode,
+			Phase: phase, Progress: progress, Recorded: recorded,
+			StartedAt: startedAt, CompletedAt: completedAt, Error: errorText,
+		})
+	}
+	emitPhase(RuntimeSwitchPreparing, 10, fromMode, "")
+	defer func() {
+		if terminal {
+			return
+		}
+		appliedMode := currentTabPromptMode(tab)
+		if retErr != nil {
+			emitPhase(RuntimeSwitchFailed, lastProgress, appliedMode, retErr.Error())
+			return
+		}
+		emitPhase(RuntimeSwitchInterrupted, lastProgress, appliedMode, "mode switch was superseded before completion")
+	}()
 	success := false
 	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
-	oldCtrl := tab.Ctrl
+	emitPhase(RuntimeSwitchBuilding, 35, fromMode, "")
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
 		Model:                   tab.model,
 		RequireKey:              false,
@@ -2739,6 +2874,7 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	if err != nil {
 		return err
 	}
+	emitPhase(RuntimeSwitchRestoring, 70, fromMode, "")
 	a.bindControllerDisplayRecorder(newCtrl)
 	newCtrl.EnableInteractiveApproval()
 	applyTabModeToController(newCtrl, tab.mode)
@@ -2756,6 +2892,7 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	}
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
 	resumeWithControllerSystem(newCtrl, carried, path)
+	emitPhase(RuntimeSwitchSwapping, 90, fromMode, "")
 
 	a.mu.Lock()
 	if current := a.tabs[tab.ID]; current != tab || tab.runtimeGeneration != generation {
@@ -2781,6 +2918,7 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	}
 	a.persistTabSessionPath(tab, path)
 	success = true
+	emitPhase(RuntimeSwitchCompleted, 100, mode, "")
 	return nil
 }
 

@@ -60,6 +60,7 @@ type WorkspaceTab struct {
 	usageTelemetry       sessionUsageStats
 	usageTelemetryEvents []usageTelemetryEvent
 	turnTelemetry        []turnTelemetryRecord
+	runtimeSwitches      []RuntimeSwitchRecord
 	currentTelemetryTurn int
 	telemMu              sync.Mutex
 
@@ -107,6 +108,48 @@ const (
 	promptModeNormal   = "normal"
 	promptModeEnhanced = "enhanced"
 )
+
+type RuntimeSwitchPhase string
+
+const (
+	RuntimeSwitchPreparing   RuntimeSwitchPhase = "preparing"
+	RuntimeSwitchBuilding    RuntimeSwitchPhase = "building"
+	RuntimeSwitchRestoring   RuntimeSwitchPhase = "restoring"
+	RuntimeSwitchSwapping    RuntimeSwitchPhase = "swapping"
+	RuntimeSwitchCompleted   RuntimeSwitchPhase = "completed"
+	RuntimeSwitchFailed      RuntimeSwitchPhase = "failed"
+	RuntimeSwitchInterrupted RuntimeSwitchPhase = "interrupted"
+)
+
+type RuntimeSwitchRecord struct {
+	ID             string             `json:"id"`
+	Generation     uint64             `json:"generation"`
+	FromMode       string             `json:"fromMode"`
+	ToMode         string             `json:"toMode"`
+	AppliedMode    string             `json:"appliedMode,omitempty"`
+	Phase          RuntimeSwitchPhase `json:"phase"`
+	Progress       int                `json:"progress"`
+	MessageIndex   int                `json:"messageIndex"`
+	CheckpointTurn int                `json:"checkpointTurn,omitempty"`
+	StartedAt      int64              `json:"startedAt"`
+	CompletedAt    int64              `json:"completedAt,omitempty"`
+	Error          string             `json:"error,omitempty"`
+}
+
+type RuntimeSwitchProgress struct {
+	TabID       string             `json:"tabId"`
+	SwitchID    string             `json:"switchId"`
+	Generation  uint64             `json:"generation"`
+	FromMode    string             `json:"fromMode"`
+	ToMode      string             `json:"toMode"`
+	AppliedMode string             `json:"appliedMode,omitempty"`
+	Phase       RuntimeSwitchPhase `json:"phase"`
+	Progress    int                `json:"progress"`
+	Recorded    bool               `json:"recorded"`
+	StartedAt   int64              `json:"startedAt"`
+	CompletedAt int64              `json:"completedAt,omitempty"`
+	Error       string             `json:"error,omitempty"`
+}
 
 func normalizePromptMode(mode string, enhanced bool) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
@@ -189,11 +232,12 @@ type turnTelemetryItem = event.TurnItem
 type turnTelemetryRecord = event.TurnRecord
 
 type tabTelemetrySnapshot struct {
-	Version     int                   `json:"version"`
-	ReadFiles   []readFileRecord      `json:"readFiles"`
-	Usage       sessionUsageStats     `json:"usage"`
-	UsageEvents []usageTelemetryEvent `json:"usageEvents,omitempty"`
-	Turns       []turnTelemetryRecord `json:"turns,omitempty"`
+	Version         int                   `json:"version"`
+	ReadFiles       []readFileRecord      `json:"readFiles"`
+	Usage           sessionUsageStats     `json:"usage"`
+	UsageEvents     []usageTelemetryEvent `json:"usageEvents,omitempty"`
+	Turns           []turnTelemetryRecord `json:"turns,omitempty"`
+	RuntimeSwitches []RuntimeSwitchRecord `json:"runtimeSwitches,omitempty"`
 }
 
 func lastUsageTelemetryEvent(events []usageTelemetryEvent) (usageTelemetryEvent, bool) {
@@ -350,6 +394,51 @@ func (t *WorkspaceTab) recordLifecycle(e event.Event, now int64, checkpointTurn 
 	}
 }
 
+func runtimeSwitchTerminal(phase RuntimeSwitchPhase) bool {
+	return phase == RuntimeSwitchCompleted || phase == RuntimeSwitchFailed || phase == RuntimeSwitchInterrupted
+}
+
+func (t *WorkspaceTab) startRuntimeSwitch(record RuntimeSwitchRecord) {
+	t.telemMu.Lock()
+	t.runtimeSwitches = append(t.runtimeSwitches, record)
+	t.telemMu.Unlock()
+}
+
+func (t *WorkspaceTab) updateRuntimeSwitch(id string, phase RuntimeSwitchPhase, progress int, appliedMode, errText string, now int64) (RuntimeSwitchRecord, bool) {
+	t.telemMu.Lock()
+	defer t.telemMu.Unlock()
+	for index := len(t.runtimeSwitches) - 1; index >= 0; index-- {
+		record := &t.runtimeSwitches[index]
+		if record.ID != id {
+			continue
+		}
+		record.Phase = phase
+		record.Progress = progress
+		record.AppliedMode = appliedMode
+		record.Error = errText
+		if runtimeSwitchTerminal(phase) {
+			record.CompletedAt = now
+		}
+		return *record, true
+	}
+	return RuntimeSwitchRecord{}, false
+}
+
+func interruptRuntimeSwitches(records []RuntimeSwitchRecord, now int64) ([]RuntimeSwitchRecord, bool) {
+	changed := false
+	for index := range records {
+		if runtimeSwitchTerminal(records[index].Phase) {
+			continue
+		}
+		records[index].Phase = RuntimeSwitchInterrupted
+		records[index].AppliedMode = records[index].FromMode
+		records[index].CompletedAt = now
+		records[index].Error = "application closed before the mode switch completed"
+		changed = true
+	}
+	return records, changed
+}
+
 func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 	t.telemMu.Lock()
 	defer t.telemMu.Unlock()
@@ -363,6 +452,7 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 		turns[i] = t.turnTelemetry[i]
 		turns[i].Items = append([]turnTelemetryItem(nil), t.turnTelemetry[i].Items...)
 	}
+	runtimeSwitches := append([]RuntimeSwitchRecord(nil), t.runtimeSwitches...)
 	if started := usage.activeTurnStartedAt; started > 0 {
 		now := time.Now().UnixMilli()
 		if now >= started {
@@ -370,7 +460,7 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 		}
 	}
 	usage.activeTurnStartedAt = 0
-	return tabTelemetrySnapshot{Version: 4, ReadFiles: records, Usage: usage, UsageEvents: events, Turns: turns}
+	return tabTelemetrySnapshot{Version: 5, ReadFiles: records, Usage: usage, UsageEvents: events, Turns: turns, RuntimeSwitches: runtimeSwitches}
 }
 
 func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
@@ -397,6 +487,13 @@ func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
 		}
 	}
 	t.turnTelemetry = filteredTurns
+	filteredSwitches := t.runtimeSwitches[:0]
+	for _, rec := range t.runtimeSwitches {
+		if rec.CheckpointTurn < turn {
+			filteredSwitches = append(filteredSwitches, rec)
+		}
+	}
+	t.runtimeSwitches = filteredSwitches
 	t.usageTelemetry = usageStatsFromEvents(filteredEvents)
 	t.currentTelemetryTurn = turn
 }
@@ -1490,13 +1587,19 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			}
 			// Restore existing telemetry if resuming a session.
 			telemetryPath := path + ".telemetry.json"
-			if snapshot := loadTelemetry(telemetryPath); len(snapshot.ReadFiles) > 0 || snapshot.Usage.RequestCount > 0 || len(snapshot.Turns) > 0 {
+			if snapshot := loadTelemetry(telemetryPath); len(snapshot.ReadFiles) > 0 || snapshot.Usage.RequestCount > 0 || len(snapshot.Turns) > 0 || len(snapshot.RuntimeSwitches) > 0 {
+				runtimeSwitches, interrupted := interruptRuntimeSwitches(snapshot.RuntimeSwitches, time.Now().UnixMilli())
+				snapshot.RuntimeSwitches = runtimeSwitches
 				tab.telemMu.Lock()
 				tab.readTelemetry = snapshot.ReadFiles
 				tab.usageTelemetry = snapshot.Usage
 				tab.usageTelemetryEvents = snapshot.UsageEvents
 				tab.turnTelemetry = snapshot.Turns
+				tab.runtimeSwitches = snapshot.RuntimeSwitches
 				tab.telemMu.Unlock()
+				if interrupted {
+					_ = saveTelemetry(telemetryPath, tab.telemetrySnapshot())
+				}
 			}
 		}
 	}
@@ -2965,7 +3068,7 @@ func (a *App) tabTelemetryPath(tabID string) string {
 
 func saveTelemetry(path string, snapshot tabTelemetrySnapshot) error {
 	if snapshot.Version == 0 {
-		snapshot.Version = 4
+		snapshot.Version = 5
 	}
 	if snapshot.ReadFiles == nil {
 		snapshot.ReadFiles = []readFileRecord{}

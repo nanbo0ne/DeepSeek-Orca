@@ -36,6 +36,8 @@ func TestConversationModeSwitchReplacesOnlySystemMessage(t *testing.T) {
 	}
 	app := NewApp()
 	app.ctx = context.Background()
+	var progress []RuntimeSwitchProgress
+	app.runtimeSwitchHook = func(update RuntimeSwitchProgress) { progress = append(progress, update) }
 	tab := testTab("mode-switch", t.TempDir())
 	tab.promptMode = promptModeCoding
 	tab.Ctrl.Close()
@@ -82,12 +84,30 @@ func TestConversationModeSwitchReplacesOnlySystemMessage(t *testing.T) {
 	if systems != 1 || users != 1 || assistants != 1 {
 		t.Fatalf("history after switch: systems=%d users=%d assistants=%d", systems, users, assistants)
 	}
+	wantPhases := []RuntimeSwitchPhase{RuntimeSwitchPreparing, RuntimeSwitchBuilding, RuntimeSwitchRestoring, RuntimeSwitchSwapping, RuntimeSwitchCompleted}
+	if len(progress) != len(wantPhases) {
+		t.Fatalf("switch progress = %+v, want %d phases", progress, len(wantPhases))
+	}
+	for index, phase := range wantPhases {
+		if progress[index].Phase != phase || progress[index].Generation == 0 {
+			t.Fatalf("switch progress[%d] = %+v, want phase %q with generation", index, progress[index], phase)
+		}
+	}
+	if got := tab.telemetrySnapshot().RuntimeSwitches; len(got) != 1 || got[0].Phase != RuntimeSwitchCompleted || got[0].FromMode != promptModeCoding || got[0].ToMode != promptModeAssistant {
+		t.Fatalf("runtime switches = %+v, want one completed coding -> assistant record", got)
+	}
+	projected := app.HistoryForTab(tab.ID)
+	if len(projected) == 0 || projected[len(projected)-1].Role != "mode_switch" || projected[len(projected)-1].SwitchPhase != RuntimeSwitchCompleted {
+		t.Fatalf("projected history = %+v, want completed mode switch at the conversation boundary", projected)
+	}
 }
 
 func TestConversationModeBuildFailureKeepsOldController(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	app := NewApp()
 	app.ctx = context.Background()
+	var progress []RuntimeSwitchProgress
+	app.runtimeSwitchHook = func(update RuntimeSwitchProgress) { progress = append(progress, update) }
 	tab := testTab("mode-failure", t.TempDir())
 	tab.promptMode = promptModeCoding
 	tab.model = "missing-provider/missing-model"
@@ -101,6 +121,44 @@ func TestConversationModeBuildFailureKeepsOldController(t *testing.T) {
 	}
 	if tab.Ctrl != old || currentTabPromptMode(tab) != promptModeCoding {
 		t.Fatal("failed mode switch replaced the working controller or persisted the target mode")
+	}
+	if len(tab.telemetrySnapshot().RuntimeSwitches) != 0 {
+		t.Fatal("blank conversation should not persist a mode switch timeline record")
+	}
+	if len(progress) < 2 || progress[len(progress)-1].Phase != RuntimeSwitchFailed || progress[len(progress)-1].Progress >= 100 {
+		t.Fatalf("failed blank switch progress = %+v, want a non-complete failed terminal event", progress)
+	}
+}
+
+func TestConversationModeBuildFailurePersistsVisibleFailure(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	app.ctx = context.Background()
+	app.runtimeSwitchHook = func(RuntimeSwitchProgress) {}
+	tab := testTab("mode-failure-history", t.TempDir())
+	tab.promptMode = promptModeCoding
+	tab.model = "missing-provider/missing-model"
+	tab.Ctrl.Close()
+	tab.Ctrl = control.New(control.Options{Label: tab.ID, Executor: agent.New(nil, nil, agent.NewSession(""), agent.Options{}, event.Discard)})
+	session := agent.NewSession("system")
+	session.Add(provider.Message{Role: provider.RoleUser, Content: "keep this conversation visible"})
+	path := filepath.Join(t.TempDir(), "mode-failure-history.jsonl")
+	tab.Ctrl.Resume(session, path)
+	app.tabs = map[string]*WorkspaceTab{tab.ID: tab}
+	app.tabOrder = []string{tab.ID}
+	app.activeTabID = tab.ID
+	defer tab.Ctrl.Close()
+
+	if err := app.SetConversationModeForTab(tab.ID, promptModeAssistant); err == nil {
+		t.Fatal("mode switch unexpectedly succeeded with an invalid model")
+	}
+	records := tab.telemetrySnapshot().RuntimeSwitches
+	if len(records) != 1 || records[0].Phase != RuntimeSwitchFailed || records[0].AppliedMode != promptModeCoding || records[0].Progress >= 100 {
+		t.Fatalf("failed runtime switch = %+v", records)
+	}
+	projected := app.HistoryForTab(tab.ID)
+	if len(projected) == 0 || projected[len(projected)-1].Role != "mode_switch" || projected[len(projected)-1].SwitchPhase != RuntimeSwitchFailed {
+		t.Fatalf("failed switch projection = %+v", projected)
 	}
 }
 

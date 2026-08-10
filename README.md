@@ -6,11 +6,11 @@ DeepSeek-Orca 是一个本地桌面 AI 工作区，整合多 Provider 对话、�
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.1)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.2/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.2/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.2/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.2/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.2)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 

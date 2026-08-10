@@ -2891,6 +2891,7 @@ export default function App() {
 			  promptModes={automationConversation ? [] : productCapabilities.promptModes}
 			  promptModeLocked={false}
               promptModeSwitching={promptModeSwitching}
+              runtimeSwitch={state.runtimeSwitch}
               cancelRequested={state.cancelRequested}
               showToolApprovalControls={!automationConversation}
               paused={Boolean(state.meta?.paused)}

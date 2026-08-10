@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ClipboardEvent, DragEvent, KeyboardEvent } from "react";
-import { ArrowUp, Brain, Check, ChevronDown, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, PauseCircle, PlayCircle, Plus, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, Brain, Check, ChevronDown, FileImage, FileText, Folder, Gauge, List, MessageSquare, MoreHorizontal, Paperclip, Pause, Play, Plus, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck, Slash, Sparkles, Square, Target, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { filterAtMatches } from "../lib/atMatches";
 import { DedupIndex, sha256 } from "../lib/attachDedup";
@@ -9,7 +9,7 @@ import { SPINNER_WORDS, useI18n } from "../lib/i18n";
 import { clearLayoutSize } from "../lib/layoutPreferences";
 import { composerDraftState } from "../lib/composerRunningAction";
 import { useToast } from "../lib/toast";
-import { type CollaborationMode, type CommandInfo, type ComposerInsertRequest, type DirEntry, type EffortInfo, type HistoryMessage, type Mode, type PromptMode, type SessionMeta, type SessionReference, type SlashArgItem, type SlashArgsResult, type ToolApprovalMode } from "../lib/types";
+import { type CollaborationMode, type CommandInfo, type ComposerInsertRequest, type DirEntry, type EffortInfo, type HistoryMessage, type Mode, type PromptMode, type RuntimeSwitchProgress, type SessionMeta, type SessionReference, type SlashArgItem, type SlashArgsResult, type ToolApprovalMode } from "../lib/types";
 import {
   formatWorkspaceReference,
   parseWorkspaceReference,
@@ -299,6 +299,35 @@ async function buildSessionContext(refs: SessionReference[]): Promise<string> {
   return context;
 }
 
+function RuntimeSwitchBar({ progress }: { progress?: RuntimeSwitchProgress }) {
+  const { t } = useI18n();
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    setHidden(false);
+    if (!progress) return;
+    if (progress.phase !== "completed" && progress.phase !== "failed" && progress.phase !== "interrupted") return;
+    const delay = progress.phase === "completed" ? 700 : 2400;
+    const timer = window.setTimeout(() => setHidden(true), delay);
+    return () => window.clearTimeout(timer);
+  }, [progress?.generation, progress?.phase, progress?.switchId]);
+  if (!progress || hidden) return null;
+  const value = Math.max(0, Math.min(100, progress.progress));
+  const failed = progress.phase === "failed" || progress.phase === "interrupted";
+  return (
+    <div
+      className={`runtime-switch-progress${failed ? " runtime-switch-progress--failed" : ""}${progress.phase === "completed" ? " runtime-switch-progress--completed" : ""}`}
+      role="progressbar"
+      aria-label={t("runtimeSwitch.progress")}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value}
+      title={progress.error || undefined}
+    >
+      <span className="runtime-switch-progress__value" style={{ "--runtime-switch-value": `${value / 100}` } as CSSProperties} />
+    </div>
+  );
+}
+
 export function Composer({
   running,
   collaborationMode,
@@ -309,6 +338,7 @@ export function Composer({
 	promptModes = ["assistant", "coding"],
   promptModeLocked = false,
   promptModeSwitching = false,
+  runtimeSwitch,
   cancelRequested = false,
   showToolApprovalControls = true,
   paused = false,
@@ -352,6 +382,7 @@ export function Composer({
   promptModes?: PromptMode[];
   promptModeLocked?: boolean;
   promptModeSwitching?: boolean;
+  runtimeSwitch?: RuntimeSwitchProgress;
   cancelRequested?: boolean;
   showToolApprovalControls?: boolean;
   paused?: boolean;
@@ -1612,6 +1643,7 @@ export function Composer({
       style={{ "--wails-drop-target": "drop" } as CSSProperties}
       onDropCapture={onFileDropCapture}
     >
+      <RuntimeSwitchBar progress={runtimeSwitch} />
       <AnchoredPopover
         open={intentMenuOpen}
         closing={intentMenuClosing}
@@ -2273,7 +2305,7 @@ export function Composer({
             <div className="composer-runstatus" role="status" aria-live="polite">
               <Tooltip label={paused ? t("composer.resume") : t("composer.pause")}>
                 <button className="composer-runstatus__pause" type="button" onClick={onTogglePause} disabled={!onTogglePause} aria-label={paused ? t("composer.resume") : t("composer.pause")}>
-                  {paused ? <PlayCircle size={13} /> : <PauseCircle size={13} />}
+                  {paused ? <Play size={14} strokeWidth={2.2} /> : <Pause size={15} strokeWidth={2.2} />}
                 </button>
               </Tooltip>
               <span className="composer-runstatus__dot" />
@@ -2288,7 +2320,7 @@ export function Composer({
                   aria-busy={cancelRequested && !hasDraftContent}
                 >
                   <span className="composer-runstatus__primary-icon" aria-hidden="true">
-                    {hasDraftContent ? <ArrowUp size={13} /> : <Square size={10} fill="currentColor" />}
+                    {hasDraftContent ? <ArrowUp size={13} /> : <Square size={11} fill="currentColor" strokeWidth={1.8} />}
                   </span>
                 </button>
               </Tooltip>

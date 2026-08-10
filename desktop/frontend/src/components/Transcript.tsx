@@ -8,7 +8,7 @@ import { replaceAttachmentRefsForDisplay } from "../lib/attachmentDisplay";
 import { AssistantMessage, TurnActions, UserMessage } from "./Message";
 import { ProcessBrainIcon, ProcessCard, ProcessCompactIcon, ProcessInfoIcon, ProcessPhaseIcon, ProcessStatusIcon, ProcessToolIcon } from "./ProcessCard";
 import { ToolCard } from "./ToolCard";
-import { ArrowDown, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowRightLeft, Check, ChevronRight, TriangleAlert } from "lucide-react";
 import { Welcome } from "./Welcome";
 
 type ToolItem = Extract<Item, { kind: "tool" }>;
@@ -114,9 +114,35 @@ function scrollVersion(items: Item[]): string {
       return `${items.length}:${last.id}:s:${last.elapsedMs}:${last.tokens ?? 0}`;
     case "compaction":
       return `${items.length}:${last.id}:c:${last.pending ? 1 : 0}:${last.summary.length}`;
+    case "mode_switch":
+      return `${items.length}:${last.id}:m:${last.phase}:${last.progress}`;
     default:
       return `${items.length}:${last.id}:${last.kind}`;
   }
+}
+
+function ModeSwitchRow({ item }: { item: Extract<Item, { kind: "mode_switch" }> }) {
+  const t = useT();
+  const terminal = item.phase === "completed" || item.phase === "failed" || item.phase === "interrupted";
+  const failed = item.phase === "failed" || item.phase === "interrupted";
+  const label = item.phase === "completed"
+    ? t("runtimeSwitch.completed")
+    : item.phase === "failed"
+      ? t("runtimeSwitch.failed")
+      : item.phase === "interrupted"
+        ? t("runtimeSwitch.interrupted")
+        : t("runtimeSwitch.switching");
+  const from = t(`composer.promptMode.${item.fromMode}`);
+  const to = t(`composer.promptMode.${item.toMode}`);
+  return (
+    <div className={`mode-switch-row mode-switch-row--${item.phase}`} role={failed ? "alert" : "status"} title={item.error || undefined}>
+      <span className="mode-switch-row__icon" aria-hidden="true">
+        {failed ? <TriangleAlert size={14} /> : terminal ? <Check size={14} /> : <ArrowRightLeft size={14} />}
+      </span>
+      <span className="mode-switch-row__label">{label}</span>
+      <span className="mode-switch-row__route">{from} → {to}</span>
+    </div>
+  );
 }
 
 function TimelineProcessGroup({
@@ -127,7 +153,7 @@ function TimelineProcessGroup({
   completed,
   open,
   onOpenChange,
-  activityPhase,
+  activity,
 }: {
   items: TimelineProcessItem[];
   subcalls: ReadonlyMap<string, ToolItem[]>;
@@ -136,7 +162,7 @@ function TimelineProcessGroup({
   completed: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  activityPhase?: ActivityIndicatorPhase;
+  activity?: ProcessActivityVisual;
 }) {
   const t = useT();
   const live = useContext(LiveStreamContext);
@@ -185,15 +211,83 @@ function TimelineProcessGroup({
           {visible.map((item) => renderProcessItem(item, subcalls, liveToolID, true))}
         </div>
       )}
-      {activityPhase && <ProcessActivityMark phase={activityPhase} />}
+      {activity?.phase && <ProcessActivityMark visual={activity} />}
     </div>
   );
 }
 
-function ProcessActivityMark({ phase }: { phase: ActivityIndicatorPhase }) {
+type ProcessActivityStage = "entering" | "steady" | "exiting" | "idle";
+type ProcessActivityVisual = { phase?: ActivityIndicatorPhase; stage: ProcessActivityStage };
+
+function useActivityPhaseTransition(targetPhase?: ActivityIndicatorPhase): ProcessActivityVisual {
+  const reducedMotion = useRef(typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches).current;
+  const [visual, setVisual] = useState<ProcessActivityVisual>(() => ({
+    phase: targetPhase,
+    stage: targetPhase ? (reducedMotion ? "steady" : "entering") : "idle",
+  }));
+  const targetRef = useRef(targetPhase);
+  const phaseRef = useRef(targetPhase);
+  const stageRef = useRef<ProcessActivityStage>(visual.stage);
+  const timerRef = useRef<number | null>(null);
+
+  const commit = useCallback((next: ProcessActivityVisual) => {
+    phaseRef.current = next.phase;
+    stageRef.current = next.stage;
+    setVisual(next);
+  }, []);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current === null) return;
+    window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  const enter = useCallback((phase: ActivityIndicatorPhase) => {
+    clearTimer();
+    commit({ phase, stage: reducedMotion ? "steady" : "entering" });
+    if (reducedMotion) return;
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      if (phaseRef.current === phase && stageRef.current === "entering") commit({ phase, stage: "steady" });
+    }, 160);
+  }, [clearTimer, commit, reducedMotion]);
+
+  useEffect(() => {
+    targetRef.current = targetPhase;
+    if (reducedMotion) {
+      clearTimer();
+      commit({ phase: targetPhase, stage: targetPhase ? "steady" : "idle" });
+      return;
+    }
+    if (stageRef.current === "exiting") return;
+    const currentPhase = phaseRef.current;
+    if (!currentPhase) {
+      if (targetPhase) enter(targetPhase);
+      return;
+    }
+    if (currentPhase === targetPhase) {
+      if (stageRef.current === "entering" && timerRef.current === null) enter(currentPhase);
+      return;
+    }
+    clearTimer();
+    commit({ phase: currentPhase, stage: "exiting" });
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      const nextPhase = targetRef.current;
+      if (nextPhase) enter(nextPhase);
+      else commit({ stage: "idle" });
+    }, 140);
+  }, [clearTimer, commit, enter, reducedMotion, targetPhase]);
+
+  useEffect(() => () => clearTimer(), [clearTimer]);
+  return visual;
+}
+
+function ProcessActivityMark({ visual }: { visual: ProcessActivityVisual }) {
+  if (!visual.phase) return null;
   return (
-    <div className={`process-activity-mark process-activity-mark--${phase}`} aria-hidden="true">
-      <span className="process-activity-spinner" />
+    <div className={`process-activity-mark process-activity-mark--${visual.stage}`} aria-hidden="true">
+      <span key={visual.phase} className={`process-activity-spinner process-activity-spinner--${visual.phase}`} />
     </div>
   );
 }
@@ -472,8 +566,9 @@ function TimelineItems({
   const [processOpenOverrides, setProcessOpenOverrides] = useState<Map<string, boolean>>(() => new Map());
   useEffect(() => setProcessOpenOverrides(new Map()), [processDisplayMode]);
   const activityPhase = activityIndicatorPhase(items, activityIndicatorEnabled, running, paused);
+  const activity = useActivityPhaseTransition(activityPhase);
   const currentTurnStart = segments.reduce((last, segment, index) => segment.kind === "user" ? index : last, -1);
-  const activeProcessSegment = activityPhase
+  const activeProcessSegment = activity.phase
     ? [...segments.slice(currentTurnStart + 1)].reverse().find((segment) => segment.kind === "process")
     : undefined;
   const nodes: ReactNode[] = [];
@@ -571,7 +666,7 @@ function TimelineItems({
                 next.set(segment.id, nextOpen);
                 return next;
               })}
-              activityPhase={activeProcessSegment?.kind === "process" && activeProcessSegment.id === segment.id ? activityPhase : undefined}
+              activity={activeProcessSegment?.kind === "process" && activeProcessSegment.id === segment.id ? activity : undefined}
             />
           </div>,
         );
@@ -583,13 +678,21 @@ function TimelineItems({
           </div>,
         );
         break;
+      case "mode_switch":
+        pushTurnActions(true);
+        nodes.push(
+          <div className="timeline-entry timeline-entry--mode-switch" data-transcript-anchor={segment.item.id} key={segment.item.id}>
+            <ModeSwitchRow item={segment.item} />
+          </div>,
+        );
+        break;
     }
   }
-  if (activityPhase && activeProcessSegment?.kind !== "process") {
+  if (activity.phase && activeProcessSegment?.kind !== "process") {
     nodes.push(
       <div className="timeline-entry timeline-entry--activity" data-transcript-anchor="current-turn-activity" key="current-turn-activity">
         <div className="timeline-process-group timeline-process-group--activity-only" data-ui-surface="panel">
-          <ProcessActivityMark phase={activityPhase} />
+          <ProcessActivityMark visual={activity} />
         </div>
       </div>,
     );

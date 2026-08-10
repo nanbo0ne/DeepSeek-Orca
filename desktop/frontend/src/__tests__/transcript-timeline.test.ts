@@ -1,4 +1,4 @@
-import { initialState, reducer, type Item } from "../lib/useController";
+import { historyMessagesToItems, initialState, reducer, type Item } from "../lib/useController";
 import { activityIndicatorPhase, buildTimelineSegments, requiredWarmPage, timelineKinds, visibleWarmStart } from "../lib/transcriptTimeline";
 import { readFileSync } from "node:fs";
 
@@ -116,6 +116,47 @@ equal(
   ["user", "completed:assistant,tool:read,assistant,tool:bash", "process:notice"],
 );
 
+const withModeSwitch: Item[] = [
+  ...withStats,
+  { kind: "mode_switch", id: "switch-1", fromMode: "coding", toMode: "assistant", appliedMode: "assistant", phase: "completed", progress: 100, startedAt: 10, completedAt: 20 },
+  { kind: "user", id: "u-next", text: "continue" },
+];
+equal(
+  "mode switches remain standalone and never enter a completed process panel",
+  timelineKinds(buildTimelineSegments(withModeSwitch, false)),
+  ["user", "completed:assistant,tool:read,assistant,tool:bash", "mode_switch", "user"],
+);
+
+const restoredSwitch = historyMessagesToItems([{
+  role: "mode_switch",
+  content: "",
+  switchId: "switch-restored",
+  switchFromMode: "assistant",
+  switchToMode: "coding",
+  switchAppliedMode: "coding",
+  switchPhase: "completed",
+  switchProgress: 100,
+  switchStartedAt: 100,
+  switchCompletedAt: 200,
+}], "h").items;
+equal("persisted mode switch history restores its explicit item type", restoredSwitch[0]?.kind, "mode_switch");
+
+let switching = reducer(initialState, { type: "runtime_switch", progress: {
+  tabId: "tab", switchId: "switch-live", generation: 2, fromMode: "coding", toMode: "assistant",
+  appliedMode: "coding", phase: "building", progress: 35, recorded: true, startedAt: 100,
+} });
+switching = reducer(switching, { type: "runtime_switch", progress: {
+  tabId: "tab", switchId: "switch-live", generation: 2, fromMode: "coding", toMode: "assistant",
+  appliedMode: "assistant", phase: "completed", progress: 100, recorded: true, startedAt: 100, completedAt: 200,
+} });
+equal("live switch phases update one stable timeline item", switching.items.filter((item) => item.kind === "mode_switch").length, 1);
+equal("live switch completion updates the existing item", switching.items.find((item) => item.kind === "mode_switch")?.phase, "completed");
+const staleSwitch = reducer(switching, { type: "runtime_switch", progress: {
+  tabId: "tab", switchId: "stale", generation: 1, fromMode: "assistant", toMode: "coding",
+  phase: "failed", progress: 35, recorded: true, startedAt: 50,
+} });
+equal("older runtime generations cannot overwrite the latest switch", staleSwitch.items.some((item) => item.kind === "mode_switch" && item.id === "stale"), false);
+
 let protocol = reducer(initialState, { type: "event", e: { kind: "turn_started", turnId: "turn-p" } });
 protocol = reducer(protocol, { type: "event", e: { kind: "text", turnId: "turn-p", itemId: "item-p", messageId: "message-p", text: "Working" } });
 protocol = reducer(protocol, { type: "event", e: { kind: "message", turnId: "turn-p", itemId: "item-p", messageId: "message-p", text: "Working" } });
@@ -168,6 +209,7 @@ equal("background notice does not reactivate running state", backgroundNotice.ru
 equal("background notice does not reactivate the turn", backgroundNotice.turnActive, false);
 
 const transcriptSource = readFileSync(new URL("../components/Transcript.tsx", import.meta.url), "utf8");
+const transcriptCss = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 equal("process group no longer nests an outer ProcessCard", transcriptSource.includes("<ProcessCard\n      tone=\"default\""), false);
 equal("completed timeline has a flat activity rail", transcriptSource.includes('className="completed-turn__timeline process-activity-rail"'), true);
 equal("completed process details do not create a nested process panel", transcriptSource.includes("<TimelineProcessGroup\n                      key={segment.id}"), false);
@@ -175,5 +217,9 @@ equal("successful completed turns start collapsed", transcriptSource.includes("c
 equal("question rail does not scroll the transcript via scrollIntoView", transcriptSource.includes('el?.scrollIntoView({ block: "nearest" })'), false);
 equal("warm pagination renders from the hidden-turn boundary", transcriptSource.includes("warmStartTurn = shownWarmStart"), true);
 equal("question marker mouse events do not bubble into the rail", transcriptSource.includes("e.stopPropagation();"), true);
+equal("activity phase changes wait for the old single ring to fade out", transcriptSource.includes("}, 140);") && transcriptSource.includes("}, 160);"), true);
+equal("activity mark renders exactly one phase-keyed spinner element", transcriptSource.includes('<span key={visual.phase} className={`process-activity-spinner process-activity-spinner--${visual.phase}`} />'), true);
+equal("activity ring never flips animation direction in place", transcriptCss.includes("animation-direction"), false);
+equal("clockwise and counterclockwise rings use separate generated gradients", transcriptCss.includes("process-activity-spin-clockwise") && transcriptCss.includes("process-activity-spin-counterclockwise"), true);
 
 if (failed > 0) process.exit(1);

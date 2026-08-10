@@ -1,11 +1,12 @@
 import type { Item } from "./useController";
 
-export type TimelineProcessItem = Exclude<Item, { kind: "user" | "turn_stats" }>;
+export type TimelineProcessItem = Exclude<Item, { kind: "user" | "turn_stats" | "mode_switch" }>;
 
 export type TimelineSegment =
   | { kind: "user"; item: Extract<Item, { kind: "user" }> }
   | { kind: "assistant"; item: Extract<Item, { kind: "assistant" }> }
   | { kind: "steer"; item: Extract<Item, { kind: "steer" }> }
+  | { kind: "mode_switch"; item: Extract<Item, { kind: "mode_switch" }> }
   | { kind: "process"; id: string; items: TimelineProcessItem[]; completed: boolean }
   | { kind: "stats"; item: Extract<Item, { kind: "turn_stats" }> }
   | {
@@ -145,6 +146,11 @@ export function buildTimelineSegments(items: readonly Item[], running: boolean):
   const turnsByID = new Map<string, Item[]>();
   let currentTurn: Item[] | undefined;
   for (const item of items) {
+    if (item.kind === "mode_switch") {
+      currentTurn = undefined;
+      groups.push([item]);
+      continue;
+    }
     if (item.kind === "user") {
       currentTurn = [item];
       groups.push(currentTurn);
@@ -173,7 +179,8 @@ export function buildTimelineSegments(items: readonly Item[], running: boolean):
       return;
     }
     for (const item of group) {
-      if (item.kind === "steer") out.push({ kind: "steer", item });
+      if (item.kind === "mode_switch") out.push({ kind: "mode_switch", item });
+      else if (item.kind === "steer") out.push({ kind: "steer", item });
       else if (item.kind === "assistant") {
         if (visibleProcessItem(item)) pushProcess(out, { ...item, text: "" }, true);
         if (item.text.trim() !== "") out.push({ kind: "assistant", item: { ...item, reasoning: "" } });
@@ -214,6 +221,7 @@ export function activityIndicatorPhase(
 export function timelineKinds(segments: readonly TimelineSegment[]): string[] {
   return segments.map((segment) => {
     if (segment.kind === "completed") return `completed:${segment.hidden.map((item) => item.kind === "tool" ? `tool:${item.name}` : item.kind).join(",")}`;
+    if (segment.kind === "mode_switch") return "mode_switch";
     if (segment.kind !== "process") return segment.kind;
     return `process:${segment.items.map((item) => item.kind === "tool" ? `tool:${item.name}` : item.kind).join(",")}`;
   });
