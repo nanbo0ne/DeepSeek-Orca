@@ -259,6 +259,16 @@ function formatTurnElapsed(ms: number): string {
 }
 
 function turnStatsLabel(t: ReturnType<typeof useT>, item: TurnStatsItem): string {
+  const outcome = item.outcome ?? (item.success ? "success" : "failed");
+  if (outcome !== "success") {
+    const key = outcome === "cancelled"
+      ? "process.timeline.cancelled"
+      : outcome === "interrupted"
+        ? "process.timeline.interrupted"
+        : "process.timeline.failed";
+    if (typeof item.elapsedMs !== "number") return t(key);
+    return t(`${key}Elapsed`, { elapsed: formatTurnElapsed(item.elapsedMs) });
+  }
   if (typeof item.elapsedMs !== "number") return t("process.timeline.complete");
   return t("process.timeline.elapsed", { elapsed: formatTurnElapsed(item.elapsedMs) });
 }
@@ -284,22 +294,17 @@ function CompletedTurn({
   stats,
   hidden,
   final,
-  mode,
   subcalls,
   liveToolID,
 }: {
   stats: TurnStatsItem;
   hidden: Item[];
   final: AssistantItem;
-  mode: ProcessDisplayMode;
   subcalls: ReadonlyMap<string, ToolItem[]>;
   liveToolID: string;
 }) {
   const t = useT();
-  const [open, setOpen] = useState(mode === "detailed");
-  useEffect(() => {
-    setOpen(mode === "detailed");
-  }, [mode]);
+  const [open, setOpen] = useState(false);
   const tokenLabel = typeof stats.tokens === "number" && stats.tokens > 0
     ? t("process.timeline.tokens", { n: stats.tokens.toLocaleString() })
     : t("process.timeline.tokensPending");
@@ -444,7 +449,7 @@ function TimelineItems({
   onRewind,
   onEditUserMessage,
   setOpenAction,
-  activityIndicatorEnabled = false,
+  activityIndicatorEnabled = true,
   paused = false,
 }: {
   items: readonly Item[];
@@ -534,7 +539,6 @@ function TimelineItems({
               stats={segment.stats}
               hidden={segment.hidden}
               final={segment.final}
-              mode={processDisplayMode}
               subcalls={subcalls}
               liveToolID={liveToolID}
             />
@@ -609,7 +613,7 @@ export function Transcript({
   rewindDisabled = false,
   questionNavigator = true,
   processDisplayMode = "compact",
-  activityIndicatorEnabled = false,
+  activityIndicatorEnabled = true,
   paused = false,
   hydrating = false,
   followButton = true,

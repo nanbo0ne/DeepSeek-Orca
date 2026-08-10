@@ -638,6 +638,7 @@ func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 			if a.steerQueueLen() > 0 {
 				continue
 			}
+			a.sink.Emit(event.Event{Kind: event.AnswerCommitted, Text: text})
 			return nil // model gave a final answer
 		}
 		emptyFinalBlocks = 0

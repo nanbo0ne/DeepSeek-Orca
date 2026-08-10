@@ -1846,18 +1846,26 @@ func (a *App) SwitchWorkspace(dir string) (string, error) {
 // HistoryMessage is one prior turn, for the frontend to repopulate its transcript
 // after a reload.
 type HistoryMessage struct {
-	Role       string            `json:"role"`
-	Content    string            `json:"content"`
-	Reasoning  string            `json:"reasoning,omitempty"`
-	Level      string            `json:"level,omitempty"`
-	ToolCalls  []HistoryToolCall `json:"toolCalls,omitempty"`
-	ToolCallID string            `json:"toolCallId,omitempty"`
-	ToolName   string            `json:"toolName,omitempty"`
-	Pending    bool              `json:"pending,omitempty"`
-	Trigger    string            `json:"trigger,omitempty"`
-	Messages   int               `json:"messages,omitempty"`
-	Summary    string            `json:"summary,omitempty"`
-	Archive    string            `json:"archive,omitempty"`
+	Role           string            `json:"role"`
+	Content        string            `json:"content"`
+	Reasoning      string            `json:"reasoning,omitempty"`
+	Level          string            `json:"level,omitempty"`
+	ToolCalls      []HistoryToolCall `json:"toolCalls,omitempty"`
+	ToolCallID     string            `json:"toolCallId,omitempty"`
+	ToolName       string            `json:"toolName,omitempty"`
+	Pending        bool              `json:"pending,omitempty"`
+	Trigger        string            `json:"trigger,omitempty"`
+	Messages       int               `json:"messages,omitempty"`
+	Summary        string            `json:"summary,omitempty"`
+	Archive        string            `json:"archive,omitempty"`
+	TurnID         string            `json:"turnId,omitempty"`
+	ItemID         string            `json:"itemId,omitempty"`
+	MessageID      string            `json:"messageId,omitempty"`
+	Final          bool              `json:"final,omitempty"`
+	Outcome        event.TurnOutcome `json:"outcome,omitempty"`
+	ElapsedMs      int64             `json:"elapsedMs,omitempty"`
+	Tokens         int               `json:"tokens,omitempty"`
+	FinalMessageID string            `json:"finalMessageId,omitempty"`
 }
 
 type HistoryToolCall struct {
@@ -1895,17 +1903,35 @@ func (a *App) HistoryForTab(tabID string) []HistoryMessage {
 				if len(messages) == 0 {
 					continue
 				}
-				out = append(out, historyMessages(messages, sessionDisplayResolver(filepath.Dir(segment.Path), segment.Path))...)
+				turns := loadTelemetry(segment.Path + ".telemetry.json").Turns
+				out = append(out, historyMessagesWithTurns(messages, sessionDisplayResolver(filepath.Dir(segment.Path), segment.Path), turns)...)
 			}
 			return out
 		}
 	}
 	msgs := ctrl.History()
-	return historyMessages(msgs, sessionDisplayResolver(controllerSessionDir(ctrl), ctrl.SessionPath()))
+	turns := loadTelemetry(ctrl.SessionPath() + ".telemetry.json").Turns
+	return historyMessagesWithTurns(msgs, sessionDisplayResolver(controllerSessionDir(ctrl), ctrl.SessionPath()), turns)
 }
 
 func historyMessages(msgs []provider.Message, resolveUserContent func(string) string) []HistoryMessage {
+	return historyMessagesWithTurns(msgs, resolveUserContent, nil)
+}
+
+func historyMessagesWithTurns(msgs []provider.Message, resolveUserContent func(string) string, turns []turnTelemetryRecord) []HistoryMessage {
 	out := make([]HistoryMessage, 0, len(msgs))
+	turnIndex := -1
+	assistantOrdinal := 0
+	appendTurnStats := func() {
+		if turnIndex < 0 || turnIndex >= len(turns) {
+			return
+		}
+		turn := turns[turnIndex]
+		if turn.Outcome == "" {
+			return
+		}
+		out = append(out, HistoryMessage{Role: "turn_stats", TurnID: turn.TurnID, Outcome: turn.Outcome, ElapsedMs: turn.ElapsedMs, Tokens: turn.Tokens, FinalMessageID: turn.FinalMessageID})
+	}
 	for _, m := range msgs {
 		content := m.Content
 		if m.Role == provider.RoleUser {
@@ -1913,12 +1939,30 @@ func historyMessages(msgs []provider.Message, resolveUserContent func(string) st
 			if control.IsSyntheticUserMessage(content) {
 				continue
 			}
+			appendTurnStats()
+			turnIndex++
+			assistantOrdinal = 0
 		}
 		reasoning := ""
 		if m.Role == provider.RoleAssistant {
 			reasoning = m.ReasoningContent
 		}
 		hm := HistoryMessage{Role: string(m.Role), Content: content, Reasoning: reasoning}
+		if turnIndex >= 0 && turnIndex < len(turns) {
+			turn := turns[turnIndex]
+			hm.TurnID = turn.TurnID
+			if m.Role == provider.RoleAssistant && (strings.TrimSpace(content) != "" || strings.TrimSpace(reasoning) != "") {
+				for _, item := range turn.Items {
+					if item.Type == event.ItemAgentMessage && item.MessageOrdinal == assistantOrdinal {
+						hm.ItemID = item.ItemID
+						hm.MessageID = item.MessageID
+						hm.Final = item.MessageID != "" && item.MessageID == turn.FinalMessageID
+						break
+					}
+				}
+				assistantOrdinal++
+			}
+		}
 		if m.Role == provider.RoleAssistant && len(m.ToolCalls) > 0 {
 			hm.ToolCalls = make([]HistoryToolCall, len(m.ToolCalls))
 			for i, tc := range m.ToolCalls {
@@ -1931,6 +1975,7 @@ func historyMessages(msgs []provider.Message, resolveUserContent func(string) st
 		}
 		out = append(out, hm)
 	}
+	appendTurnStats()
 	return out
 }
 

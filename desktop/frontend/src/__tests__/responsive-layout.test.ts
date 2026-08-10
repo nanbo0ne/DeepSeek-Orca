@@ -163,11 +163,13 @@ check(
   "footer shelves remain transparent outside their individual cards",
 );
 check(
-  !todoPanel.includes("AnchoredPopover") &&
+  todoPanel.includes("AnchoredPopover") &&
     todoPanel.includes('className="todobar__surface"') &&
     todoPanel.includes('data-ui-surface="panel"') &&
-    todoPanel.includes('className="todobar__details"'),
-  "Todo expands inside one in-flow footer surface",
+    todoPanel.includes('className="todobar__details"') &&
+    todoPanel.includes('placement="auto"') &&
+    css.includes(".todo-popover"),
+  "Todo keeps a stable in-flow trigger and opens details in an anchored portal",
 );
 check(
   promptShelf.includes('data-ui-surface="panel"') &&

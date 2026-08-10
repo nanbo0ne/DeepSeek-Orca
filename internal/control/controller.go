@@ -127,23 +127,24 @@ type Controller struct {
 
 	// mu guards the run state and approval bookkeeping; every critical section
 	// under it is short and non-blocking.
-	mu          sync.Mutex
-	cancel      context.CancelFunc
-	running     bool
-	paused      bool
-	pauseWait   chan struct{}
-	autosaveWG  sync.WaitGroup
-	planMode    bool
-	goal        string
-	goalStatus  string
-	goalTurns   int
-	goalBlocks  int
-	goalBlock   string
-	sessionPath string
-	approvals   map[string]pendingApproval
-	asks        map[string]pendingAsk
-	granted     map[string]bool
-	nextID      int
+	mu              sync.Mutex
+	cancel          context.CancelFunc
+	running         bool
+	cancelRequested bool
+	paused          bool
+	pauseWait       chan struct{}
+	autosaveWG      sync.WaitGroup
+	planMode        bool
+	goal            string
+	goalStatus      string
+	goalTurns       int
+	goalBlocks      int
+	goalBlock       string
+	sessionPath     string
+	approvals       map[string]pendingApproval
+	asks            map[string]pendingAsk
+	granted         map[string]bool
+	nextID          int
 	// turn counts model turns this session, passed to hooks in their payload.
 	turn int
 	// approvedPlanAutoApproveTools auto-allows writer tool calls without prompting.
@@ -502,6 +503,7 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	c.running = true
+	c.cancelRequested = false
 	c.mu.Unlock()
 
 	c.autosaveWG.Add(1)
@@ -517,15 +519,23 @@ func (c *Controller) runGuarded(body func(ctx context.Context) error) {
 				c.running = false
 				c.cancel = nil
 				c.mu.Unlock()
-				c.sink.Emit(event.Event{Kind: event.TurnDone, Err: fmt.Errorf("internal error: %v", r)})
+				c.sink.Emit(event.Event{Kind: event.TurnDone, Outcome: event.TurnOutcomeFailed, Err: fmt.Errorf("internal error: %v", r)})
 			}
 		}()
 		err := body(ctx)
 		c.mu.Lock()
+		cancelled := c.cancelRequested
 		c.running = false
 		c.cancel = nil
+		c.cancelRequested = false
 		c.mu.Unlock()
-		c.sink.Emit(event.Event{Kind: event.TurnDone, Err: explainError(err)})
+		outcome := event.TurnOutcomeSuccess
+		if cancelled || errors.Is(err, context.Canceled) {
+			outcome = event.TurnOutcomeCancelled
+		} else if err != nil {
+			outcome = event.TurnOutcomeFailed
+		}
+		c.sink.Emit(event.Event{Kind: event.TurnDone, Outcome: outcome, Err: explainError(err)})
 	}()
 }
 
@@ -1273,6 +1283,9 @@ func (c *Controller) Run(ctx context.Context, input string) error {
 func (c *Controller) Cancel() {
 	c.mu.Lock()
 	cancel := c.cancel
+	if cancel != nil {
+		c.cancelRequested = true
+	}
 	c.mu.Unlock()
 	if cancel != nil {
 		cancel()

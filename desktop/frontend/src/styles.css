@@ -4189,64 +4189,8 @@ a[href] {
   padding: 5px 10px 6px 0;
   pointer-events: auto;
 }
-.composer-card--resized {
-  height: var(--composer-height);
-  grid-template-rows: minmax(0, 1fr) auto;
-}
 .composer-card:focus-within {
   border-color: var(--fg-faint);
-}
-.composer-resize-handle {
-  --wails-draggable: no-drag;
-  appearance: none;
-  position: absolute;
-  top: -10px;
-  left: 0;
-  right: 0;
-  z-index: var(--z-local-handle-active);
-  height: 18px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: ns-resize;
-  touch-action: none;
-}
-.composer-resize-handle::before {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 50%;
-  width: 72px;
-  height: 4px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--fg-faint) 38%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 82%, transparent);
-  opacity: 0.72;
-  transition: background 0.12s, box-shadow 0.12s, opacity 0.12s;
-}
-.composer-resize-handle:hover::before,
-.composer-resize-handle:focus-visible::before,
-.composer-card--resizing .composer-resize-handle::before {
-  background: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent);
-  opacity: 0.95;
-}
-/* Hide the resize handle while the input is focused — the user is typing,
-   not resizing.  The handle otherwise appears as a colored pill above the
-   card on hover (which always co-occurs with focus after a click). */
-.composer-card:focus-within .composer-resize-handle::before {
-  opacity: 0 !important;
-  background: color-mix(in srgb, var(--fg-faint) 38%, transparent) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 82%, transparent) !important;
-}
-.composer-resize-handle:focus-visible {
-  outline: none;
-}
-.composer-resizing,
-.composer-resizing * {
-  cursor: ns-resize !important;
-  user-select: none;
 }
 .slashmenu {
   position: absolute;
@@ -4339,7 +4283,6 @@ a[href] {
   border-radius: 0;
   padding: 10px 10px 9px 13px;
 }
-.composer-card--resized .composer,
 .composer-card--autosized .composer {
   flex: 1;
   align-items: flex-start;
@@ -4392,17 +4335,6 @@ a[href] {
 }
 .composer__input::-webkit-scrollbar {
   display: none;                    /* Chrome / Safari / Wails webview */
-}
-.composer-card--resized .composer__input {
-  align-self: stretch;
-  height: 100%;
-  max-height: none;
-  overflow-y: auto;
-  scrollbar-width: thin;           /* restore scrollbar when resized */
-}
-.composer-card--resized .composer__input::-webkit-scrollbar {
-  display: block;
-  width: 6px;
 }
 .composer__input::placeholder {
   color: var(--fg-faint);
@@ -12565,10 +12497,13 @@ a[href] {
   background: color-mix(in srgb, var(--bg-elev) 94%, transparent);
   box-shadow: var(--shadow-sm);
 }
-.todobar--open .todobar__surface {
-  width: 100%;
+.todo-popover {
+  width: min(520px, calc(100vw - 16px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--bg-elev);
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  box-shadow: var(--shadow-lg);
 }
 @keyframes todobar-in {
   from {
@@ -12639,7 +12574,7 @@ a[href] {
   white-space: nowrap;
 }
 .todobar__details {
-  border-top: 1px solid var(--border-soft);
+  border: 0;
   background: transparent;
 }
 .todobar__head {

@@ -170,7 +170,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// own goroutines, which can overlap a running turn's emission, so every emitter
 	// shares this synchronized sink. The job manager is session-scoped — its jobs
 	// outlive a turn and are cancelled by Controller.Close.
-	sink := event.Sync(opts.Sink)
+	sink := event.Lifecycle(event.Sync(opts.Sink))
 	promptMode := normalizePromptMode(opts.PromptMode, opts.EnhancedMode)
 	enhancedMode := promptMode == PromptModeEnhanced
 	assistantMode := promptMode == PromptModeAssistant

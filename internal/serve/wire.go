@@ -8,16 +8,24 @@ import "deepseek-orca/internal/event"
 // error becomes a message — so a browser frontend renders the same typed stream
 // the TUI does.
 type wireEvent struct {
-	Kind       string          `json:"kind"`
-	Text       string          `json:"text,omitempty"`
-	Reasoning  string          `json:"reasoning,omitempty"`
-	Level      string          `json:"level,omitempty"`
-	Tool       *wireTool       `json:"tool,omitempty"`
-	Usage      *wireUsage      `json:"usage,omitempty"`
-	Approval   *wireApproval   `json:"approval,omitempty"`
-	Ask        *wireAsk        `json:"ask,omitempty"`
-	Compaction *wireCompaction `json:"compaction,omitempty"`
-	Err        string          `json:"err,omitempty"`
+	Kind           string          `json:"kind"`
+	TurnID         string          `json:"turnId,omitempty"`
+	ItemID         string          `json:"itemId,omitempty"`
+	MessageID      string          `json:"messageId,omitempty"`
+	FinalItemID    string          `json:"finalItemId,omitempty"`
+	FinalMessageID string          `json:"finalMessageId,omitempty"`
+	ItemType       string          `json:"itemType,omitempty"`
+	ItemStatus     string          `json:"itemStatus,omitempty"`
+	Outcome        string          `json:"outcome,omitempty"`
+	Text           string          `json:"text,omitempty"`
+	Reasoning      string          `json:"reasoning,omitempty"`
+	Level          string          `json:"level,omitempty"`
+	Tool           *wireTool       `json:"tool,omitempty"`
+	Usage          *wireUsage      `json:"usage,omitempty"`
+	Approval       *wireApproval   `json:"approval,omitempty"`
+	Ask            *wireAsk        `json:"ask,omitempty"`
+	Compaction     *wireCompaction `json:"compaction,omitempty"`
+	Err            string          `json:"err,omitempty"`
 }
 
 // wireCompaction is the JSON form of an event.Compaction. On a compaction_started
@@ -123,6 +131,10 @@ var kindNames = map[event.Kind]string{
 	event.ToolProgress:      "tool_progress",
 	event.MCPSurfaceReady:   "mcp_surface_ready",
 	event.Steer:             "steer",
+	event.AnswerCommitted:   "answer_committed",
+	event.ItemStarted:       "item_started",
+	event.ItemDelta:         "item_delta",
+	event.ItemCompleted:     "item_completed",
 }
 
 // toWireAsk converts an event.Ask into its JSON wire form.
@@ -140,7 +152,12 @@ func toWireAsk(a event.Ask) *wireAsk {
 
 // toWire converts an event.Event into its JSON wire form.
 func toWire(e event.Event) wireEvent {
-	w := wireEvent{Kind: kindNames[e.Kind], Text: e.Text, Reasoning: e.Reasoning}
+	w := wireEvent{
+		Kind: kindNames[e.Kind], Text: e.Text, Reasoning: e.Reasoning,
+		TurnID: e.TurnID, ItemID: e.ItemID, MessageID: e.MessageID,
+		FinalItemID: e.FinalItemID, FinalMessageID: e.FinalMessageID,
+		ItemType: string(e.ItemType), ItemStatus: string(e.ItemStatus), Outcome: string(e.Outcome),
+	}
 	switch e.Kind {
 	case event.Notice:
 		if e.Level == event.LevelWarn {

@@ -746,7 +746,7 @@ function makeMockApp(): AppBindings {
     checkUpdates: true,
     expandThinking: false,
     processDisplayMode: "compact",
-    activityIndicatorEnabled: false,
+    activityIndicatorEnabled: true,
     visionEnabled: false,
     visionMode: "auto",
     uiScale: 0,

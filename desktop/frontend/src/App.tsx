@@ -574,7 +574,7 @@ export default function App() {
   const [transientOverlayDismissSignal, setTransientOverlayDismissSignal] = useState(0);
   const [desktopPlatform, setDesktopPlatform] = useState<DesktopPlatform>(detectBrowserPlatform);
   const [processDisplayMode, setProcessDisplayMode] = useState<ProcessDisplayMode>("compact");
-  const [activityIndicatorEnabled, setActivityIndicatorEnabled] = useState(false);
+  const [activityIndicatorEnabled, setActivityIndicatorEnabled] = useState(true);
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
   const [topicTitleDraft, setTopicTitleDraft] = useState("");
   const [topicExportOpen, setTopicExportOpen] = useState(false);

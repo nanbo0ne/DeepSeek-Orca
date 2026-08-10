@@ -44,20 +44,21 @@ equal(
 
 const withStats: Item[] = [
   ...chronology,
-  { kind: "turn_stats", id: "s1", elapsedMs: 5000, tokens: 120, success: true },
+  { kind: "assistant", id: "final-1", messageId: "final-1", text: "Done.", reasoning: "", streaming: false, final: true, turnId: "turn-1" },
+  { kind: "turn_stats", id: "s1", elapsedMs: 5000, tokens: 120, success: true, outcome: "success", turnId: "turn-1", finalMessageId: "final-1" },
 ];
 equal(
   "successful completed turn collapses intermediate activity",
   timelineKinds(buildTimelineSegments(withStats, false)),
-  ["user", "completed:assistant,tool:read,tool:bash"],
+  ["user", "completed:assistant,tool:read,assistant,tool:bash"],
 );
 
 const recoveredStats: Item[] = [
   { kind: "user", id: "ru1", text: "fix it" },
   { kind: "tool", id: "rt1", name: "bash", args: "{}", readOnly: false, status: "error", error: "first attempt failed" },
   { kind: "tool", id: "rt2", name: "bash", args: "{}", readOnly: false, status: "done" },
-  { kind: "assistant", id: "ra1", text: "Fixed and verified.", reasoning: "", streaming: false },
-  { kind: "turn_stats", id: "rs1", elapsedMs: 7000, success: true },
+  { kind: "assistant", id: "ra1", messageId: "ra1", text: "Fixed and verified.", reasoning: "", streaming: false, final: true, turnId: "turn-r" },
+  { kind: "turn_stats", id: "rs1", elapsedMs: 7000, success: true, outcome: "success", turnId: "turn-r", finalMessageId: "ra1" },
 ];
 equal(
   "explicit successful completion collapses a recovered tool failure",
@@ -88,9 +89,9 @@ const legacyHistory: Item[] = [
   { kind: "assistant", id: "a3", text: "working", reasoning: "", streaming: false },
 ];
 equal(
-  "next real user turn confirms the preceding legacy turn completed",
+  "a later user turn does not guess completion for legacy history",
   timelineKinds(buildTimelineSegments(legacyHistory, true)),
-  ["user", "completed:assistant,tool:read,tool:bash", "user", "assistant"],
+  ["user", "process:assistant,tool:read,assistant,tool:bash", "user", "process:assistant"],
 );
 
 const failedLegacyHistory: Item[] = [
@@ -102,8 +103,31 @@ const failedLegacyHistory: Item[] = [
 equal(
   "legacy failure evidence prevents automatic collapse",
   timelineKinds(buildTimelineSegments(failedLegacyHistory, false)),
-  ["user", "process:tool:bash", "assistant", "user"],
+  ["user", "process:tool:bash,assistant", "user"],
 );
+
+const completedWithBackgroundNotice: Item[] = [
+  ...withStats,
+  { kind: "notice", id: "background", level: "info", text: "Background task finished" },
+];
+equal(
+  "unowned background notices stay outside the completed turn",
+  timelineKinds(buildTimelineSegments(completedWithBackgroundNotice, false)),
+  ["user", "completed:assistant,tool:read,assistant,tool:bash", "process:notice"],
+);
+
+let protocol = reducer(initialState, { type: "event", e: { kind: "turn_started", turnId: "turn-p" } });
+protocol = reducer(protocol, { type: "event", e: { kind: "text", turnId: "turn-p", itemId: "item-p", messageId: "message-p", text: "Working" } });
+protocol = reducer(protocol, { type: "event", e: { kind: "message", turnId: "turn-p", itemId: "item-p", messageId: "message-p", text: "Working" } });
+protocol = reducer(protocol, { type: "event", e: { kind: "answer_committed", turnId: "turn-p", finalItemId: "item-p", finalMessageId: "message-p" } });
+protocol = reducer(protocol, { type: "event", e: { kind: "turn_done", turnId: "turn-p", finalItemId: "item-p", finalMessageId: "message-p", outcome: "success" } });
+equal("answer_committed owns the exact final message", protocol.items.some((item) => item.kind === "assistant" && item.messageId === "message-p" && item.final), true);
+equal("explicit success records a successful turn outcome", protocol.items.some((item) => item.kind === "turn_stats" && item.outcome === "success"), true);
+
+let cancelled = reducer(initialState, { type: "event", e: { kind: "turn_started", turnId: "turn-c" } });
+cancelled = reducer(cancelled, { type: "event", e: { kind: "turn_done", turnId: "turn-c", outcome: "cancelled", err: "context canceled" } });
+equal("cancelled turns do not render context-canceled as an error", cancelled.items.some((item) => item.kind === "notice" && item.text === "context canceled"), false);
+equal("cancelled turns retain their explicit outcome", cancelled.items.some((item) => item.kind === "turn_stats" && item.outcome === "cancelled"), true);
 
 const runningSegments = buildTimelineSegments(chronology, true);
 const completedSegments = buildTimelineSegments(failedStats, false);
@@ -147,7 +171,7 @@ const transcriptSource = readFileSync(new URL("../components/Transcript.tsx", im
 equal("process group no longer nests an outer ProcessCard", transcriptSource.includes("<ProcessCard\n      tone=\"default\""), false);
 equal("completed timeline has a flat activity rail", transcriptSource.includes('className="completed-turn__timeline process-activity-rail"'), true);
 equal("completed process details do not create a nested process panel", transcriptSource.includes("<TimelineProcessGroup\n                      key={segment.id}"), false);
-equal("detailed mode controls completed turn expansion", transcriptSource.includes('setOpen(mode === "detailed")'), true);
+equal("successful completed turns start collapsed", transcriptSource.includes("const [open, setOpen] = useState(false)"), true);
 equal("question rail does not scroll the transcript via scrollIntoView", transcriptSource.includes('el?.scrollIntoView({ block: "nearest" })'), false);
 equal("warm pagination renders from the hidden-turn boundary", transcriptSource.includes("warmStartTurn = shownWarmStart"), true);
 equal("question marker mouse events do not bubble into the rail", transcriptSource.includes("e.stopPropagation();"), true);

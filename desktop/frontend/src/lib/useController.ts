@@ -24,6 +24,8 @@ import type {
   SessionMeta,
   TabMeta,
   ToolApprovalMode,
+  TurnItemStatus,
+  TurnOutcome,
   WireApproval,
   WireAsk,
   WireEvent,
@@ -36,13 +38,21 @@ export type LiveStream = { id: string; text: string; reasoning: string };
 export type MessageActionScope = "fork" | "summ-from" | "summ-upto" | "conversation" | "code" | "both";
 export type MessageActionState = { turn: number; scope: MessageActionScope };
 
-export type Item =
+type ItemLifecycle = {
+  turnId?: string;
+  itemId?: string;
+  messageId?: string;
+  itemStatus?: TurnItemStatus;
+  final?: boolean;
+};
+
+export type Item = ItemLifecycle & (
   | { kind: "user"; id: string; text: string; failed?: boolean }
   | { kind: "assistant"; id: string; text: string; reasoning: string; streaming: boolean }
   | { kind: "steer"; id: string; text: string }
   | { kind: "phase"; id: string; text: string }
   | { kind: "notice"; id: string; level: "info" | "warn"; text: string }
-  | { kind: "turn_stats"; id: string; elapsedMs?: number; tokens?: number; success: boolean }
+  | { kind: "turn_stats"; id: string; elapsedMs?: number; tokens?: number; success: boolean; outcome?: TurnOutcome; finalMessageId?: string }
   | {
       kind: "compaction";
       id: string;
@@ -66,7 +76,7 @@ export type Item =
       isShell?: boolean; // true for !-prefix shell commands (controls default expand)
       parentId?: string; // a sub-agent call nests under the `task` call with this id
       profile?: { model?: string; effort?: string }; // subagent model/effort from tool event
-    };
+    });
 
 const LEADING_REASONING_BLOCK_RE = /^\s*(?:\ufeff\s*)?<(think|thinking|reasoning)>\s*([\s\S]*?)\s*<\/\1>\s*/i;
 
@@ -93,6 +103,8 @@ interface State {
   checkpoints: CheckpointMeta[];
   messageAction?: MessageActionState;
   currentAssistant?: string;
+  currentTurnId?: string;
+  committedFinalMessageId?: string;
   live?: LiveStream;
   pendingUser?: string;
   discardTurn?: boolean;
@@ -241,9 +253,23 @@ export function historyMessagesToItems(messages: HistoryMessage[], idPrefix: str
       seq++;
       continue;
     }
+    if (m.role === "turn_stats" && m.outcome) {
+      items.push({
+        kind: "turn_stats",
+        id: `${idPrefix}${seq}`,
+        elapsedMs: m.elapsedMs,
+        tokens: m.tokens,
+        success: m.outcome === "success",
+        outcome: m.outcome,
+        turnId: m.turnId,
+        finalMessageId: m.finalMessageId,
+      });
+      seq++;
+      continue;
+    }
     if (m.role === "user") {
       if (m.content.trim() === "") continue;
-      items.push({ kind: "user", id: `${idPrefix}${seq}`, text: m.content });
+      items.push({ kind: "user", id: `${idPrefix}${seq}`, text: m.content, turnId: m.turnId });
       seq++;
       continue;
     }
@@ -259,7 +285,18 @@ export function historyMessagesToItems(messages: HistoryMessage[], idPrefix: str
       }
       const hasText = content.trim() !== "" || reasoning.trim() !== "";
       if (hasText) {
-        items.push({ kind: "assistant", id: `${idPrefix}${seq}`, text: content, reasoning, streaming: false });
+        items.push({
+          kind: "assistant",
+          id: m.messageId || `${idPrefix}${seq}`,
+          text: content,
+          reasoning,
+          streaming: false,
+          turnId: m.turnId,
+          itemId: m.itemId,
+          messageId: m.messageId,
+          itemStatus: "completed",
+          final: Boolean(m.final),
+        });
         seq++;
       }
       for (const tc of m.toolCalls ?? []) {
@@ -304,7 +341,24 @@ export function historyMessagesToItems(messages: HistoryMessage[], idPrefix: str
   return { items, seq };
 }
 
-function ensureAssistant(s: State): { items: Item[]; id: string; seq: number } {
+function ensureAssistant(s: State, e?: WireEvent): { items: Item[]; id: string; seq: number } {
+  const eventID = e?.messageId || e?.itemId;
+  if (eventID) {
+    const existing = s.items.find((it) => it.kind === "assistant" && (it.messageId === eventID || it.itemId === e.itemId));
+    if (existing) return { items: s.items, id: existing.id, seq: s.seq };
+    const item: Item = {
+      kind: "assistant",
+      id: eventID,
+      text: "",
+      reasoning: "",
+      streaming: true,
+      turnId: e.turnId || s.currentTurnId,
+      itemId: e.itemId,
+      messageId: e.messageId,
+      itemStatus: e.itemStatus,
+    };
+    return { items: [...s.items, item], id: eventID, seq: s.seq };
+  }
   if (s.currentAssistant) {
     const exists = s.items.some((it) => it.id === s.currentAssistant && it.kind === "assistant");
     if (exists) return { items: s.items, id: s.currentAssistant, seq: s.seq };
@@ -343,15 +397,18 @@ function hasCurrentTurnActivity(items: Item[]): boolean {
   return false;
 }
 
-function appendTurnStats(s: State, items: Item[], success: boolean, now = Date.now()): { items: Item[]; seq: number } {
-  if (!s.turnStartAt || !hasCurrentTurnActivity(items)) return { items, seq: s.seq };
-  const elapsedMs = Math.max(0, now - (s.turnProcessStartAt || s.turnStartAt));
+function appendTurnStats(s: State, items: Item[], outcome: TurnOutcome, finalMessageId?: string, now = Date.now()): { items: Item[]; seq: number } {
+  if (!s.turnStartAt || (!s.currentTurnId && !hasCurrentTurnActivity(items))) return { items, seq: s.seq };
+  const elapsedMs = Math.max(0, now - s.turnStartAt);
   const stats: Item = {
     kind: "turn_stats",
     id: `ts${s.seq}`,
     elapsedMs,
     tokens: s.turnUsageTokens > 0 ? s.turnUsageTokens : undefined,
-    success,
+    success: outcome === "success",
+    outcome,
+    turnId: s.currentTurnId,
+    finalMessageId,
   };
   return { items: [...items, stats], seq: s.seq + 1 };
 }
@@ -396,26 +453,64 @@ function applyEvent(s: State, e: WireEvent): State {
       // the first text/reasoning token.
       let cur: State = s;
       if (cur.pendingUser !== undefined) cur = flushPendingUser(cur);
-      const { items, id, seq } = ensureAssistant(cur);
       const now = Date.now();
-      return { ...cur, items, currentAssistant: id, seq, live: { id, text: "", reasoning: "" }, running: true, turnActive: true, turnStartAt: now, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
+      const turnId = e.turnId || cur.currentTurnId || `turn-${cur.seq}`;
+      let claimedUser = false;
+      const items = [...cur.items].reverse().map((item) => {
+        if (!claimedUser && item.kind === "user" && !item.turnId) {
+          claimedUser = true;
+          return { ...item, turnId };
+        }
+        return item;
+      }).reverse();
+      return {
+        ...cur,
+        items,
+        currentTurnId: turnId,
+        committedFinalMessageId: undefined,
+        running: true,
+        turnActive: true,
+        turnStartAt: cur.turnActive && cur.turnStartAt ? cur.turnStartAt : now,
+        turnProcessStartAt: cur.turnActive ? cur.turnProcessStartAt : 0,
+        turnTokens: cur.turnActive ? cur.turnTokens : 0,
+        turnUsageTokens: cur.turnActive ? cur.turnUsageTokens : 0,
+      };
     }
     case "text":
     case "reasoning": {
-      const { items, id, seq } = ensureAssistant(s);
+      const { items, id, seq } = ensureAssistant(s, e);
       const delta = e.text ?? e.reasoning ?? "";
       const base = s.live?.id === id ? s.live : { id, text: "", reasoning: "" };
       const live = e.kind === "text" ? { ...base, text: base.text + delta } : { ...base, reasoning: base.reasoning + delta };
       return { ...s, items, live, currentAssistant: id, seq, turnProcessStartAt: s.turnProcessStartAt || Date.now() };
     }
     case "message": {
-      const { items, id, seq } = ensureAssistant(s);
+      const { items, id, seq } = ensureAssistant(s, e);
       const next = items.map((it) =>
         it.kind === "assistant" && it.id === id
-          ? { ...it, text: e.text ?? s.live?.text ?? it.text, reasoning: e.reasoning ?? s.live?.reasoning ?? it.reasoning, streaming: false }
+          ? { ...it, text: e.text ?? s.live?.text ?? it.text, reasoning: e.reasoning ?? s.live?.reasoning ?? it.reasoning, streaming: false, turnId: e.turnId || it.turnId, itemId: e.itemId || it.itemId, messageId: e.messageId || it.messageId, itemStatus: "completed" as const }
           : it,
       );
       return { ...s, items: next, live: undefined, currentAssistant: undefined, seq };
+    }
+    case "answer_committed": {
+      const finalMessageId = e.finalMessageId || e.messageId;
+      const finalItemId = e.finalItemId || e.itemId;
+      let fallbackID = "";
+      if (!finalMessageId && !finalItemId) {
+        for (let index = s.items.length - 1; index >= 0; index -= 1) {
+          if (s.items[index].kind === "assistant") {
+            fallbackID = s.items[index].id;
+            break;
+          }
+        }
+      }
+      const next = s.items.map((it) => it.kind === "assistant" && (
+        (finalMessageId && it.messageId === finalMessageId) ||
+        (finalItemId && it.itemId === finalItemId) ||
+        (fallbackID && it.id === fallbackID)
+      ) ? { ...it, final: true } : it);
+      return { ...s, items: next, committedFinalMessageId: finalMessageId || s.committedFinalMessageId };
     }
     case "tool_dispatch": {
       const t = e.tool;
@@ -425,10 +520,10 @@ function applyEvent(s: State, e: WireEvent): State {
       if (idx >= 0) {
         const next = [...s.items];
         const it = next[idx];
-        if (it.kind === "tool") next[idx] = { ...it, name: t.name, args: t.args ? t.args : it.args, readOnly: t.readOnly, profile: t.profile ?? it.profile };
+        if (it.kind === "tool") next[idx] = { ...it, name: t.name, args: t.args ? t.args : it.args, readOnly: t.readOnly, profile: t.profile ?? it.profile, turnId: e.turnId || it.turnId, itemId: e.itemId || it.itemId, itemStatus: e.itemStatus || it.itemStatus };
         return { ...s, items: next };
       }
-      return { ...s, seq: s.seq + 1, turnProcessStartAt: s.turnProcessStartAt || Date.now(), items: [...s.items, { kind: "tool", id, name: t.name, args: t.args ?? "", readOnly: t.readOnly, status: "running", isShell: id.startsWith("shell-"), parentId: t.parentId, profile: t.profile }] };
+      return { ...s, seq: s.seq + 1, turnProcessStartAt: s.turnProcessStartAt || Date.now(), items: [...s.items, { kind: "tool", id, name: t.name, args: t.args ?? "", readOnly: t.readOnly, status: "running", isShell: id.startsWith("shell-"), parentId: t.parentId, profile: t.profile, turnId: e.turnId || s.currentTurnId, itemId: e.itemId, itemStatus: e.itemStatus }] };
     }
     case "tool_result": {
       const t = e.tool;
@@ -443,7 +538,7 @@ function applyEvent(s: State, e: WireEvent): State {
       }
       if (idx >= 0) {
         const it = next[idx];
-        if (it.kind === "tool") next[idx] = { ...it, status: t.err ? "error" : "done", output: t.output, error: t.err, truncated: t.truncated, durationMs: t.durationMs };
+        if (it.kind === "tool") next[idx] = { ...it, status: t.err ? "error" : "done", output: t.output, error: t.err, truncated: t.truncated, durationMs: t.durationMs, turnId: e.turnId || it.turnId, itemId: e.itemId || it.itemId, itemStatus: e.itemStatus || (t.err ? "failed" : "completed") };
       }
       return { ...s, items: next };
     }
@@ -454,7 +549,7 @@ function applyEvent(s: State, e: WireEvent): State {
       if (idx < 0) return s;
       const next = [...s.items];
       const it = next[idx];
-      if (it.kind === "tool") next[idx] = { ...it, output: (it.output ?? "") + (t.output ?? "") };
+      if (it.kind === "tool") next[idx] = { ...it, output: (it.output ?? "") + (t.output ?? ""), turnId: e.turnId || it.turnId, itemId: e.itemId || it.itemId, itemStatus: e.itemStatus || "streaming" };
       return { ...s, items: next };
     }
     case "usage": {
@@ -465,11 +560,11 @@ function applyEvent(s: State, e: WireEvent): State {
       return { ...s, usage: e.usage, context: { ...s.context, sessionTokens }, turnTokens, turnUsageTokens, sessionTokens, sessionCurrency };
     }
     case "notice":
-      return { ...s, running: s.turnActive ? s.running : false, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "notice", id: `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "" }] };
+      return { ...s, running: s.turnActive ? s.running : false, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "notice", id: e.itemId || `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "", turnId: e.turnId || s.currentTurnId, itemId: e.itemId, itemStatus: e.itemStatus }] };
     case "phase":
-      return { ...s, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "phase", id: `p${s.seq}`, text: e.text ?? "" }] };
+      return { ...s, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "phase", id: e.itemId || `p${s.seq}`, text: e.text ?? "", turnId: e.turnId || s.currentTurnId, itemId: e.itemId, itemStatus: e.itemStatus }] };
     case "compaction_started":
-      return { ...s, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "compaction", id: `c${s.seq}`, pending: true, trigger: e.compaction?.trigger ?? "", messages: 0, summary: "", archive: "" }] };
+      return { ...s, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "compaction", id: e.itemId || `c${s.seq}`, pending: true, trigger: e.compaction?.trigger ?? "", messages: 0, summary: "", archive: "", turnId: e.turnId || s.currentTurnId, itemId: e.itemId, itemStatus: e.itemStatus }] };
     case "compaction_done": {
       const c = e.compaction;
       const idx = [...s.items].reverse().findIndex((it) => it.kind === "compaction" && it.pending);
@@ -478,7 +573,8 @@ function applyEvent(s: State, e: WireEvent): State {
         const items = at < 0 ? s.items : s.items.filter((_, i) => i !== at);
         return { ...s, running: s.turnActive ? s.running : false, items };
       }
-      const filled: Item = { kind: "compaction", id: at < 0 ? `c${s.seq}` : (s.items[at] as Extract<Item, { kind: "compaction" }>).id, pending: false, trigger: c.trigger ?? "", messages: c.messages ?? 0, summary: c.summary, archive: c.archive ?? "" };
+      const previous = at < 0 ? undefined : s.items[at] as Extract<Item, { kind: "compaction" }>;
+      const filled: Item = { kind: "compaction", id: previous?.id || e.itemId || `c${s.seq}`, pending: false, trigger: c.trigger ?? "", messages: c.messages ?? 0, summary: c.summary, archive: c.archive ?? "", turnId: e.turnId || previous?.turnId || s.currentTurnId, itemId: e.itemId || previous?.itemId, itemStatus: e.itemStatus || "completed" };
       const items = at < 0 ? [...s.items, filled] : s.items.map((it, i) => (i === at ? filled : it));
       return { ...s, running: s.turnActive ? s.running : false, seq: s.seq + 1, items };
     }
@@ -499,9 +595,14 @@ function applyEvent(s: State, e: WireEvent): State {
         if (it.kind === "tool" && it.status === "running") return { ...it, status: "stopped" as const };
         return it;
       });
-      const withError: Item[] = e.err ? [...finalized, { kind: "notice", id: `e${s.seq}`, level: "warn", text: e.err }] : finalized;
-      const stats = appendTurnStats(s, withError, !e.err);
-      return { ...s, items: stats.items, live: undefined, running: false, turnActive: false, currentAssistant: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
+      let outcome: TurnOutcome = e.outcome ?? (e.err ? "failed" : "success");
+      const finalMessageId = e.finalMessageId || s.committedFinalMessageId;
+      const hasCommittedFinal = finalized.some((it) => it.kind === "assistant" && it.final && it.text.trim() !== "");
+      if (outcome === "success" && e.turnId && !finalMessageId && !hasCommittedFinal) outcome = "interrupted";
+      const showError = Boolean(e.err) && outcome !== "cancelled";
+      const withError: Item[] = showError ? [...finalized, { kind: "notice", id: `e${s.seq}`, level: "warn", text: e.err!, turnId: e.turnId || s.currentTurnId }] : finalized;
+      const stats = appendTurnStats(s, withError, outcome, finalMessageId);
+      return { ...s, items: stats.items, live: undefined, running: false, turnActive: false, currentAssistant: undefined, currentTurnId: undefined, committedFinalMessageId: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     default: return s;
   }
@@ -545,8 +646,8 @@ export function reducer(s: State, a: Action): State {
         if (it.kind === "tool" && it.status === "running") return { ...it, status: "stopped" as const };
         return it;
       });
-      const stats = appendTurnStats(s, finalized, true);
-      return { ...s, items: stats.items, running: false, turnActive: false, live: undefined, currentAssistant: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
+      const stats = appendTurnStats(s, finalized, "interrupted", s.committedFinalMessageId);
+      return { ...s, items: stats.items, running: false, turnActive: false, live: undefined, currentAssistant: undefined, currentTurnId: undefined, committedFinalMessageId: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     case "meta": return sameMeta(s.meta, a.meta) ? s : { ...s, meta: a.meta };
     case "context": {

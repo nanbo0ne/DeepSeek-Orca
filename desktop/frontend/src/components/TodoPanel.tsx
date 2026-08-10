@@ -3,6 +3,7 @@ import { Check, ChevronUp, Circle, CircleDot, Pin, X } from "lucide-react";
 import { useT } from "../lib/i18n";
 import { createTodoPanelState, isTodoPanelOpen, reduceTodoPanelState } from "../lib/todoPanelState";
 import type { Todo } from "../lib/tools";
+import { AnchoredPopover } from "./AnchoredPopover";
 import { Tooltip } from "./Tooltip";
 
 const CLOSE_DELAY_MS = 180;
@@ -11,6 +12,7 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
   const t = useT();
   const [panel, dispatch] = useReducer(reduceTodoPanelState, todoId, createTodoPanelState);
   const currentRef = useRef<HTMLLIElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const open = isTodoPanelOpen(panel);
 
@@ -48,36 +50,31 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
     if (open) currentRef.current?.scrollIntoView({ block: "nearest" });
   }, [open, current?.content, current?.activeForm]);
 
+  useEffect(() => {
+    if (todos.length > 0 && done === todos.length) dispatch({ type: "close" });
+  }, [done, todos.length]);
+
   if (todos.length === 0) return null;
 
   return (
-    <div
-      className={`todobar${open ? " todobar--open" : ""}`}
-      onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
-      onMouseLeave={scheduleTransientClose}
-      onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleTransientClose();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && open) {
-          event.preventDefault();
-          dispatch({ type: "close" });
-        }
-      }}
-    >
+    <div className={`todobar${open ? " todobar--open" : ""}`}>
       <section
         className="todobar__surface"
         data-ui-surface="panel"
         aria-label={t("todo.title")}
       >
         <button
+          ref={triggerRef}
           type="button"
           className={`todobar__trigger${panel.pinned ? " todobar__trigger--pinned" : ""}`}
           aria-expanded={open}
           aria-controls="todo-details"
           aria-label={`${activeText}. ${progressText}`}
           title={activeText}
+          onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
+          onMouseLeave={scheduleTransientClose}
+          onFocus={() => { cancelClose(); dispatch({ type: "focus", value: true }); }}
+          onBlur={scheduleTransientClose}
           onClick={() => dispatch({ type: "toggle-pin" })}
         >
           <span className="todobar__progress-track" aria-hidden="true">
@@ -88,8 +85,22 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
           <ChevronUp size={13} aria-hidden="true" />
         </button>
 
-        {open && (
-          <div id="todo-details" className="todobar__details">
+      </section>
+      <AnchoredPopover
+        open={open}
+        anchorRef={triggerRef}
+        onClose={() => dispatch({ type: "close" })}
+        className="todo-popover"
+        align="center"
+        placement="auto"
+        offset={6}
+      >
+          <div
+            id="todo-details"
+            className="todobar__details"
+            onMouseEnter={() => { cancelClose(); dispatch({ type: "hover", value: true }); }}
+            onMouseLeave={scheduleTransientClose}
+          >
             <header className="todobar__head">
               <div className="todobar__heading">
                 <span className="todobar__title">{t("todo.title")}</span>
@@ -125,8 +136,7 @@ export function TodoPanel({ todoId, todos, onDismiss }: { todoId: string; todos:
               ))}
             </ul>
           </div>
-        )}
-      </section>
+      </AnchoredPopover>
     </div>
   );
 }

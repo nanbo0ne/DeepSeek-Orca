@@ -345,7 +345,7 @@ func (a *App) Settings() SettingsView {
 			CheckUpdates:         true,
 			ExpandThinking:       false,
 			ProcessDisplayMode:   config.ProcessDisplayCompact,
-			ActivityIndicator:    false,
+			ActivityIndicator:    true,
 			VisionEnabled:        false,
 			VisionMode:           config.VisionModeAuto,
 			UIScale:              0,

@@ -20,7 +20,15 @@ export type EventKind =
   | "retrying"
   | "external_user"
   | "session_updated"
-  | "steer";
+  | "steer"
+  | "answer_committed"
+  | "item_started"
+  | "item_delta"
+  | "item_completed";
+
+export type TurnOutcome = "success" | "failed" | "cancelled" | "interrupted";
+export type TurnItemType = "user_message" | "agent_message" | "reasoning" | "tool" | "plan" | "notice" | "compaction";
+export type TurnItemStatus = "started" | "streaming" | "completed" | "failed";
 
 export interface WireCompaction {
   trigger?: string; // "auto" | "manual"
@@ -97,6 +105,14 @@ export interface QuestionAnswer {
 
 export interface WireEvent {
   kind: EventKind;
+  turnId?: string;
+  itemId?: string;
+  messageId?: string;
+  finalItemId?: string;
+  finalMessageId?: string;
+  itemType?: TurnItemType;
+  itemStatus?: TurnItemStatus;
+  outcome?: TurnOutcome;
   text?: string;
   reasoning?: string;
   level?: "info" | "warn";
@@ -245,6 +261,14 @@ export interface HistoryMessage {
   messages?: number;
   summary?: string;
   archive?: string;
+  turnId?: string;
+  itemId?: string;
+  messageId?: string;
+  final?: boolean;
+  outcome?: TurnOutcome;
+  elapsedMs?: number;
+  tokens?: number;
+  finalMessageId?: string;
 }
 
 export interface HistoryToolCall {

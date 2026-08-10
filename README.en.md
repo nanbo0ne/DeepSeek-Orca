@@ -8,11 +8,11 @@ This repository's desktop product is the **engineering edition**. It exposes two
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.37)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.38)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -64,8 +64,8 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 - Todo uses a compact centered progress control that expands upward on hover or keyboard focus and can be pinned without pushing the composer.
 - Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
 - Process display offers Compact and Detailed levels, with Compact as the default. Reasoning, tools, notices, and subagents use a flat chronological activity rail instead of nested cards; compact rows can be repeatedly expanded and collapsed.
-- An optional, off-by-default theme-blue spinner can appear below the current turn. It rotates clockwise while the model is active and counterclockwise while tools are running, respects reduced-motion settings, and disappears when work pauses or ends.
-- A successfully completed turn automatically collapses to its user message, elapsed-time row, and final answer. Expanding the elapsed row restores every intermediate event in its original order and shows token usage; failed, cancelled, interrupted, and active turns stay open for diagnosis.
+- A theme-blue spinner is enabled by default and can be disabled in Settings. It rotates clockwise while the model is active and counterclockwise while tools are running, respects reduced-motion settings, and disappears when work pauses or ends.
+- Normal and Enhanced share an explicit Turn/Item lifecycle. Stage updates, reasoning, and tools remain visible while work runs; only a readiness-checked, explicitly committed visible answer can complete a turn successfully. Successful turns collapse to their user message, elapsed-time row, and complete final answer. Expanding restores every intermediate event in order; failed, cancelled, interrupted, active, and uncertain legacy turns keep their text visible for diagnosis.
 - The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
 - Conversation switches reuse cached transcript structure, paint history before auxiliary status, and skip replaying entrance animations for restored messages. Plain-text paste remains directly editable, right-click paste accepts images, multi-file paste/drop keeps the complete ordered batch, and the composer grows automatically for up to ten lines before scrolling.
 

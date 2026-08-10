@@ -9,6 +9,14 @@ import (
 
 const EnhancedModeName = "enhanced"
 
+const completionContract = `<completion_contract>
+All visible text outside tool calls is shown to the user. Before the first meaningful tool batch, briefly state what you are about to do. After a meaningful stage completes, provide another concise progress update when more work remains. Do not narrate trivial actions or repeat the same status.
+
+Progress updates are not the final answer. After the last tool call, always provide a separate visible final response that states the result, relevant verification, and any concrete blocker. Never end a turn with only reasoning, an empty response, a progress update, or a tool call.
+
+Continue working until the task is genuinely complete or a specific blocker prevents further progress. When blocked, explain that blocker in visible answer text. Do not claim completion before required post-write verification succeeds.
+</completion_contract>`
+
 const assistantCorePrompt = `You are Orca, an AI assistant running inside the DeepSeek-Orca desktop application.
 
 <tone_and_formatting>
@@ -166,7 +174,7 @@ IMPORTANT: Assist with authorized security testing, defensive security, CTF chal
 
 // EnhancedSystemPrompt returns the stable system prefix for V2 enhanced mode.
 func EnhancedSystemPrompt(outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy string) string {
-	return joinPromptParts(enhancedCorePrompt, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy)
+	return joinPromptParts(enhancedCorePrompt, completionContract, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy)
 }
 
 func NormalSystemPrompt(custom, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy string) string {
@@ -174,7 +182,7 @@ func NormalSystemPrompt(custom, outputStyle, taskTrackingPolicy, toolRoutingPoli
 	if strings.TrimSpace(custom) != "" {
 		customBlock = "# User-configured instructions\n\n" + strings.TrimSpace(custom)
 	}
-	return joinPromptParts(normalCorePrompt, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy, customBlock)
+	return joinPromptParts(normalCorePrompt, completionContract, outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy, customBlock)
 }
 
 func AssistantSystemPrompt(outputStyle, taskTrackingPolicy, toolRoutingPolicy, visionPolicy, languagePolicy string) string {

@@ -1,5 +1,15 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.0.38 - 2026-08-10
+
+- Rebuilt Normal and Enhanced conversation rendering around stable Turn, Item, and Message identities. A turn can report success only after an explicit visible final answer has passed readiness and been committed.
+- Preserved every non-empty assistant message exactly once: progress updates remain in the process timeline, while the committed final answer stays outside the completed-turn fold across live streaming, history restoration, tab switching, and cold pagination.
+- Added explicit failed, cancelled, and interrupted outcomes, prevented backend disconnects and empty responses from masquerading as completed work, and persisted canonical turn boundaries and final-message identity in telemetry.
+- Replaced the manually resized Composer with a one-to-ten-line elastic input that grows and contracts with content, wrapping, paste, undo, scale, font, and window changes.
+- Restored the stable Codex-style Todo trigger with a single upward anchored detail surface, hover bridging, pinning, keyboard and touch behavior, and automatic completion collapse without shifting the footer.
+- Enabled the direction-aware activity spinner by default through the V8 configuration migration while continuing to respect an explicit user opt-out.
+- Strengthened Normal-mode completion instructions for concise stage updates, sustained execution, post-write verification, visible blockers, and a separate final response after tool work.
+
 ## V2.0.37 - 2026-08-09
 
 - Removed the Automation Workspace history subgroup and migrated its existing conversations into ordinary independent workspaces while preserving transcripts, titles, display text, and source backups.

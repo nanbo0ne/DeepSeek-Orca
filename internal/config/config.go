@@ -1118,10 +1118,10 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 7,
+		ConfigVersion: 8,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
-		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto},
+		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto, ActivityIndicator: true},
 		Notifications: NotificationsConfig{
 			Enabled:         false,
 			TurnDone:        true,
@@ -1259,6 +1259,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeAutomationPreference(cfg)
 	normalizeDesktopUIScale(cfg)
 	normalizeAutomationFullAccess(cfg)
+	normalizeActivityIndicatorPreference(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1420,6 +1421,7 @@ func LoadForEdit(path string) *Config {
 	normalizeAutomationPreference(cfg)
 	normalizeDesktopUIScale(cfg)
 	normalizeAutomationFullAccess(cfg)
+	normalizeActivityIndicatorPreference(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
 }
@@ -1498,6 +1500,15 @@ func normalizeDesktopUIScale(c *Config) {
 func normalizeAutomationFullAccess(c *Config) {
 	if c != nil && c.ConfigVersion < 7 {
 		c.ConfigVersion = 7
+	}
+}
+
+// V8 turns the independent activity indicator on once for upgraded installs.
+// From V8 onward an explicit opt-out is persisted and left untouched.
+func normalizeActivityIndicatorPreference(c *Config) {
+	if c != nil && c.ConfigVersion < 8 {
+		c.Desktop.ActivityIndicator = true
+		c.ConfigVersion = 8
 	}
 }
 

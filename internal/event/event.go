@@ -88,7 +88,81 @@ const (
 	// wrapper prefix), so a frontend can display it to the user as confirmation.
 	// Frontends use Steer to know a queued message has been delivered.
 	Steer
+	// AnswerCommitted marks the exact assistant message that passed the host's
+	// final-answer readiness checks. TurnDone may only report success after this
+	// event has been emitted.
+	AnswerCommitted
+	// ItemStarted, ItemDelta, and ItemCompleted expose the normalized Turn -> Item lifecycle
+	// used by rich frontends. Existing typed events remain the item-specific
+	// payload stream for backwards compatibility.
+	ItemStarted
+	ItemDelta
+	ItemCompleted
 )
+
+type TurnState string
+
+const (
+	TurnStateInProgress TurnState = "in_progress"
+	TurnStateFinished   TurnState = "finished"
+)
+
+type TurnOutcome string
+
+const (
+	TurnOutcomeSuccess     TurnOutcome = "success"
+	TurnOutcomeFailed      TurnOutcome = "failed"
+	TurnOutcomeCancelled   TurnOutcome = "cancelled"
+	TurnOutcomeInterrupted TurnOutcome = "interrupted"
+)
+
+type ItemType string
+
+const (
+	ItemUserMessage  ItemType = "user_message"
+	ItemAgentMessage ItemType = "agent_message"
+	ItemReasoning    ItemType = "reasoning"
+	ItemTool         ItemType = "tool"
+	ItemPlan         ItemType = "plan"
+	ItemNotice       ItemType = "notice"
+	ItemCompaction   ItemType = "compaction"
+)
+
+type ItemStatus string
+
+const (
+	ItemStatusStarted   ItemStatus = "started"
+	ItemStatusStreaming ItemStatus = "streaming"
+	ItemStatusCompleted ItemStatus = "completed"
+	ItemStatusFailed    ItemStatus = "failed"
+)
+
+// TurnItem is the persisted identity and terminal status of one canonical item.
+// MessageOrdinal maps visible assistant messages back to provider history without
+// making tool-only assistant records consume a display identity.
+type TurnItem struct {
+	ItemID         string     `json:"itemId"`
+	MessageID      string     `json:"messageId,omitempty"`
+	Type           ItemType   `json:"type"`
+	Status         ItemStatus `json:"status"`
+	MessageOrdinal int        `json:"messageOrdinal,omitempty"`
+}
+
+// TurnRecord is the durable projection of a top-level user turn. The provider
+// transcript remains unchanged; this record preserves exact UI classification.
+type TurnRecord struct {
+	TurnID         string      `json:"turnId"`
+	CheckpointTurn int         `json:"checkpointTurn,omitempty"`
+	State          TurnState   `json:"state,omitempty"`
+	Outcome        TurnOutcome `json:"outcome,omitempty"`
+	StartedAt      int64       `json:"startedAt"`
+	CompletedAt    int64       `json:"completedAt,omitempty"`
+	ElapsedMs      int64       `json:"elapsedMs,omitempty"`
+	Tokens         int         `json:"tokens,omitempty"`
+	FinalItemID    string      `json:"finalItemId,omitempty"`
+	FinalMessageID string      `json:"finalMessageId,omitempty"`
+	Items          []TurnItem  `json:"items,omitempty"`
+}
 
 // Level classifies a Notice so sinks can style or filter it.
 type Level int
@@ -206,6 +280,14 @@ type CacheDiagnostics struct {
 // for Kind; the others are zero.
 type Event struct {
 	Kind             Kind
+	TurnID           string
+	ItemID           string
+	MessageID        string
+	FinalItemID      string
+	FinalMessageID   string
+	ItemType         ItemType
+	ItemStatus       ItemStatus
+	Outcome          TurnOutcome
 	Text             string            // Reasoning / Text / Message / Notice / Phase
 	Reasoning        string            // Message: the full reasoning chain
 	Tool             Tool              // ToolDispatch / ToolResult

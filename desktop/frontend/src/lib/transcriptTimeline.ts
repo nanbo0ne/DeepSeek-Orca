@@ -47,18 +47,28 @@ function pushProcess(out: TimelineSegment[], item: TimelineProcessItem, complete
 function completedTurnSegment(items: readonly Item[], completed: boolean, fallbackID: string): TimelineSegment | null {
   if (!completed) return null;
   const explicitStats = items.find((item): item is Extract<Item, { kind: "turn_stats" }> => item.kind === "turn_stats");
-  if (explicitStats && !explicitStats.success) return null;
+  if (explicitStats && (explicitStats.outcome ?? (explicitStats.success ? "success" : "failed")) !== "success") return null;
   const hasFailureEvidence = items.some((item) =>
     (item.kind === "user" && item.failed) ||
     (item.kind === "tool" && (item.status === "error" || item.status === "stopped")),
   );
   if (!explicitStats && hasFailureEvidence) return null;
   let finalIndex = -1;
-  for (let i = items.length - 1; i >= 0; i--) {
+  for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (item.kind === "assistant" && !item.streaming && item.text.trim() !== "") {
+    if (item.kind === "assistant" && item.final && !item.streaming && item.text.trim() !== "") {
       finalIndex = i;
-      break;
+    }
+  }
+  // Compatibility for pre-V8 live events. Persisted legacy history is never
+  // folded without explicit metadata, so uncertain text remains visible.
+  if (finalIndex < 0 && explicitStats && !explicitStats.turnId) {
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i];
+      if (item.kind === "assistant" && !item.streaming && item.text.trim() !== "") {
+        finalIndex = i;
+        break;
+      }
     }
   }
   if (finalIndex < 0) return null;
@@ -67,6 +77,7 @@ function completedTurnSegment(items: readonly Item[], completed: boolean, fallba
     kind: "turn_stats" as const,
     id: `legacy-stats-${fallbackID}`,
     success: true,
+    outcome: "success" as const,
   };
   const hidden = items.flatMap((item, index): Item[] => {
     if (item.kind === "user" || item.kind === "turn_stats") return [];
@@ -89,16 +100,11 @@ function buildTurn(items: readonly Item[], completed: boolean): TimelineSegment[
   }
   if (stats) out.push({ kind: "stats", item: stats });
 
-  let lastNonAssistantProcessIndex = -1;
-  items.forEach((item, index) => {
-    if (item.kind !== "assistant" && visibleProcessItem(item)) lastNonAssistantProcessIndex = index;
-  });
   let finalAssistantIndex = -1;
-  for (let index = items.length - 1; index >= 0; index -= 1) {
+  for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
-    if (index > lastNonAssistantProcessIndex && item.kind === "assistant" && (item.text.trim() !== "" || item.streaming)) {
+    if (item.kind === "assistant" && item.final && item.text.trim() !== "") {
       finalAssistantIndex = index;
-      break;
     }
   }
 
@@ -135,31 +141,44 @@ export function buildTimelineSegments(items: readonly Item[], running: boolean):
   const cached = timelineCache.get(items)?.get(running);
   if (cached) return cached;
 
-  const turns: Item[][] = [];
-  const prelude: Item[] = [];
+  const groups: Item[][] = [];
+  const turnsByID = new Map<string, Item[]>();
+  let currentTurn: Item[] | undefined;
   for (const item of items) {
     if (item.kind === "user") {
-      turns.push([item]);
+      currentTurn = [item];
+      groups.push(currentTurn);
+      if (item.turnId) turnsByID.set(item.turnId, currentTurn);
       continue;
     }
-    if (turns.length === 0) prelude.push(item);
-    else turns[turns.length - 1].push(item);
+    const identifiedTurn = item.turnId ? turnsByID.get(item.turnId) : undefined;
+    if (identifiedTurn) {
+      identifiedTurn.push(item);
+      continue;
+    }
+    const currentFinished = currentTurn?.some((entry) => entry.kind === "turn_stats") ?? false;
+    if (currentTurn && !currentFinished) {
+      currentTurn.push(item);
+      continue;
+    }
+    currentTurn = undefined;
+    groups.push([item]);
   }
 
   const out: TimelineSegment[] = [];
-  for (const item of prelude) {
-    if (item.kind === "steer") out.push({ kind: "steer", item });
-    else if (item.kind === "assistant") {
-      if (visibleProcessItem(item)) pushProcess(out, { ...item, text: "" }, true);
-      if (item.text.trim() !== "") out.push({ kind: "assistant", item: { ...item, reasoning: "" } });
-    } else if (visibleProcessItem(item)) pushProcess(out, item, true);
-  }
-
-  turns.forEach((turn, index) => {
-    const hasSuccessfulStats = turn.some((item) => item.kind === "turn_stats" && item.success);
-    const isHistoricalTurn = index < turns.length - 1;
-    const explicitlyCompleted = !running && hasSuccessfulStats;
-    out.push(...buildTurn(turn, isHistoricalTurn || explicitlyCompleted));
+  groups.forEach((group) => {
+    if (group.some((item) => item.kind === "user")) {
+      const explicitlyCompleted = !running && group.some((item) => item.kind === "turn_stats" && (item.outcome ?? (item.success ? "success" : "failed")) === "success");
+      out.push(...buildTurn(group, explicitlyCompleted));
+      return;
+    }
+    for (const item of group) {
+      if (item.kind === "steer") out.push({ kind: "steer", item });
+      else if (item.kind === "assistant") {
+        if (visibleProcessItem(item)) pushProcess(out, { ...item, text: "" }, true);
+        if (item.text.trim() !== "") out.push({ kind: "assistant", item: { ...item, reasoning: "" } });
+      } else if (visibleProcessItem(item)) pushProcess(out, item, true);
+    }
   });
   const variants = timelineCache.get(items) ?? new Map<boolean, TimelineSegment[]>();
   variants.set(running, out);

@@ -4,11 +4,11 @@ This is the desktop-focused English entry point. The current build is the engine
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.37/DeepSeek-Orca-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.37)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-linux-amd64.deb)
+- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.38)
 
 ## Scope
 
@@ -20,7 +20,7 @@ The 30-minute continuity check, `/new`, and `/continue` create or select logical
 
 Vision defaults to Auto. Each newly configured model is probed independently with a history-free Orca-icon verification image, images are sent only to confirmed visual models, and selected current-turn images can be routed from a text-only main model to a visual subagent. DeepSeek being detected as unsupported is expected. Session files keep references, not image base64. Interface scaling follows Windows DPI by default, with an optional relative 80%-125% override.
 
-Process display can be Compact or Detailed and defaults to Compact. Compact process rows can be repeatedly expanded and collapsed, while an optional theme-blue spinner appears below the current turn when enabled. It rotates clockwise for model activity and counterclockwise for tool activity. Successful turns collapse to elapsed time and the final answer; expanding restores the flat chronological activity rail. Failed, cancelled, interrupted, and active turns remain expanded. Conversation history paints before auxiliary status during switches, plain text pastes directly into the composer, and the input grows automatically for up to ten lines. Normal mode always retains the complete built-in engineering prompt and requires relevant post-write verification.
+Process display can be Compact or Detailed and defaults to Compact. Compact process rows can be repeatedly expanded and collapsed, while the default-on theme-blue spinner rotates clockwise for model output and counterclockwise for tool activity. Explicit Turn/Item identities keep stage updates in the process timeline and the committed final answer outside it. Successful turns collapse only after readiness and final-answer commitment; failed, cancelled, interrupted, active, and uncertain legacy turns remain expanded. Conversation history paints before auxiliary status during switches, plain text pastes directly into the composer, and the elastic input grows and contracts automatically for up to ten lines. Normal mode always retains the complete built-in engineering prompt and requires relevant post-write verification.
 
 Updates are notification-only: the app checks stable official releases, caches successful checks for 24 hours, and opens the release page in a browser after the user clicks the update entry. It does not auto-download, auto-install, or force upgrades.
 

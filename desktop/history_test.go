@@ -53,6 +53,39 @@ func TestHistoryMessagesIncludeAssistantReasoning(t *testing.T) {
 	}
 }
 
+func TestHistoryMessagesUsePersistedFinalIdentity(t *testing.T) {
+	msgs := []provider.Message{
+		{Role: provider.RoleUser, Content: "fix it"},
+		{Role: provider.RoleAssistant, ToolCalls: []provider.ToolCall{{ID: "call-empty", Name: "read_file"}}},
+		{Role: provider.RoleTool, ToolCallID: "call-empty", Name: "read_file", Content: "first"},
+		{Role: provider.RoleAssistant, Content: "I am checking", ToolCalls: []provider.ToolCall{{ID: "call-1", Name: "read_file"}}},
+		{Role: provider.RoleTool, ToolCallID: "call-1", Name: "read_file", Content: "ok"},
+		{Role: provider.RoleAssistant, Content: "Fixed and verified."},
+	}
+	turns := []turnTelemetryRecord{{
+		TurnID: "turn-1", Outcome: event.TurnOutcomeSuccess, ElapsedMs: 2500, Tokens: 42,
+		FinalItemID: "item-final", FinalMessageID: "message-final",
+		Items: []turnTelemetryItem{
+			{ItemID: "item-progress", MessageID: "message-progress", Type: event.ItemAgentMessage, Status: event.ItemStatusCompleted, MessageOrdinal: 0},
+			{ItemID: "item-final", MessageID: "message-final", Type: event.ItemAgentMessage, Status: event.ItemStatusCompleted, MessageOrdinal: 1},
+		},
+	}}
+
+	got := historyMessagesWithTurns(msgs, func(value string) string { return value }, turns)
+	if len(got) != 7 {
+		t.Fatalf("history length = %d, want 7: %+v", len(got), got)
+	}
+	if got[3].Final || got[3].MessageID != "message-progress" {
+		t.Fatalf("progress classification = %+v", got[3])
+	}
+	if !got[5].Final || got[5].MessageID != "message-final" {
+		t.Fatalf("final classification = %+v", got[5])
+	}
+	if got[6].Role != "turn_stats" || got[6].Outcome != event.TurnOutcomeSuccess || got[6].FinalMessageID != "message-final" {
+		t.Fatalf("turn stats = %+v", got[6])
+	}
+}
+
 func TestPreviewSessionMessagesLoadsWithoutResuming(t *testing.T) {
 	dir := t.TempDir()
 	session := agent.NewSession("")

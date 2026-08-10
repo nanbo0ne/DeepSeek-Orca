@@ -59,6 +59,7 @@ type WorkspaceTab struct {
 	readTelemetry        []readFileRecord
 	usageTelemetry       sessionUsageStats
 	usageTelemetryEvents []usageTelemetryEvent
+	turnTelemetry        []turnTelemetryRecord
 	currentTelemetryTurn int
 	telemMu              sync.Mutex
 
@@ -166,11 +167,15 @@ type usageTelemetryEvent struct {
 	SessionCostUsd   float64 `json:"sessionCostUsd,omitempty"`
 }
 
+type turnTelemetryItem = event.TurnItem
+type turnTelemetryRecord = event.TurnRecord
+
 type tabTelemetrySnapshot struct {
 	Version     int                   `json:"version"`
 	ReadFiles   []readFileRecord      `json:"readFiles"`
 	Usage       sessionUsageStats     `json:"usage"`
 	UsageEvents []usageTelemetryEvent `json:"usageEvents,omitempty"`
+	Turns       []turnTelemetryRecord `json:"turns,omitempty"`
 }
 
 func lastUsageTelemetryEvent(events []usageTelemetryEvent) (usageTelemetryEvent, bool) {
@@ -276,7 +281,55 @@ func (t *WorkspaceTab) recordUsage(e event.Event) {
 		SessionCostUsd:   cost,
 		SessionCurrency:  currency,
 	})
+	if len(t.turnTelemetry) > 0 && e.TurnID != "" {
+		turn := &t.turnTelemetry[len(t.turnTelemetry)-1]
+		if turn.TurnID == e.TurnID {
+			turn.Tokens += u.TotalTokens
+		}
+	}
 	t.telemMu.Unlock()
+}
+
+func (t *WorkspaceTab) recordLifecycle(e event.Event, now int64, checkpointTurn int) {
+	if e.TurnID == "" {
+		return
+	}
+	t.telemMu.Lock()
+	defer t.telemMu.Unlock()
+	if e.Kind == event.TurnStarted {
+		if len(t.turnTelemetry) == 0 || t.turnTelemetry[len(t.turnTelemetry)-1].TurnID != e.TurnID {
+			t.turnTelemetry = append(t.turnTelemetry, turnTelemetryRecord{TurnID: e.TurnID, CheckpointTurn: checkpointTurn, State: event.TurnStateInProgress, StartedAt: now})
+		}
+		return
+	}
+	if len(t.turnTelemetry) == 0 || t.turnTelemetry[len(t.turnTelemetry)-1].TurnID != e.TurnID {
+		t.turnTelemetry = append(t.turnTelemetry, turnTelemetryRecord{TurnID: e.TurnID, CheckpointTurn: checkpointTurn, State: event.TurnStateInProgress, StartedAt: now})
+	}
+	turn := &t.turnTelemetry[len(t.turnTelemetry)-1]
+	switch e.Kind {
+	case event.ItemCompleted:
+		ordinal := 0
+		if e.ItemType == event.ItemAgentMessage {
+			for _, item := range turn.Items {
+				if item.Type == event.ItemAgentMessage {
+					ordinal++
+				}
+			}
+		}
+		turn.Items = append(turn.Items, turnTelemetryItem{ItemID: e.ItemID, MessageID: e.MessageID, Type: e.ItemType, Status: e.ItemStatus, MessageOrdinal: ordinal})
+	case event.AnswerCommitted:
+		turn.FinalItemID = e.FinalItemID
+		turn.FinalMessageID = e.FinalMessageID
+	case event.TurnDone:
+		turn.State = event.TurnStateFinished
+		turn.Outcome = e.Outcome
+		turn.FinalItemID = e.FinalItemID
+		turn.FinalMessageID = e.FinalMessageID
+		turn.CompletedAt = now
+		if now >= turn.StartedAt {
+			turn.ElapsedMs = now - turn.StartedAt
+		}
+	}
 }
 
 func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
@@ -287,6 +340,11 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 	usage := t.usageTelemetry
 	events := make([]usageTelemetryEvent, len(t.usageTelemetryEvents))
 	copy(events, t.usageTelemetryEvents)
+	turns := make([]turnTelemetryRecord, len(t.turnTelemetry))
+	for i := range t.turnTelemetry {
+		turns[i] = t.turnTelemetry[i]
+		turns[i].Items = append([]turnTelemetryItem(nil), t.turnTelemetry[i].Items...)
+	}
 	if started := usage.activeTurnStartedAt; started > 0 {
 		now := time.Now().UnixMilli()
 		if now >= started {
@@ -294,7 +352,7 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 		}
 	}
 	usage.activeTurnStartedAt = 0
-	return tabTelemetrySnapshot{Version: 3, ReadFiles: records, Usage: usage, UsageEvents: events}
+	return tabTelemetrySnapshot{Version: 4, ReadFiles: records, Usage: usage, UsageEvents: events, Turns: turns}
 }
 
 func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
@@ -314,6 +372,13 @@ func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
 		}
 	}
 	t.usageTelemetryEvents = filteredEvents
+	filteredTurns := t.turnTelemetry[:0]
+	for _, rec := range t.turnTelemetry {
+		if rec.CheckpointTurn < turn {
+			filteredTurns = append(filteredTurns, rec)
+		}
+	}
+	t.turnTelemetry = filteredTurns
 	t.usageTelemetry = usageStatsFromEvents(filteredEvents)
 	t.currentTelemetryTurn = turn
 }
@@ -366,6 +431,9 @@ func (s *tabEventSink) Emit(e event.Event) {
 		if s.app.conversationBroker != nil {
 			s.app.conversationBroker.Observe(s.tabID, ctrl, e)
 		}
+		if tab != nil {
+			tab.recordLifecycle(e, time.Now().UnixMilli(), s.currentCheckpointTurn())
+		}
 		switch e.Kind {
 		case event.TurnStarted:
 			s.recordTurnStarted()
@@ -402,7 +470,7 @@ func topicActivityStatusFromEvent(e event.Event) (string, bool) {
 	case event.ApprovalRequest, event.AskRequest:
 		return topicStatusWaitingConfirmation, true
 	case event.TurnDone:
-		if e.Err != nil {
+		if e.Outcome == event.TurnOutcomeFailed || e.Outcome == event.TurnOutcomeInterrupted || (e.Outcome == "" && e.Err != nil) {
 			return topicStatusError, true
 		}
 		return "", true
@@ -1391,11 +1459,12 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			}
 			// Restore existing telemetry if resuming a session.
 			telemetryPath := path + ".telemetry.json"
-			if snapshot := loadTelemetry(telemetryPath); len(snapshot.ReadFiles) > 0 || snapshot.Usage.RequestCount > 0 {
+			if snapshot := loadTelemetry(telemetryPath); len(snapshot.ReadFiles) > 0 || snapshot.Usage.RequestCount > 0 || len(snapshot.Turns) > 0 {
 				tab.telemMu.Lock()
 				tab.readTelemetry = snapshot.ReadFiles
 				tab.usageTelemetry = snapshot.Usage
 				tab.usageTelemetryEvents = snapshot.UsageEvents
+				tab.turnTelemetry = snapshot.Turns
 				tab.telemMu.Unlock()
 			}
 		}
@@ -2794,7 +2863,7 @@ func (a *App) tabTelemetryPath(tabID string) string {
 
 func saveTelemetry(path string, snapshot tabTelemetrySnapshot) error {
 	if snapshot.Version == 0 {
-		snapshot.Version = 2
+		snapshot.Version = 4
 	}
 	if snapshot.ReadFiles == nil {
 		snapshot.ReadFiles = []readFileRecord{}

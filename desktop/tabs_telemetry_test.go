@@ -152,10 +152,14 @@ func TestBlankConversationContextUsageDisplaysZero(t *testing.T) {
 
 func TestWorkspaceTabRewindTelemetryPrunesUsage(t *testing.T) {
 	tab := &WorkspaceTab{}
+	tab.recordLifecycle(event.Event{Kind: event.TurnStarted, TurnID: "turn-0"}, 1000, 0)
+	tab.recordLifecycle(event.Event{Kind: event.TurnDone, TurnID: "turn-0", Outcome: event.TurnOutcomeSuccess}, 1100, 0)
 	tab.recordTurnStarted(0, 1000)
 	tab.recordUsage(event.Event{Usage: &provider.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15}})
 	tab.recordTurnDone(1100)
 	tab.recordTurnStarted(1, 1200)
+	tab.recordLifecycle(event.Event{Kind: event.TurnStarted, TurnID: "turn-1"}, 1200, 1)
+	tab.recordLifecycle(event.Event{Kind: event.TurnDone, TurnID: "turn-1", Outcome: event.TurnOutcomeFailed}, 1300, 1)
 	tab.recordUsage(event.Event{Usage: &provider.Usage{PromptTokens: 20, CompletionTokens: 6, TotalTokens: 26}})
 	tab.recordTurnDone(1300)
 
@@ -164,6 +168,31 @@ func TestWorkspaceTabRewindTelemetryPrunesUsage(t *testing.T) {
 	got := tab.telemetrySnapshot().Usage
 	if got.RequestCount != 1 || got.TotalTokens != 15 || got.PromptTokens != 10 || got.CompletionTokens != 5 {
 		t.Fatalf("rewound usage = %+v, want only first turn", got)
+	}
+	turns := tab.telemetrySnapshot().Turns
+	if len(turns) != 1 || turns[0].TurnID != "turn-0" {
+		t.Fatalf("rewound turns = %+v, want only turn-0", turns)
+	}
+}
+
+func TestWorkspaceTabLifecycleTelemetryRecordsCommittedFinal(t *testing.T) {
+	tab := &WorkspaceTab{}
+	tab.recordLifecycle(event.Event{Kind: event.TurnStarted, TurnID: "turn-1"}, 1000, 7)
+	tab.recordLifecycle(event.Event{Kind: event.ItemCompleted, TurnID: "turn-1", ItemID: "item-progress", MessageID: "message-progress", ItemType: event.ItemAgentMessage, ItemStatus: event.ItemStatusCompleted}, 1010, 7)
+	tab.recordLifecycle(event.Event{Kind: event.ItemCompleted, TurnID: "turn-1", ItemID: "item-final", MessageID: "message-final", ItemType: event.ItemAgentMessage, ItemStatus: event.ItemStatusCompleted}, 1020, 7)
+	tab.recordLifecycle(event.Event{Kind: event.AnswerCommitted, TurnID: "turn-1", FinalItemID: "item-final", FinalMessageID: "message-final"}, 1030, 7)
+	tab.recordLifecycle(event.Event{Kind: event.TurnDone, TurnID: "turn-1", Outcome: event.TurnOutcomeSuccess, FinalItemID: "item-final", FinalMessageID: "message-final"}, 1100, 7)
+
+	turns := tab.telemetrySnapshot().Turns
+	if len(turns) != 1 {
+		t.Fatalf("turn count = %d, want 1", len(turns))
+	}
+	turn := turns[0]
+	if turn.CheckpointTurn != 7 || turn.Outcome != event.TurnOutcomeSuccess || turn.FinalMessageID != "message-final" || turn.ElapsedMs != 100 {
+		t.Fatalf("turn telemetry = %+v", turn)
+	}
+	if len(turn.Items) != 2 || turn.Items[1].MessageOrdinal != 1 {
+		t.Fatalf("turn items = %+v", turn.Items)
 	}
 }
 
