@@ -56,6 +56,14 @@ check(
   "a confirmed running mode switch applies as soon as the turn becomes idle",
 );
 check(
+  app.includes("promptModeSwitchFailedByTab") &&
+    app.includes("promptModeSwitchFailed || state.approval") &&
+    app.includes("setPromptModeSwitchFailedByTab((current) => ({ ...current, [tabId]: true }))") &&
+    app.indexOf("submitPromptToAgent(nextPrompt.displayText, nextPrompt.submitText).then") <
+      app.indexOf("const rest = queue.slice(1)", app.indexOf("submitPromptToAgent(nextPrompt.displayText, nextPrompt.submitText).then")),
+  "failed mode switches retain queued prompts until a successful retry",
+);
+check(
   !settings.includes('<SettingsField label={t("settings.botModel")}') &&
     !settings.includes('<SettingsField label={t("settings.botPromptMode")}') &&
     !settings.includes('<SettingsField label={t("settings.botWorkspaceRoot")}') &&
@@ -101,12 +109,13 @@ check(
 check(
     composer.includes('composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}') &&
     composer.includes("onClick={hasDraftContent ? () => void submit() : handleCancel}") &&
-    composer.includes("hasDraftContent && (disabled || submitting || pendingPaste > 0 || !hasSendableContent)") &&
+    composer.includes("hasDraftContent ? (disabled || submitting || pendingPaste > 0 || !hasSendableContent) : cancelRequested") &&
     composer.includes('hasDraftContent ? <ArrowUp size={13} /> : <Square size={10} fill="currentColor" />') &&
     css.includes(".composer-runstatus__primary {\n  --wails-draggable: no-drag;") &&
-    css.includes("width: 58px;\n  min-width: 58px;\n  max-width: 58px;\n  height: 26px;") &&
+    css.includes("width: 34px;\n  min-width: 34px;\n  max-width: 34px;\n  height: 34px;") &&
     css.includes(".composer-runstatus__primary--send {") &&
-    composerContract.includes(".composer-runstatus__primary {\n    width: 28px;\n    min-width: 28px;\n    max-width: 28px;"),
+    composerContract.includes(".composer-runstatus__primary {\n    width: 30px;\n    min-width: 30px;\n    max-width: 30px;") &&
+    !composer.includes("composer-runstatus__primary-label"),
   "running send replaces stop without changing the primary action geometry",
 );
 check(

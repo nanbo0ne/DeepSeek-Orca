@@ -108,7 +108,6 @@ const RIGHT_DOCK_PREVIEW_DEFAULT_WIDTH = 660;
 const RIGHT_DOCK_PREVIEW_MIN_WIDTH = 420;
 const RIGHT_DOCK_MIN_RENDER_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 860;
-const ENHANCED_MODE_SWITCH_HOLD_MS = 520;
 
 type RightDockMode = "context" | "files" | "changed" | "sideChat";
 type WorkspaceRevealRequest = { id: number; path: string };
@@ -127,8 +126,8 @@ type HistoryViewState =
 
 const ENGINEERING_CAPABILITIES: ProductCapabilities = {
   edition: "engineering",
-	promptModes: ["coding", "assistant"],
-	conversationModes: ["coding", "assistant"],
+	promptModes: ["assistant", "coding"],
+	conversationModes: ["assistant", "coding"],
 	assistantMemoryEnabled: true,
   automationWorkspaceEnabled: true,
 	orcaEnabled: true,
@@ -529,6 +528,7 @@ export default function App() {
   const [promptModesByTab, setPromptModesByTab] = useState<Record<string, PromptMode>>({});
   const [productCapabilities, setProductCapabilities] = useState<ProductCapabilities>(ENGINEERING_CAPABILITIES);
   const [promptModeSwitchingByTab, setPromptModeSwitchingByTab] = useState<Record<string, boolean>>({});
+  const [promptModeSwitchFailedByTab, setPromptModeSwitchFailedByTab] = useState<Record<string, boolean>>({});
   const [pendingModelLabelsByTab, setPendingModelLabelsByTab] = useState<Record<string, string>>({});
   const [pendingEffortsByTab, setPendingEffortsByTab] = useState<Record<string, string>>({});
   const [pendingPromptModesByTab, setPendingPromptModesByTab] = useState<Record<string, PromptMode>>({});
@@ -594,7 +594,6 @@ export default function App() {
   const queuedPromptDispatchingRef = useRef(false);
   const tabMetasSignatureRef = useRef("");
   const promptModeSwitchingRef = useRef<Record<string, boolean>>({});
-  const promptModeSwitchTimersRef = useRef<Record<string, number>>({});
   const pendingModelSwitchRef = useRef<Record<string, Promise<void>>>({});
   const pendingEffortSwitchRef = useRef<Record<string, Promise<void>>>({});
   const pendingPromptModeSwitchRef = useRef<Partial<Record<string, Promise<void>>>>({});
@@ -657,10 +656,6 @@ export default function App() {
       if (workspaceTogglePressTimerRef.current !== null) {
         window.clearTimeout(workspaceTogglePressTimerRef.current);
       }
-      for (const timer of Object.values(promptModeSwitchTimersRef.current)) {
-        window.clearTimeout(timer);
-      }
-      promptModeSwitchTimersRef.current = {};
     };
   }, []);
 
@@ -878,6 +873,7 @@ export default function App() {
       )
 	: "assistant";
   const promptModeSwitching = activeTabId ? Boolean(promptModeSwitchingByTab[activeTabId]) : false;
+  const promptModeSwitchFailed = activeTabId ? Boolean(promptModeSwitchFailedByTab[activeTabId]) : false;
   collaborationModeRef.current = collaborationMode;
   toolApprovalModeRef.current = toolApprovalMode;
   askWorkflowEnabledRef.current = askWorkflowEnabled;
@@ -1130,6 +1126,12 @@ export default function App() {
 		if (!confirmed) return;
 	  }
       latestPromptModeSwitchRef.current[activeTabId] = mode;
+      setPromptModeSwitchFailedByTab((current) => {
+        if (!current[activeTabId]) return current;
+        const next = { ...current };
+        delete next[activeTabId];
+        return next;
+      });
       if (!pendingPromptModeOriginRef.current[activeTabId]) {
         pendingPromptModeOriginRef.current[activeTabId] = promptMode;
       }
@@ -1142,50 +1144,35 @@ export default function App() {
       promptModeSwitchingRef.current[activeTabId] = true;
       setPromptModeSwitchingByTab((current) => (current[activeTabId] ? current : { ...current, [activeTabId]: true }));
       const releaseSwitchLock = (settledMode: PromptMode) => {
-        if (typeof window === "undefined") {
-          delete promptModeSwitchingRef.current[activeTabId];
-          setPendingPromptModesByTab((current) => {
-            if (current[activeTabId] !== settledMode) return current;
-            const next = { ...current };
-            delete next[activeTabId];
-            return next;
-          });
-          setPromptModeSwitchingByTab((current) => {
-            if (!current[activeTabId]) return current;
-            const next = { ...current };
-            delete next[activeTabId];
-            return next;
-          });
-          return;
-        }
-        const previousTimer = promptModeSwitchTimersRef.current[activeTabId];
-        if (previousTimer) window.clearTimeout(previousTimer);
-        promptModeSwitchTimersRef.current[activeTabId] = window.setTimeout(() => {
-          delete promptModeSwitchingRef.current[activeTabId];
-          delete promptModeSwitchTimersRef.current[activeTabId];
-          setPendingPromptModesByTab((current) => {
-            if (current[activeTabId] !== settledMode) return current;
-            const next = { ...current };
-            delete next[activeTabId];
-            return next;
-          });
-          setPromptModeSwitchingByTab((current) => {
-            if (!current[activeTabId]) return current;
-            const next = { ...current };
-            delete next[activeTabId];
-            return next;
-          });
-        }, ENHANCED_MODE_SWITCH_HOLD_MS);
+        delete promptModeSwitchingRef.current[activeTabId];
+        setPendingPromptModesByTab((current) => {
+          if (current[activeTabId] !== settledMode) return current;
+          const next = { ...current };
+          delete next[activeTabId];
+          return next;
+        });
+        setPromptModeSwitchingByTab((current) => {
+          if (!current[activeTabId]) return current;
+          const next = { ...current };
+          delete next[activeTabId];
+          return next;
+        });
       };
       let settledMode = mode;
       try {
         while (true) {
           const target = latestPromptModeSwitchRef.current[activeTabId] ?? settledMode;
           settledMode = target;
-		  await app.SetConversationModeForTab(activeTabId, target);
-          await refreshMeta();
+		  await app.RequestConversationModeForTab(activeTabId, target);
           if (latestPromptModeSwitchRef.current[activeTabId] === target) break;
         }
+		await refreshMeta();
+        setPromptModeSwitchFailedByTab((current) => {
+          if (!current[activeTabId]) return current;
+          const next = { ...current };
+          delete next[activeTabId];
+          return next;
+        });
         delete latestPromptModeSwitchRef.current[activeTabId];
         delete pendingPromptModeOriginRef.current[activeTabId];
       } catch (err) {
@@ -1198,6 +1185,7 @@ export default function App() {
           delete next[activeTabId];
           return next;
         });
+        setPromptModeSwitchFailedByTab((current) => ({ ...current, [activeTabId]: true }));
         showToast(err instanceof Error ? err.message : String(err), "error");
       } finally {
         releaseSwitchLock(settledMode);
@@ -1369,8 +1357,14 @@ export default function App() {
       const nextPromptMode = pendingPromptModesByTab[tabId];
       const task = (async () => {
         try {
-		  await app.SetConversationModeForTab(tabId, nextPromptMode);
+		  await app.RequestConversationModeForTab(tabId, nextPromptMode);
           await refreshMeta();
+          setPromptModeSwitchFailedByTab((current) => {
+            if (!current[tabId]) return current;
+            const next = { ...current };
+            delete next[tabId];
+            return next;
+          });
           delete pendingPromptModeOriginRef.current[tabId];
         } catch (err) {
           const origin = pendingPromptModeOriginRef.current[tabId];
@@ -1378,7 +1372,9 @@ export default function App() {
           if (origin) {
             setPromptModesByTab((current) => (current[tabId] === origin ? current : { ...current, [tabId]: origin }));
           }
+          setPromptModeSwitchFailedByTab((current) => ({ ...current, [tabId]: true }));
           showToast(err instanceof Error ? err.message : String(err), "error");
+          throw err;
         } finally {
           delete pendingPromptModeSwitchRef.current[tabId];
           if (latestPromptModeSwitchRef.current[tabId] === nextPromptMode) delete latestPromptModeSwitchRef.current[tabId];
@@ -1652,7 +1648,7 @@ export default function App() {
         send(trimmed, `/goal ${submitText.trim()}`);
         return;
       }
-      if (runningRef.current) {
+      if (runningRef.current || Boolean(activeTabId && promptModeSwitchingRef.current[activeTabId])) {
         queuePrompt(trimmed, submitText.trim());
         return;
       }
@@ -1666,24 +1662,26 @@ export default function App() {
   }, [state.running]);
 
   useEffect(() => {
-    if (!activeTabId || state.running || state.approval || state.ask || state.messageAction) return;
+    if (!activeTabId || state.running || promptModeSwitching || promptModeSwitchFailed || state.approval || state.ask || state.messageAction) return;
     if (queuedPromptDispatchingRef.current) return;
     const nextPrompt = queuedPromptsByTab[activeTabId]?.[0];
     if (!nextPrompt) return;
     queuedPromptDispatchingRef.current = true;
-    setQueuedPromptsByTab((current) => {
-      const queue = current[activeTabId] ?? [];
-      if (queue[0]?.id !== nextPrompt.id) return current;
-      const rest = queue.slice(1);
-      const next = { ...current };
-      if (rest.length > 0) next[activeTabId] = rest;
-      else delete next[activeTabId];
-      return next;
-    });
-    void submitPromptToAgent(nextPrompt.displayText, nextPrompt.submitText).catch(() => {
+    void submitPromptToAgent(nextPrompt.displayText, nextPrompt.submitText).then(() => {
+      setQueuedPromptsByTab((current) => {
+        const queue = current[activeTabId] ?? [];
+        if (queue[0]?.id !== nextPrompt.id) return current;
+        const rest = queue.slice(1);
+        const next = { ...current };
+        if (rest.length > 0) next[activeTabId] = rest;
+        else delete next[activeTabId];
+        return next;
+      });
+      queuedPromptDispatchingRef.current = false;
+    }).catch(() => {
       queuedPromptDispatchingRef.current = false;
     });
-  }, [activeTabId, queuedPromptsByTab, state.approval, state.ask, state.messageAction, state.running, submitPromptToAgent]);
+  }, [activeTabId, promptModeSwitchFailed, promptModeSwitching, queuedPromptsByTab, state.approval, state.ask, state.messageAction, state.running, submitPromptToAgent]);
 
   const refreshTabMetas = useCallback(async (): Promise<TabMeta[]> => {
     const tabs = asArray(await app.ListTabs().catch(() => [] as TabMeta[]));
@@ -2893,6 +2891,7 @@ export default function App() {
 			  promptModes={automationConversation ? [] : productCapabilities.promptModes}
 			  promptModeLocked={false}
               promptModeSwitching={promptModeSwitching}
+              cancelRequested={state.cancelRequested}
               showToolApprovalControls={!automationConversation}
               paused={Boolean(state.meta?.paused)}
               goal={goal}

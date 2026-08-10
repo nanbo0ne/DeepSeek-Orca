@@ -15,7 +15,7 @@ func TestModelRefsFromConfig(t *testing.T) {
 	t.Chdir(t.TempDir()) // no deepseek-orca.toml → built-in default providers
 	// Only DeepSeek keyed → MiMo refs must be filtered out.
 	t.Setenv("DEEPSEEK_API_KEY", "test-key")
-	t.Setenv("MIMO_API_KEY", "")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "")
 	refs := modelRefs()
 	if len(refs) == 0 {
 		t.Fatal("expected default provider/model refs, got none")
@@ -35,7 +35,7 @@ func TestModelRefsFromConfig(t *testing.T) {
 func TestModelRefsSkipsUnconfigured(t *testing.T) {
 	t.Chdir(t.TempDir())
 	t.Setenv("DEEPSEEK_API_KEY", "")
-	t.Setenv("MIMO_API_KEY", "")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "")
 	if refs := modelRefs(); len(refs) != 0 {
 		t.Errorf("no keys set → no refs, got %v", refs)
 	}
@@ -61,7 +61,7 @@ func TestModelArgCompletion(t *testing.T) {
 func TestPersistModelWritesDefaultModel(t *testing.T) {
 	isolateUserConfig(t)
 	t.Setenv("DEEPSEEK_API_KEY", "test-key")
-	t.Setenv("MIMO_API_KEY", "")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "")
 
 	m := newTestChatTUI()
 	m.persistModel("deepseek-flash/deepseek-v4-flash")

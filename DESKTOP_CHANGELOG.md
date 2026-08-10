@@ -1,5 +1,13 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.1.1 - 2026-08-10
+
+- Separated Mimo API and Mimo Token Plan into distinct provider identities, endpoints, model references, and credential slots. Exact Mimo references can no longer cross-resolve to the other source, and the V10 migration assigns a legacy shared key conservatively from the active model source with a backup before changes.
+- Serialized controller replacement per conversation and added generation-based stale-build rejection across model, effort, mode, settings, startup, and Orca model changes. The old controller remains available until a replacement has built and restored history successfully.
+- Made Assistant the first public mode and restored Coding's blue treatment with a stable, responsive selector. Mode changes update the interface immediately, keep queued prompts on failure, and send them only after a successful switch.
+- Replaced running Pause, Resume, Stop, and queued Send labels with fixed-size icon controls, preserved Escape cancellation, and allowed Stop during approvals, questions, pauses, provider streaming, and foreground tool waits.
+- Added acknowledged per-tab cancellation and explicit stopping feedback so cancellation targets the conversation captured at click time and reconciles cleanly when the turn has already ended.
+
 ## V2.1.0 - 2026-08-10
 
 - Replaced the legacy Normal/Enhanced split with public Coding and Assistant profiles. Coding retains the reliable V2.0.38 engineering contract and gains the useful recovery and permission guidance from Enhanced; Assistant provides a separate Work-oriented tool and memory surface.

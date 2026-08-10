@@ -7,8 +7,8 @@ func TestProductCapabilitiesExposeCodingAssistantAndOrca(t *testing.T) {
 	if capabilities.Edition != productEditionEngineering || !capabilities.AssistantMemoryEnabled || !capabilities.OrcaEnabled {
 		t.Fatalf("capabilities = %+v, want coding/assistant product with Orca", capabilities)
 	}
-	if len(capabilities.PromptModes) != 2 || capabilities.PromptModes[0] != promptModeCoding || capabilities.PromptModes[1] != promptModeAssistant {
-		t.Fatalf("prompt modes = %#v, want coding/assistant", capabilities.PromptModes)
+	if len(capabilities.PromptModes) != 2 || capabilities.PromptModes[0] != promptModeAssistant || capabilities.PromptModes[1] != promptModeCoding {
+		t.Fatalf("prompt modes = %#v, want assistant/coding", capabilities.PromptModes)
 	}
 	if got := normalizeProductPromptMode(promptModeEnhanced, true); got != promptModeCoding {
 		t.Fatalf("enhanced migration = %q, want coding", got)

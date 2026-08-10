@@ -309,6 +309,7 @@ export function Composer({
 	promptModes = ["assistant", "coding"],
   promptModeLocked = false,
   promptModeSwitching = false,
+  cancelRequested = false,
   showToolApprovalControls = true,
   paused = false,
   goal,
@@ -351,6 +352,7 @@ export function Composer({
   promptModes?: PromptMode[];
   promptModeLocked?: boolean;
   promptModeSwitching?: boolean;
+  cancelRequested?: boolean;
   showToolApprovalControls?: boolean;
   paused?: boolean;
   goal?: string;
@@ -2270,25 +2272,24 @@ export function Composer({
           {runActivity ? (
             <div className="composer-runstatus" role="status" aria-live="polite">
               <Tooltip label={paused ? t("composer.resume") : t("composer.pause")}>
-                <button className="composer-runstatus__pause" type="button" onClick={onTogglePause} disabled={decisionPending || !onTogglePause}>
+                <button className="composer-runstatus__pause" type="button" onClick={onTogglePause} disabled={!onTogglePause} aria-label={paused ? t("composer.resume") : t("composer.pause")}>
                   {paused ? <PlayCircle size={13} /> : <PauseCircle size={13} />}
-                  <span>{paused ? t("composer.resumeShort") : t("composer.pauseShort")}</span>
                 </button>
               </Tooltip>
               <span className="composer-runstatus__dot" />
               <span className="composer-runstatus__text">{runActivity}</span>
               <Tooltip label={hasDraftContent ? t("composer.send") : t("composer.stop")}>
                 <button
-                  className={`composer-runstatus__primary composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}`}
+                  className={`composer-runstatus__primary composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}${cancelRequested && !hasDraftContent ? " composer-runstatus__primary--stopping" : ""}`}
                   type="button"
                   onClick={hasDraftContent ? () => void submit() : handleCancel}
-                  disabled={decisionPending || (hasDraftContent && (disabled || submitting || pendingPaste > 0 || !hasSendableContent))}
+                  disabled={hasDraftContent ? (disabled || submitting || pendingPaste > 0 || !hasSendableContent) : cancelRequested}
                   aria-label={hasDraftContent ? t("composer.send") : t("composer.stop")}
+                  aria-busy={cancelRequested && !hasDraftContent}
                 >
                   <span className="composer-runstatus__primary-icon" aria-hidden="true">
                     {hasDraftContent ? <ArrowUp size={13} /> : <Square size={10} fill="currentColor" />}
                   </span>
-                  <span className="composer-runstatus__primary-label">{hasDraftContent ? t("composer.sendShort") : t("composer.stopShort")}</span>
                 </button>
               </Tooltip>
             </div>

@@ -21,6 +21,7 @@ import type {
   CapabilitiesView,
   AutomationView,
   AssistantMemorySettings,
+  CancelAck,
   CheckpointMeta,
   CommandInfo,
   ContextInfo,
@@ -39,7 +40,9 @@ import type {
   ProjectNode,
   ProviderView,
   ProductCapabilities,
+  PromptMode,
   QuestionAnswer,
+  RuntimeSwitchResult,
   ServerView,
   SessionMeta,
   SettingsView,
@@ -104,6 +107,7 @@ export interface AppBindings {
   SteerForTab(tabID: string, text: string): Promise<void>;
   Cancel(): Promise<void>;
   CancelTab(tabID: string): Promise<void>;
+  RequestCancelTab(tabID: string): Promise<CancelAck>;
   PauseTab(tabID: string): Promise<void>;
   ResumeTab(tabID: string): Promise<void>;
   Approve(id: string, allow: boolean, session: boolean, persist: boolean): Promise<void>;
@@ -123,6 +127,7 @@ export interface AppBindings {
   SetStepThinkingForTab(tabID: string, enabled: boolean): Promise<void>;
   SetPromptModeForTab(tabID: string, mode: string): Promise<void>;
 	SetConversationModeForTab(tabID: string, mode: string): Promise<void>;
+	RequestConversationModeForTab(tabID: string, mode: string): Promise<RuntimeSwitchResult>;
   SetEnhancedModeForTab(tabID: string, enabled: boolean): Promise<void>;
   SetGoal(goal: string): Promise<void>;
   SetGoalForTab(tabID: string, goal: string): Promise<void>;
@@ -1070,8 +1075,8 @@ function makeMockApp(): AppBindings {
     async GetProductCapabilities() {
       return {
         edition: "engineering",
-			promptModes: ["coding", "assistant"],
-			conversationModes: ["coding", "assistant"],
+			promptModes: ["assistant", "coding"],
+			conversationModes: ["assistant", "coding"],
 		assistantMemoryEnabled: true,
 		orcaEnabled: true,
       };
@@ -1320,6 +1325,10 @@ function makeMockApp(): AppBindings {
         async CancelTab(_tabID) {
           await withMockTabScope(_tabID, () => this.Cancel());
         },
+        async RequestCancelTab(_tabID) {
+          await withMockTabScope(_tabID, () => this.Cancel());
+          return { accepted: true, turnId: "mock-turn" };
+        },
         async Approve(_id, allow, session, persist) {
           if (!pendingApprovalPreview) return;
           pendingApprovalPreview = false;
@@ -1418,6 +1427,10 @@ function makeMockApp(): AppBindings {
         },
 		async SetConversationModeForTab(tabID, mode) {
 		  await this.SetPromptModeForTab(tabID, mode);
+		},
+		async RequestConversationModeForTab(tabID, mode) {
+		  await this.SetPromptModeForTab(tabID, mode);
+		  return { requestedMode: mode as PromptMode, appliedMode: mode as PromptMode, generation: 1, completed: true };
 		},
         async SetEnhancedModeForTab(tabID, _enabled) {
 		  await this.SetPromptModeForTab(tabID, "coding");

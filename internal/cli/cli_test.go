@@ -331,7 +331,7 @@ func TestConfigureKeys(t *testing.T) {
 	// by the new "reuse existing" path and the prompt would be skipped,
 	// making the assertion below noisy.
 	t.Setenv("DEEPSEEK_API_KEY", "")
-	t.Setenv("MIMO_API_KEY", "")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "")
 
 	selected := config.Default().Providers // deepseek-flash, deepseek-pro, mimo-pro, mimo-flash
 
@@ -345,7 +345,7 @@ func TestConfigureKeys(t *testing.T) {
 	if env[0] != "DEEPSEEK_API_KEY=ds-key" {
 		t.Errorf("env[0] = %q", env[0])
 	}
-	if env[1] != "MIMO_API_KEY=mi-key" {
+	if env[1] != "MIMO_TOKEN_PLAN_API_KEY=mi-key" {
 		t.Errorf("env[1] = %q", env)
 	}
 }
@@ -359,7 +359,7 @@ func TestConfigureKeys(t *testing.T) {
 // re-runs of setup.
 func TestConfigureKeysReusesExistingEnv(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "preset-ds-key")
-	t.Setenv("MIMO_API_KEY", "") // ask for this one
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "") // ask for this one
 
 	selected := config.Default().Providers
 	var output bytes.Buffer
@@ -371,7 +371,7 @@ func TestConfigureKeysReusesExistingEnv(t *testing.T) {
 	if env[0] != "DEEPSEEK_API_KEY=preset-ds-key" {
 		t.Errorf("env[0] = %q, want re-pinned existing value", env[0])
 	}
-	if env[1] != "MIMO_API_KEY=mi-key-from-input" {
+	if env[1] != "MIMO_TOKEN_PLAN_API_KEY=mi-key-from-input" {
 		t.Errorf("env[1] = %q, want typed value", env[1])
 	}
 	if !strings.Contains(output.String(), "DEEPSEEK_API_KEY") {
@@ -381,7 +381,7 @@ func TestConfigureKeysReusesExistingEnv(t *testing.T) {
 
 func TestConfigureKeysCanResetExistingEnv(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "stale-ds-key")
-	t.Setenv("MIMO_API_KEY", "") // ask for this one normally
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "") // ask for this one normally
 
 	selected := config.Default().Providers
 	var output bytes.Buffer
@@ -393,7 +393,7 @@ func TestConfigureKeysCanResetExistingEnv(t *testing.T) {
 	if env[0] != "DEEPSEEK_API_KEY=fresh-ds-key" {
 		t.Errorf("env[0] = %q, want freshly entered value", env[0])
 	}
-	if env[1] != "MIMO_API_KEY=mi-key" {
+	if env[1] != "MIMO_TOKEN_PLAN_API_KEY=mi-key" {
 		t.Errorf("env[1] = %q, want typed MiMo value", env[1])
 	}
 	if !strings.Contains(output.String(), "[y/N]:") || !strings.Contains(output.String(), "DEEPSEEK_API_KEY") {
@@ -405,7 +405,7 @@ func TestConfigureKeysCanResetExistingEnv(t *testing.T) {
 // is already populated, pressing Enter at each confirmation keeps the values.
 func TestConfigureKeysAllSetDefaultsToReusingInput(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "ds")
-	t.Setenv("MIMO_API_KEY", "mi")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "mi")
 
 	selected := config.Default().Providers
 	env := configureKeys(selected, strings.NewReader("\n\n"), io.Discard)
@@ -849,7 +849,7 @@ func captureStderr(t *testing.T, fn func()) string {
 
 func TestProvidersWithMissingKeysOnlyReferenced(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
-	t.Setenv("MIMO_API_KEY", "")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "")
 	cfg := config.Default()
 
 	got := providersWithMissingKeys(cfg)
@@ -860,19 +860,19 @@ func TestProvidersWithMissingKeysOnlyReferenced(t *testing.T) {
 	if !envs["DEEPSEEK_API_KEY"] {
 		t.Errorf("the default model's missing key must be prompted, got %v", got)
 	}
-	if envs["MIMO_API_KEY"] {
+	if envs["MIMO_TOKEN_PLAN_API_KEY"] {
 		t.Errorf("unreferenced preset keys must not be prompted, got %v", got)
 	}
 }
 
 func TestProvidersWithMissingKeysIncludesPlannerModel(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "set")
-	t.Setenv("MIMO_API_KEY", "")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "")
 	cfg := config.Default()
 	cfg.Agent.PlannerModel = "mimo-pro"
 
 	got := providersWithMissingKeys(cfg)
-	if len(got) != 1 || got[0].APIKeyEnv != "MIMO_API_KEY" {
+	if len(got) != 1 || got[0].APIKeyEnv != "MIMO_TOKEN_PLAN_API_KEY" {
 		t.Errorf("planner model's missing key must be prompted, got %+v", got)
 	}
 }

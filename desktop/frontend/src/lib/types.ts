@@ -369,6 +369,13 @@ export interface Meta {
 export type CollaborationMode = "normal" | "plan" | "goal";
 export type ToolApprovalMode = "ask" | "auto" | "yolo";
 export type PromptMode = "coding" | "assistant";
+export interface CancelAck { accepted: boolean; turnId?: string }
+export interface RuntimeSwitchResult {
+  requestedMode: PromptMode;
+  appliedMode?: PromptMode;
+  generation?: number;
+  completed: boolean;
+}
 export type VisionMode = "off" | "auto" | "on";
 export type VisionCapabilityStatus = "supported" | "unsupported" | "unknown" | "probing";
 export type VisionCapabilityOverride = "auto" | "supported" | "unsupported";

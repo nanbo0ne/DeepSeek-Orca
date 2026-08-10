@@ -1158,7 +1158,7 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 9,
+		ConfigVersion: 10,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
 		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto, ActivityIndicator: true, ConversationMode: "assistant"},
@@ -1212,8 +1212,8 @@ func Default() *Config {
 		Providers: []ProviderEntry{
 			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}},
 			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}},
-			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}, NoProxy: true},
-			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}, NoProxy: true},
+			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_TOKEN_PLAN_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}, NoProxy: true},
+			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_TOKEN_PLAN_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}, NoProxy: true},
 		},
 	}
 }
@@ -1570,6 +1570,9 @@ func normalizeConversationProfiles(c *Config) {
 	if c.ConfigVersion < 9 {
 		c.ConfigVersion = 9
 	}
+	if c.ConfigVersion < 10 {
+		c.ConfigVersion = 10
+	}
 }
 
 // mergeFile decodes a TOML file onto cfg if it exists. An absent file is not an error.
@@ -1822,7 +1825,10 @@ func ensureDeepSeekOfficialProvider(c *Config) {
 }
 
 func ensureMimoAPIProvider(c *Config) {
-	if _, ok := c.Provider("mimo-api"); ok {
+	if existing, ok := c.Provider("mimo-api"); ok {
+		if isOfficialMimoAPIEndpoint(existing.BaseURL) {
+			existing.APIKeyEnv = "MIMO_API_KEY"
+		}
 		return
 	}
 	c.Providers = append(c.Providers, ProviderEntry{
@@ -1838,7 +1844,10 @@ func ensureMimoAPIProvider(c *Config) {
 }
 
 func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
-	if _, ok := c.Provider("mimo-token-plan"); ok {
+	if existing, ok := c.Provider("mimo-token-plan"); ok {
+		if isOfficialMimoTokenPlanEndpoint(existing.BaseURL) {
+			existing.APIKeyEnv = "MIMO_TOKEN_PLAN_API_KEY"
+		}
 		return
 	}
 	entry := ProviderEntry{
@@ -1847,7 +1856,7 @@ func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
 		BaseURL:       "https://token-plan-cn.xiaomimimo.com/v1",
 		Models:        []string{"mimo-v2.5-pro"},
 		Default:       "mimo-v2.5-pro",
-		APIKeyEnv:     "MIMO_API_KEY",
+		APIKeyEnv:     "MIMO_TOKEN_PLAN_API_KEY",
 		ContextWindow: 1_048_576,
 		NoProxy:       true,
 	}
@@ -1864,6 +1873,14 @@ func ensureMimoTokenPlanProvider(c *Config, includeMimoFlash bool) {
 		entry.Default = firstKnownModel(entry.Default, entry.Models, entry.Default)
 	}
 	c.Providers = append(c.Providers, entry)
+}
+
+func isOfficialMimoAPIEndpoint(baseURL string) bool {
+	return strings.EqualFold(strings.TrimRight(strings.TrimSpace(baseURL), "/"), "https://api.xiaomimimo.com/v1")
+}
+
+func isOfficialMimoTokenPlanEndpoint(baseURL string) bool {
+	return strings.EqualFold(strings.TrimRight(strings.TrimSpace(baseURL), "/"), "https://token-plan-cn.xiaomimimo.com/v1")
 }
 
 func officialProviderFromLegacy(entry ProviderEntry, old *ProviderEntry) ProviderEntry {
@@ -1955,10 +1972,10 @@ func retargetDesktopOfficialRef(ref string, access map[string]bool) string {
 		if !hasModel || strings.TrimSpace(model) == "" {
 			model = "mimo-v2.5-pro"
 		}
-		if access["mimo-token-plan"] {
+		if access["mimo-token-plan"] && !access["mimo-api"] {
 			return "mimo-token-plan/" + model
 		}
-		if access["mimo-api"] {
+		if access["mimo-api"] && !access["mimo-token-plan"] {
 			return "mimo-api/" + model
 		}
 		return ref
@@ -1974,10 +1991,10 @@ func retargetDesktopOfficialRef(ref string, access map[string]bool) string {
 		if !hasModel || strings.TrimSpace(model) == "" {
 			model = "mimo-v2.5"
 		}
-		if access["mimo-token-plan"] {
+		if access["mimo-token-plan"] && !access["mimo-api"] {
 			return "mimo-token-plan/" + model
 		}
-		if access["mimo-api"] {
+		if access["mimo-api"] && !access["mimo-token-plan"] {
 			return "mimo-api/" + model
 		}
 		return ref
@@ -2195,6 +2212,11 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 	if len(access) > 0 {
 		ref = retargetDesktopOfficialRef(ref, access)
 	}
+	if providerName, _, hasModel := strings.Cut(ref, "/"); hasModel &&
+		(providerName == "mimo-flash" || providerName == "mimo-pro") &&
+		access["mimo-api"] && access["mimo-token-plan"] {
+		return nil, false
+	}
 	allowed := func(e *ProviderEntry) bool {
 		return e != nil && (len(access) == 0 || access[canonicalDesktopOfficialProviderName(e.Name)])
 	}
@@ -2258,10 +2280,14 @@ func (c *Config) ResolveModelWithFallback(ref string) (resolvedRef string, fallb
 		if e, found := c.ResolveModel(ref); found {
 			return e.Name + "/" + e.Model, false, true
 		}
-		if _, model, hasModel := strings.Cut(ref, "/"); hasModel {
+		providerName, model, hasModel := strings.Cut(ref, "/")
+		if hasModel && providerName != "mimo-api" && providerName != "mimo-token-plan" {
 			if e, found := c.ResolveModel(model); found {
 				return e.Name + "/" + e.Model, true, true
 			}
+		}
+		if hasModel && (providerName == "mimo-api" || providerName == "mimo-token-plan") {
+			return "", false, false
 		}
 	}
 	access := desktopProviderAccessMap(c.Desktop.ProviderAccess)

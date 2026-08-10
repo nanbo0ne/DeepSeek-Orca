@@ -430,6 +430,14 @@ func (a *App) restoreOrBuildTabs() {
 	}
 
 	f := loadTabsFile()
+	if migrateMimoCredentialsV10(&startupConfig, f) {
+		// Re-read the process-visible credentials after the one-time split so the
+		// controllers built below never observe the legacy shared key.
+		if cfg, err := config.Load(); err == nil {
+			startupConfig = *cfg
+		}
+	}
+	normalizeLegacyMimoDesktopState(&startupConfig, &f, currentMimoCredentialSource())
 	if len(leakedTestTopics) > 0 {
 		kept := f.Tabs[:0]
 		for _, entry := range f.Tabs {
@@ -754,6 +762,9 @@ func (a *App) SubmitToTab(tabID, input string) {
 		return
 	}
 	trimmed := strings.TrimSpace(input)
+	if a.queueSubmitDuringRuntimeReconfigure(tabID, pendingRuntimeSubmit{input: input}) {
+		return
+	}
 	if trimmed == "/effort" || strings.HasPrefix(trimmed, "/effort ") {
 		a.runEffortCommandForTab(tabID, trimmed)
 		return
@@ -790,6 +801,9 @@ func (a *App) SubmitDisplayToTab(tabID, display, input string) {
 		a.noticeForTab(tab.ID, "此自动化历史为只读，请在 Orca 主对话中继续。")
 		return
 	}
+	if a.queueSubmitDuringRuntimeReconfigure(tabID, pendingRuntimeSubmit{display: display, input: input}) {
+		return
+	}
 	ctrl := a.ctrlByTabID(tabID)
 	if ctrl == nil {
 		return
@@ -801,6 +815,17 @@ func (a *App) SubmitDisplayToTab(tabID, display, input string) {
 	}
 	a.mu.Unlock()
 	ctrl.SubmitDisplay(display, input)
+}
+
+func (a *App) queueSubmitDuringRuntimeReconfigure(tabID string, pending pendingRuntimeSubmit) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	tab := a.tabByIDLocked(tabID)
+	if tab == nil || !tab.runtimeReconfiguring {
+		return false
+	}
+	tab.pendingRuntimeSubmits = append(tab.pendingRuntimeSubmits, pending)
+	return true
 }
 
 func (a *App) bindControllerDisplayRecorder(ctrl *control.Controller) {
@@ -825,6 +850,23 @@ func (a *App) CancelTab(tabID string) {
 	if ctrl := a.ctrlByTabID(tabID); ctrl != nil {
 		ctrl.Cancel()
 	}
+}
+
+type CancelAck struct {
+	Accepted bool   `json:"accepted"`
+	TurnID   string `json:"turnId,omitempty"`
+}
+
+// RequestCancelTab acknowledges whether a running turn accepted cancellation.
+// Completion still arrives through turn_completed(cancelled).
+func (a *App) RequestCancelTab(tabID string) CancelAck {
+	ctrl := a.ctrlByTabID(tabID)
+	if ctrl == nil || !ctrl.Running() {
+		return CancelAck{}
+	}
+	ack := CancelAck{Accepted: true, TurnID: fmt.Sprintf("%d", ctrl.Turn())}
+	ctrl.Cancel()
+	return ack
 }
 
 // Steer sends mid-turn guidance to the agent without interrupting the in-flight request.
@@ -2611,6 +2653,36 @@ func (a *App) SetPromptModeForTab(tabID string, mode string) error {
 	return a.SetConversationModeForTab(tabID, mode)
 }
 
+type RuntimeSwitchResult struct {
+	RequestedMode string `json:"requestedMode"`
+	AppliedMode   string `json:"appliedMode"`
+	Generation    uint64 `json:"generation"`
+	Completed     bool   `json:"completed"`
+}
+
+func (a *App) RequestConversationModeForTab(tabID string, mode string) (RuntimeSwitchResult, error) {
+	requested, err := validateProductPromptMode(mode)
+	if err != nil {
+		return RuntimeSwitchResult{}, err
+	}
+	if err := a.SetConversationModeForTab(tabID, requested); err != nil {
+		return RuntimeSwitchResult{RequestedMode: requested}, err
+	}
+	tab := a.tabByID(tabID)
+	if tab == nil {
+		return RuntimeSwitchResult{RequestedMode: requested}, nil
+	}
+	a.mu.RLock()
+	result := RuntimeSwitchResult{
+		RequestedMode: requested,
+		AppliedMode:   currentTabPromptMode(tab),
+		Generation:    tab.runtimeGeneration,
+		Completed:     !tab.runtimeReconfiguring,
+	}
+	a.mu.RUnlock()
+	return result, nil
+}
+
 func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	if tab := a.tabByID(tabID); tab != nil && tab.Scope == scopeAutomation {
 		if strings.ToLower(strings.TrimSpace(mode)) == promptModeOrca {
@@ -2627,12 +2699,31 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	if tab == nil {
 		return nil
 	}
-	if currentTabPromptMode(tab) == mode {
+	a.mu.RLock()
+	alreadyCurrent := currentTabPromptMode(tab) == mode
+	reconfiguring := tab.runtimeReconfiguring
+	a.mu.RUnlock()
+	if alreadyCurrent && !reconfiguring {
 		return nil
 	}
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
 		return fmt.Errorf("conversation is still running; queue the mode change until the turn finishes")
 	}
+	generation := a.beginTabRuntimeReconfigure(tab)
+	tab.runtimeMu.Lock()
+	defer tab.runtimeMu.Unlock()
+	if !a.tabRuntimeGenerationCurrent(tab, generation) {
+		return nil
+	}
+	if currentTabPromptMode(tab) == mode {
+		a.finishTabRuntimeReconfigure(tab, generation, true)
+		return nil
+	}
+	if tab.Ctrl != nil && tab.Ctrl.Running() {
+		return fmt.Errorf("conversation is still running; queue the mode change until the turn finishes")
+	}
+	success := false
+	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
 	oldCtrl := tab.Ctrl
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
 		Model:                   tab.model,
@@ -2667,10 +2758,14 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	resumeWithControllerSystem(newCtrl, carried, path)
 
 	a.mu.Lock()
-	if current := a.tabs[tab.ID]; current != tab || tab.Ctrl != oldCtrl {
+	if current := a.tabs[tab.ID]; current != tab || tab.runtimeGeneration != generation {
+		closed := current != tab
 		a.mu.Unlock()
 		newCtrl.Close()
-		return fmt.Errorf("conversation changed while switching mode; please try again")
+		if closed {
+			return fmt.Errorf("conversation closed while switching mode")
+		}
+		return nil
 	}
 	tab.Ctrl = newCtrl
 	tab.promptMode = mode
@@ -2685,6 +2780,7 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 		oldCtrl.Close()
 	}
 	a.persistTabSessionPath(tab, path)
+	success = true
 	return nil
 }
 
@@ -3959,7 +4055,11 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	if tab == nil {
 		return nil
 	}
-	if name == tab.model {
+	a.mu.RLock()
+	alreadyCurrent := name == tab.model
+	reconfiguring := tab.runtimeReconfiguring
+	a.mu.RUnlock()
+	if alreadyCurrent && !reconfiguring {
 		return nil
 	}
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
@@ -3968,6 +4068,21 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	if tab.Scope == scopeAutomation {
 		return a.SetAutomationModel(name)
 	}
+	generation := a.beginTabRuntimeReconfigure(tab)
+	tab.runtimeMu.Lock()
+	defer tab.runtimeMu.Unlock()
+	if !a.tabRuntimeGenerationCurrent(tab, generation) {
+		return nil
+	}
+	if name == tab.model {
+		a.finishTabRuntimeReconfigure(tab, generation, true)
+		return nil
+	}
+	if tab.Ctrl != nil && tab.Ctrl.Running() {
+		return fmt.Errorf("finish or cancel the current turn before changing model")
+	}
+	success := false
+	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
 	cfg, err := config.LoadForRoot(tab.WorkspaceRoot)
 	if err != nil {
 		return err
@@ -3997,11 +4112,11 @@ func (a *App) SetModelForTab(tabID, name string) error {
 
 	var carried []provider.Message
 	prevPath := ""
-	if tab.Ctrl != nil {
-		prevPath = tab.Ctrl.SessionPath()
-		_ = tab.Ctrl.Snapshot()
-		carried = tab.Ctrl.History()
-		tab.Ctrl.Close()
+	oldCtrl := tab.Ctrl
+	if oldCtrl != nil {
+		prevPath = oldCtrl.SessionPath()
+		_ = oldCtrl.Snapshot()
+		carried = oldCtrl.History()
 	}
 
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
@@ -4019,14 +4134,6 @@ func (a *App) SetModelForTab(tabID, name string) error {
 		return err
 	}
 	a.bindControllerDisplayRecorder(newCtrl)
-	a.mu.Lock()
-	tab.Ctrl = newCtrl
-	tab.model = name
-	tab.effort = cloneStringPtr(effortOverride)
-	tab.Label = newCtrl.Label()
-	a.rememberConversationPrefsLocked(tab)
-	a.saveTabsLocked()
-	a.mu.Unlock()
 	newCtrl.EnableInteractiveApproval()
 	applyTabModeToController(newCtrl, tab.mode)
 	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
@@ -4036,7 +4143,28 @@ func (a *App) SetModelForTab(tabID, name string) error {
 
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
 	resumeWithControllerSystem(newCtrl, carried, path)
+	a.mu.Lock()
+	if current := a.tabs[tab.ID]; current != tab || tab.runtimeGeneration != generation {
+		closed := current != tab
+		a.mu.Unlock()
+		newCtrl.Close()
+		if closed {
+			return fmt.Errorf("conversation closed while changing model")
+		}
+		return nil
+	}
+	tab.Ctrl = newCtrl
+	tab.model = name
+	tab.effort = cloneStringPtr(effortOverride)
+	tab.Label = newCtrl.Label()
+	a.rememberConversationPrefsLocked(tab)
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	if oldCtrl != nil {
+		oldCtrl.Close()
+	}
 	a.persistTabSessionPath(tab, path)
+	success = true
 	return nil
 }
 
@@ -4084,6 +4212,17 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 	if ctrl != nil && ctrl.Running() {
 		return fmt.Errorf("finish or cancel the current turn before changing effort")
 	}
+	generation := a.beginTabRuntimeReconfigure(tab)
+	tab.runtimeMu.Lock()
+	defer tab.runtimeMu.Unlock()
+	if !a.tabRuntimeGenerationCurrent(tab, generation) {
+		return nil
+	}
+	if tab.Ctrl != nil && tab.Ctrl.Running() {
+		return fmt.Errorf("finish or cancel the current turn before changing effort")
+	}
+	success := false
+	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
 	entry, err := a.currentProviderEntryForTab(tabID)
 	if err != nil {
 		return err
@@ -4094,11 +4233,11 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 	}
 	var carried []provider.Message
 	prevPath := ""
-	if tab.Ctrl != nil {
-		prevPath = tab.Ctrl.SessionPath()
-		_ = tab.Ctrl.Snapshot()
-		carried = tab.Ctrl.History()
-		tab.Ctrl.Close()
+	oldCtrl := tab.Ctrl
+	if oldCtrl != nil {
+		prevPath = oldCtrl.SessionPath()
+		_ = oldCtrl.Snapshot()
+		carried = oldCtrl.History()
 	}
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
 		Model:                   tab.model,
@@ -4115,15 +4254,6 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 		return err
 	}
 	a.bindControllerDisplayRecorder(newCtrl)
-	a.mu.Lock()
-	tab.Ctrl = newCtrl
-	tab.effort = &effort
-	tab.Label = newCtrl.Label()
-	tab.StartupErr = ""
-	tab.Ready = true
-	a.rememberConversationPrefsLocked(tab)
-	a.saveTabsLocked()
-	a.mu.Unlock()
 	newCtrl.EnableInteractiveApproval()
 	applyTabModeToController(newCtrl, tab.mode)
 	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
@@ -4132,7 +4262,29 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 	newCtrl.SetGoal(tab.goal)
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
 	resumeWithControllerSystem(newCtrl, carried, path)
+	a.mu.Lock()
+	if current := a.tabs[tab.ID]; current != tab || tab.runtimeGeneration != generation {
+		closed := current != tab
+		a.mu.Unlock()
+		newCtrl.Close()
+		if closed {
+			return fmt.Errorf("conversation closed while changing effort")
+		}
+		return nil
+	}
+	tab.Ctrl = newCtrl
+	tab.effort = &effort
+	tab.Label = newCtrl.Label()
+	tab.StartupErr = ""
+	tab.Ready = true
+	a.rememberConversationPrefsLocked(tab)
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	if oldCtrl != nil {
+		oldCtrl.Close()
+	}
 	a.persistTabSessionPath(tab, path)
+	success = true
 	return nil
 }
 

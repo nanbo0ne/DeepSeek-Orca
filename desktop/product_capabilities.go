@@ -37,8 +37,8 @@ func productCapabilities() ProductCapabilities {
 	}
 	return ProductCapabilities{
 		Edition:                    productEditionEngineering,
-		PromptModes:                []string{promptModeCoding, promptModeAssistant},
-		ConversationModes:          []string{promptModeCoding, promptModeAssistant},
+		PromptModes:                []string{promptModeAssistant, promptModeCoding},
+		ConversationModes:          []string{promptModeAssistant, promptModeCoding},
 		AssistantMemoryEnabled:     true,
 		AutomationWorkspaceEnabled: true,
 		OrcaEnabled:                true,

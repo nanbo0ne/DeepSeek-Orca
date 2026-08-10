@@ -1,13 +1,193 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/fileutil"
 )
+
+const (
+	mimoAPIKeyEnv       = "MIMO_API_KEY"
+	mimoTokenPlanKeyEnv = "MIMO_TOKEN_PLAN_API_KEY"
+)
+
+var configVersionLineRE = regexp.MustCompile(`(?m)^\s*config_version\s*=\s*([0-9]+)\s*(?:#.*)?$`)
+
+// migrateMimoCredentialsV10 performs the one-time split of the credential slot
+// that V9 accidentally shared between the two official MiMo endpoints.
+func migrateMimoCredentialsV10(cfg *config.Config, tabs desktopTabsFile) bool {
+	if cfg == nil || !userConfigPredatesV10() {
+		return false
+	}
+	path := credentialsPath()
+	marker := filepath.Join(desktopConfigDir(), "mimo-credentials-v10.migrated")
+	if _, err := os.Stat(marker); err == nil {
+		return false
+	}
+	keys := envFileKeys(path)
+	if keys[mimoTokenPlanKeyEnv] || !keys[mimoAPIKeyEnv] {
+		_ = writeMimoMigrationMarker(marker)
+		return false
+	}
+	access := map[string]bool{}
+	for _, raw := range cfg.Desktop.ProviderAccess {
+		access[config.CanonicalDesktopOfficialProviderName(raw)] = true
+	}
+	if !access["mimo-token-plan"] {
+		_ = writeMimoMigrationMarker(marker)
+		return false
+	}
+	source := "mimo-token-plan"
+	if access["mimo-api"] {
+		source = mimoCurrentSource(cfg, tabs)
+	}
+	if source == "mimo-token-plan" {
+		if err := moveMimoCredentialToTokenPlan(path); err != nil {
+			return false
+		}
+	}
+	_ = writeMimoMigrationMarker(marker)
+	return source == "mimo-token-plan"
+}
+
+func userConfigPredatesV10() bool {
+	b, err := os.ReadFile(config.UserConfigPath())
+	if err != nil {
+		return false
+	}
+	m := configVersionLineRE.FindSubmatch(b)
+	if len(m) != 2 {
+		return true
+	}
+	return string(m[1]) != "10"
+}
+
+func mimoCurrentSource(cfg *config.Config, tabs desktopTabsFile) string {
+	refs := make([]string, 0, 4+len(tabs.Tabs))
+	for _, tab := range tabs.Tabs {
+		if tab.ID == tabs.ActiveTab {
+			refs = append(refs, tab.Model)
+			break
+		}
+	}
+	refs = append(refs, tabs.RecentConversationPrefs.Model, cfg.DefaultModel, cfg.Bot.Model)
+	for _, ref := range refs {
+		provider, _, ok := strings.Cut(strings.TrimSpace(ref), "/")
+		if ok && (provider == "mimo-api" || provider == "mimo-token-plan") {
+			return provider
+		}
+	}
+	return "mimo-api"
+}
+
+func currentMimoCredentialSource() string {
+	apiValue, apiSet := os.LookupEnv(mimoAPIKeyEnv)
+	planValue, planSet := os.LookupEnv(mimoTokenPlanKeyEnv)
+	apiSet = apiSet && strings.TrimSpace(apiValue) != ""
+	planSet = planSet && strings.TrimSpace(planValue) != ""
+	if planSet && !apiSet {
+		return "mimo-token-plan"
+	}
+	return "mimo-api"
+}
+
+func normalizeLegacyMimoDesktopState(cfg *config.Config, tabs *desktopTabsFile, source string) {
+	if source != "mimo-token-plan" {
+		source = "mimo-api"
+	}
+	normalize := func(ref string) string {
+		trimmed := strings.TrimSpace(ref)
+		provider, model, hasModel := strings.Cut(trimmed, "/")
+		if hasModel && (provider == "mimo-flash" || provider == "mimo-pro") {
+			return source + "/" + model
+		}
+		if !hasModel && (trimmed == "mimo-v2.5" || trimmed == "mimo-v2.5-pro") {
+			return source + "/" + trimmed
+		}
+		return ref
+	}
+	if cfg != nil {
+		cfg.DefaultModel = normalize(cfg.DefaultModel)
+		cfg.Bot.Model = normalize(cfg.Bot.Model)
+		cfg.Agent.PlannerModel = normalize(cfg.Agent.PlannerModel)
+		cfg.Agent.SubagentModel = normalize(cfg.Agent.SubagentModel)
+		for name, ref := range cfg.Agent.SubagentModels {
+			cfg.Agent.SubagentModels[name] = normalize(ref)
+		}
+	}
+	if tabs != nil {
+		for i := range tabs.Tabs {
+			tabs.Tabs[i].Model = normalize(tabs.Tabs[i].Model)
+		}
+		tabs.RecentConversationPrefs.Model = normalize(tabs.RecentConversationPrefs.Model)
+	}
+}
+
+func moveMimoCredentialToTokenPlan(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	backup := path + ".v9-mimo.bak"
+	if _, err := os.Stat(backup); os.IsNotExist(err) {
+		if err := os.WriteFile(backup, b, 0o600); err != nil {
+			return err
+		}
+	}
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "export "))
+		key, value, ok := strings.Cut(trimmed, "=")
+		if ok && strings.TrimSpace(key) == mimoAPIKeyEnv {
+			lines[i] = mimoTokenPlanKeyEnv + "=" + value
+			if err := os.Setenv(mimoTokenPlanKeyEnv, value); err != nil {
+				return err
+			}
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("legacy MiMo credential not found")
+	}
+	if err := atomicWriteEnvFile(path, strings.Join(lines, "\n")+"\n"); err != nil {
+		return err
+	}
+	return os.Unsetenv(mimoAPIKeyEnv)
+}
+
+func atomicWriteEnvFile(path, contents string) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "credentials.*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.WriteString(contents); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return fileutil.ReplaceFile(tmpPath, path)
+}
+
+func writeMimoMigrationMarker(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte("10\n"), 0o600)
+}
 
 // credentialsPath is the deepseek-orca-owned global secrets file the settings panel
 // writes API keys to — the same file `deepseek-orca setup` writes and config.loadDotEnv

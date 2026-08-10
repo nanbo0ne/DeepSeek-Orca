@@ -13,6 +13,23 @@ func hasModel(c *Config, model string) *ProviderEntry {
 	return nil
 }
 
+func TestExactMimoReferenceNeverFallsBackAcrossProviderIdentity(t *testing.T) {
+	t.Setenv("MIMO_API_KEY", "api-key")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "plan-key")
+	c := Default()
+	c.Desktop.ProviderAccess = []string{"mimo-api", "mimo-token-plan"}
+	normalizeDesktopOfficialProviderAccess(c)
+	api, _ := c.Provider("mimo-api")
+	api.Models = []string{"mimo-v2.5"}
+	api.Default = "mimo-v2.5"
+	if resolved, fallback, ok := c.ResolveModelWithFallback("mimo-api/mimo-v2.5-pro"); ok || fallback || resolved != "" {
+		t.Fatalf("missing exact API ref crossed provider identity: resolved=%q fallback=%v ok=%v", resolved, fallback, ok)
+	}
+	if got, ok := c.ResolveModel("mimo-token-plan/mimo-v2.5-pro"); !ok || got.Name != "mimo-token-plan" {
+		t.Fatalf("exact Token Plan ref = %+v, %v", got, ok)
+	}
+}
+
 func TestBackfillDeepSeekProRestoresPro(t *testing.T) {
 	c := &Config{Providers: []ProviderEntry{
 		{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY"},

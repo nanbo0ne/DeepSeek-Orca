@@ -4,11 +4,11 @@ This desktop build exposes **Coding** and **Assistant** conversation modes plus 
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.0)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.1/DeepSeek-Orca-linux-amd64.deb)
+- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.1)
 
 ## Scope
 

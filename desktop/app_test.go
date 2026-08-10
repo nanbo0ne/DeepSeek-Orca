@@ -440,6 +440,7 @@ func TestSettingsInfersLegacyProviderAccessWhenMissing(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
 	t.Setenv("MIMO_API_KEY", "sk-test")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "sk-plan-test")
 	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
@@ -514,7 +515,7 @@ api_key_env = "DEEPSEEK_API_KEY"
 func TestSettingsInfersConfiguredBuiltInsWithoutConfigFile(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "sk-test")
 
 	got := NewApp().Settings()
 	providers := map[string]ProviderView{}
@@ -623,7 +624,7 @@ api_key_env = "MIMO_API_KEY"
 func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
-	t.Setenv("MIMO_API_KEY", "sk-test")
+	t.Setenv("MIMO_TOKEN_PLAN_API_KEY", "sk-test")
 
 	cfg := config.Default()
 	cfg.DefaultModel = "deepseek-flash/deepseek-v4-flash"

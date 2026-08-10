@@ -74,6 +74,19 @@ type WorkspaceTab struct {
 	promptMode       string
 	disabledMCP      map[string]ServerView
 	mcpOrder         []string
+
+	// runtimeMu serialises every operation that replaces Ctrl. The App mutex
+	// protects the fields below; runtimeMu deliberately stays per-tab so an
+	// unrelated conversation can still start or switch models concurrently.
+	runtimeMu             sync.Mutex
+	runtimeGeneration     uint64
+	runtimeReconfiguring  bool
+	pendingRuntimeSubmits []pendingRuntimeSubmit
+}
+
+type pendingRuntimeSubmit struct {
+	display string
+	input   string
 }
 
 type recentConversationPrefs struct {
@@ -1236,6 +1249,14 @@ func (a *App) startTabControllerBuild(tab *WorkspaceTab) {
 }
 
 func (a *App) buildTabController(tab *WorkspaceTab) {
+	generation := a.beginTabRuntimeReconfigure(tab)
+	tab.runtimeMu.Lock()
+	defer tab.runtimeMu.Unlock()
+	buildSucceeded := false
+	defer func() { a.finishTabRuntimeReconfigure(tab, generation, buildSucceeded) }()
+	if !a.tabRuntimeGenerationCurrent(tab, generation) {
+		return
+	}
 	wailsCtx := a.ctx
 	buildCtx := a.bootContext()
 
@@ -1481,15 +1502,86 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 	}
 
 	a.mu.Lock()
+	if a.tabs[tab.ID] != tab || tab.runtimeGeneration != generation {
+		a.mu.Unlock()
+		ctrl.Close()
+		return
+	}
 	tab.Ctrl = ctrl
 	tab.Label = ctrl.Label()
 	tab.Ready = true
 	tab.StartupErr = ""
 	a.mu.Unlock()
+	buildSucceeded = true
 	a.emitReady(wailsCtx)
 	if isBrokenAutoTopicTitle(loadTopicTitle(topicTitleRoot(tab.Scope, tab.WorkspaceRoot), tab.TopicID)) &&
 		loadTopicTitleSource(topicTitleRoot(tab.Scope, tab.WorkspaceRoot), tab.TopicID) == topicTitleSourceAuto {
 		go a.maybeAutoTitleTopic(tab)
+	}
+}
+
+func (a *App) beginTabRuntimeReconfigure(tab *WorkspaceTab) uint64 {
+	if tab == nil {
+		return 0
+	}
+	a.mu.Lock()
+	tab.runtimeGeneration++
+	tab.runtimeReconfiguring = true
+	generation := tab.runtimeGeneration
+	a.mu.Unlock()
+	return generation
+}
+
+func (a *App) tabRuntimeGenerationCurrent(tab *WorkspaceTab, generation uint64) bool {
+	if tab == nil || generation == 0 {
+		return false
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.tabs[tab.ID] == tab && tab.runtimeGeneration == generation
+}
+
+func (a *App) finishTabRuntimeReconfigure(tab *WorkspaceTab, generation uint64, success bool) {
+	if tab == nil {
+		return
+	}
+	a.mu.Lock()
+	if tab.runtimeGeneration != generation {
+		a.mu.Unlock()
+		return
+	}
+	tab.runtimeReconfiguring = false
+	queued := append([]pendingRuntimeSubmit(nil), tab.pendingRuntimeSubmits...)
+	if success {
+		tab.pendingRuntimeSubmits = nil
+	}
+	a.mu.Unlock()
+	if success && len(queued) > 0 {
+		go a.drainRuntimeSubmits(tab, queued)
+	}
+}
+
+func (a *App) drainRuntimeSubmits(tab *WorkspaceTab, queued []pendingRuntimeSubmit) {
+	for _, pending := range queued {
+		for {
+			ctrl := a.ctrlByTabID(tab.ID)
+			if ctrl == nil {
+				return
+			}
+			if !ctrl.Running() {
+				if pending.display != "" && pending.display != pending.input {
+					ctrl.SubmitDisplay(pending.display, pending.input)
+				} else {
+					ctrl.Submit(pending.input)
+				}
+				break
+			}
+			select {
+			case <-time.After(50 * time.Millisecond):
+			case <-a.bootContext().Done():
+				return
+			}
+		}
 	}
 }
 

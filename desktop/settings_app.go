@@ -14,7 +14,9 @@ import (
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
+	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/provider"
+	"deepseek-orca/internal/tool"
 	"deepseek-orca/internal/visioncap"
 )
 
@@ -634,13 +636,21 @@ func (a *App) rebuild() error {
 	if tab == nil {
 		return fmt.Errorf("no active tab")
 	}
+	generation := a.beginTabRuntimeReconfigure(tab)
+	tab.runtimeMu.Lock()
+	defer tab.runtimeMu.Unlock()
+	if !a.tabRuntimeGenerationCurrent(tab, generation) {
+		return nil
+	}
+	success := false
+	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
 	var carried []provider.Message
 	prevPath := ""
-	if tab.Ctrl != nil {
-		prevPath = tab.Ctrl.SessionPath()
-		_ = tab.Ctrl.Snapshot()
-		carried = tab.Ctrl.History()
-		tab.Ctrl.Close()
+	oldCtrl := tab.Ctrl
+	if oldCtrl != nil {
+		prevPath = oldCtrl.SessionPath()
+		_ = oldCtrl.Snapshot()
+		carried = oldCtrl.History()
 	}
 	model := tab.model
 	if cfg, err := config.LoadForRoot(tab.WorkspaceRoot); err == nil {
@@ -670,15 +680,6 @@ func (a *App) rebuild() error {
 		return err
 	}
 	a.bindControllerDisplayRecorder(ctrl)
-	a.mu.Lock()
-	tab.Ctrl = ctrl
-	tab.model = model
-	tab.Label = ctrl.Label()
-	tab.StartupErr = ""
-	tab.Ready = true
-	a.saveTabsLocked()
-	a.mu.Unlock()
-	a.emitReady(a.ctx)
 	ctrl.EnableInteractiveApproval()
 	applyTabModeToController(ctrl, tab.mode)
 	applyTabToolApprovalModeToController(ctrl, tab.toolApprovalMode)
@@ -692,7 +693,29 @@ func (a *App) rebuild() error {
 	} else if path != "" {
 		ctrl.SetSessionPath(path)
 	}
+	a.mu.Lock()
+	if current := a.tabs[tab.ID]; current != tab || tab.runtimeGeneration != generation {
+		closed := current != tab
+		a.mu.Unlock()
+		ctrl.Close()
+		if closed {
+			return fmt.Errorf("conversation closed while rebuilding settings")
+		}
+		return nil
+	}
+	tab.Ctrl = ctrl
+	tab.model = model
+	tab.Label = ctrl.Label()
+	tab.StartupErr = ""
+	tab.Ready = true
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	if oldCtrl != nil {
+		oldCtrl.Close()
+	}
+	a.emitReady(a.ctx)
 	a.persistTabSessionPath(tab, path)
+	success = true
 	return nil
 }
 
@@ -862,10 +885,10 @@ func officialProviderTemplate(kind string) ([]config.ProviderEntry, string, erro
 			BaseURL:       "https://token-plan-cn.xiaomimimo.com/v1",
 			Models:        []string{"mimo-v2.5-pro"},
 			Default:       "mimo-v2.5-pro",
-			APIKeyEnv:     "MIMO_API_KEY",
+			APIKeyEnv:     "MIMO_TOKEN_PLAN_API_KEY",
 			ContextWindow: 1_048_576,
 			NoProxy:       true,
-		}}, "MIMO_API_KEY", nil
+		}}, "MIMO_TOKEN_PLAN_API_KEY", nil
 	default:
 		return nil, "", fmt.Errorf("unknown official provider template %q", kind)
 	}
@@ -1568,24 +1591,112 @@ func (a *App) rebuildAutomationTabModelWhenIdle(tab *WorkspaceTab, modelRef stri
 }
 
 func (a *App) rebuildAutomationTabModel(tab *WorkspaceTab, modelRef string, expected *control.Controller) {
-	a.mu.Lock()
-	if tab == nil || tab.Scope != scopeAutomation || tab.ReadOnly || tab.Ctrl != expected || (tab.Ctrl != nil && tab.Ctrl.Running()) {
-		a.mu.Unlock()
+	if tab == nil {
 		return
 	}
+	generation := a.beginTabRuntimeReconfigure(tab)
+	tab.runtimeMu.Lock()
+	defer tab.runtimeMu.Unlock()
+	if !a.tabRuntimeGenerationCurrent(tab, generation) {
+		return
+	}
+
+	a.mu.RLock()
+	valid := a.tabs[tab.ID] == tab && tab.Scope == scopeAutomation && !tab.ReadOnly && tab.Ctrl == expected && (tab.Ctrl == nil || !tab.Ctrl.Running())
+	a.mu.RUnlock()
+	if !valid {
+		a.finishTabRuntimeReconfigure(tab, generation, false)
+		return
+	}
+
+	success := false
+	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
+	cfg, err := config.LoadForRoot(tab.WorkspaceRoot)
+	if err != nil {
+		a.noticeForTab(tab.ID, fmt.Sprintf("could not switch Orca model: %v", err))
+		return
+	}
+	resolved, _, ok := cfg.ResolveModelWithFallback(modelRef)
+	if !ok || resolved != modelRef {
+		a.noticeForTab(tab.ID, fmt.Sprintf("could not switch Orca model: model %q is unavailable", modelRef))
+		return
+	}
+
 	oldCtrl := tab.Ctrl
-	tab.Ctrl = nil
+	var carried []provider.Message
+	prevPath := ""
+	if oldCtrl != nil {
+		prevPath = oldCtrl.SessionPath()
+		_ = oldCtrl.Snapshot()
+		carried = oldCtrl.History()
+	}
+
+	assistantStoreDir := ""
+	if store, storeErr := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir()); storeErr == nil {
+		assistantStoreDir = store.Dir
+	} else {
+		a.noticeForTab(tab.ID, fmt.Sprintf("could not prepare shared assistant profile: %v", storeErr))
+	}
+	var extraTools []tool.Tool
+	var turnContext func() string
+	if a.conversationBroker != nil {
+		extraTools = a.conversationBroker.Tools(tab.ID, tab.TopicID)
+		turnContext = func() string { return a.conversationBroker.Index(tab.TopicID) }
+	}
+	extraTools = append(extraTools, automationHistoryTool{
+		topicID:     tab.TopicID,
+		currentPath: func() string { return tab.currentSessionPath() },
+	})
+
+	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
+		Model:                   modelRef,
+		RequireKey:              false,
+		Sink:                    tab.sink,
+		WorkspaceRoot:           tab.WorkspaceRoot,
+		SessionDir:              tabSessionDir(tab),
+		EffortOverride:          cloneStringPtr(tab.effort),
+		RuntimeProfile:          promptModeOrca,
+		MemoryProfile:           memory.ProfileAssistant,
+		AssistantMemoryStoreDir: assistantStoreDir,
+		ExtraTools:              extraTools,
+		TurnContext:             turnContext,
+		TurnLease:               a.sessionGate.Acquire,
+		RefreshOnLease:          true,
+	})
+	if err != nil {
+		a.noticeForTab(tab.ID, fmt.Sprintf("could not switch Orca model: %v", err))
+		return
+	}
+	a.bindControllerDisplayRecorder(newCtrl)
+	newCtrl.EnableInteractiveApproval()
+	applyTabModeToController(newCtrl, tab.mode)
+	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
+	newCtrl.SetTrustedAutomationAccess(cfg.Desktop.AutomationFullAccess)
+	newCtrl.SetAskWorkflow(tab.askWorkflow)
+	newCtrl.SetStepThinking(tab.stepThinking)
+	newCtrl.SetGoal(tab.goal)
+	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
+	resumeWithControllerSystem(newCtrl, carried, path)
+
+	a.mu.Lock()
+	if current := a.tabs[tab.ID]; current != tab || tab.runtimeGeneration != generation || tab.Ctrl != expected {
+		a.mu.Unlock()
+		newCtrl.Close()
+		return
+	}
+	tab.Ctrl = newCtrl
 	tab.model = modelRef
-	tab.Label = modelRef
-	tab.Ready = false
+	tab.Label = newCtrl.Label()
 	tab.StartupErr = ""
+	tab.Ready = true
+	a.rememberConversationPrefsLocked(tab)
 	a.saveTabsLocked()
 	a.mu.Unlock()
 	if oldCtrl != nil {
-		_ = oldCtrl.Snapshot()
 		oldCtrl.Close()
 	}
-	a.startTabControllerBuild(tab)
+	a.persistTabSessionPath(tab, path)
+	success = true
 }
 
 // SetExpandThinking sets whether reasoning text is expanded by default on

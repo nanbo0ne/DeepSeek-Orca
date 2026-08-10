@@ -91,6 +91,7 @@ interface State {
   loading: boolean;
   hydrating: boolean;
   running: boolean;
+  cancelRequested: boolean;
   turnActive: boolean;
   approval?: WireApproval;
   ask?: WireAsk;
@@ -124,6 +125,7 @@ export const initialState: State = {
   loading: false,
   hydrating: false,
   running: false,
+  cancelRequested: false,
   turnActive: false,
   context: { used: 0, window: 0, sessionTokens: 0 },
   jobs: [],
@@ -191,6 +193,8 @@ type Action =
   | { type: "event"; e: WireEvent }
   | { type: "user"; text: string; seq: number }
   | { type: "unsend" }
+  | { type: "cancel_requested" }
+  | { type: "cancel_rejected" }
   | { type: "send_failed"; error: string }
   | { type: "backend_status"; running: boolean }
   | { type: "meta"; meta: Meta }
@@ -415,7 +419,7 @@ function appendTurnStats(s: State, items: Item[], outcome: TurnOutcome, finalMes
 
 function applyEvent(s: State, e: WireEvent): State {
   if (s.discardTurn) {
-    if (e.kind === "turn_done") return { ...s, discardTurn: false, running: false, turnActive: false, currentAssistant: undefined, live: undefined };
+    if (e.kind === "turn_done") return { ...s, discardTurn: false, running: false, cancelRequested: false, turnActive: false, currentAssistant: undefined, live: undefined };
     return s;
   }
   if (s.pendingUser !== undefined && e.kind !== "turn_done") {
@@ -469,6 +473,7 @@ function applyEvent(s: State, e: WireEvent): State {
         currentTurnId: turnId,
         committedFinalMessageId: undefined,
         running: true,
+        cancelRequested: false,
         turnActive: true,
         turnStartAt: cur.turnActive && cur.turnStartAt ? cur.turnStartAt : now,
         turnProcessStartAt: cur.turnActive ? cur.turnProcessStartAt : 0,
@@ -602,7 +607,7 @@ function applyEvent(s: State, e: WireEvent): State {
       const showError = Boolean(e.err) && outcome !== "cancelled";
       const withError: Item[] = showError ? [...finalized, { kind: "notice", id: `e${s.seq}`, level: "warn", text: e.err!, turnId: e.turnId || s.currentTurnId }] : finalized;
       const stats = appendTurnStats(s, withError, outcome, finalMessageId);
-      return { ...s, items: stats.items, live: undefined, running: false, turnActive: false, currentAssistant: undefined, currentTurnId: undefined, committedFinalMessageId: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
+      return { ...s, items: stats.items, live: undefined, running: false, cancelRequested: false, turnActive: false, currentAssistant: undefined, currentTurnId: undefined, committedFinalMessageId: undefined, approval: undefined, ask: undefined, seq: stats.seq, turnStartAt: 0, turnProcessStartAt: 0, turnTokens: 0, turnUsageTokens: 0 };
     }
     default: return s;
   }
@@ -626,6 +631,8 @@ export function reducer(s: State, a: Action): State {
       };
     }
     case "unsend": return { ...s, pendingUser: undefined, discardTurn: true, running: false, live: undefined };
+    case "cancel_requested": return s.cancelRequested ? s : { ...s, cancelRequested: true };
+    case "cancel_rejected": return s.cancelRequested ? { ...s, cancelRequested: false } : s;
     case "send_failed": {
       if (s.pendingUser === undefined) return s;
       let idx = -1;
@@ -1080,11 +1087,19 @@ export function useController() {
       const text = cur.pendingUser;
       if (tabId) {
         dispatchTo(tabId, { type: "unsend" });
-        app.CancelTab(tabId).catch(() => {});
+        dispatchTo(tabId, { type: "cancel_requested" });
+        app.RequestCancelTab(tabId).then((ack) => {
+          if (!ack.accepted) dispatchTo(tabId, { type: "cancel_rejected" });
+        }).catch(() => dispatchTo(tabId, { type: "cancel_rejected" }));
       }
       return text;
     }
-    if (tabId) app.CancelTab(tabId).catch(() => {});
+    if (tabId) {
+      dispatchTo(tabId, { type: "cancel_requested" });
+      app.RequestCancelTab(tabId).then((ack) => {
+        if (!ack.accepted) dispatchTo(tabId, { type: "cancel_rejected" });
+      }).catch(() => dispatchTo(tabId, { type: "cancel_rejected" }));
+    }
     return undefined;
   }, [activeTabId, dispatchTo]);
 

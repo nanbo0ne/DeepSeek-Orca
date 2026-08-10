@@ -4390,10 +4390,11 @@ a[href] {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  height: 32px;
-  min-width: 86px;
-  max-width: 112px;
-  padding: 0 10px;
+  height: 36px;
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
+  padding: 0 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-elev);
@@ -4412,14 +4413,14 @@ a[href] {
   background: var(--bg);
   outline: none;
 }
-.composer-enhanced__button--enhanced {
+.composer-enhanced__button--coding {
   color: var(--control-primary-fg);
   border-color: color-mix(in srgb, var(--control-primary-bg) 72%, var(--border));
   background: var(--control-primary-bg);
 }
-.composer-enhanced__button--enhanced:hover:not(:disabled),
-.composer-enhanced__button--enhanced:focus-visible,
-.composer-enhanced__button--enhanced.composer-enhanced__button--open {
+.composer-enhanced__button--coding:hover:not(:disabled),
+.composer-enhanced__button--coding:focus-visible,
+.composer-enhanced__button--coding.composer-enhanced__button--open {
   color: var(--control-primary-fg);
   background: color-mix(in srgb, var(--control-primary-bg) 88%, #000);
 }
@@ -4430,6 +4431,9 @@ a[href] {
 .composer-enhanced__button--switching:disabled {
   cursor: progress;
   opacity: 0.74;
+}
+.composer-enhanced__button--switching svg:first-child {
+  animation: spin 0.85s linear infinite;
 }
 .composer-enhanced__button span {
   min-width: 0;
@@ -12807,9 +12811,12 @@ a[href] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 9px;
+  gap: 0;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  height: 34px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
   border-radius: 7px;
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev-2));
@@ -12847,12 +12854,12 @@ a[href] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  width: 58px;
-  min-width: 58px;
-  max-width: 58px;
-  height: 26px;
-  padding: 0 7px;
+  gap: 0;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  height: 34px;
+  padding: 0;
   border-radius: 7px;
   font: inherit;
   font-weight: 620;
@@ -12900,6 +12907,12 @@ a[href] {
   background: var(--button-bg);
   border-color: var(--border-soft);
   box-shadow: none;
+}
+.composer-runstatus__primary--stopping:disabled {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 36%, var(--border));
+  background: color-mix(in srgb, var(--err) 10%, var(--bg-elev-2));
+  opacity: 0.7;
 }
 .composer-runstatus__primary:disabled:hover,
 .composer-runstatus__primary:disabled:focus-visible {
@@ -12980,9 +12993,9 @@ a[href] {
 
   .composer-runstatus__pause,
   .composer-runstatus__primary {
-    width: 28px;
-    min-width: 28px;
-    max-width: 28px;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
     padding: 0;
   }
 }
@@ -20444,9 +20457,9 @@ a[href] {
 
   .composer-runstatus__pause,
   .composer-runstatus__primary {
-    width: 28px;
-    min-width: 28px;
-    max-width: 28px;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
     padding-inline: 0;
   }
 }

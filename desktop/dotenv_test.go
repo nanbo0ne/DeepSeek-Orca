@@ -125,3 +125,57 @@ func TestPromoteProviderKeysLeavesExistingCredentialsKey(t *testing.T) {
 		t.Errorf("~/.env should be untouched when key already global, err=%v", err)
 	}
 }
+
+func TestMigrateMimoCredentialsV10AssignsSharedKeyToActivePlan(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte("config_version = 9\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserCredentialsPath(), []byte("MIMO_API_KEY=legacy-plan-key\nOTHER=keep\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(mimoAPIKeyEnv, "legacy-plan-key")
+	cfg := config.Default()
+	cfg.Desktop.ProviderAccess = []string{"mimo-api", "mimo-token-plan"}
+	tabs := desktopTabsFile{ActiveTab: "active", Tabs: []desktopTabEntry{{ID: "active", Model: "mimo-token-plan/mimo-v2.5-pro"}}}
+	if !migrateMimoCredentialsV10(cfg, tabs) {
+		t.Fatal("expected the legacy key to migrate to Token Plan")
+	}
+	body, err := os.ReadFile(config.UserCredentialsPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	if strings.Contains(text, "MIMO_API_KEY=") || !strings.Contains(text, "MIMO_TOKEN_PLAN_API_KEY=legacy-plan-key") || !strings.Contains(text, "OTHER=keep") {
+		t.Fatalf("migrated credentials = %q", text)
+	}
+	if _, err := os.Stat(config.UserCredentialsPath() + ".v9-mimo.bak"); err != nil {
+		t.Fatalf("migration backup missing: %v", err)
+	}
+}
+
+func TestMigrateMimoCredentialsV10KeepsSharedKeyForActiveAPI(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	if err := os.MkdirAll(filepath.Dir(config.UserConfigPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserConfigPath(), []byte("config_version = 9\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.UserCredentialsPath(), []byte("MIMO_API_KEY=api-key\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	cfg.Desktop.ProviderAccess = []string{"mimo-api", "mimo-token-plan"}
+	tabs := desktopTabsFile{ActiveTab: "active", Tabs: []desktopTabEntry{{ID: "active", Model: "mimo-api/mimo-v2.5"}}}
+	if migrateMimoCredentialsV10(cfg, tabs) {
+		t.Fatal("API-owned key must not migrate to Token Plan")
+	}
+	body, _ := os.ReadFile(config.UserCredentialsPath())
+	if string(body) != "MIMO_API_KEY=api-key\n" {
+		t.Fatalf("API credentials changed: %q", body)
+	}
+}
