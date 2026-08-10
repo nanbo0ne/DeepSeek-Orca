@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"deepseek-orca/internal/agent"
+	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/provider"
@@ -23,6 +24,83 @@ func testTab(id, root string) *WorkspaceTab {
 		model:         "deepseek-flash/deepseek-v4-flash",
 		mode:          "normal",
 		disabledMCP:   map[string]ServerView{},
+	}
+}
+
+func TestConversationModeSwitchReplacesOnlySystemMessage(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	cfg := config.LoadForEdit(config.UserConfigPath())
+	cfg.Codegraph.Enabled = false
+	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	app.ctx = context.Background()
+	tab := testTab("mode-switch", t.TempDir())
+	tab.promptMode = promptModeCoding
+	tab.Ctrl.Close()
+	tab.Ctrl = control.New(control.Options{Label: tab.ID, Executor: agent.New(nil, nil, agent.NewSession(""), agent.Options{}, event.Discard)})
+	session := agent.NewSession("OLD CODING SYSTEM")
+	session.Add(provider.Message{Role: provider.RoleUser, Content: "keep this user message"})
+	session.Add(provider.Message{Role: provider.RoleAssistant, Content: "keep this assistant message"})
+	tab.Ctrl.Resume(session, filepath.Join(t.TempDir(), "mode-switch.jsonl"))
+	app.tabs = map[string]*WorkspaceTab{tab.ID: tab}
+	app.tabOrder = []string{tab.ID}
+	app.activeTabID = tab.ID
+	old := tab.Ctrl
+	defer func() {
+		if tab.Ctrl != nil {
+			tab.Ctrl.Close()
+		}
+	}()
+
+	if err := app.SetConversationModeForTab(tab.ID, promptModeAssistant); err != nil {
+		t.Fatalf("SetConversationModeForTab: %v", err)
+	}
+	if tab.Ctrl == old || currentTabPromptMode(tab) != promptModeAssistant {
+		t.Fatalf("controller/profile did not switch")
+	}
+	history := tab.Ctrl.History()
+	systems, users, assistants := 0, 0, 0
+	for _, message := range history {
+		switch message.Role {
+		case provider.RoleSystem:
+			systems++
+			if strings.Contains(message.Content, "OLD CODING SYSTEM") || !strings.Contains(message.Content, "Assistant mode") {
+				t.Fatalf("wrong replacement system prompt: %q", message.Content)
+			}
+		case provider.RoleUser:
+			if message.Content == "keep this user message" {
+				users++
+			}
+		case provider.RoleAssistant:
+			if message.Content == "keep this assistant message" {
+				assistants++
+			}
+		}
+	}
+	if systems != 1 || users != 1 || assistants != 1 {
+		t.Fatalf("history after switch: systems=%d users=%d assistants=%d", systems, users, assistants)
+	}
+}
+
+func TestConversationModeBuildFailureKeepsOldController(t *testing.T) {
+	isolateDesktopUserDirs(t)
+	app := NewApp()
+	app.ctx = context.Background()
+	tab := testTab("mode-failure", t.TempDir())
+	tab.promptMode = promptModeCoding
+	tab.model = "missing-provider/missing-model"
+	app.tabs = map[string]*WorkspaceTab{tab.ID: tab}
+	app.tabOrder = []string{tab.ID}
+	old := tab.Ctrl
+	defer old.Close()
+
+	if err := app.SetConversationModeForTab(tab.ID, promptModeAssistant); err == nil {
+		t.Fatal("mode switch unexpectedly succeeded with an invalid model")
+	}
+	if tab.Ctrl != old || currentTabPromptMode(tab) != promptModeCoding {
+		t.Fatal("failed mode switch replaced the working controller or persisted the target mode")
 	}
 }
 
@@ -248,7 +326,7 @@ func TestSaveTabsPersistsGoalAndToolApprovalMode(t *testing.T) {
 	}
 }
 
-func TestSaveTabsPersistsV2WorkflowAndEnhancedMode(t *testing.T) {
+func TestSaveTabsMigratesEnhancedModeToCoding(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	app := NewApp()
@@ -269,15 +347,15 @@ func TestSaveTabsPersistsV2WorkflowAndEnhancedMode(t *testing.T) {
 	if len(got.Tabs) != 1 {
 		t.Fatalf("tabs len = %d, want 1", len(got.Tabs))
 	}
-	if !got.Tabs[0].AskWorkflow || !got.Tabs[0].StepThinking || got.Tabs[0].PromptMode != promptModeEnhanced || !got.Tabs[0].EnhancedMode {
-		t.Fatalf("saved V2 flags = ask:%v step:%v prompt:%q enhanced:%v, want all true/enhanced", got.Tabs[0].AskWorkflow, got.Tabs[0].StepThinking, got.Tabs[0].PromptMode, got.Tabs[0].EnhancedMode)
+	if !got.Tabs[0].AskWorkflow || !got.Tabs[0].StepThinking || got.Tabs[0].PromptMode != promptModeCoding || got.Tabs[0].EnhancedMode {
+		t.Fatalf("saved profile = ask:%v step:%v prompt:%q enhanced:%v, want coding without legacy flag", got.Tabs[0].AskWorkflow, got.Tabs[0].StepThinking, got.Tabs[0].PromptMode, got.Tabs[0].EnhancedMode)
 	}
 }
 
 func TestLegacyEnhancedModeRestoresPromptMode(t *testing.T) {
 	entry := desktopTabEntry{EnhancedMode: true}
-	if got := normalizePromptMode(entry.PromptMode, entry.EnhancedMode); got != promptModeEnhanced {
-		t.Fatalf("legacy prompt mode = %q, want enhanced", got)
+	if got := normalizePromptMode(entry.PromptMode, entry.EnhancedMode); got != promptModeCoding {
+		t.Fatalf("legacy prompt mode = %q, want coding", got)
 	}
 }
 
@@ -313,8 +391,8 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	if err := app.NewSession(); err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || app.recentPrefs.PromptMode != promptModeNormal {
-		t.Fatalf("recent prefs = %+v, want model/effort/auto/normal", app.recentPrefs)
+	if app.recentPrefs.Model != tab.model || app.recentPrefs.Effort == nil || *app.recentPrefs.Effort != effort || app.recentPrefs.ToolApprovalMode != control.ToolApprovalAuto || app.recentPrefs.PromptMode != promptModeAssistant {
+		t.Fatalf("recent prefs = %+v, want model/effort/auto/assistant", app.recentPrefs)
 	}
 	if tab.askWorkflow || tab.stepThinking || tab.mode != "normal" || tab.goal != "" {
 		t.Fatalf("temporary modes after NewSession = ask:%v step:%v mode:%q goal:%q, want reset", tab.askWorkflow, tab.stepThinking, tab.mode, tab.goal)
@@ -327,7 +405,7 @@ func TestNewSessionInheritsRecentConversationPrefsButResetsTemporaryModes(t *tes
 	app.mu.Lock()
 	app.applyRecentPrefsToNewTabLocked(next)
 	app.mu.Unlock()
-	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || currentTabPromptMode(next) != promptModeNormal {
+	if next.model != tab.model || next.effort == nil || *next.effort != effort || next.toolApprovalMode != control.ToolApprovalAuto || currentTabPromptMode(next) != promptModeAssistant {
 		t.Fatalf("new tab prefs = model:%q effort:%v approval:%q prompt:%q", next.model, next.effort, next.toolApprovalMode, currentTabPromptMode(next))
 	}
 	if next.askWorkflow || next.stepThinking || next.mode != "normal" || next.goal != "" {

@@ -153,14 +153,14 @@ func NewGateway(cfg GatewayConfig, adapters map[Platform]Adapter, logger *slog.L
 	if cfg.BuildSession == nil {
 		cfg.BuildSession = func(ctx context.Context, choice sessionChoice, sink event.Sink) (*control.Controller, error) {
 			return boot.Build(ctx, boot.Options{
-				Model:         cfg.Model,
-				PromptMode:    cfg.PromptMode,
-				MemoryProfile: cfg.MemoryProfile,
-				MaxSteps:      cfg.MaxSteps,
-				RequireKey:    true,
-				Sink:          sink,
-				WorkspaceRoot: strings.TrimSpace(choice.WorkspaceRoot),
-				SessionDir:    filepath.Dir(choice.Path),
+				Model:          cfg.Model,
+				RuntimeProfile: cfg.PromptMode,
+				MemoryProfile:  cfg.MemoryProfile,
+				MaxSteps:       cfg.MaxSteps,
+				RequireKey:     true,
+				Sink:           sink,
+				WorkspaceRoot:  strings.TrimSpace(choice.WorkspaceRoot),
+				SessionDir:     filepath.Dir(choice.Path),
 			})
 		}
 	}
@@ -729,9 +729,9 @@ func (gw *BotGateway) controllerState(key string, hasSession bool) (*sessionStat
 }
 
 func botHelpText() string {
-	return "自动化工作区会直接处理请求，并在需要时读取或调度电脑上的工程对话。\n\n可用命令：\n" +
+	return "Orca 会直接处理请求，并在确有需要时读取或调度电脑上的编程或助手对话。\n\n可用命令：\n" +
 		"/start - 恢复并确认 Orca 主对话\n" +
-		"/new [消息] - 开始新的自动化对话段\n" +
+		"/new [消息] - 在 Orca 中开始新的对话段\n" +
 		"/continue [消息] - 强制继续上一段对话\n" +
 		"/stop - 停止当前任务\n" +
 		"/approve <id> - 兼容旧客户端的批准命令\n" +

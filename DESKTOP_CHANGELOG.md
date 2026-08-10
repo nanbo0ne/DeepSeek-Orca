@@ -1,5 +1,15 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.1.0 - 2026-08-10
+
+- Replaced the legacy Normal/Enhanced split with public Coding and Assistant profiles. Coding retains the reliable V2.0.38 engineering contract and gains the useful recovery and permission guidance from Enhanced; Assistant provides a separate Work-oriented tool and memory surface.
+- Added atomic, cache-aware mode switching. Existing visible history is preserved, old system messages are removed, running turns defer a confirmed switch, and failed controller builds leave the original mode untouched.
+- Promoted Orca to a fixed top-level control conversation ahead of projects, removed the Automation Workspace presentation and ordinary mode selector, and kept cross-conversation dispatch tools exclusive to Orca.
+- Isolated runtime tool registries and memory profiles: Coding owns shell, LSP, CodeGraph, review, and engineering memory; Assistant and Orca share the canonical personal profile and Work tools; only Orca can route or dispatch other conversations.
+- Added a bundled, cross-platform artifact runtime and `artifact_create`, `artifact_edit`, `artifact_preview`, and `artifact_validate` tools for structured DOCX, XLSX, PPTX, and PDF output without requiring Python, Office, or LibreOffice.
+- Hardened prompt trust boundaries by escaping user-authored host-context markers and generating automation, workflow, and memory reminders as host-owned structured context.
+- Migrated configuration to V9, mapping legacy Normal/Enhanced conversations to Coding, preserving ordinary Assistant conversations, reserving Orca for the canonical control topic, and defaulting the first new ordinary conversation after upgrade to Assistant.
+
 ## V2.0.38 - 2026-08-10
 
 - Rebuilt Normal and Enhanced conversation rendering around stable Turn, Item, and Message identities. A turn can report success only after an explicit visible final answer has passed readiness and been committed.

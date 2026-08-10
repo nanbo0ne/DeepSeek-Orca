@@ -64,7 +64,7 @@ func (a *App) createDesktopBotSession(ctx context.Context, remoteKey string, msg
 		TopicID:       topicID,
 		Path:          path,
 		Title:         title,
-		Location:      "自动化工作区",
+		Location:      "Orca",
 		WorkspaceRoot: root,
 		LastActivity:  now,
 	}, nil
@@ -93,7 +93,7 @@ func (a *App) restoreDesktopBotSession(_ context.Context, remoteKey string, msg 
 	title := automationMainTopicTitle
 	_ = a.rememberBotAutomationSession(msg.Platform, remoteKey, topicID)
 	return bot.SessionChoice{
-		TopicID: topicID, Path: path, Title: title, Location: "自动化工作区",
+		TopicID: topicID, Path: path, Title: title, Location: "Orca",
 		WorkspaceRoot: automationWorkspaceRoot(), LastActivity: lastActivity,
 	}, true, nil
 }
@@ -106,7 +106,7 @@ func (a *App) afterDesktopBotTurn(sessionPath, model string) {
 	}
 	a.markAssistantMemoryPendingForCandidate(assistantMemoryCandidate{
 		SessionPath: sessionPath, TopicID: meta.TopicID, WorkspaceRoot: meta.WorkspaceRoot,
-		PromptMode: promptModeAssistant, Model: model,
+		PromptMode: promptModeOrca, Model: model,
 	}, true)
 }
 

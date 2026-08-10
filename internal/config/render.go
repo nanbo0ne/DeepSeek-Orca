@@ -92,6 +92,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "close_behavior = %q   # desktop: quit|background when the window close button is clicked\n", c.DesktopCloseBehavior())
 		fmt.Fprintf(&b, "check_updates = %v   # desktop: check for new versions on startup\n", c.DesktopCheckUpdates())
 		fmt.Fprintf(&b, "ui_scale = %d   # desktop: 0 = follow Windows DPI; otherwise 80..125 in five-percent increments\n", c.DesktopUIScale())
+		fmt.Fprintf(&b, "conversation_mode = %q   # desktop: coding|assistant for new ordinary conversations\n", c.Desktop.ConversationMode)
 		if len(c.Desktop.ProviderAccess) > 0 {
 			fmt.Fprintf(&b, "provider_access = %s   # desktop settings: providers shown on Settings > Model > Access\n", renderStringArray(c.Desktop.ProviderAccess))
 		}
@@ -102,7 +103,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "vision_enabled = %v   # legacy compatibility; true maps to on\n", c.DesktopVisionMode() == VisionModeOn)
 		fmt.Fprintf(&b, "assistant_auto_memory_enabled = %v   # desktop: assistant mode silently updates profile memories when leaving a conversation\n", c.DesktopAssistantAutoMemoryEnabled())
 		fmt.Fprintf(&b, "assistant_memory_recall_enabled = %v   # desktop: assistant mode injects assistant memories before each turn\n", c.DesktopAssistantMemoryRecallEnabled())
-		fmt.Fprintf(&b, "automation_full_access_approved = %v   # desktop: one-time consent for trusted Automation Workspace tool execution\n", c.Desktop.AutomationFullAccess)
+		fmt.Fprintf(&b, "automation_full_access_approved = %v   # desktop: one-time consent for trusted Orca tool execution\n", c.Desktop.AutomationFullAccess)
 		b.WriteString("\n")
 
 		b.WriteString("[notifications]\n")
@@ -380,9 +381,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			b.WriteString("# model = \"\"   # empty = default_model\n")
 		}
 		if strings.TrimSpace(c.Bot.PromptMode) != "" {
-			fmt.Fprintf(&b, "prompt_mode = %q   # assistant|normal|enhanced\n", c.Bot.PromptMode)
+			fmt.Fprintf(&b, "prompt_mode = %q   # orca; legacy values are migrated\n", c.Bot.PromptMode)
 		} else {
-			b.WriteString("# prompt_mode = \"normal\"   # assistant|normal|enhanced\n")
+			b.WriteString("# prompt_mode = \"orca\"\n")
 		}
 		if c.Bot.WorkspaceRoot != "" {
 			fmt.Fprintf(&b, "workspace_root = %q\n", c.Bot.WorkspaceRoot)

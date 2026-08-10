@@ -89,6 +89,7 @@ type DesktopConfig struct {
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`   // assistant-mode silent profile memory updates; nil = enabled
 	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"` // inject assistant memories before assistant-mode turns; nil = enabled
 	AutomationFullAccess  bool     `toml:"automation_full_access_approved"` // one-time consent for trusted automation turns
+	ConversationMode      string   `toml:"conversation_mode"`               // coding|assistant; latest choice for new conversations
 }
 
 const (
@@ -323,7 +324,7 @@ func (c CodegraphConfig) ResolvedTier() string {
 type BotConfig struct {
 	Enabled       bool                  `toml:"enabled"`
 	Model         string                `toml:"model"`       // empty = default_model
-	PromptMode    string                `toml:"prompt_mode"` // assistant|normal|enhanced; empty = normal
+	PromptMode    string                `toml:"prompt_mode"` // orca; legacy values are migrated on load
 	WorkspaceRoot string                `toml:"workspace_root"`
 	MaxSteps      int                   `toml:"max_steps"`
 	DebounceMs    int                   `toml:"debounce_ms"`
@@ -1079,6 +1080,45 @@ func BuildActiveToolRoutingPolicy(settings ToolLibraryConfig) string {
 	return strings.Join(lines, "\n")
 }
 
+// BuildWorkToolRoutingPolicy describes the non-coding Work surface without
+// naming coding-only shell and symbol tools that are absent from Assistant and
+// Orca registries.
+func BuildWorkToolRoutingPolicy(settings ToolLibraryConfig) string {
+	settings = NormalizeToolLibrarySettings(settings)
+	lines := []string{
+		"Work tool use and evidence policy:",
+		"- Use the available file and artifact tools to inspect inputs, create deliverables, and validate every written artifact before reporting completion.",
+		"- Prefer a dedicated host, document, web, automation, or REPL tool over a generic command when both can perform the task.",
+	}
+	if settings.HostSystemToolsEnabled {
+		lines = append(lines,
+			"- Use host_command for native OS commands; use host_system_info, host_list_processes, host_kill_process, host_open_app, host_clipboard, and notify_user for their matching host actions.",
+			"- Use automation_create only for genuinely recurring or future work; use automation_list and automation_cancel to manage it.",
+		)
+	}
+	if settings.ThreadManagementEnabled {
+		lines = append(lines, "- Use thread_list only when saved conversation topics are relevant.")
+	}
+	if settings.ConversationSearchEnabled {
+		lines = append(lines, "- Use conversation_search and conversation_read to recover older local transcript details only when the current request needs them.")
+	}
+	if settings.REPLRuntimeEnabled {
+		lines = append(lines, "- Use node_repl_exec or python_repl_exec for calculations, data transformations, and reusable runtime work.")
+	}
+	if settings.DocumentToolsEnabled {
+		lines = append(lines, "- Use document_inspect and document_extract to inspect Office and PDF inputs; use artifact_create, artifact_edit, artifact_preview, and artifact_validate for structured outputs.")
+	} else {
+		lines = append(lines, "- Use artifact_create, artifact_edit, artifact_preview, and artifact_validate for structured DOCX, XLSX, PPTX, and PDF outputs.")
+	}
+	if settings.WebSearchEnabled {
+		lines = append(lines, "- Use web_search for current information when the URL is unknown and web_fetch for a known URL.")
+	} else {
+		lines = append(lines, "- Use web_fetch only for a URL already provided or known.")
+	}
+	lines = append(lines, "- If a tool fails, correct the request, use a real available fallback, or report the blocker; never fabricate a result.")
+	return strings.Join(lines, "\n")
+}
+
 func BuildBashHostToolSteer(settings ToolLibraryConfig) string {
 	settings = NormalizeToolLibrarySettings(settings)
 	parts := []string{}
@@ -1118,10 +1158,10 @@ const ActiveLanguagePolicy = `Reply in the language used by the user's latest me
 // Default returns the built-in default configuration (DeepSeek + MiMo presets).
 func Default() *Config {
 	return &Config{
-		ConfigVersion: 8,
+		ConfigVersion: 9,
 		DefaultModel:  "deepseek-flash",
 		UI:            UIConfig{Theme: "auto"},
-		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto, ActivityIndicator: true},
+		Desktop:       DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto, ActivityIndicator: true, ConversationMode: "assistant"},
 		Notifications: NotificationsConfig{
 			Enabled:         false,
 			TurnDone:        true,
@@ -1260,6 +1300,7 @@ func LoadForRoot(root string) (*Config, error) {
 	normalizeDesktopUIScale(cfg)
 	normalizeAutomationFullAccess(cfg)
 	normalizeActivityIndicatorPreference(cfg)
+	normalizeConversationProfiles(cfg)
 	normalizeEffortConfig(cfg)
 	backfillDeepSeekPro(cfg)
 	// First run (no config file anywhere): keep CodeGraph off until the user opts
@@ -1422,6 +1463,7 @@ func LoadForEdit(path string) *Config {
 	normalizeDesktopUIScale(cfg)
 	normalizeAutomationFullAccess(cfg)
 	normalizeActivityIndicatorPreference(cfg)
+	normalizeConversationProfiles(cfg)
 	normalizeEffortConfig(cfg)
 	return cfg
 }
@@ -1509,6 +1551,24 @@ func normalizeActivityIndicatorPreference(c *Config) {
 	if c != nil && c.ConfigVersion < 8 {
 		c.Desktop.ActivityIndicator = true
 		c.ConfigVersion = 8
+	}
+}
+
+// V9 replaces normal/enhanced with coding and reserves Orca for the fixed
+// automation conversation. conversation_mode only controls ordinary chats.
+func normalizeConversationProfiles(c *Config) {
+	if c == nil {
+		return
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Desktop.ConversationMode)) {
+	case "coding":
+		c.Desktop.ConversationMode = "coding"
+	default:
+		c.Desktop.ConversationMode = "assistant"
+	}
+	c.Bot.PromptMode = "orca"
+	if c.ConfigVersion < 9 {
+		c.ConfigVersion = 9
 	}
 }
 

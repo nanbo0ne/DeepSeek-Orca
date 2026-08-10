@@ -385,7 +385,7 @@ const REASONING_PROTOCOLS: readonly string[] = ["", "deepseek", "openai", "none"
 const PROXY_TYPES = ["http", "https", "socks5", "socks5h"] as const;
 const LANGUAGE_PREFS: LangPref[] = ["", "zh", "en"];
 const AUTO_PLAN_MODES = ["off", "on"] as const;
-const ENGINEERING_PROMPT_MODES: PromptMode[] = ["normal", "enhanced"];
+const ENGINEERING_PROMPT_MODES: PromptMode[] = ["coding", "assistant"];
 
 type ProxyMode = (typeof PROXY_MODES)[number];
 type AutoPlanMode = (typeof AUTO_PLAN_MODES)[number];
@@ -409,11 +409,6 @@ function normalizeAutoPlan(mode: string | undefined): AutoPlanMode {
   return mode === "ask" || mode === "on" ? "on" : "off";
 }
 
-function normalizePromptModeValue(mode: string | undefined, promptModes: PromptMode[] = ENGINEERING_PROMPT_MODES): PromptMode {
-  if ((mode === "assistant" || mode === "normal" || mode === "enhanced") && promptModes.includes(mode)) return mode;
-  return promptModes[0] ?? "normal";
-}
-
 function normalizeReasoningProtocol(protocol: string | undefined): string {
   return REASONING_PROTOCOLS.includes(protocol ?? "") ? protocol ?? "" : "";
 }
@@ -422,7 +417,7 @@ function defaultBotSettings(): BotSettingsView {
   return {
     enabled: true,
     model: "",
-    promptMode: "normal",
+    promptMode: "orca",
     workspaceRoot: "",
     maxSteps: 0,
     debounceMs: 1500,
@@ -459,14 +454,14 @@ function defaultBotSettings(): BotSettingsView {
   };
 }
 
-function normalizeBotSettings(bot: BotSettingsView | null | undefined, promptModes: PromptMode[] = ENGINEERING_PROMPT_MODES): BotSettingsView {
+function normalizeBotSettings(bot: BotSettingsView | null | undefined, _promptModes: PromptMode[] = ENGINEERING_PROMPT_MODES): BotSettingsView {
   const fallback = defaultBotSettings();
   const allowlist = bot?.allowlist ?? fallback.allowlist;
   const mode = bot?.feishu?.mode === "websocket" ? "websocket" : "webhook";
   return {
     ...fallback,
     ...bot,
-    promptMode: normalizePromptModeValue(bot?.promptMode, promptModes),
+    promptMode: "orca",
     workspaceRoot: String(bot?.workspaceRoot ?? fallback.workspaceRoot).trim(),
     maxSteps: Math.max(0, Number(bot?.maxSteps ?? fallback.maxSteps) || 0),
     debounceMs: Number(bot?.debounceMs) || fallback.debounceMs,
@@ -1610,7 +1605,7 @@ function sanitizeBotDraft(draft: BotSettingsView, promptModes: PromptMode[] = EN
     ...bot,
     enabled: true,
     model: bot.model.trim(),
-    promptMode: normalizePromptModeValue(bot.promptMode, promptModes),
+    promptMode: "orca",
     workspaceRoot: bot.workspaceRoot.trim(),
     maxSteps: Math.max(0, Math.floor(bot.maxSteps || 0)),
     debounceMs: Math.max(0, Math.floor(bot.debounceMs || 0)),

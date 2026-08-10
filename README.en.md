@@ -4,26 +4,26 @@
 
 DeepSeek-Orca is a local desktop engineering workspace for using AI models on real projects. It combines multi-provider chat, project-scoped sessions, inspectable tools, planning, memory, MCP, skills, CodeGraph, and reversible execution in one Windows, macOS, and Linux application.
 
-This repository's desktop product is the **engineering edition**. It exposes two user-facing prompt modes: **Normal** and **Enhanced**. The future Orca personal-assistant edition is kept behind an internal product boundary and is documented separately in [docs/ORCA_ASSISTANT_APP_HANDOFF.md](docs/ORCA_ASSISTANT_APP_HANDOFF.md).
+Ordinary conversations expose two profiles: **Coding** for repository work and **Assistant** for everyday Work tasks. A fixed, higher-priority **Orca** conversation coordinates desktop and phone automation.
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.38)
+- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.0)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
 ## What It Provides
 
-### Engineering modes
+### Coding and Assistant modes
 
-- **Normal mode**: general conversation, research, writing, analysis, everyday coding, and regular tasks. Its complete built-in engineering instructions stay active even when custom instructions are configured, and file-changing work requires a relevant verification after the last write.
-- **Enhanced mode**: complex coding, architecture work, long-running tasks, reviews, repository changes, and more agentic execution.
+- **Coding mode**: repositories, shell, Git, tests, LSP, CodeGraph, code review, and sustained engineering execution. Legacy Normal and Enhanced conversations migrate here.
+- **Assistant mode**: everyday questions, research, information organization, office documents, automations, and computer work. It has Work instructions and personal memory without coding-only intelligence or Orca dispatch tools.
 
-The mode is stored per conversation. Switching mode rebuilds only the controller while preserving session history, model, effort, approvals, plan state, goal state, and session path. Both modes identify the product as `DeepSeek-Orca` to the model.
+The mode is stored per conversation. A conversation with history shows a cache-invalidation warning before its system prompt, tools, and memory profile change. Visible non-system history is preserved, running turns apply a confirmed switch afterward, and a failed rebuild keeps the original controller and mode. The first ordinary conversation after upgrade defaults to Assistant; later conversations inherit the latest choice.
 
 ### Providers and models
 
@@ -56,7 +56,7 @@ The Tool Library controls groups for web search, host operations, Node/Python ru
 
 ### Memory
 
-Normal and Enhanced use the `shared-agent` memory profile. Existing memory documents and tool-based `remember` / `forget` workflows remain available. Automation Workspace conversations use a separate canonical Assistant profile shared by desktop automation tabs, QQ, and Weixin. Legacy Assistant stores are imported once without deleting their source files; proactive profile updates run only after foreground conversations and dispatched work are idle.
+Coding uses the `shared-agent` engineering profile. Assistant, Orca, QQ, and Weixin share the canonical personal profile. Legacy Assistant stores are imported once without deleting their source files; proactive updates run only after foreground conversations and dispatched work are idle.
 
 ### Planning and process visibility
 
@@ -65,13 +65,17 @@ Normal and Enhanced use the `shared-agent` memory profile. Existing memory docum
 - Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
 - Process display offers Compact and Detailed levels, with Compact as the default. Reasoning, tools, notices, and subagents use a flat chronological activity rail instead of nested cards; compact rows can be repeatedly expanded and collapsed.
 - A theme-blue spinner is enabled by default and can be disabled in Settings. It rotates clockwise while the model is active and counterclockwise while tools are running, respects reduced-motion settings, and disappears when work pauses or ends.
-- Normal and Enhanced share an explicit Turn/Item lifecycle. Stage updates, reasoning, and tools remain visible while work runs; only a readiness-checked, explicitly committed visible answer can complete a turn successfully. Successful turns collapse to their user message, elapsed-time row, and complete final answer. Expanding restores every intermediate event in order; failed, cancelled, interrupted, active, and uncertain legacy turns keep their text visible for diagnosis.
+- Coding and Assistant share an explicit Turn/Item lifecycle. Stage updates, reasoning, and tools remain visible while work runs; only a readiness-checked, explicitly committed visible answer can complete a turn successfully. Successful turns collapse to their user message, elapsed-time row, and complete final answer. Expanding restores every intermediate event in order; failed, cancelled, interrupted, active, and uncertain legacy turns keep their text visible for diagnosis.
 - The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
 - Conversation switches reuse cached transcript structure, paint history before auxiliary status, and skip replaying entrance animations for restored messages. Plain-text paste remains directly editable, right-click paste accepts images, multi-file paste/drop keeps the complete ordered batch, and the composer grows automatically for up to ten lines before scrolling.
 
-### Automation and remote connections
+### Work artifacts
 
-The top-level **Automation Workspace** contains one fixed main conversation named **Orca**. Desktop, QQ, and Weixin all write to Orca and share its Assistant profile, dedicated automation model, and canonical memory. During upgrade, legacy automation topics and their transcripts move to ordinary independent workspaces instead of remaining in a separate history group. Orca answers directly unless a request genuinely depends on engineering context, in which case it can selectively read or dispatch to Normal and Enhanced conversations without recursively dispatching automation.
+Assistant and Orca provide built-in `artifact_create`, `artifact_edit`, `artifact_preview`, and `artifact_validate` tools for DOCX, XLSX, PPTX, and PDF without requiring Python, Office, or LibreOffice. Orca-created files carry a structural sidecar for reliable later edits. Complex third-party Office files without that sidecar are rejected explicitly instead of being presented as lossless edits. See the [Work artifact runtime notes](docs/ARTIFACT_RUNTIME.md) for scope, font behavior, and limitations.
+
+### Orca and remote connections
+
+A fixed **Orca** entry appears directly below search, ahead of every project; there is no Automation Workspace folder or ordinary mode selector. Desktop, QQ, and Weixin all write to Orca and share its dedicated model and canonical memory. During upgrade, legacy automation topics move to ordinary independent workspaces. Orca answers directly unless a request genuinely depends on existing context, in which case it can selectively read or dispatch to Coding and Assistant conversations without recursively dispatching Orca.
 
 After 30 minutes of inactivity, a small no-tool check decides only whether the next turn should load the previous segment's context. Related and unrelated turns remain visible in the same Orca transcript. `/new` starts a clean logical segment inside Orca and `/continue` forces previous-context continuation; `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain for compatibility. Every channel shares the current segment and one serial execution queue, so phone use never creates another sidebar conversation.
 

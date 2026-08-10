@@ -122,6 +122,7 @@ export interface AppBindings {
   SetAskWorkflowForTab(tabID: string, enabled: boolean): Promise<void>;
   SetStepThinkingForTab(tabID: string, enabled: boolean): Promise<void>;
   SetPromptModeForTab(tabID: string, mode: string): Promise<void>;
+	SetConversationModeForTab(tabID: string, mode: string): Promise<void>;
   SetEnhancedModeForTab(tabID: string, enabled: boolean): Promise<void>;
   SetGoal(goal: string): Promise<void>;
   SetGoalForTab(tabID: string, goal: string): Promise<void>;
@@ -704,7 +705,7 @@ function makeMockApp(): AppBindings {
     bot: {
       enabled: false,
       model: "",
-      promptMode: "normal",
+	  promptMode: "assistant",
       workspaceRoot: "~/.config/deepseek-orca/bot-workspace",
       maxSteps: 25,
       debounceMs: 1500,
@@ -1069,8 +1070,10 @@ function makeMockApp(): AppBindings {
     async GetProductCapabilities() {
       return {
         edition: "engineering",
-        promptModes: ["normal", "enhanced"],
-        assistantMemoryEnabled: false,
+			promptModes: ["coding", "assistant"],
+			conversationModes: ["coding", "assistant"],
+		assistantMemoryEnabled: true,
+		orcaEnabled: true,
       };
     },
         async Submit(input) {
@@ -1410,12 +1413,14 @@ function makeMockApp(): AppBindings {
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, stepThinkingEnabled: enabled } : tab));
         },
         async SetPromptModeForTab(tabID, mode) {
-          if (mode === "assistant") throw new Error("assistant mode is not available in the engineering edition");
-          const next = mode === "enhanced" ? mode : "normal";
-          mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, promptMode: next, enhancedModeEnabled: next === "enhanced" } : tab));
+		  const next = mode === "coding" ? "coding" : "assistant";
+		  mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, promptMode: next, enhancedModeEnabled: false } : tab));
         },
-        async SetEnhancedModeForTab(tabID, enabled) {
-          await this.SetPromptModeForTab(tabID, enabled ? "enhanced" : "normal");
+		async SetConversationModeForTab(tabID, mode) {
+		  await this.SetPromptModeForTab(tabID, mode);
+		},
+        async SetEnhancedModeForTab(tabID, _enabled) {
+		  await this.SetPromptModeForTab(tabID, "coding");
         },
         async PauseTab(tabID) {
           mockTabs = mockTabs.map((tab) => (tab.id === tabID ? { ...tab, paused: true } : tab));
@@ -1607,7 +1612,7 @@ function makeMockApp(): AppBindings {
             toolApprovalMode,
             askWorkflowEnabled: active?.askWorkflowEnabled ?? false,
             stepThinkingEnabled: active?.stepThinkingEnabled ?? false,
-            promptMode: active?.promptMode ?? (active?.enhancedModeEnabled ? "enhanced" : "normal"),
+			promptMode: active?.promptMode ?? "assistant",
             enhancedModeEnabled: active?.enhancedModeEnabled ?? false,
             paused: active?.paused ?? false,
             goal: active?.goal ?? "",
@@ -1630,7 +1635,7 @@ function makeMockApp(): AppBindings {
             toolApprovalMode,
             askWorkflowEnabled: tab?.askWorkflowEnabled ?? false,
             stepThinkingEnabled: tab?.stepThinkingEnabled ?? false,
-            promptMode: tab?.promptMode ?? (tab?.enhancedModeEnabled ? "enhanced" : "normal"),
+			promptMode: tab?.promptMode ?? "assistant",
             enhancedModeEnabled: tab?.enhancedModeEnabled ?? false,
             paused: tab?.paused ?? false,
             goal: tab?.goal ?? "",
@@ -2399,8 +2404,8 @@ function makeMockApp(): AppBindings {
         return { ...existing, active: true };
       }
       const tab: TabMeta = {
-        id: "tab_" + Date.now(), scope: "automation", workspaceRoot: "", workspaceName: "自动化工作区",
-        topicId: _topicID, topicTitle: topicLabel(_topicID, "自动化工作区"), label: "deepseek-v4-flash",
+        id: "tab_" + Date.now(), scope: "automation", workspaceRoot: "", workspaceName: "Orca",
+        topicId: _topicID, topicTitle: topicLabel(_topicID, "Orca"), label: "deepseek-v4-flash",
         ready: true, running: false, mode: "normal", collaborationMode: "normal", toolApprovalMode: "ask",
         promptMode: "assistant", enhancedModeEnabled: false, active: true, cwd: "",
       };

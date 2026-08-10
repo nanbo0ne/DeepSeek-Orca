@@ -238,12 +238,12 @@ func TestSetBotSettingsKeepsAssistantModeAndAutomationModel(t *testing.T) {
 	}
 
 	got := app.Settings().Bot
-	if got.PromptMode != promptModeAssistant {
-		t.Fatalf("Settings().Bot.PromptMode = %q, want %q", got.PromptMode, promptModeAssistant)
+	if got.PromptMode != promptModeOrca {
+		t.Fatalf("Settings().Bot.PromptMode = %q, want %q", got.PromptMode, promptModeOrca)
 	}
 	cfg = config.LoadForEdit(config.UserConfigPath())
-	if cfg.Bot.PromptMode != promptModeAssistant {
-		t.Fatalf("saved bot.prompt_mode = %q, want %q", cfg.Bot.PromptMode, promptModeAssistant)
+	if cfg.Bot.PromptMode != promptModeOrca {
+		t.Fatalf("saved bot.prompt_mode = %q, want %q", cfg.Bot.PromptMode, promptModeOrca)
 	}
 	if cfg.Bot.Model != "deepseek/deepseek-v4-pro" {
 		t.Fatalf("saved bot.model = %q, want dedicated automation model preserved", cfg.Bot.Model)
@@ -253,7 +253,7 @@ func TestSetBotSettingsKeepsAssistantModeAndAutomationModel(t *testing.T) {
 	}
 }
 
-func TestAutomationBotModeMigratesToAssistant(t *testing.T) {
+func TestAutomationBotModeMigratesToOrca(t *testing.T) {
 	isolateDesktopUserDirs(t)
 
 	cfg := config.LoadForEdit(config.UserConfigPath())
@@ -266,8 +266,8 @@ func TestAutomationBotModeMigratesToAssistant(t *testing.T) {
 	app := NewApp()
 	app.migrateDesktopBotPromptMode()
 	got := config.LoadForEdit(config.UserConfigPath())
-	if got.Bot.PromptMode != promptModeAssistant {
-		t.Fatalf("migrated bot.prompt_mode = %q, want %q", got.Bot.PromptMode, promptModeAssistant)
+	if got.Bot.PromptMode != promptModeOrca {
+		t.Fatalf("migrated bot.prompt_mode = %q, want %q", got.Bot.PromptMode, promptModeOrca)
 	}
 	if got.Bot.WorkspaceRoot != "" {
 		t.Fatalf("migrated bot.workspace_root = %q, want empty legacy override", got.Bot.WorkspaceRoot)

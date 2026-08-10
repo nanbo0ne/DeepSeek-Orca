@@ -127,17 +127,17 @@ type HistoryViewState =
 
 const ENGINEERING_CAPABILITIES: ProductCapabilities = {
   edition: "engineering",
-  promptModes: ["normal", "enhanced"],
-  assistantMemoryEnabled: false,
+	promptModes: ["coding", "assistant"],
+	conversationModes: ["coding", "assistant"],
+	assistantMemoryEnabled: true,
   automationWorkspaceEnabled: true,
+	orcaEnabled: true,
 };
 
-function normalizePromptMode(mode?: string, enhanced?: boolean, supported: PromptMode[] = ENGINEERING_CAPABILITIES.promptModes): PromptMode {
-  const candidate: PromptMode = mode === "assistant" || mode === "enhanced" || mode === "normal"
-    ? mode
-    : enhanced ? "enhanced" : "normal";
+function normalizePromptMode(mode?: string, _enhanced?: boolean, supported: PromptMode[] = ENGINEERING_CAPABILITIES.promptModes): PromptMode {
+	const candidate: PromptMode = mode === "assistant" ? "assistant" : "coding";
   if (supported.includes(candidate)) return candidate;
-  return supported[0] ?? "normal";
+	return supported[0] ?? "assistant";
 }
 
 function clampSidebarWidth(width: number): number {
@@ -597,7 +597,8 @@ export default function App() {
   const promptModeSwitchTimersRef = useRef<Record<string, number>>({});
   const pendingModelSwitchRef = useRef<Record<string, Promise<void>>>({});
   const pendingEffortSwitchRef = useRef<Record<string, Promise<void>>>({});
-  const pendingPromptModeSwitchRef = useRef<Record<string, Promise<void>>>({});
+  const pendingPromptModeSwitchRef = useRef<Partial<Record<string, Promise<void>>>>({});
+  const pendingPromptModeOriginRef = useRef<Record<string, PromptMode>>({});
   const latestModelSwitchRef = useRef<Record<string, string>>({});
   const latestEffortSwitchRef = useRef<Record<string, string>>({});
   const latestPromptModeSwitchRef = useRef<Record<string, PromptMode>>({});
@@ -689,8 +690,8 @@ export default function App() {
     void app.GetProductCapabilities()
       .then((capabilities) => {
         if (cancelled) return;
-        const promptModes = capabilities.promptModes.filter(
-          (mode): mode is PromptMode => mode === "assistant" || mode === "normal" || mode === "enhanced",
+		const promptModes = (capabilities.conversationModes ?? capabilities.promptModes).filter(
+		  (mode): mode is PromptMode => mode === "assistant" || mode === "coding",
         );
         setProductCapabilities({
           ...capabilities,
@@ -855,7 +856,7 @@ export default function App() {
         goal,
         legacyMode,
       })
-    : "normal";
+	: "normal";
   const toolApprovalMode = activeTabId
     ? toolApprovalModesByTab[activeTabId] ?? normalizeToolApprovalMode(state.meta?.toolApprovalMode ?? activeTab?.toolApprovalMode, legacyMode, state.meta?.autoApproveTools ?? state.meta?.bypass)
     : "ask";
@@ -875,7 +876,7 @@ export default function App() {
         state.meta?.enhancedModeEnabled ?? activeTab?.enhancedModeEnabled,
         productCapabilities.promptModes,
       )
-    : "normal";
+	: "assistant";
   const promptModeSwitching = activeTabId ? Boolean(promptModeSwitchingByTab[activeTabId]) : false;
   collaborationModeRef.current = collaborationMode;
   toolApprovalModeRef.current = toolApprovalMode;
@@ -1114,7 +1115,24 @@ export default function App() {
   const applyPromptMode = useCallback(
     async (mode: PromptMode) => {
       if (!activeTabId || mode === promptMode || !productCapabilities.promptModes.includes(mode)) return;
+	  const hasConversationHistory = state.items.some(
+		(item) => (item.kind === "user" || item.kind === "assistant") && item.text.trim().length > 0,
+	  ) || Boolean(state.live?.text.trim());
+	  if (hasConversationHistory) {
+		const confirmed = await app.ConfirmAction({
+		  title: t("composer.promptMode.switchTitle"),
+		  message: t("composer.promptMode.switchMessage"),
+		  detail: t("composer.promptMode.switchDetail"),
+		  confirmLabel: t("composer.promptMode.switchConfirm"),
+		  cancelLabel: t("common.cancel"),
+		  destructive: false,
+		});
+		if (!confirmed) return;
+	  }
       latestPromptModeSwitchRef.current[activeTabId] = mode;
+      if (!pendingPromptModeOriginRef.current[activeTabId]) {
+        pendingPromptModeOriginRef.current[activeTabId] = promptMode;
+      }
       setPendingPromptModesByTab((current) => (current[activeTabId] === mode ? current : { ...current, [activeTabId]: mode }));
       setPromptModesByTab((current) => (current[activeTabId] === mode ? current : { ...current, [activeTabId]: mode }));
       if (runningRef.current) {
@@ -1164,14 +1182,17 @@ export default function App() {
         while (true) {
           const target = latestPromptModeSwitchRef.current[activeTabId] ?? settledMode;
           settledMode = target;
-          await app.SetPromptModeForTab(activeTabId, target);
+		  await app.SetConversationModeForTab(activeTabId, target);
           await refreshMeta();
           if (latestPromptModeSwitchRef.current[activeTabId] === target) break;
         }
         delete latestPromptModeSwitchRef.current[activeTabId];
+        delete pendingPromptModeOriginRef.current[activeTabId];
       } catch (err) {
         delete latestPromptModeSwitchRef.current[activeTabId];
-        setPromptModesByTab((current) => (current[activeTabId] === promptMode ? current : { ...current, [activeTabId]: promptMode }));
+        const origin = pendingPromptModeOriginRef.current[activeTabId] ?? promptMode;
+        delete pendingPromptModeOriginRef.current[activeTabId];
+        setPromptModesByTab((current) => (current[activeTabId] === origin ? current : { ...current, [activeTabId]: origin }));
         setPendingPromptModesByTab((current) => {
           const next = { ...current };
           delete next[activeTabId];
@@ -1182,7 +1203,7 @@ export default function App() {
         releaseSwitchLock(settledMode);
       }
     },
-    [activeTabId, productCapabilities.promptModes, promptMode, refreshMeta, showToast],
+	[activeTabId, productCapabilities.promptModes, promptMode, refreshMeta, showToast, state.items, state.live?.text, t],
   );
   const toggleYoloApprovalMode = useCallback(() => {
     if (!activeTabId) return;
@@ -1348,8 +1369,16 @@ export default function App() {
       const nextPromptMode = pendingPromptModesByTab[tabId];
       const task = (async () => {
         try {
-          await app.SetPromptModeForTab(tabId, nextPromptMode);
+		  await app.SetConversationModeForTab(tabId, nextPromptMode);
           await refreshMeta();
+          delete pendingPromptModeOriginRef.current[tabId];
+        } catch (err) {
+          const origin = pendingPromptModeOriginRef.current[tabId];
+          delete pendingPromptModeOriginRef.current[tabId];
+          if (origin) {
+            setPromptModesByTab((current) => (current[tabId] === origin ? current : { ...current, [tabId]: origin }));
+          }
+          showToast(err instanceof Error ? err.message : String(err), "error");
         } finally {
           delete pendingPromptModeSwitchRef.current[tabId];
           if (latestPromptModeSwitchRef.current[tabId] === nextPromptMode) delete latestPromptModeSwitchRef.current[tabId];
@@ -1364,7 +1393,14 @@ export default function App() {
       pendingPromptModeSwitchRef.current[tabId] = task;
     }
     await pendingPromptModeSwitchRef.current[tabId];
-  }, [pendingEffortsByTab, pendingPromptModesByTab, refreshMeta]);
+  }, [pendingEffortsByTab, pendingPromptModesByTab, refreshMeta, showToast]);
+
+  useEffect(() => {
+    if (!activeTabId || state.running) return;
+    if (!Object.prototype.hasOwnProperty.call(pendingPromptModesByTab, activeTabId)) return;
+    if (pendingPromptModeSwitchRef.current[activeTabId]) return;
+    void applyPendingRuntimePrefs(activeTabId);
+  }, [activeTabId, applyPendingRuntimePrefs, pendingPromptModesByTab, state.running]);
 
   const startGoal = useCallback(
     async (nextGoal: string) => {
@@ -2854,8 +2890,8 @@ export default function App() {
               stepThinkingEnabled={stepThinkingEnabled}
               toolApprovalMode={toolApprovalMode}
               promptMode={promptMode}
-              promptModes={automationConversation ? ["assistant"] : productCapabilities.promptModes}
-              promptModeLocked={automationConversation}
+			  promptModes={automationConversation ? [] : productCapabilities.promptModes}
+			  promptModeLocked={false}
               promptModeSwitching={promptModeSwitching}
               showToolApprovalControls={!automationConversation}
               paused={Boolean(state.meta?.paused)}

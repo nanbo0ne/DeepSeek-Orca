@@ -1,29 +1,27 @@
 **简体中文** | [English](README.en.md)
 
-# DeepSeek-Orca 桌面工程版
+# DeepSeek-Orca 桌面版
 
-DeepSeek-Orca 是一个面向真实项目的本地桌面 AI 工程工作区，整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph 和可回溯执行。当前仓库发布的是 **工程版**，用户可见模式只有 **普通模式** 和 **增强模式**。
-
-未来独立的 Orca 助手应用会复用部分 Go 内核和前端组件，但不会与工程版共享可写数据。拆分边界、迁移方案和保留的助手代码入口见 [docs/ORCA_ASSISTANT_APP_HANDOFF.md](docs/ORCA_ASSISTANT_APP_HANDOFF.md)。
+DeepSeek-Orca 是一个本地桌面 AI 工作区，整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph、办公产物和可回溯执行。普通会话提供 **编程模式** 与 **助手模式**；固定的 **Orca** 主对话负责桌面和手机管控。
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.0.38/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.38)
+- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-darwin-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.0/DeepSeek-Orca-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.0)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
 ## 核心能力
 
-### 普通模式与增强模式
+### 编程模式与助手模式
 
-- **普通模式**：适合常规对话、查询、研究、写作、分析和普通开发任务。即使配置了自定义提示词，完整的内置工程规则仍会保留；修改文件后，最后一次写入之后必须完成一次相关验证。
-- **增强模式**：适合复杂代码、架构分析、长任务、代码审查和更主动的工程执行。
+- **编程模式**：面向代码、仓库、终端、Git、测试、LSP、CodeGraph、代码审查和持续工程执行。旧普通与增强会话升级后都迁移到该模式；自定义指令会追加在稳定核心规则之后，写入后必须完成相关验证。
+- **助手模式**：面向日常问答、调研、资料整理、办公文件、自动化和本机工作。它使用独立 Work 指令与个人画像，不暴露 LSP、CodeGraph、代码审查、安全审查或 Orca 的跨会话派发工具。
 
-模式按会话保存。切换模式会重建当前控制器，但保留历史、模型、思考强度、审批状态、计划、目标和会话路径。两种模式对模型的身份均为 `DeepSeek-Orca`。
+模式按会话保存。空会话可直接切换；已有内容时会先提示 system prompt、工具和记忆 profile 变化及 Provider 前缀缓存失效。确认后保留全部可见历史并原子重建 Controller；运行中切换会在本回合结束后生效，构建失败则恢复原模式。升级后首次新建普通会话默认使用助手模式，之后继承最近选择。
 
 ### 模型与 Provider
 
@@ -53,19 +51,23 @@ MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 
 
 ### 记忆
 
-工程版普通和增强模式使用 `shared-agent` 记忆分区。原有记忆文档以及 `remember` / `forget` 工具继续可用。自动化工作区、QQ 和微信共同使用独立的 canonical 助手画像；旧助手记忆只导入一次且不删除源文件。主动画像任务只会在所有前台回复和派发任务空闲后运行。
+编程模式使用 `shared-agent` 工程记忆；助手模式、Orca、QQ 和微信共用 canonical 个人画像。旧助手记忆只导入一次且不删除源文件。主动画像任务只会在所有前台回复和派发任务空闲后运行。
 
 ### 计划、Todo、目标与过程展示
 
 计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时在原位上方向上展开，也可以点击固定，不会推动对话或输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示提供精简、详细两档并默认精简；精简过程条可反复展开和收拢。思考、工具、通知和 subagent 使用扁平的时间活动轨道，不再层层嵌套白色卡片。主题蓝动态运行标志默认开启，可在设置中关闭；模型输出时顺时针旋转，工具或后台工作时逆时针旋转，并在暂停或结束后消失。
 
-普通和增强模式都使用明确的 Turn/Item 生命周期。工作期间，阶段文字、思考和工具活动按真实顺序逐段显示；只有通过就绪检查并提交了独立可见最终答复的回合才能成功。成功回合会原子化收起，只保留用户消息、`已处理 ...` 行和完整最终回答。点击耗时行会按原始顺序恢复全部中间过程，并在顶部显示 token；失败、取消、中断和仍在运行的回合保持展开，方便排查，旧会话无法确认最终身份时也不会隐藏任何 assistant 文本。
+编程与助手模式都使用明确的 Turn/Item 生命周期。工作期间，阶段文字、思考和工具活动按真实顺序逐段显示；只有通过就绪检查并提交了独立可见最终答复的回合才能成功。成功回合会原子化收起，只保留用户消息、`已处理 ...` 行和完整最终回答。点击耗时行会按原始顺序恢复全部中间过程，并在顶部显示 token；失败、取消、中断和仍在运行的回合保持展开，方便排查，旧会话无法确认最终身份时也不会隐藏任何 assistant 文本。
 
 对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。切换长会话时优先显示历史，再在后台补齐上下文、任务、检查点和余额，并复用已计算的时间线。后台任务完成只更新状态，不会偷偷创建新的模型轮次。粘贴文本会直接进入输入框，输入框在十行内随内容自动增高，超过后再滚动。
 
-### 自动化与远程连接
+### Work 产物
 
-顶层 **自动化工作区** 只保留一个固定、不可删除或重命名的主对话 **Orca**。桌面、QQ 和微信都写入 Orca，并共享助手模式、自动化专用模型和 canonical 助手画像。升级时，旧自动化 topic 会连同历史内容迁移到独立工作区，不再保留单独的“历史对话”分组。助手会先判断请求是否依赖已有工程对话；确有依赖时才按需列出、读取、派发、等待、查询或取消普通/增强会话中的任务，且不能递归派发自动化对话。
+助手模式与 Orca 内置 `artifact_create / artifact_edit / artifact_preview / artifact_validate`，无需用户安装 Python、Office 或 LibreOffice即可创建、结构化修改、预览并重新解析验证 DOCX、XLSX、PPTX 和 PDF。Orca 创建的文件带轻量 sidecar，支持后续可靠编辑；复杂第三方 Office 文件没有 sidecar 时会明确说明无法安全修改，未知 OOXML 布局不会被冒充为全保真编辑。实现范围、字体策略和限制见 [Work 产物运行时说明](docs/ARTIFACT_RUNTIME.md)。
+
+### Orca 与远程连接
+
+搜索框下方固定显示不可删除、重命名或重复创建的 **Orca** 主对话，不再展示“自动化工作区”文件夹，也不显示普通模式选择器。桌面、QQ 和微信都写入 Orca，并共享自动化专用模型和 canonical 个人画像。升级时，旧自动化 topic 会连同历史内容迁移到独立工作区。Orca 会先判断请求是否依赖已有对话；确有依赖时才按需列出、读取、派发、等待、查询或取消编程/助手会话中的任务，且不能递归派发 Orca。
 
 闲置超过 30 分钟后，一次无工具、低 token 的判断只决定是否加载上一段上下文；无论续接还是新开始，内容都继续显示在同一个 Orca Transcript 中。`/new` 在 Orca 内开始新段，`/continue` 强制沿用上一段上下文，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer` 兼容命令。所有渠道共用当前段和串行执行队列，不会在侧栏生成新的手机对话。
 

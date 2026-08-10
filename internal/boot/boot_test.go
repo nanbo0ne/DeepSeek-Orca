@@ -20,6 +20,7 @@ import (
 
 	"deepseek-orca/internal/agent"
 	"deepseek-orca/internal/config"
+	"deepseek-orca/internal/control"
 	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/netclient"
@@ -33,6 +34,14 @@ import (
 	// does; importing builtin above registers the built-in tools.
 	_ "deepseek-orca/internal/provider/openai"
 )
+
+type profileTestTool struct{ name string }
+
+func (t profileTestTool) Name() string                                           { return t.name }
+func (profileTestTool) Description() string                                      { return "profile boundary test" }
+func (profileTestTool) Schema() json.RawMessage                                  { return json.RawMessage(`{"type":"object"}`) }
+func (profileTestTool) Execute(context.Context, json.RawMessage) (string, error) { return "ok", nil }
+func (profileTestTool) ReadOnly() bool                                           { return true }
 
 // TestBuildFoldsProjectMemoryIntoSystemPrompt is the end-to-end proof of the
 // cache-first wiring: a project DEEPSEEK_ORCA.md is discovered at boot and folded
@@ -145,7 +154,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	}
 }
 
-func TestBuildAssistantPromptModeUsesOrcaPromptProfile(t *testing.T) {
+func TestBuildAssistantPromptModeUsesWorkProfile(t *testing.T) {
 	dir := robustTempDir(t)
 	t.Chdir(dir)
 	writeFile(t, dir, "deepseek-orca.toml", `
@@ -172,15 +181,90 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	defer ctrl.Close()
 
 	sys := systemMessage(ctrl.History())
-	for _, want := range []string{"You are Orca", "<tone_and_formatting>", config.TaskTrackingPolicy, config.ActiveToolRoutingPolicy, config.ActiveLanguagePolicy} {
+	for _, want := range []string{"Assistant mode", "<tone_and_formatting>", config.TaskTrackingPolicy, "Work tool use and evidence policy:", config.ActiveLanguagePolicy, "artifact_create"} {
 		if !strings.Contains(sys, want) {
 			t.Fatalf("assistant prompt missing %q:\n%s", want, sys)
 		}
 	}
-	for _, forbidden := range []string{"Claude", "Anthropic", "OpenAI", "Codex", "ToolSearch", "Google Search", "TaskCreate", "CronCreate", "PushNotification"} {
+	for _, forbidden := range []string{"Claude", "Anthropic", "OpenAI", "Codex", "ToolSearch", "Google Search", "TaskCreate", "CronCreate", "PushNotification", "use bash mainly for builds"} {
 		if strings.Contains(sys, forbidden) {
 			t.Fatalf("assistant prompt should not contain %q:\n%s", forbidden, sys)
 		}
+	}
+}
+
+func TestBuildOrcaRuntimeProfileAddsConversationRouting(t *testing.T) {
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	writeFile(t, dir, "deepseek-orca.toml", `
+default_model = "test-model"
+[codegraph]
+enabled = false
+[[providers]]
+name = "test-model"
+kind = "openai"
+base_url = "https://example.invalid"
+model = "x"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
+`)
+	ctrl, err := Build(context.Background(), Options{RuntimeProfile: RuntimeProfileOrca})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer ctrl.Close()
+	sys := systemMessage(ctrl.History())
+	for _, want := range []string{"You are Orca, the fixed control conversation", "conversation_dispatch", "conversation_wait"} {
+		if !strings.Contains(sys, want) {
+			t.Fatalf("Orca prompt missing %q", want)
+		}
+	}
+}
+
+func TestRuntimeProfilesEnforceToolBoundaries(t *testing.T) {
+	dir := robustTempDir(t)
+	t.Chdir(dir)
+	writeFile(t, dir, "deepseek-orca.toml", `
+default_model = "test-model"
+[codegraph]
+enabled = false
+[[providers]]
+name = "test-model"
+kind = "openai"
+base_url = "https://example.invalid"
+model = "x"
+api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
+`)
+	build := func(profile string) *control.Controller {
+		t.Helper()
+		ctrl, err := Build(context.Background(), Options{
+			RuntimeProfile: profile,
+			ExtraTools:     []tool.Tool{profileTestTool{name: "conversation_dispatch"}},
+		})
+		if err != nil {
+			t.Fatalf("Build(%s): %v", profile, err)
+		}
+		t.Cleanup(ctrl.Close)
+		return ctrl
+	}
+	has := func(ctrl *control.Controller, name string) bool {
+		for _, candidate := range ctrl.ToolNames() {
+			if candidate == name {
+				return true
+			}
+		}
+		return false
+	}
+	coding := build(RuntimeProfileCoding)
+	assistant := build(RuntimeProfileAssistant)
+	orca := build(RuntimeProfileOrca)
+	if !has(coding, "bash") || has(coding, "artifact_create") || has(coding, "conversation_dispatch") {
+		t.Fatalf("coding tools violate profile boundary: %v", coding.ToolNames())
+	}
+	if has(assistant, "bash") || has(assistant, "bash_output") || has(assistant, "kill_shell") || !has(assistant, "artifact_create") || has(assistant, "conversation_dispatch") {
+		t.Fatalf("assistant tools violate profile boundary: %v", assistant.ToolNames())
+	}
+	if has(orca, "bash") || has(orca, "bash_output") || has(orca, "kill_shell") || !has(orca, "artifact_create") || !has(orca, "conversation_dispatch") {
+		t.Fatalf("Orca tools violate profile boundary: %v", orca.ToolNames())
 	}
 }
 
@@ -225,8 +309,8 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	}
 	defer normalCtrl.Close()
 	normalMem := normalCtrl.Memory()
-	if normalMem.Profile != memory.ProfileAll || !strings.Contains(normalMem.Index, "assistant-fact.md") || !strings.Contains(normalMem.Index, "shared-fact.md") {
-		t.Fatalf("normal memory profile = %q index=%q, want all memories", normalMem.Profile, normalMem.Index)
+	if normalMem.Profile != memory.ProfileSharedAgent || strings.Contains(normalMem.Index, "assistant-fact.md") || !strings.Contains(normalMem.Index, "shared-fact.md") {
+		t.Fatalf("coding memory profile = %q index=%q, want shared-agent only", normalMem.Profile, normalMem.Index)
 	}
 	if normalMem.Store.Dir != normalMem.SharedStore.Dir {
 		t.Fatalf("normal writable store = %q, want shared %q", normalMem.Store.Dir, normalMem.SharedStore.Dir)

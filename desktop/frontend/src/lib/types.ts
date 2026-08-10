@@ -167,7 +167,7 @@ export interface TabMeta {
 
 export interface ProjectNode {
   key: string;
-  kind: "project" | "topic" | "global_folder" | "global_topic" | "automation_folder" | "automation_topic" | "pinned_folder";
+  kind: "project" | "topic" | "global_folder" | "global_topic" | "orca_topic" | "pinned_folder";
   label: string;
   root?: string;
   topicId?: string;
@@ -368,7 +368,7 @@ export interface Meta {
 
 export type CollaborationMode = "normal" | "plan" | "goal";
 export type ToolApprovalMode = "ask" | "auto" | "yolo";
-export type PromptMode = "assistant" | "normal" | "enhanced";
+export type PromptMode = "coding" | "assistant";
 export type VisionMode = "off" | "auto" | "on";
 export type VisionCapabilityStatus = "supported" | "unsupported" | "unknown" | "probing";
 export type VisionCapabilityOverride = "auto" | "supported" | "unsupported";
@@ -385,7 +385,9 @@ export interface VisionCapability {
 }
 export interface ProductCapabilities {
   edition: "engineering" | "assistant" | string;
-  promptModes: PromptMode[];
+	promptModes: PromptMode[];
+	conversationModes?: PromptMode[];
+	orcaEnabled?: boolean;
   assistantMemoryEnabled: boolean;
   automationWorkspaceEnabled?: boolean;
 }
@@ -815,7 +817,7 @@ export interface BotConnectionView {
 export interface BotSettingsView {
   enabled: boolean;
   model: string;
-  promptMode: PromptMode;
+  promptMode: string;
   workspaceRoot: string;
   maxSteps: number;
   debounceMs: number;

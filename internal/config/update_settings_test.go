@@ -25,8 +25,8 @@ func TestDesktopUpdatePreferenceMigration(t *testing.T) {
 	}
 
 	fresh := Default()
-	if fresh.ConfigVersion != 8 || !fresh.DesktopCheckUpdates() || fresh.DesktopUIScale() != 0 || !fresh.Desktop.ActivityIndicator {
-		t.Fatalf("fresh default = version %d, updates %v, scale %d, activity %v; want 8,true,0,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates(), fresh.DesktopUIScale(), fresh.Desktop.ActivityIndicator)
+	if fresh.ConfigVersion != 9 || !fresh.DesktopCheckUpdates() || fresh.DesktopUIScale() != 0 || !fresh.Desktop.ActivityIndicator {
+		t.Fatalf("fresh default = version %d, updates %v, scale %d, activity %v; want 9,true,0,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates(), fresh.DesktopUIScale(), fresh.Desktop.ActivityIndicator)
 	}
 	if err := fresh.SetDesktopUIScale(85); err != nil || fresh.DesktopUIScale() != 85 {
 		t.Fatalf("valid manual scale was rejected: err=%v scale=%d", err, fresh.DesktopUIScale())
@@ -42,7 +42,7 @@ func TestDesktopUpdatePreferenceMigrationPersistsOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := LoadForEdit(path)
-	if cfg.ConfigVersion != 8 || !cfg.DesktopCheckUpdates() || !cfg.Desktop.ActivityIndicator {
+	if cfg.ConfigVersion != 9 || !cfg.DesktopCheckUpdates() || !cfg.Desktop.ActivityIndicator {
 		t.Fatalf("loaded V2 config = version %d, enabled %v", cfg.ConfigVersion, cfg.DesktopCheckUpdates())
 	}
 	if err := cfg.SetDesktopCheckUpdates(false); err != nil {
@@ -52,7 +52,7 @@ func TestDesktopUpdatePreferenceMigrationPersistsOptOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	reloaded := LoadForEdit(path)
-	if reloaded.ConfigVersion != 8 || reloaded.DesktopCheckUpdates() {
+	if reloaded.ConfigVersion != 9 || reloaded.DesktopCheckUpdates() {
 		t.Fatalf("reloaded opt-out = version %d, enabled %v", reloaded.ConfigVersion, reloaded.DesktopCheckUpdates())
 	}
 }

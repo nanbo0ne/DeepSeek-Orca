@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestAssistantPromptContainsConversationRoutingContract(t *testing.T) {
-	prompt := AssistantSystemPrompt("", "", "", "", "")
+func TestOrcaPromptContainsConversationRoutingContract(t *testing.T) {
+	prompt := OrcaSystemPrompt("", "", "", "", "")
 	wants := []string{
 		"decide within this same turn",
 		"Do not call conversation tools merely to demonstrate them",
@@ -17,6 +17,15 @@ func TestAssistantPromptContainsConversationRoutingContract(t *testing.T) {
 	for _, want := range wants {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("assistant prompt missing %q", want)
+		}
+	}
+}
+
+func TestAssistantPromptDoesNotExposeConversationDispatch(t *testing.T) {
+	prompt := AssistantSystemPrompt("", "", "", "", "")
+	for _, forbidden := range []string{"conversation_dispatch", "conversation_wait", "Never dispatch to the current automation conversation"} {
+		if strings.Contains(prompt, forbidden) {
+			t.Fatalf("assistant prompt unexpectedly exposes Orca routing %q", forbidden)
 		}
 	}
 }

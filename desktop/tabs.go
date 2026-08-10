@@ -82,43 +82,48 @@ type recentConversationPrefs struct {
 	ToolApprovalMode string  `json:"toolApprovalMode,omitempty"`
 	PromptMode       string  `json:"promptMode,omitempty"`
 	EnhancedMode     bool    `json:"enhancedModeEnabled,omitempty"`
+	ModeInitialized  bool    `json:"modeInitialized,omitempty"`
 }
 
 const (
 	scopeAutomation     = "automation"
+	promptModeCoding    = "coding"
 	promptModeAssistant = "assistant"
-	promptModeNormal    = "normal"
-	promptModeEnhanced  = "enhanced"
+	promptModeOrca      = "orca"
+	// Legacy values remain readable but are never persisted by V2.1.
+	promptModeNormal   = "normal"
+	promptModeEnhanced = "enhanced"
 )
 
 func normalizePromptMode(mode string, enhanced bool) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case promptModeCoding:
+		return promptModeCoding
 	case promptModeAssistant:
 		return promptModeAssistant
+	case promptModeOrca:
+		return promptModeOrca
 	case promptModeEnhanced:
-		return promptModeEnhanced
+		return promptModeCoding
 	case promptModeNormal:
-		return promptModeNormal
+		return promptModeCoding
 	default:
-		if enhanced {
-			return promptModeEnhanced
-		}
-		return promptModeNormal
+		return promptModeCoding
 	}
 }
 
 func currentTabPromptMode(tab *WorkspaceTab) string {
 	if tab == nil {
-		return promptModeNormal
+		return promptModeCoding
 	}
 	if tab.Scope == scopeAutomation {
-		return promptModeAssistant
+		return promptModeOrca
 	}
 	return normalizeProductPromptMode(tab.promptMode, tab.enhancedMode)
 }
 
 func tabPromptModeIsEnhanced(tab *WorkspaceTab) bool {
-	return currentTabPromptMode(tab) == promptModeEnhanced
+	return false
 }
 
 const (
@@ -895,12 +900,12 @@ func (a *App) OpenAutomationTab(topicID string) (TabMeta, error) {
 		TopicID:          topicID,
 		TopicTitle:       topicTitleForTab(scopeAutomation, root, topicID),
 		mode:             "normal",
-		promptMode:       promptModeAssistant,
+		promptMode:       promptModeOrca,
 		toolApprovalMode: control.ToolApprovalAsk,
 		disabledMCP:      map[string]ServerView{},
 	}
 	a.applyRecentPrefsToNewTabLocked(tab)
-	tab.promptMode = promptModeAssistant
+	tab.promptMode = promptModeOrca
 	tab.enhancedMode = false
 	if cfg, err := config.LoadForRoot(root); err == nil {
 		if resolved, _, ok := cfg.ResolveModelWithFallback(strings.TrimSpace(cfg.Bot.Model)); ok {
@@ -1034,7 +1039,7 @@ func (a *App) EnsureBlankTab(scope, workspaceRoot string) (TabMeta, error) {
 	}
 	a.applyRecentPrefsToNewTabLocked(created)
 	if scope == scopeAutomation {
-		created.promptMode = promptModeAssistant
+		created.promptMode = promptModeOrca
 		created.enhancedMode = false
 	}
 	created.sink = &tabEventSink{tabID: tabID, app: a}
@@ -1351,12 +1356,11 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		}
 	}
 
-	memoryProfile := memory.ProfileSharedAgent
+	memoryProfile := conversationMemoryProfile(currentTabPromptMode(tab))
 	assistantStoreDir := ""
 	var extraTools []tool.Tool
 	var turnContext func() string
 	if tab.Scope == scopeAutomation {
-		memoryProfile = memory.ProfileAssistant
 		if store, storeErr := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir()); storeErr == nil {
 			assistantStoreDir = store.Dir
 		} else {
@@ -1371,6 +1375,13 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			currentPath: func() string { return tab.currentSessionPath() },
 		})
 	}
+	if tab.Scope != scopeAutomation && currentTabPromptMode(tab) == promptModeAssistant {
+		if store, storeErr := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir()); storeErr == nil {
+			assistantStoreDir = store.Dir
+		} else {
+			a.noticeForTab(tab.ID, fmt.Sprintf("could not prepare shared assistant profile: %v", storeErr))
+		}
+	}
 	ctrl, err := boot.Build(buildCtx, boot.Options{
 		Model:                   model,
 		RequireKey:              false,
@@ -1378,8 +1389,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 		WorkspaceRoot:           root,
 		SessionDir:              sessionDir,
 		EffortOverride:          cloneStringPtr(tab.effort),
-		PromptMode:              currentTabPromptMode(tab),
-		EnhancedMode:            tabPromptModeIsEnhanced(tab),
+		RuntimeProfile:          currentTabPromptMode(tab),
 		MemoryProfile:           memoryProfile,
 		AssistantMemoryStoreDir: assistantStoreDir,
 		ExtraTools:              extraTools,
@@ -3661,6 +3671,10 @@ func (a *App) TrashTopic(topicID string) error {
 // folders, and finally the independent workspace section.
 func (a *App) ListProjectTree() []ProjectNode {
 	migrateLegacySessionsIntoGlobalTopics(config.SessionDir())
+	// The Orca entry is a product-level singleton. Ensure it here as well as at
+	// startup so a fresh profile, a repaired projects file, or a direct tree
+	// refresh can never render a sidebar without the control conversation.
+	_, _ = a.ensureAutomationMainTopic()
 	f := loadProjectsFile()
 	out := []ProjectNode{}
 	type topicSummary struct {
@@ -3721,6 +3735,27 @@ func (a *App) ListProjectTree() []ProjectNode {
 		pinnedChildren = append(pinnedChildren, pinned)
 	}
 
+	// Orca is a product-level control conversation, not a workspace folder. Keep
+	// its stable primary topic above every ordinary project and conversation.
+	automationRoot := automationWorkspaceRoot()
+	automationTitles := loadTopicTitles(automationRoot)
+	automationCreated := loadTopicCreatedAts(automationRoot)
+	mainAutomationID := strings.TrimSpace(f.AutomationMainTopicID)
+	if mainAutomationID != "" {
+		title := strings.TrimSpace(automationTitles[mainAutomationID])
+		if title == "" {
+			title = "Orca"
+		}
+		summary := topicSummaries[topicSummaryKey(scopeAutomation, automationRoot, mainAutomationID)]
+		status := openTopics[topicSummaryKey(scopeAutomation, automationRoot, mainAutomationID)]
+		out = append(out, ProjectNode{
+			Key: "orca", Kind: "orca_topic", Label: title, Root: automationRoot,
+			TopicID: mainAutomationID, ProjectColor: "#4d8dff", Turns: summary.turns,
+			CreatedAt: automationCreated[mainAutomationID], LastActivityAt: summary.lastActivityAt,
+			Open: status.open, Running: status.running, Status: status.status, Primary: true,
+		})
+	}
+
 	globalTitleMap := loadTopicTitles("")
 	globalCreatedMap := loadTopicCreatedAts("")
 	if len(globalTitleMap) > 0 || len(f.Projects) == 0 {
@@ -3776,35 +3811,6 @@ func (a *App) ListProjectTree() []ProjectNode {
 			ProjectColor: globalColor,
 			Children:     children,
 		})
-	}
-
-	// Automation is a fixed top-level workspace. It is separate from ordinary
-	// engineering conversations so assistant routing and memory remain isolated.
-	automationRoot := automationWorkspaceRoot()
-	automationTitles := loadTopicTitles(automationRoot)
-	automationCreated := loadTopicCreatedAts(automationRoot)
-	automationIDs := orderedTopicIDs(f.AutomationTopics, automationTitles)
-	automationChildren := make([]ProjectNode, 0, 1)
-	mainAutomationID := strings.TrimSpace(f.AutomationMainTopicID)
-	for _, id := range automationIDs {
-		title := strings.TrimSpace(automationTitles[id])
-		if title == "" {
-			title = topicTitleForTab(scopeAutomation, automationRoot, id)
-		}
-		summary := topicSummaries[topicSummaryKey(scopeAutomation, automationRoot, id)]
-		status := openTopics[topicSummaryKey(scopeAutomation, automationRoot, id)]
-		node := ProjectNode{
-			Key: "automation_topic_" + id, Kind: "automation_topic", Label: title, Root: automationRoot,
-			TopicID: id, ProjectColor: "#4d8dff", Turns: summary.turns, CreatedAt: automationCreated[id],
-			LastActivityAt: summary.lastActivityAt, Open: status.open, Running: status.running, Status: status.status,
-			Pinned: summary.pinned, Primary: id == mainAutomationID,
-		}
-		if node.Primary {
-			automationChildren = append(automationChildren, node)
-		}
-	}
-	if len(automationChildren) > 0 || automationRoot != "" {
-		out = append(out, ProjectNode{Key: "automation_folder", Kind: "automation_folder", Label: "自动化工作区", Root: automationRoot, ProjectColor: "#4d8dff", Children: automationChildren})
 	}
 
 	// Project sections.

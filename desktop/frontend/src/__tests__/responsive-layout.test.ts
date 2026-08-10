@@ -49,6 +49,13 @@ check(
   "prompt modes come from product capabilities without descriptions or a help button",
 );
 check(
+  app.includes("if (!activeTabId || state.running) return;") &&
+    app.includes("pendingPromptModesByTab, activeTabId") &&
+    app.includes("void applyPendingRuntimePrefs(activeTabId);") &&
+    app.includes("pendingPromptModeSwitchRef.current[activeTabId]"),
+  "a confirmed running mode switch applies as soon as the turn becomes idle",
+);
+check(
   !settings.includes('<SettingsField label={t("settings.botModel")}') &&
     !settings.includes('<SettingsField label={t("settings.botPromptMode")}') &&
     !settings.includes('<SettingsField label={t("settings.botWorkspaceRoot")}') &&
@@ -56,26 +63,26 @@ check(
   "bot and memory settings follow the product capability boundary",
 );
 check(
-  app.includes('automationConversation ? ["assistant"]') &&
-    app.includes("promptModeLocked={automationConversation}") &&
+  app.includes("promptModes={automationConversation ? [] : productCapabilities.promptModes}") &&
+    app.includes("promptModeLocked={false}") &&
     app.includes("showToolApprovalControls={!automationConversation}") &&
     composer.includes("showToolApprovalControls && <div") &&
     composer.includes("disabled={disabled || promptModeLocked}"),
-  "automation conversations lock assistant mode and hide the redundant approval selector",
+  "Orca hides both the ordinary mode selector and redundant approval selector",
 );
 const chooser = readFileSync(join(root, "components", "NewSessionChooser.tsx"), "utf8");
 const projectTree = readFileSync(join(root, "components", "ProjectTree.tsx"), "utf8").replace(/\r\n/g, "\n");
 check(
-  chooser.includes('choose("automation", "", "automation")') &&
-    projectTree.includes('node.kind === "automation_folder"') &&
-    projectTree.includes('node.kind === "automation_topic"') &&
+  !chooser.includes('choose("automation"') &&
+    projectTree.includes('node.kind === "orca_topic"') &&
+    !projectTree.includes('node.kind === "automation_folder"') &&
     !projectTree.includes("automation_history_folder"),
-  "automation workspace exposes Orca without a separate history group",
+  "Orca is a fixed top-level entry rather than a creatable workspace",
 );
 check(
-  projectTree.includes('scope === "automation"\n        ? []') &&
-    projectTree.includes('scope === "automation" ? "'),
-  "automation root stays fixed instead of inheriting project rename and color actions",
+  projectTree.includes('node.kind === "orca_topic" ? "automation"') &&
+    projectTree.includes("node.readOnly || node.primary ? []"),
+  "Orca stays fixed instead of inheriting project rename and drag actions",
 );
 const composerContract = css.slice(css.indexOf("/* Composer responsive contract."));
 check(

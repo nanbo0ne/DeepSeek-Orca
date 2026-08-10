@@ -102,7 +102,7 @@ func (a *App) SetAssistantMemorySettings(settings AssistantMemorySettings) error
 	}
 	a.mu.RUnlock()
 	for _, tab := range tabs {
-		if tab != nil && currentTabPromptMode(tab) == promptModeAssistant && tab.Ctrl != nil {
+		if tab != nil && usesAssistantMemory(currentTabPromptMode(tab)) && tab.Ctrl != nil {
 			tab.Ctrl.SetMemoryReminder(settings.AssistantMemoryRecallEnabled)
 		}
 	}
@@ -180,7 +180,7 @@ func (a *App) markAssistantMemoryPendingForCandidate(c assistantMemoryCandidate,
 	if !assistantMemoryFeatureAvailable(c.WorkspaceRoot) {
 		return
 	}
-	if c.PromptMode != promptModeAssistant || strings.TrimSpace(c.SessionPath) == "" {
+	if !usesAssistantMemory(c.PromptMode) || strings.TrimSpace(c.SessionPath) == "" {
 		return
 	}
 	cfg, err := config.LoadForRoot(c.WorkspaceRoot)

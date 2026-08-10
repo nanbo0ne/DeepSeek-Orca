@@ -9,7 +9,15 @@ import (
 	"deepseek-orca/internal/skill"
 )
 
-var reComposeBlock = regexp.MustCompile(`(?s)^\s*<(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>\s*(?:\n|$)`)
+var reComposeBlock = regexp.MustCompile(`(?s)^\s*(?:<host_context\b[^>]*>.*?</host_context>|<(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>)\s*(?:\n|$)`)
+
+var reservedHostTag = regexp.MustCompile(`(?i)</?host_context\b`)
+
+func escapeReservedHostTags(text string) string {
+	return reservedHostTag.ReplaceAllStringFunc(text, func(tag string) string {
+		return strings.Replace(tag, "<", "&lt;", 1)
+	})
+}
 
 // PlanModeMarker is prepended to every user turn while plan mode is on. It rides
 // in the user message (not the system prompt or tools), so the cache-stable
@@ -116,9 +124,13 @@ func (c *Controller) Compose(text string) string {
 	c.pendingMemory = nil
 	c.mu.Unlock()
 
+	// The model can distinguish genuine host context only because raw user text
+	// cannot introduce the reserved wrapper verbatim.
+	text = escapeReservedHostTags(text)
+
 	if turnContext != nil {
 		if contextBlock := strings.TrimSpace(turnContext()); contextBlock != "" {
-			text = "<automation-context>\n" + contextBlock + "\n</automation-context>\n\n" + text
+			text = `<host_context type="automation" trust="host">` + "\n" + contextBlock + "\n</host_context>\n\n" + text
 		}
 	}
 

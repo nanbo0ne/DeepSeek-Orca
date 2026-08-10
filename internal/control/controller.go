@@ -187,6 +187,16 @@ type Controller struct {
 	refreshOnLease  bool
 }
 
+// ToolNames returns a stable snapshot of the tools available to this session.
+// It is intentionally read-only so product capability tests and diagnostics can
+// verify profile boundaries without exposing the mutable registry.
+func (c *Controller) ToolNames() []string {
+	if c == nil || c.reg == nil {
+		return nil
+	}
+	return c.reg.Names()
+}
+
 type approvalReply struct {
 	allow   bool
 	session bool

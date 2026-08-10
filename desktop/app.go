@@ -445,8 +445,12 @@ func (a *App) restoreOrBuildTabs() {
 	}
 	a.mu.Lock()
 	a.recentPrefs = f.RecentConversationPrefs
+	if !a.recentPrefs.ModeInitialized {
+		a.recentPrefs.PromptMode = promptModeAssistant
+		a.recentPrefs.ModeInitialized = true
+	}
 	a.recentPrefs.PromptMode = normalizeProductPromptMode(a.recentPrefs.PromptMode, a.recentPrefs.EnhancedMode)
-	a.recentPrefs.EnhancedMode = a.recentPrefs.PromptMode == promptModeEnhanced
+	a.recentPrefs.EnhancedMode = false
 	a.mu.Unlock()
 	if len(f.Tabs) > 0 {
 		toBuild := make([]*WorkspaceTab, 0, len(f.Tabs))
@@ -501,14 +505,14 @@ func (a *App) restoreOrBuildTabs() {
 			tab.askWorkflow = entry.AskWorkflow
 			tab.stepThinking = entry.StepThinking
 			if tab.Scope == scopeAutomation {
-				tab.promptMode = promptModeAssistant
+				tab.promptMode = promptModeOrca
 				if startupConfig.Desktop.AutomationFullAccess {
 					tab.toolApprovalMode = control.ToolApprovalYolo
 				}
 			} else {
 				tab.promptMode = normalizeProductPromptMode(entry.PromptMode, entry.EnhancedMode)
 			}
-			tab.enhancedMode = tab.promptMode == promptModeEnhanced
+			tab.enhancedMode = false
 			tab.SessionPath = strings.TrimSpace(entry.SessionPath)
 			tab.sink = &tabEventSink{tabID: tab.ID, app: a, ctx: ctx}
 			a.mu.Lock()
@@ -588,7 +592,7 @@ func (a *App) createTabEntryWithID(scope, workspaceRoot, topicID, id string) *Wo
 	}
 	a.applyRecentPrefsToNewTabLocked(tab)
 	if scope == scopeAutomation {
-		tab.promptMode = promptModeAssistant
+		tab.promptMode = promptModeOrca
 		tab.enhancedMode = false
 		tab.ReadOnly = !isAutomationMainTopic(topicID)
 	}
@@ -608,7 +612,7 @@ func (a *App) applyRecentPrefsToNewTabLocked(tab *WorkspaceTab) {
 		tab.toolApprovalMode = approval
 	}
 	tab.promptMode = normalizeProductPromptMode(prefs.PromptMode, prefs.EnhancedMode)
-	tab.enhancedMode = tab.promptMode == promptModeEnhanced
+	tab.enhancedMode = false
 	tab.mode = "normal"
 	tab.goal = ""
 	tab.askWorkflow = false
@@ -625,6 +629,7 @@ func (a *App) rememberConversationPrefsLocked(tab *WorkspaceTab) {
 		ToolApprovalMode: persistedToolApprovalMode(currentTabToolApprovalMode(tab)),
 		PromptMode:       currentTabPromptMode(tab),
 		EnhancedMode:     tabPromptModeIsEnhanced(tab),
+		ModeInitialized:  true,
 	}
 }
 
@@ -667,7 +672,7 @@ func (a *App) shutdown(context.Context) {
 	}
 	a.mu.RUnlock()
 	for _, t := range tabs {
-		if assistantMemoryAvailable() && currentTabPromptMode(t) == promptModeAssistant {
+		if assistantMemoryAvailable() && usesAssistantMemory(currentTabPromptMode(t)) {
 			sessionPath := strings.TrimSpace(t.SessionPath)
 			if sessionPath == "" && t.Ctrl != nil {
 				sessionPath = strings.TrimSpace(t.Ctrl.SessionPath())
@@ -676,7 +681,7 @@ func (a *App) shutdown(context.Context) {
 				SessionPath:   sessionPath,
 				TopicID:       strings.TrimSpace(t.TopicID),
 				WorkspaceRoot: strings.TrimSpace(t.WorkspaceRoot),
-				PromptMode:    promptModeAssistant,
+				PromptMode:    currentTabPromptMode(t),
 				Model:         strings.TrimSpace(t.model),
 			}, false)
 		}
@@ -2599,18 +2604,19 @@ func (a *App) SetStepThinkingForTab(tabID string, enabled bool) error {
 }
 
 func (a *App) SetEnhancedModeForTab(tabID string, enabled bool) error {
-	if enabled {
-		return a.SetPromptModeForTab(tabID, promptModeEnhanced)
-	}
-	return a.SetPromptModeForTab(tabID, promptModeNormal)
+	return a.SetConversationModeForTab(tabID, promptModeCoding)
 }
 
 func (a *App) SetPromptModeForTab(tabID string, mode string) error {
+	return a.SetConversationModeForTab(tabID, mode)
+}
+
+func (a *App) SetConversationModeForTab(tabID string, mode string) error {
 	if tab := a.tabByID(tabID); tab != nil && tab.Scope == scopeAutomation {
-		if strings.ToLower(strings.TrimSpace(mode)) == promptModeAssistant {
+		if strings.ToLower(strings.TrimSpace(mode)) == promptModeOrca {
 			return nil
 		}
-		return fmt.Errorf("automation conversations always use assistant mode")
+		return fmt.Errorf("Orca does not expose a conversation mode selector")
 	}
 	var err error
 	mode, err = validateProductPromptMode(mode)
@@ -2625,61 +2631,102 @@ func (a *App) SetPromptModeForTab(tabID string, mode string) error {
 		return nil
 	}
 	if tab.Ctrl != nil && tab.Ctrl.Running() {
-		a.mu.Lock()
-		tab.promptMode = mode
-		tab.enhancedMode = mode == promptModeEnhanced
-		a.rememberConversationPrefsLocked(tab)
-		a.saveTabsLocked()
-		a.mu.Unlock()
-		return nil
+		return fmt.Errorf("conversation is still running; queue the mode change until the turn finishes")
 	}
-	var carried []provider.Message
-	prevPath := ""
-	if tab.Ctrl != nil {
-		prevPath = tab.Ctrl.SessionPath()
-		_ = tab.Ctrl.Snapshot()
-		carried = tab.Ctrl.History()
-		tab.Ctrl.Close()
-	}
+	oldCtrl := tab.Ctrl
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
-		Model:          tab.model,
-		RequireKey:     false,
-		Sink:           tab.sink,
-		WorkspaceRoot:  tab.WorkspaceRoot,
-		SessionDir:     tabSessionDir(tab),
-		EffortOverride: cloneStringPtr(tab.effort),
-		PromptMode:     mode,
-		EnhancedMode:   mode == promptModeEnhanced,
-		MemoryProfile:  memory.ProfileSharedAgent,
+		Model:                   tab.model,
+		RequireKey:              false,
+		Sink:                    tab.sink,
+		WorkspaceRoot:           tab.WorkspaceRoot,
+		SessionDir:              tabSessionDir(tab),
+		EffortOverride:          cloneStringPtr(tab.effort),
+		RuntimeProfile:          mode,
+		MemoryProfile:           conversationMemoryProfile(mode),
+		AssistantMemoryStoreDir: assistantStoreDirForMode(mode),
 	})
 	if err != nil {
 		return err
 	}
 	a.bindControllerDisplayRecorder(newCtrl)
-	a.mu.Lock()
-	tab.Ctrl = newCtrl
-	tab.promptMode = mode
-	tab.enhancedMode = mode == promptModeEnhanced
-	tab.Label = newCtrl.Label()
-	tab.StartupErr = ""
-	tab.Ready = true
-	a.rememberConversationPrefsLocked(tab)
-	a.saveTabsLocked()
-	a.mu.Unlock()
 	newCtrl.EnableInteractiveApproval()
 	applyTabModeToController(newCtrl, tab.mode)
 	applyTabToolApprovalModeToController(newCtrl, tab.toolApprovalMode)
 	newCtrl.SetAskWorkflow(tab.askWorkflow)
 	newCtrl.SetStepThinking(tab.stepThinking)
 	newCtrl.SetGoal(tab.goal)
+
+	var carried []provider.Message
+	prevPath := ""
+	if oldCtrl != nil {
+		prevPath = oldCtrl.SessionPath()
+		_ = oldCtrl.Snapshot()
+		carried = oldCtrl.History()
+	}
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
-	if len(carried) > 0 {
-		newCtrl.Resume(&agent.Session{Messages: carried}, path)
-	} else if path != "" {
-		newCtrl.SetSessionPath(path)
+	resumeWithControllerSystem(newCtrl, carried, path)
+
+	a.mu.Lock()
+	if current := a.tabs[tab.ID]; current != tab || tab.Ctrl != oldCtrl {
+		a.mu.Unlock()
+		newCtrl.Close()
+		return fmt.Errorf("conversation changed while switching mode; please try again")
+	}
+	tab.Ctrl = newCtrl
+	tab.promptMode = mode
+	tab.enhancedMode = false
+	tab.Label = newCtrl.Label()
+	tab.StartupErr = ""
+	tab.Ready = true
+	a.rememberConversationPrefsLocked(tab)
+	a.saveTabsLocked()
+	a.mu.Unlock()
+	if oldCtrl != nil {
+		oldCtrl.Close()
 	}
 	a.persistTabSessionPath(tab, path)
 	return nil
+}
+
+func conversationMemoryProfile(mode string) string {
+	if usesAssistantMemory(mode) {
+		return memory.ProfileAssistant
+	}
+	return memory.ProfileSharedAgent
+}
+
+func usesAssistantMemory(mode string) bool {
+	return mode == promptModeAssistant || mode == promptModeOrca
+}
+
+func assistantStoreDirForMode(mode string) string {
+	if mode != promptModeAssistant && mode != promptModeOrca {
+		return ""
+	}
+	store, err := memory.EnsureCanonicalAssistantStore(config.MemoryUserDir())
+	if err != nil {
+		return ""
+	}
+	return store.Dir
+}
+
+func resumeWithControllerSystem(ctrl *control.Controller, carried []provider.Message, path string) {
+	if ctrl == nil {
+		return
+	}
+	if len(carried) == 0 {
+		if path != "" {
+			ctrl.SetSessionPath(path)
+		}
+		return
+	}
+	messages := append([]provider.Message(nil), ctrl.History()...)
+	for _, message := range carried {
+		if message.Role != provider.RoleSystem {
+			messages = append(messages, message)
+		}
+	}
+	ctrl.Resume(&agent.Session{Messages: messages}, path)
 }
 
 // CommandInfo describes one available slash command for the composer's "/" menu.
@@ -3958,15 +4005,15 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	}
 
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
-		Model:          name,
-		RequireKey:     false,
-		Sink:           tab.sink,
-		WorkspaceRoot:  tab.WorkspaceRoot,
-		SessionDir:     tabSessionDir(tab),
-		EffortOverride: cloneStringPtr(effortOverride),
-		PromptMode:     currentTabPromptMode(tab),
-		EnhancedMode:   tabPromptModeIsEnhanced(tab),
-		MemoryProfile:  memory.ProfileSharedAgent,
+		Model:                   name,
+		RequireKey:              false,
+		Sink:                    tab.sink,
+		WorkspaceRoot:           tab.WorkspaceRoot,
+		SessionDir:              tabSessionDir(tab),
+		EffortOverride:          cloneStringPtr(effortOverride),
+		RuntimeProfile:          currentTabPromptMode(tab),
+		MemoryProfile:           conversationMemoryProfile(currentTabPromptMode(tab)),
+		AssistantMemoryStoreDir: assistantStoreDirForMode(currentTabPromptMode(tab)),
 	})
 	if err != nil {
 		return err
@@ -3988,11 +4035,7 @@ func (a *App) SetModelForTab(tabID, name string) error {
 	newCtrl.SetGoal(tab.goal)
 
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
-	if len(carried) > 0 {
-		newCtrl.Resume(&agent.Session{Messages: carried}, path)
-	} else if path != "" {
-		newCtrl.SetSessionPath(path)
-	}
+	resumeWithControllerSystem(newCtrl, carried, path)
 	a.persistTabSessionPath(tab, path)
 	return nil
 }
@@ -4058,15 +4101,15 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 		tab.Ctrl.Close()
 	}
 	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
-		Model:          tab.model,
-		RequireKey:     false,
-		Sink:           tab.sink,
-		WorkspaceRoot:  tab.WorkspaceRoot,
-		SessionDir:     tabSessionDir(tab),
-		EffortOverride: &effort,
-		PromptMode:     currentTabPromptMode(tab),
-		EnhancedMode:   tabPromptModeIsEnhanced(tab),
-		MemoryProfile:  memory.ProfileSharedAgent,
+		Model:                   tab.model,
+		RequireKey:              false,
+		Sink:                    tab.sink,
+		WorkspaceRoot:           tab.WorkspaceRoot,
+		SessionDir:              tabSessionDir(tab),
+		EffortOverride:          &effort,
+		RuntimeProfile:          currentTabPromptMode(tab),
+		MemoryProfile:           conversationMemoryProfile(currentTabPromptMode(tab)),
+		AssistantMemoryStoreDir: assistantStoreDirForMode(currentTabPromptMode(tab)),
 	})
 	if err != nil {
 		return err
@@ -4088,11 +4131,7 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 	newCtrl.SetStepThinking(tab.stepThinking)
 	newCtrl.SetGoal(tab.goal)
 	path := agent.ContinueSessionPath(prevPath, newCtrl.SessionDir(), newCtrl.Label())
-	if len(carried) > 0 {
-		newCtrl.Resume(&agent.Session{Messages: carried}, path)
-	} else if path != "" {
-		newCtrl.SetSessionPath(path)
-	}
+	resumeWithControllerSystem(newCtrl, carried, path)
 	a.persistTabSessionPath(tab, path)
 	return nil
 }

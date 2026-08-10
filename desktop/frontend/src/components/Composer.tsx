@@ -54,12 +54,11 @@ const COMPOSER_AUTO_MAX_LINES = 10;
 // Enter (submit) gets eaten too.
 const IME_CONFIRM_GRACE_MS = 100;
 
-type PromptModeLabelKey = "composer.promptMode.assistant" | "composer.promptMode.normal" | "composer.promptMode.enhanced";
+type PromptModeLabelKey = "composer.promptMode.assistant" | "composer.promptMode.coding";
 
 function promptModeLabelKey(mode: PromptMode): PromptModeLabelKey {
   if (mode === "assistant") return "composer.promptMode.assistant";
-  if (mode === "enhanced") return "composer.promptMode.enhanced";
-  return "composer.promptMode.normal";
+	return "composer.promptMode.coding";
 }
 
 type WebkitFileEntry = {
@@ -307,7 +306,7 @@ export function Composer({
   askWorkflowEnabled,
   stepThinkingEnabled,
   promptMode,
-  promptModes = ["normal", "enhanced"],
+	promptModes = ["assistant", "coding"],
   promptModeLocked = false,
   promptModeSwitching = false,
   showToolApprovalControls = true,
@@ -1760,7 +1759,7 @@ export function Composer({
           </div>
         </AnchoredPopover>
       )}
-      <AnchoredPopover
+	  {promptModes.length > 0 && <AnchoredPopover
         open={moreMenuOpen && !disabled}
         closing={moreMenuClosing}
         anchorRef={moreMenuAnchorRef}
@@ -1790,7 +1789,7 @@ export function Composer({
             </div>
           </div>
         )}
-      </AnchoredPopover>
+	  </AnchoredPopover>}
       <AnchoredPopover
         open={promptModeMenuOpen && !disabled && !promptModeLocked}
         closing={promptModeMenuClosing}
@@ -2249,7 +2248,7 @@ export function Composer({
           </div>
         </div>
         <div className="composer-card__actions">
-          <div className="composer-enhanced">
+		  {promptModes.length > 0 && <div className="composer-enhanced">
             <Tooltip label={promptModeLabel}>
               <button
                 ref={promptModeMenuAnchorRef}
@@ -2267,7 +2266,7 @@ export function Composer({
                 <ChevronDown size={13} />
               </button>
             </Tooltip>
-          </div>
+		  </div>}
           {runActivity ? (
             <div className="composer-runstatus" role="status" aria-live="polite">
               <Tooltip label={paused ? t("composer.resume") : t("composer.pause")}>

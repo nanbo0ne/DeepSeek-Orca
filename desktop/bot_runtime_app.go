@@ -91,11 +91,11 @@ func (a *App) migrateDesktopBotPromptMode() {
 	if err != nil || cfg == nil {
 		return
 	}
-	if strings.EqualFold(strings.TrimSpace(cfg.Bot.PromptMode), promptModeAssistant) && strings.TrimSpace(cfg.Bot.WorkspaceRoot) == "" {
+	if strings.EqualFold(strings.TrimSpace(cfg.Bot.PromptMode), promptModeOrca) && strings.TrimSpace(cfg.Bot.WorkspaceRoot) == "" {
 		return
 	}
-	cfg.Bot.PromptMode = promptModeAssistant
-	// V2.0.36 makes the canonical Automation Workspace the only bot execution
+	cfg.Bot.PromptMode = promptModeOrca
+	// The canonical Orca conversation is the only bot execution
 	// root. Preserve legacy files on disk while ignoring custom root overrides.
 	cfg.Bot.WorkspaceRoot = ""
 	if err := cfg.SaveTo(path); err != nil {
@@ -146,7 +146,7 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 	ctx, cancel := context.WithCancel(context.Background())
 	gw := bot.NewGateway(bot.GatewayConfig{
 		Model:         modelName,
-		PromptMode:    promptModeAssistant,
+		PromptMode:    promptModeOrca,
 		MemoryProfile: memory.ProfileAssistant,
 		MaxSteps:      cfg.Bot.MaxSteps,
 		WorkspaceRoot: workspaceRoot,
@@ -173,7 +173,7 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 				sessionWorkspaceRoot = workspaceRoot
 			}
 			ctrl, err := boot.Build(ctx, boot.Options{
-				Model: modelName, PromptMode: promptModeAssistant, MemoryProfile: memory.ProfileAssistant,
+				Model: modelName, RuntimeProfile: promptModeOrca, MemoryProfile: memory.ProfileAssistant,
 				AssistantMemoryStoreDir: store.Dir, MaxSteps: cfg.Bot.MaxSteps, RequireKey: true, Sink: sink,
 				WorkspaceRoot: sessionWorkspaceRoot, SessionDir: filepath.Dir(choice.Path),
 				ExtraTools: append(a.conversationBroker.Tools("bot:"+topicID, topicID), automationHistoryTool{

@@ -88,6 +88,9 @@ type Options struct {
 	// "assistant", "normal", and "enhanced". Empty preserves the legacy
 	// EnhancedMode behavior.
 	PromptMode string
+	// RuntimeProfile selects the actual product capability profile. New callers
+	// use coding, assistant, or orca; PromptMode remains a migration input.
+	RuntimeProfile string
 	// MemoryProfile optionally overrides the memory scope inferred from
 	// PromptMode. Product editions use this to isolate memory while retaining the
 	// shared prompt builders and session format.
@@ -107,10 +110,27 @@ type Options struct {
 }
 
 const (
+	RuntimeProfileCoding    = promptprofile.RuntimeProfileCoding
+	RuntimeProfileAssistant = promptprofile.RuntimeProfileAssistant
+	RuntimeProfileOrca      = promptprofile.RuntimeProfileOrca
+
 	PromptModeAssistant = "assistant"
 	PromptModeNormal    = "normal"
 	PromptModeEnhanced  = "enhanced"
 )
+
+func normalizeRuntimeProfile(profile, legacyMode string, enhanced bool) string {
+	switch strings.ToLower(strings.TrimSpace(profile)) {
+	case RuntimeProfileCoding, RuntimeProfileAssistant, RuntimeProfileOrca:
+		return strings.ToLower(strings.TrimSpace(profile))
+	}
+	switch normalizePromptMode(legacyMode, enhanced) {
+	case PromptModeAssistant:
+		return RuntimeProfileAssistant
+	default:
+		return RuntimeProfileCoding
+	}
+}
 
 func normalizePromptMode(mode string, enhanced bool) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
@@ -171,9 +191,10 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// shares this synchronized sink. The job manager is session-scoped — its jobs
 	// outlive a turn and are cancelled by Controller.Close.
 	sink := event.Lifecycle(event.Sync(opts.Sink))
-	promptMode := normalizePromptMode(opts.PromptMode, opts.EnhancedMode)
-	enhancedMode := promptMode == PromptModeEnhanced
-	assistantMode := promptMode == PromptModeAssistant
+	runtimeProfile := normalizeRuntimeProfile(opts.RuntimeProfile, opts.PromptMode, opts.EnhancedMode)
+	codingMode := runtimeProfile == RuntimeProfileCoding
+	assistantMode := runtimeProfile == RuntimeProfileAssistant
+	orcaMode := runtimeProfile == RuntimeProfileOrca
 	visionMode := cfg.DesktopVisionMode()
 	visionStore := visioncap.Load("")
 	mainVisionEnabled := visionMode == config.VisionModeOn || (visionMode == config.VisionModeAuto && visionStore.Get(entry).Status == visioncap.Supported)
@@ -212,25 +233,28 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		return nil, err
 	}
 	outputStylePrompt := ""
-	if promptMode == PromptModeNormal && strings.TrimSpace(sysPrompt) == strings.TrimSpace(config.DefaultAgentSystemPrompt) {
+	toolRoutingPolicy := config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary)
+	if !codingMode {
+		toolRoutingPolicy = config.BuildWorkToolRoutingPolicy(cfg.ToolLibrary)
+	}
+	if codingMode && strings.TrimSpace(sysPrompt) == strings.TrimSpace(config.DefaultAgentSystemPrompt) {
 		sysPrompt = ""
 	}
 	// Output style: fold the selected persona/tone block into the base prompt
 	// before language/memory/skills append, so a "replace" style (keep-coding
 	// false) still keeps those. Applied once, into the cache-stable prefix.
 	if st, ok := outputstyle.Resolve(cfg.Agent.OutputStyle, outputstyle.Dirs()); ok {
-		if enhancedMode || promptMode == PromptModeNormal {
+		if codingMode || assistantMode || orcaMode {
 			outputStylePrompt = outputstyle.Apply("", st)
-		} else if !assistantMode {
-			sysPrompt = outputstyle.Apply(sysPrompt, st)
 		}
 	}
-	if assistantMode {
-		sysPrompt = promptprofile.AssistantSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
-	} else if enhancedMode {
-		sysPrompt = promptprofile.EnhancedSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
-	} else {
-		sysPrompt = promptprofile.NormalSystemPrompt(sysPrompt, outputStylePrompt, config.TaskTrackingPolicy, config.BuildActiveToolRoutingPolicy(cfg.ToolLibrary), config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
+	switch runtimeProfile {
+	case RuntimeProfileAssistant:
+		sysPrompt = promptprofile.AssistantSystemPromptWithCustom(sysPrompt, outputStylePrompt, config.TaskTrackingPolicy, toolRoutingPolicy, config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
+	case RuntimeProfileOrca:
+		sysPrompt = promptprofile.OrcaSystemPrompt(outputStylePrompt, config.TaskTrackingPolicy, toolRoutingPolicy, config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
+	default:
+		sysPrompt = promptprofile.CodingSystemPrompt(sysPrompt, outputStylePrompt, config.TaskTrackingPolicy, toolRoutingPolicy, config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
 	}
 
 	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
@@ -238,8 +262,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// durable, cache-stable prefix every turn reuses, so memory costs nothing per
 	// turn. Mid-session changes never touch this prefix — they ride the
 	// controller's transient turn-injection and fold in on the next session.
-	memoryProfile := memory.ProfileAll
-	if assistantMode {
+	memoryProfile := memory.ProfileSharedAgent
+	if assistantMode || orcaMode {
 		memoryProfile = memory.ProfileAssistant
 	}
 	if strings.TrimSpace(opts.MemoryProfile) != "" {
@@ -247,7 +271,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 	mem := memory.Load(memory.Options{CWD: root, UserDir: config.MemoryUserDir(), Profile: memoryProfile, AssistantStoreDir: opts.AssistantMemoryStoreDir})
 	projectChecks := instruction.ExtractHostChecks(mem.Docs)
-	if !enhancedMode && !assistantMode {
+	if codingMode {
 		sysPrompt = memory.Compose(sysPrompt, mem)
 	}
 
@@ -255,20 +279,22 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// one-liner index into the same cache-stable prefix — names + descriptions
 	// only; bodies load on demand via run_skill or "/<name>". Bodies never enter
 	// the prefix, so the index costs a fixed, small amount per turn.
+	disabledSkills := append([]string(nil), cfg.DisabledSkillNames()...)
+	if !codingMode {
+		disabledSkills = append(disabledSkills, "init", "explore", "review", "security-review", "test")
+	}
 	skillStore := skill.New(skill.Options{
 		ProjectRoot:   root,
 		CustomPaths:   cfg.SkillCustomPaths(),
 		ExcludedPaths: cfg.SkillExcludedPaths(),
-		DisabledNames: cfg.DisabledSkillNames(),
+		DisabledNames: disabledSkills,
 		MaxDepth:      cfg.SkillMaxDepth(),
 		Stderr:        opts.Stderr,
 	})
 	skills := skillStore.List()
 	allSkillStore := skill.New(skill.Options{ProjectRoot: root, CustomPaths: cfg.SkillCustomPaths(), ExcludedPaths: cfg.SkillExcludedPaths(), MaxDepth: cfg.SkillMaxDepth(), Stderr: io.Discard})
 	allSkills := allSkillStore.List()
-	if !assistantMode {
-		sysPrompt = skill.ApplyIndex(sysPrompt, skills)
-	}
+	sysPrompt = skill.ApplyIndex(sysPrompt, skills)
 
 	reg := tool.NewRegistry()
 	bashSpec := sandbox.Spec{Mode: cfg.BashMode(), WriteRoots: cfg.WriteRootsForRoot(root), Network: cfg.Sandbox.Network}
@@ -284,8 +310,20 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	for _, t := range hosttools.Tools(root, cfg.ToolLibrary) {
 		reg.Add(t)
 	}
+	if !codingMode {
+		for _, t := range hosttools.ArtifactTools(root) {
+			reg.Add(t)
+		}
+	}
+	if !codingMode {
+		// Assistant and Orca keep general file/host/Work abilities while omitting
+		// the shell and symbol-editing surfaces reserved for coding sessions.
+		for _, name := range []string{"bash", "bash_output", "kill_shell", "delete_symbol", "delete_range", "complete_step"} {
+			reg.Remove(name)
+		}
+	}
 	for _, t := range opts.ExtraTools {
-		if t != nil {
+		if t != nil && (orcaMode || !isOrcaOnlyTool(t.Name())) {
 			reg.Add(t)
 		}
 	}
@@ -331,7 +369,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	//
 	// CodeGraph is fixed to background startup. Legacy tier values are ignored so
 	// enabling it never blocks chat startup.
-	if cfg.Codegraph.Enabled {
+	if codingMode && cfg.Codegraph.Enabled {
 		bin, ok := codegraph.Resolve(cfg.Codegraph.Path)
 		switch {
 		case ok && !codegraph.IndexableRoot(root):
@@ -433,7 +471,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// are available, so the model knows to prefer them for architecture / call-graph
 	// questions over grep/read_file. Also register codegraph tool names in the
 	// subagent allowed-tools list so explore/research/review can use them.
-	if cfg.Codegraph.Enabled {
+	if codingMode && cfg.Codegraph.Enabled {
 		prefix := plugin.ToolPrefix("codegraph")
 		var cgTools []string
 		for _, name := range reg.Names() {
@@ -441,7 +479,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				cgTools = append(cgTools, name)
 			}
 		}
-		if len(cgTools) > 0 && !assistantMode {
+		if len(cgTools) > 0 {
 			sysPrompt += "\n\n" + codegraph.SteerTextForTools(cgTools)
 			skill.SetExtraReadTools(cgTools)
 		}
@@ -457,7 +495,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	// registering them is cheap even when no server is installed (a query then
 	// returns an install hint). The manager is session-scoped; chain its shutdown
 	// into the controller's cleanup so servers stop with the session, not the turn.
-	if cfg.LSP.Enabled {
+	if codingMode && cfg.LSP.Enabled {
 		lspMgr := lsp.NewManager(root, LSPSpecs(cfg.LSP))
 		for _, t := range lsp.Tools(lspMgr) {
 			reg.Add(t)
@@ -716,7 +754,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		},
 	}))
 	for _, t := range skill.BuiltinSubagentTools(skillStore, skillRunner, skillProfile) {
-		reg.Add(t)
+		if codingMode || t.Name() == "research" {
+			reg.Add(t)
+		}
 	}
 
 	execSess := agent.NewSession(sysPrompt)
@@ -732,7 +772,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		Hooks:                        hookRunner,
 		Jobs:                         jm,
 		ProjectChecks:                projectChecks,
-		RequirePostWriteVerification: promptMode == PromptModeNormal,
+		RequirePostWriteVerification: codingMode,
 		ContextWindow:                entry.ContextWindow,
 		SoftCompactRatio:             cfg.Agent.SoftCompactRatio,
 		CompactRatio:                 cfg.Agent.CompactRatio,
@@ -838,8 +878,8 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		AllSkillStore:  allSkillStore,
 		Hooks:          hookRunner,
 		Memory:         mem,
-		EnhancedMode:   enhancedMode,
-		MemoryReminder: enhancedMode || (assistantMode && cfg.DesktopAssistantMemoryRecallEnabled()),
+		EnhancedMode:   false,
+		MemoryReminder: (assistantMode || orcaMode) && cfg.DesktopAssistantMemoryRecallEnabled(),
 		TurnContext:    opts.TurnContext,
 		Cleanup:        cleanup,
 		BalanceURL:     entry.BalanceURL,
@@ -863,6 +903,11 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		ctrlOpts.Classifier = classifier
 	}
 	return control.New(ctrlOpts), nil
+}
+
+func isOrcaOnlyTool(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return strings.HasPrefix(name, "conversation_") || name == "automation_history"
 }
 
 func migrateLegacySessionSources(sink event.Sink) {

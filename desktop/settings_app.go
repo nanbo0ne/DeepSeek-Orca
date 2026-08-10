@@ -14,7 +14,6 @@ import (
 	"deepseek-orca/internal/bot/weixin"
 	"deepseek-orca/internal/config"
 	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/memory"
 	"deepseek-orca/internal/provider"
 	"deepseek-orca/internal/visioncap"
 )
@@ -436,7 +435,7 @@ func botSettingsView(b config.BotConfig) BotSettingsView {
 	return BotSettingsView{
 		Enabled:       true,
 		Model:         b.Model,
-		PromptMode:    promptModeAssistant,
+		PromptMode:    promptModeOrca,
 		WorkspaceRoot: automationWorkspaceRoot(),
 		MaxSteps:      b.MaxSteps,
 		DebounceMs:    b.DebounceMs,
@@ -654,13 +653,13 @@ func (a *App) rebuild() error {
 	}
 	ctrl, err := boot.Build(a.bootContext(), boot.Options{
 		Model: model, RequireKey: false,
-		Sink:           tab.sink,
-		WorkspaceRoot:  tab.WorkspaceRoot,
-		SessionDir:     tabSessionDir(tab),
-		EffortOverride: cloneStringPtr(tab.effort),
-		PromptMode:     currentTabPromptMode(tab),
-		EnhancedMode:   tabPromptModeIsEnhanced(tab),
-		MemoryProfile:  memory.ProfileSharedAgent,
+		Sink:                    tab.sink,
+		WorkspaceRoot:           tab.WorkspaceRoot,
+		SessionDir:              tabSessionDir(tab),
+		EffortOverride:          cloneStringPtr(tab.effort),
+		RuntimeProfile:          currentTabPromptMode(tab),
+		MemoryProfile:           conversationMemoryProfile(currentTabPromptMode(tab)),
+		AssistantMemoryStoreDir: assistantStoreDirForMode(currentTabPromptMode(tab)),
 	})
 	if err != nil {
 		a.mu.Lock()
@@ -1365,7 +1364,7 @@ func (a *App) SetBotSettings(b BotSettingsView) error {
 		c.Bot.Enabled = true
 		// The automation model has one owner: Settings > Models / the Orca
 		// composer. Channel settings must not overwrite it with a stale draft.
-		c.Bot.PromptMode = promptModeAssistant
+		c.Bot.PromptMode = promptModeOrca
 		c.Bot.WorkspaceRoot = ""
 		c.Bot.MaxSteps = b.MaxSteps
 		c.Bot.DebounceMs = b.DebounceMs

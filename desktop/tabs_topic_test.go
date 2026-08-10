@@ -19,20 +19,20 @@ func projectTreeWithoutAutomation(app *App) []ProjectNode {
 	nodes := app.ListProjectTree()
 	filtered := make([]ProjectNode, 0, len(nodes))
 	for _, node := range nodes {
-		if node.Kind != "automation_folder" {
+		if node.Kind != "orca_topic" {
 			filtered = append(filtered, node)
 		}
 	}
 	return filtered
 }
 
-func TestProjectTreeAlwaysIncludesAutomationWorkspace(t *testing.T) {
+func TestProjectTreeAlwaysIncludesFixedOrcaEntry(t *testing.T) {
 	isolateDesktopUserDirs(t)
 	app := NewApp()
 	nodes := app.ListProjectTree()
-	automation := findProjectNodeByKind(nodes, "automation_folder")
-	if automation == nil || automation.Label != "自动化工作区" {
-		t.Fatalf("empty project tree = %+v, want fixed automation folder", nodes)
+	automation := findProjectNodeByKind(nodes, "orca_topic")
+	if automation == nil || automation.Label != automationMainTopicTitle || !automation.Primary {
+		t.Fatalf("empty project tree = %+v, want fixed top-level Orca", nodes)
 	}
 	topic, err := app.CreateTopic(scopeAutomation, "", "手机管控")
 	if err != nil {
@@ -52,8 +52,8 @@ func TestProjectTreeAlwaysIncludesAutomationWorkspace(t *testing.T) {
 		t.Fatal("canonical Orca topic should not be deleteable")
 	}
 	nodes = app.ListProjectTree()
-	automation = findProjectNodeByKind(nodes, "automation_folder")
-	if automation == nil || len(automation.Children) != 1 || automation.Children[0].Kind != "automation_topic" || automation.Children[0].TopicID != topic.ID {
+	automation = findProjectNodeByKind(nodes, "orca_topic")
+	if automation == nil || automation.TopicID != topic.ID || len(automation.Children) != 0 {
 		t.Fatalf("automation project tree = %+v", nodes)
 	}
 }
@@ -115,8 +115,8 @@ func TestLegacyAutomationTopicsMoveToIndependentWorkspace(t *testing.T) {
 	}
 
 	nodes := app.ListProjectTree()
-	automation := findProjectNodeByKind(nodes, "automation_folder")
-	if automation == nil || len(automation.Children) != 1 || automation.Children[0].TopicID != mainTopic.ID {
+	automation := findProjectNodeByKind(nodes, "orca_topic")
+	if automation == nil || automation.TopicID != mainTopic.ID || len(automation.Children) != 0 {
 		t.Fatalf("automation tree = %#v, want only Orca", automation)
 	}
 	global := findProjectNodeByKind(nodes, "global_folder")
