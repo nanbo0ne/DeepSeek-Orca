@@ -150,6 +150,25 @@ func TestContextUsageRestoresLastUsageEventAfterRestart(t *testing.T) {
 	}
 }
 
+func TestTelemetryPersistsMixedPeakAndOffPeakCostsWithoutRepricing(t *testing.T) {
+	tab := &WorkspaceTab{}
+	usage := &provider.Usage{PromptTokens: 1_000_000, CacheMissTokens: 1_000_000, TotalTokens: 1_000_000}
+	tab.recordUsage(event.Event{Usage: usage, Pricing: &provider.Pricing{Input: 1.5, Currency: "¥"}})
+	tab.recordUsage(event.Event{Usage: usage, Pricing: &provider.Pricing{Input: 3, Currency: "¥"}})
+
+	path := filepath.Join(t.TempDir(), "session.jsonl.telemetry.json")
+	if err := saveTelemetry(path, tab.telemetrySnapshot()); err != nil {
+		t.Fatal(err)
+	}
+	got := loadTelemetry(path)
+	if got.Usage.SessionCost != 4.5 || got.Usage.SessionCurrency != "¥" {
+		t.Fatalf("restored mixed-rate cost = %v %q, want 4.5 ¥", got.Usage.SessionCost, got.Usage.SessionCurrency)
+	}
+	if len(got.UsageEvents) != 2 || got.UsageEvents[0].SessionCost != 1.5 || got.UsageEvents[1].SessionCost != 3 {
+		t.Fatalf("persisted request costs were repriced: %+v", got.UsageEvents)
+	}
+}
+
 func TestBlankConversationContextUsageDisplaysZero(t *testing.T) {
 	ag := agent.New(
 		usageProvider{usage: &provider.Usage{PromptTokens: 99, CompletionTokens: 1, TotalTokens: 100}},

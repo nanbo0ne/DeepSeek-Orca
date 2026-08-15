@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 // --- SanitizeToolPairing ---
@@ -187,6 +188,76 @@ func TestPricingCostZeroTokens(t *testing.T) {
 	u := &Usage{}
 	if got := p.Cost(u); got != 0 {
 		t.Errorf("zero tokens Cost = %f, want 0", got)
+	}
+}
+
+func TestPricingSnapshotAtPeakBoundaries(t *testing.T) {
+	offPeak := PricingRates{CacheHit: 0.05, Input: 1.5, Output: 4.5}
+	peak := PricingRates{CacheHit: 0.10, Input: 3, Output: 9}
+	p := &Pricing{
+		CacheHit: offPeak.CacheHit,
+		Input:    offPeak.Input,
+		Output:   offPeak.Output,
+		Currency: "¥",
+		Schedule: &PricingSchedule{
+			UTCOffsetMinutes: 8 * 60,
+			PeakWindows: []PricingWindow{
+				{StartMinute: 9 * 60, EndMinute: 12 * 60},
+				{StartMinute: 14 * 60, EndMinute: 18 * 60},
+			},
+			Peak: peak, OffPeak: offPeak,
+		},
+	}
+	beijing := time.FixedZone("test-beijing", 8*60*60)
+	tests := []struct {
+		name string
+		hour int
+		min  int
+		want PricingRates
+	}{
+		{name: "before morning peak", hour: 8, min: 59, want: offPeak},
+		{name: "morning peak starts", hour: 9, min: 0, want: peak},
+		{name: "morning peak ends", hour: 12, min: 0, want: offPeak},
+		{name: "afternoon peak starts", hour: 14, min: 0, want: peak},
+		{name: "afternoon peak ends", hour: 18, min: 0, want: offPeak},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// An arbitrary date proves there is no future effective-date gate.
+			at := time.Date(2020, time.January, 2, tt.hour, tt.min, 0, 0, beijing)
+			got := p.SnapshotAt(at)
+			if got == nil || got.CacheHit != tt.want.CacheHit || got.Input != tt.want.Input || got.Output != tt.want.Output {
+				t.Fatalf("SnapshotAt(%s) = %+v, want %+v", at, got, tt.want)
+			}
+			if got.Schedule != nil {
+				t.Fatal("snapshot retained schedule; request pricing could change after start")
+			}
+		})
+	}
+	utcPeak := p.SnapshotAt(time.Date(2026, time.August, 15, 1, 0, 0, 0, time.UTC))
+	if utcPeak.CacheHit != peak.CacheHit || utcPeak.Input != peak.Input || utcPeak.Output != peak.Output {
+		t.Fatalf("01:00 UTC = 09:00 Beijing pricing = %+v, want peak %+v", utcPeak, peak)
+	}
+}
+
+func TestPricingSnapshotFreezesRequestCostAcrossBoundary(t *testing.T) {
+	p := &Pricing{
+		Currency: "¥",
+		Schedule: &PricingSchedule{
+			UTCOffsetMinutes: 8 * 60,
+			PeakWindows:      []PricingWindow{{StartMinute: 9 * 60, EndMinute: 12 * 60}},
+			OffPeak:          PricingRates{CacheHit: 0.05, Input: 1.5, Output: 4.5},
+			Peak:             PricingRates{CacheHit: 0.10, Input: 3, Output: 9},
+		},
+	}
+	beijing := time.FixedZone("test-beijing", 8*60*60)
+	started := p.SnapshotAt(time.Date(2026, time.August, 15, 8, 59, 59, 0, beijing))
+	usage := &Usage{CacheMissTokens: 1_000_000}
+	if got := started.Cost(usage); got != 1.5 {
+		t.Fatalf("request snapshot cost after crossing boundary = %v, want 1.5", got)
+	}
+	if got := p.SnapshotAt(time.Date(2026, time.August, 15, 9, 0, 0, 0, beijing)).Cost(usage); got != 3 {
+		t.Fatalf("new request at peak cost = %v, want 3", got)
 	}
 }
 

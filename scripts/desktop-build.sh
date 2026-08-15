@@ -68,6 +68,57 @@ prepare_windows_installer_resources() {
 	fi
 }
 
+copy_stable_windows_installer() {
+	local source="$1"
+	local destination="$2"
+	local temporary="${destination}.copying"
+	local before after copied attempt
+
+	# Wails/NSIS can return before the installer writer releases its final
+	# compressed block. Publish only after the source and copied hashes are stable.
+	for attempt in $(seq 1 30); do
+		before="$(sha256sum "$source" | awk '{print $1}')"
+		sleep 1
+		after="$(sha256sum "$source" | awk '{print $1}')"
+		[ "$before" = "$after" ] || continue
+
+		rm -f "$temporary"
+		cp "$source" "$temporary"
+		sleep 1
+		after="$(sha256sum "$source" | awk '{print $1}')"
+		copied="$(sha256sum "$temporary" | awk '{print $1}')"
+		if [ "$before" = "$after" ] && [ "$after" = "$copied" ]; then
+			mv -f "$temporary" "$destination"
+			return 0
+		fi
+	done
+
+	rm -f "$temporary"
+	echo "NSIS installer did not become stable: $source" >&2
+	return 1
+}
+
+verify_windows_installer_archive() {
+	local installer="$1"
+	local seven_zip=""
+
+	if command -v 7z >/dev/null 2>&1; then
+		seven_zip="$(command -v 7z)"
+	elif command -v 7z.exe >/dev/null 2>&1; then
+		seven_zip="$(command -v 7z.exe)"
+	elif [ -x "/c/Program Files/7-Zip/7z.exe" ]; then
+		seven_zip="/c/Program Files/7-Zip/7z.exe"
+	fi
+
+	if [ -z "$seven_zip" ]; then
+		echo "warning: 7-Zip not found; skipped NSIS archive test" >&2
+		return 0
+	fi
+
+	echo "==> testing NSIS installer integrity"
+	"$seven_zip" t "$installer"
+}
+
 cd "$ROOT/desktop"
 
 # Stamp the version resource (Windows file properties, macOS CFBundleVersion) from
@@ -170,7 +221,9 @@ windows)
 	# Wails/Reasonix scripts used `...installer.exe`.
 	installer=$(find build/bin -maxdepth 1 -type f \( -iname "*setup*.exe" -o -iname "*installer*.exe" \) | head -n1 || true)
 	[ -n "$installer" ] || { echo "no NSIS installer found in build/bin" >&2; exit 1; }
-	cp "$installer" "$ROOT/dist/${APPNAME}-windows-${arch}-installer.exe"
+	packaged_installer="$ROOT/dist/${APPNAME}-windows-${arch}-installer.exe"
+	copy_stable_windows_installer "$installer" "$packaged_installer"
+	verify_windows_installer_archive "$packaged_installer"
 	portable=$(find build/bin -maxdepth 1 -type f -name "*.exe" ! -iname "*setup*.exe" ! -iname "*installer*.exe" | head -n1 || true)
 	[ -n "$portable" ] || { echo "no portable Windows exe found in build/bin" >&2; exit 1; }
 	staging=$(mktemp -d)

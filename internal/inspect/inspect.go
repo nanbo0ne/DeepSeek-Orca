@@ -14,6 +14,7 @@ package inspect
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"deepseek-orca/internal/command"
 	"deepseek-orca/internal/config"
@@ -93,7 +94,7 @@ func Providers(cfg *config.Config) []ProviderInfo {
 			ContextWindow: e.ContextWindow,
 			IsDefault:     e.Name == cfg.DefaultModel,
 		}
-		if p := e.Price; p != nil {
+		if p := e.Price.SnapshotAt(time.Now()); p != nil {
 			info.Pricing = &PricingInfo{
 				CacheHit: p.CacheHit,
 				Input:    p.Input,

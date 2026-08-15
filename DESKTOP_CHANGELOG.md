@@ -1,5 +1,12 @@
 # DeepSeek-Orca Desktop Changelog
 
+## V2.1.3 - 2026-08-15
+
+- Updated official DeepSeek V4 Flash and V4 Pro cost estimates to the new Beijing-time peak and off-peak rates immediately, without waiting for the announced effective date.
+- Froze each request's rate when the Provider call starts, so long responses crossing a tariff boundary retain one consistent price across desktop, CLI, service events, and persisted telemetry.
+- Preserved static pricing for custom gateways and other providers, retained cache-miss derivation when only cached tokens are reported, and kept historical per-request costs stable after restart.
+- Hardened local Windows packaging by waiting for a stable NSIS source hash, copying through a temporary file, comparing source and destination hashes, and running an offline archive integrity test when 7-Zip is available.
+
 ## V2.1.2 - 2026-08-11
 
 - Added standalone, persistent mode-switch timeline records with explicit switching, completed, failed, and interrupted states. Blank conversations stay visually clean, while unfinished records recover as interrupted without entering provider history or completed-turn folds.

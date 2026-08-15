@@ -54,6 +54,34 @@ func TestRunMultiToolRoundEmptyIDsSurvivePairing(t *testing.T) {
 	}
 }
 
+func TestRunFreezesScheduledPricingBeforeUsageEvent(t *testing.T) {
+	mp := testutil.NewMock("m", testutil.Turn{
+		Text:  "done",
+		Usage: &provider.Usage{PromptTokens: 1_000_000, CacheMissTokens: 1_000_000, TotalTokens: 1_000_000},
+	})
+	pricing := &provider.Pricing{
+		Currency: "¥",
+		Schedule: &provider.PricingSchedule{
+			UTCOffsetMinutes: 8 * 60,
+			PeakWindows:      []provider.PricingWindow{{StartMinute: 0, EndMinute: 24 * 60}},
+			OffPeak:          provider.PricingRates{Input: 1.5},
+			Peak:             provider.PricingRates{Input: 3},
+		},
+	}
+	sink := &recordSink{}
+	a := New(mp, echoRegistry(), NewSession(""), Options{Pricing: pricing}, sink)
+	if err := a.Run(context.Background(), "go"); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	usage := sink.kinds(event.Usage)
+	if len(usage) != 1 || usage[0].Pricing == nil {
+		t.Fatalf("usage events = %+v, want one event with pricing", usage)
+	}
+	if usage[0].Pricing.Schedule != nil || usage[0].Pricing.Input != 3 {
+		t.Fatalf("usage pricing was not a frozen peak snapshot: %+v", usage[0].Pricing)
+	}
+}
+
 // TestRunCancelledMidStreamLeavesResumableSession proves a turn cancelled before
 // the model answered leaves the session well-formed: the user message stands,
 // nothing dangling, and the repaired history is sendable as-is on resume.

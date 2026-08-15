@@ -38,7 +38,7 @@ func TestBackfillDeepSeekProRestoresPro(t *testing.T) {
 	pro := hasModel(c, "deepseek-v4-pro")
 	if pro == nil {
 		t.Fatal("deepseek-v4-pro not restored")
-	} else if pro.Price == nil || pro.Price.Output != 6 {
+	} else if pro.Price == nil || pro.Price.Output != 13.5 || pro.Price.Schedule == nil {
 		t.Errorf("pro price not the preset: %+v", pro.Price)
 	}
 }

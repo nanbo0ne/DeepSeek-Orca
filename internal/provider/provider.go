@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"deepseek-orca/internal/nilutil"
 )
@@ -278,10 +279,60 @@ type Usage struct {
 // Pricing is a provider's per-1M-token rates, used to estimate spend. Currency
 // is just a display symbol (default "¥"). toml tags let config decode it.
 type Pricing struct {
-	CacheHit float64 `toml:"cache_hit"` // per 1M cached prompt tokens
-	Input    float64 `toml:"input"`     // per 1M uncached prompt tokens
-	Output   float64 `toml:"output"`    // per 1M completion tokens
-	Currency string  `toml:"currency"`
+	CacheHit float64          `toml:"cache_hit"` // per 1M cached prompt tokens
+	Input    float64          `toml:"input"`     // per 1M uncached prompt tokens
+	Output   float64          `toml:"output"`    // per 1M completion tokens
+	Currency string           `toml:"currency"`
+	Schedule *PricingSchedule `toml:"-"` // built-in time-of-day rates; never persisted to user config
+}
+
+// PricingRates is one set of per-1M-token rates.
+type PricingRates struct {
+	CacheHit float64
+	Input    float64
+	Output   float64
+}
+
+// PricingWindow is a half-open local-time interval expressed as minutes since
+// midnight. A request exactly at EndMinute is outside the window.
+type PricingWindow struct {
+	StartMinute int
+	EndMinute   int
+}
+
+// PricingSchedule selects Peak or OffPeak rates in a fixed UTC offset. Official
+// DeepSeek billing uses Beijing time, whose UTC+8 offset has no DST transitions.
+type PricingSchedule struct {
+	UTCOffsetMinutes int
+	PeakWindows      []PricingWindow
+	Peak             PricingRates
+	OffPeak          PricingRates
+}
+
+// SnapshotAt freezes the rates for a request started at at. The returned value
+// has no schedule, so a long request keeps the same rates across a peak boundary.
+func (p *Pricing) SnapshotAt(at time.Time) *Pricing {
+	if p == nil {
+		return nil
+	}
+	rates := PricingRates{CacheHit: p.CacheHit, Input: p.Input, Output: p.Output}
+	if schedule := p.Schedule; schedule != nil {
+		rates = schedule.OffPeak
+		local := at.In(time.FixedZone("pricing", schedule.UTCOffsetMinutes*60))
+		minute := local.Hour()*60 + local.Minute()
+		for _, window := range schedule.PeakWindows {
+			if minute >= window.StartMinute && minute < window.EndMinute {
+				rates = schedule.Peak
+				break
+			}
+		}
+	}
+	return &Pricing{
+		CacheHit: rates.CacheHit,
+		Input:    rates.Input,
+		Output:   rates.Output,
+		Currency: p.Currency,
+	}
 }
 
 // Cost estimates the spend for a usage record.

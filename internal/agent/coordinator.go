@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"deepseek-orca/internal/event"
 	"deepseek-orca/internal/nilutil"
@@ -122,6 +123,7 @@ func (c *Coordinator) plan(ctx context.Context, input string) (string, error) {
 	}
 	c.plannerSess.Add(provider.Message{Role: provider.RoleUser, Content: input})
 
+	requestPricing := c.plannerPricing.SnapshotAt(time.Now())
 	ch, err := c.planner.Stream(ctx, provider.Request{
 		Messages:    c.plannerSess.Messages,
 		Temperature: c.temperature,
@@ -145,7 +147,7 @@ func (c *Coordinator) plan(ctx context.Context, input string) (string, error) {
 	}
 	// Closes the planner's raw text block (no markdown redraw) and prints its
 	// usage line, mirroring the old Fprintln + printUsage tail.
-	c.sink.Emit(event.Event{Kind: event.Usage, Usage: usage, Pricing: c.plannerPricing})
+	c.sink.Emit(event.Event{Kind: event.Usage, Usage: usage, Pricing: requestPricing})
 
 	plan := text.String()
 	c.plannerSess.Add(provider.Message{Role: provider.RoleAssistant, Content: plan})

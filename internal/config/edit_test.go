@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"deepseek-orca/internal/provider"
 
 	"github.com/BurntSushi/toml"
 )
@@ -429,16 +432,44 @@ func TestResolveOfficialDeepSeekModelPricing(t *testing.T) {
 	if !ok || flash.Price == nil {
 		t.Fatalf("ResolveModel flash pricing = %+v, %v", flash, ok)
 	}
-	if flash.Price.CacheHit != 0.02 || flash.Price.Input != 1 || flash.Price.Output != 2 || flash.Price.Currency != "¥" {
-		t.Fatalf("flash pricing = %+v, want cache_hit 0.02 input 1 output 2 ¥", flash.Price)
+	if flash.Price.CacheHit != 0.05 || flash.Price.Input != 1.5 || flash.Price.Output != 4.5 || flash.Price.Currency != "¥" {
+		t.Fatalf("flash off-peak pricing = %+v, want cache_hit 0.05 input 1.5 output 4.5 ¥", flash.Price)
 	}
 
 	pro, ok := c.ResolveModel("deepseek/deepseek-v4-pro")
 	if !ok || pro.Price == nil {
 		t.Fatalf("ResolveModel pro pricing = %+v, %v", pro, ok)
 	}
-	if pro.Price.CacheHit != 0.025 || pro.Price.Input != 3 || pro.Price.Output != 6 || pro.Price.Currency != "¥" {
-		t.Fatalf("pro pricing = %+v, want cache_hit 0.025 input 3 output 6 ¥", pro.Price)
+	if pro.Price.CacheHit != 0.15 || pro.Price.Input != 4.5 || pro.Price.Output != 13.5 || pro.Price.Currency != "¥" {
+		t.Fatalf("pro off-peak pricing = %+v, want cache_hit 0.15 input 4.5 output 13.5 ¥", pro.Price)
+	}
+	beijing := time.FixedZone("test-beijing", 8*60*60)
+	flashPeak := flash.Price.SnapshotAt(time.Date(2026, time.August, 15, 10, 0, 0, 0, beijing))
+	if flashPeak.CacheHit != 0.10 || flashPeak.Input != 3 || flashPeak.Output != 9 {
+		t.Fatalf("flash peak pricing = %+v, want cache_hit 0.10 input 3 output 9", flashPeak)
+	}
+	proPeak := pro.Price.SnapshotAt(time.Date(2026, time.August, 15, 15, 0, 0, 0, beijing))
+	if proPeak.CacheHit != 0.30 || proPeak.Input != 9 || proPeak.Output != 27 {
+		t.Fatalf("pro peak pricing = %+v, want cache_hit 0.30 input 9 output 27", proPeak)
+	}
+}
+
+func TestResolveCustomGatewayKeepsStaticPricing(t *testing.T) {
+	want := &provider.Pricing{CacheHit: 7, Input: 8, Output: 9, Currency: "$"}
+	c := Default()
+	c.Providers = []ProviderEntry{{
+		Name:    "private-relay",
+		Kind:    "openai",
+		BaseURL: "https://relay.example.com/v1",
+		Model:   "deepseek-v4-flash",
+		Price:   want,
+	}}
+	got, ok := c.ResolveModel("private-relay/deepseek-v4-flash")
+	if !ok || got.Price == nil {
+		t.Fatalf("ResolveModel custom gateway = %+v, %v", got, ok)
+	}
+	if got.Price.CacheHit != 7 || got.Price.Input != 8 || got.Price.Output != 9 || got.Price.Schedule != nil {
+		t.Fatalf("custom gateway pricing overridden: %+v", got.Price)
 	}
 }
 

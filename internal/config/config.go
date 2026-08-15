@@ -838,11 +838,35 @@ func officialDeepSeekModelPricing(e *ProviderEntry, model string) *provider.Pric
 	}
 	switch strings.ToLower(model) {
 	case "deepseek-v4-flash":
-		return &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}
+		return deepSeekPeakPricing(
+			provider.PricingRates{CacheHit: 0.05, Input: 1.5, Output: 4.5},
+			provider.PricingRates{CacheHit: 0.10, Input: 3, Output: 9},
+		)
 	case "deepseek-v4-pro":
-		return &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}
+		return deepSeekPeakPricing(
+			provider.PricingRates{CacheHit: 0.15, Input: 4.5, Output: 13.5},
+			provider.PricingRates{CacheHit: 0.30, Input: 9, Output: 27},
+		)
 	default:
 		return nil
+	}
+}
+
+func deepSeekPeakPricing(offPeak, peak provider.PricingRates) *provider.Pricing {
+	return &provider.Pricing{
+		CacheHit: offPeak.CacheHit,
+		Input:    offPeak.Input,
+		Output:   offPeak.Output,
+		Currency: "¥",
+		Schedule: &provider.PricingSchedule{
+			UTCOffsetMinutes: 8 * 60,
+			PeakWindows: []provider.PricingWindow{
+				{StartMinute: 9 * 60, EndMinute: 12 * 60},
+				{StartMinute: 14 * 60, EndMinute: 18 * 60},
+			},
+			Peak:    peak,
+			OffPeak: offPeak,
+		},
 	}
 }
 
@@ -1210,8 +1234,8 @@ func Default() *Config {
 			Weixin:     WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
 		},
 		Providers: []ProviderEntry{
-			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}},
-			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}},
+			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: deepSeekPeakPricing(provider.PricingRates{CacheHit: 0.05, Input: 1.5, Output: 4.5}, provider.PricingRates{CacheHit: 0.10, Input: 3, Output: 9})},
+			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: deepSeekPeakPricing(provider.PricingRates{CacheHit: 0.15, Input: 4.5, Output: 13.5}, provider.PricingRates{CacheHit: 0.30, Input: 9, Output: 27})},
 			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_TOKEN_PLAN_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}, NoProxy: true},
 			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_TOKEN_PLAN_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}, NoProxy: true},
 		},

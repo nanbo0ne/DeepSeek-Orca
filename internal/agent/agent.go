@@ -552,6 +552,7 @@ func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 			prevPrefixShape = prefixShape
 		}
 
+		requestPricing := a.pricing.SnapshotAt(time.Now())
 		text, reasoning, signature, calls, usage, interrupted, partialToolStarted, err := a.stream(ctx, step+1)
 		if err != nil {
 			if interrupted && streamRecoveries < maxStreamRecoveries {
@@ -579,7 +580,7 @@ func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 		a.lastPrefixShape = prefixShape
 		a.haveLastPrefixShape = true
 		if usage != nil && usage.TotalTokens > 0 {
-			a.sink.Emit(event.Event{Kind: event.Usage, Usage: usage, Pricing: a.pricing,
+			a.sink.Emit(event.Event{Kind: event.Usage, Usage: usage, Pricing: requestPricing,
 				CacheDiagnostics: &cacheDiagnostics,
 				SessionHit:       int(a.sessCacheHit.Load()), SessionMiss: int(a.sessCacheMiss.Load())})
 		}

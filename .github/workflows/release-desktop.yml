@@ -280,6 +280,17 @@ jobs:
         if: runner.os == 'Windows' && env.HAS_SIGNPATH != 'true' && env.ALLOW_UNSIGNED_WINDOWS == 'true'
         run: echo "::warning::Windows artifacts are unsigned and must be replaced after SignPath enrollment"
 
+      - name: Verify Windows package integrity
+        if: runner.os == 'Windows'
+        run: |
+          seven_zip="$(command -v 7z 2>/dev/null || command -v 7z.exe 2>/dev/null || true)"
+          if [ -z "$seven_zip" ] && [ -x "/c/Program Files/7-Zip/7z.exe" ]; then
+            seven_zip="/c/Program Files/7-Zip/7z.exe"
+          fi
+          [ -n "$seven_zip" ] || { echo "::error::7-Zip is required for release integrity checks"; exit 1; }
+          "$seven_zip" t dist/DeepSeek-Orca-windows-amd64-installer.exe
+          "$seven_zip" t dist/DeepSeek-Orca-windows-amd64.zip
+
       - name: Sign artifacts (minisign)
         if: env.HAS_MINISIGN == 'true'
         working-directory: desktop
