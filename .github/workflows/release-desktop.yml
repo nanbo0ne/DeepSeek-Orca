@@ -318,8 +318,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_MINISIGN: ${{ secrets.MINISIGN_PRIVATE_KEY != '' && secrets.MINISIGN_PASSWORD != '' }}
-    # Stable publishes go through the `release` environment (esengine must
-    # approve); canary uses the open `canary` environment so maintainers self-serve.
+    # Stable publishes go through the `release` environment (maintainer approval);
+    # canary uses the open `canary` environment so maintainers self-serve.
     environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.channel == 'canary') && 'canary' || 'release' }}
     steps:
       - uses: actions/checkout@v6
@@ -385,7 +385,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     # Skip cleanly when R2 isn't configured; GitHub release still works as fallback.
-    if: ${{ github.repository_owner == 'esengine' }}
+    if: ${{ github.repository_owner == 'nanbo0ne' }}
     env:
       HAS_R2: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
     steps:

@@ -53,7 +53,7 @@ jobs:
     name: mirror CodeGraph runtime to R2
     needs: goreleaser
     runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'esengine' }}
+    if: ${{ github.repository_owner == 'nanbo0ne' }}
     env:
       HAS_R2: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
     steps:
