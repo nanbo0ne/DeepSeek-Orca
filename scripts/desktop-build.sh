@@ -147,11 +147,14 @@ mkdir -p "$ROOT/dist"
 
 case "$os" in
 darwin)
-	# Wails names the bundle after outputfilename (Orca.app); repackage it as
-	# O.R.C.A.app for a clean user-facing name.
+	# Wails names the bundle after the project name, which is independent from the
+	# executable outputfilename. Discover the single generated bundle, then
+	# normalize its public name to O.R.C.A.app.
 	staging=$(mktemp -d)
 	app="$staging/${APPNAME}.app"
-	cp -R "build/bin/Orca.app" "$app"
+	generated_app=$(find build/bin -maxdepth 1 -type d -name "*.app" -print -quit)
+	[ -n "$generated_app" ] || { echo "no macOS app bundle found in build/bin" >&2; exit 1; }
+	cp -R "$generated_app" "$app"
 
 	# Two signing paths, selected by HAS_APPLE_CERT (set by release-desktop.yml when
 	# the APPLE_* secrets are present). With a real Developer ID cert + notarization
