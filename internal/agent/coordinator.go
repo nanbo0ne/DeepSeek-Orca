@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/nilutil"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // Runner carries out one task turn. Both Agent (single model) and Coordinator
@@ -35,7 +35,7 @@ Do not write a full implementation and do not attempt side effects.
 Do not ask the user how to trigger the executor, and do not say you are waiting for the executor.
 Output instructions the executor can directly use: what to do, which files or commands matter, likely blockers, and key decisions. Keep it brief and actionable.`
 
-const executorHandoffMarker = "DeepSeek-Orca executor handoff"
+const executorHandoffMarker = "O.R.C.A executor handoff"
 
 // PlannerPromptWithContext appends cache-stable standing context, such as loaded
 // DEEPSEEK_ORCA.md / AGENTS.md memory, to the planner's smaller system prompt.

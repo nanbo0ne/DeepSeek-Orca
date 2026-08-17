@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Compaction is a low-frequency cache-reset point: the prompt grows append-only

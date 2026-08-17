@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 // runProviderCommand handles "/provider": with no argument it lists the configured

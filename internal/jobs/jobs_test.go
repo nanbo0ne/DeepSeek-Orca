@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 

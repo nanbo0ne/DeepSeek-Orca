@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // fatTool returns a fixed-size blob, standing in for a real read_file / bash

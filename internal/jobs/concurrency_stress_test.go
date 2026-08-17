@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // TestManagerConcurrentAccess hammers every public Manager method from many

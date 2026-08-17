@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 func (a *App) decideBotContinuity(ctx context.Context, modelRef string, previous bot.SessionChoice, current string) (bool, error) {

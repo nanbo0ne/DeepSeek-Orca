@@ -21,9 +21,9 @@ import (
 	"github.com/minio/selfupdate"
 	"golang.org/x/mod/semver"
 
-	"deepseek-orca/desktop/internal/update"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/desktop/internal/update"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
 )
 
 // updater.go is the transport-free core of the desktop auto-updater: manifest
@@ -35,9 +35,9 @@ import (
 // fallback. The build channel picks the rolling pointer so a canary build polls
 // the canary line and a stable build polls latest; the two never cross.
 const (
-	r2Base         = "https://dl.deepseek-orca.io"
-	ghReleasesBase = "https://github.com/nanbo0ne/DeepSeek-Orca/releases"
-	ghReleasesAPI  = "https://api.github.com/repos/nanbo0ne/DeepSeek-Orca/releases?per_page=20"
+	r2Base         = "https://dl.orca-agent.dev"
+	ghReleasesBase = "https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases"
+	ghReleasesAPI  = "https://api.github.com/repos/nanbo0ne/O.R.C.A-for-Windows/releases?per_page=20"
 	httpTimeout    = 15 * time.Second
 )
 
@@ -338,7 +338,7 @@ func extractBinary(targz []byte, name string) ([]byte, error) {
 // applyLinux replaces the running binary with the one inside the downloaded
 // tar.gz; the caller relaunches afterwards.
 func applyLinux(targz []byte) error {
-	bin, err := extractBinary(targz, "deepseek-orca-desktop")
+	bin, err := extractBinary(targz, "Orca")
 	if err != nil {
 		return err
 	}
@@ -352,7 +352,7 @@ func applyLinux(targz []byte) error {
 // overwrites in place instead of landing a second copy at the per-user default —
 // this also covers upgrades from builds that predate the registry InstallLocation.
 func applyWindows(installer []byte) error {
-	f, err := os.CreateTemp("", "deepseek-orca-update-*.exe")
+	f, err := os.CreateTemp("", "orca-update-*.exe")
 	if err != nil {
 		return err
 	}

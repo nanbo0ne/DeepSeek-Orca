@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/hook"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/outputstyle"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/hook"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/outputstyle"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 func TestRenderSkillListUsesSharedVisualLanguage(t *testing.T) {
@@ -136,7 +136,7 @@ func TestRenderHelpGroupsCommands(t *testing.T) {
 func TestRenderSkillPathsStaysWithinWidth(t *testing.T) {
 	width := 72
 	got := renderSkillPaths(width, []skill.Root{{
-		Dir:      "/Users/me/projects/really/deep/path/to/.deepseek-orca/skills",
+		Dir:      "/Users/me/projects/really/deep/path/to/.orca/skills",
 		Scope:    skill.ScopeProject,
 		Priority: 0,
 		Status:   skill.StatusMissing,

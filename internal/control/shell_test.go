@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
 )
 
 // collectSink returns a Sink that collects events and a channel that receives

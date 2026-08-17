@@ -1,4 +1,4 @@
-const attachmentRefRe = /@(\.deepseek-orca\/attachments\/[^\s]+)/g;
+const attachmentRefRe = /@((?:\.orca|\.deepseek-orca)\/attachments\/[^\s]+)/g;
 const namedAttachmentRefRe = /(^|\s)@\[([^\]\r\n]+)\]\(([^)\s]+)\)/g;
 const referenceRefRe = /(^|\s)@([^\s]+)/g;
 const trailingPunctuationRe = /[.,;!?)\]}，。；！？）】]+$/;
@@ -104,14 +104,14 @@ export function sortDisplayAttachments<T extends { kind: "image" | "file" | "fol
 }
 
 function isDisplayReference(path: string): boolean {
-  if (path.startsWith(".deepseek-orca/attachments/")) return true;
+  if (isAttachmentPath(path)) return true;
   if (path.endsWith("/")) return true;
   if (path.includes("/")) return true;
   return attachmentExt(path) !== "";
 }
 
 function displayAttachment(path: string, name: string): DisplayAttachment {
-  if (path.startsWith(".deepseek-orca/attachments/")) {
+  if (isAttachmentPath(path)) {
     const kind = isImageAttachmentRef(path) ? "image" : "file";
     return {
       path,
@@ -129,4 +129,8 @@ function displayAttachment(path: string, name: string): DisplayAttachment {
     source: "workspace",
     ext: isDir ? "" : attachmentExt(path).replace(/^\./, "").toUpperCase(),
   };
+}
+
+function isAttachmentPath(path: string): boolean {
+  return path.startsWith(".orca/attachments/") || path.startsWith(".deepseek-orca/attachments/");
 }

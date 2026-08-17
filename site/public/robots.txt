@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://deepseek-orca.io/sitemap-index.xml
+Sitemap: https://orca-agent.io/sitemap-index.xml

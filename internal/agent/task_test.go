@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func testTaskContext() context.Context {
@@ -63,7 +63,7 @@ func TestTaskToolRoutesValidatedImagesToSupportedSubagent(t *testing.T) {
 		})
 	ctx := WithTurnImages(testTaskContext(), []provider.ImageContent{{
 		Name:      "chart.png",
-		Path:      ".deepseek-orca/attachments/chart.png",
+		Path:      ".orca/attachments/chart.png",
 		MediaType: "image/png",
 	}})
 	if _, err := task.Execute(ctx, []byte(`{"prompt":"inspect the chart","images":["chart.png"]}`)); err != nil {
@@ -76,7 +76,7 @@ func TestTaskToolRoutesValidatedImagesToSupportedSubagent(t *testing.T) {
 }
 
 func TestTaskToolRejectsDisallowedImageRouting(t *testing.T) {
-	available := []provider.ImageContent{{Name: "allowed.png", Path: ".deepseek-orca/attachments/allowed.png", MediaType: "image/png"}}
+	available := []provider.ImageContent{{Name: "allowed.png", Path: ".orca/attachments/allowed.png", MediaType: "image/png"}}
 	ctx := WithTurnImages(testTaskContext(), available)
 	newTask := func(mode, capability string) *TaskTool {
 		return newTestTaskTool(t, &mockProvider{name: "sub"}, tool.NewRegistry(), "sys", "", "", nil).

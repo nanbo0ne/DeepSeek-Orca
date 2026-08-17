@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // TestStreamStallTimesOut covers issue #3374 for the Anthropic provider: a

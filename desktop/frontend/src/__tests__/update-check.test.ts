@@ -13,7 +13,7 @@ const info: UpdateInfo = {
   latest: "2.0.26",
   notes: "",
   canSelfUpdate: false,
-  downloadUrl: "https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.0.26",
+  downloadUrl: "https://github.com/nanbo0ne/O.R.C.A/releases/tag/desktop-v2.0.26",
   assetSize: 0,
 };
 

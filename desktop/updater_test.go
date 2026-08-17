@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/desktop/internal/update"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/desktop/internal/update"
 )
 
 func TestNormalizeVersion(t *testing.T) {

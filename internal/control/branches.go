@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"deepseek-orca/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
 )
 
 // ParseBranchTarget parses the arguments after "/branch". A leading positive

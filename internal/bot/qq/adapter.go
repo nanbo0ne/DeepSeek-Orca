@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // New creates a QQ Bot adapter.

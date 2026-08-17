@@ -3,14 +3,10 @@ import Base from '../layouts/Base.astro';
 import community from '../data/community.json';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const R2 = 'https://dl.deepseek-orca.io/latest';
-const repo = 'https://github.com/nanbo0ne/DeepSeek-Orca';
+const repo = 'https://github.com/nanbo0ne/O.R.C.A-for-Windows';
+const R2 = `${repo}/releases/download/desktop-v3.0.0`;
 
-let goVer = '1.1.0';
-try {
-  const r = await fetch(`${R2}/latest.json`);
-  if (r.ok) { const d = await r.json(); goVer = String(d.version || '').replace(/^v/, '') || goVer; }
-} catch {}
+const goVer = '3.0.0';
 
 const fmtN = (n) => Number(n).toLocaleString('en-US');
 const avClass = (i) => 'av' + (i % 5 === 2 ? ' sm' : i % 7 === 3 ? ' lg' : '');
@@ -18,13 +14,13 @@ const half = Math.ceil(community.list.length / 2);
 const rowA = community.list.slice(0, half);
 const rowB = community.list.slice(half);
 
-const desc = "Open-source AI coding agent for your terminal, engineered around DeepSeek's byte-stable prefix cache. Long sessions hold 90%+ cache hit and input-token cost collapses to ~1/5. A single Go binary. npm · Homebrew · desktop. MIT.";
+const desc = "Open Reasoning & Computing Agent: a provider-neutral desktop workspace for coding, everyday work, optional local Qwen inference, and guarded Windows Computer Use.";
 const ld = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'DeepSeek-Orca',
+  name: 'O.R.C.A',
   description: desc,
-  url: 'https://deepseek-orca.io/',
+  url: repo,
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'macOS, Windows, Linux',
   softwareVersion: goVer,
@@ -34,16 +30,16 @@ const ld = {
 };
 ---
 <Base
-  title="DeepSeek-Orca — DeepSeek-native coding agent for your terminal"
-  titleEn="DeepSeek-Orca — DeepSeek-native coding agent for your terminal"
-  titleZh="DeepSeek-Orca — DeepSeek 原生的终端编码 Agent"
+  title="O.R.C.A — Open Reasoning & Computing Agent"
+  titleEn="O.R.C.A — Open Reasoning & Computing Agent"
+  titleZh="O.R.C.A — 开放推理与计算智能体"
   description={desc}>
 
   <script type="application/ld+json" set:html={JSON.stringify(ld)} slot="head" is:inline />
 
   <header class="nav">
     <div class="nav-inner">
-      <a class="brand" href={`${base}/`}><img src={`${base}/logo.svg`} alt="DeepSeek-Orca logo" /><span>DeepSeek-Orca</span></a>
+      <a class="brand" href={`${base}/`}><img src={`${base}/logo.svg`} alt="O.R.C.A logo" /><span>O.R.C.A</span></a>
       <nav class="nav-links">
         <a href="#features"><span class="l-en">Features</span><span class="l-zh">特性</span></a>
         <a href="#how"><span class="l-en">How it works</span><span class="l-zh">工作原理</span></a>
@@ -63,18 +59,18 @@ const ld = {
   <section class="hero">
     <canvas class="hero-dots"></canvas>
     <div class="wrap">
-      <div class="eyebrow reveal"><span class="dot"></span><span class="l-en">DeepSeek-native · built for your terminal · MIT</span><span class="l-zh">DeepSeek 原生 · 为终端而生 · MIT</span></div>
+      <div class="eyebrow reveal"><span class="dot"></span><span class="l-en">Cloud or local · Windows computer use · MIT</span><span class="l-zh">云端或本地 · Windows 电脑控制 · MIT</span></div>
       <h1 class="reveal" style="--d:0.06s">
-        <span class="l-en">A <span class="grad">DeepSeek</span>-native agent<br />for your terminal.</span>
-        <span class="l-zh"><span class="grad">DeepSeek</span> 原生的<br />终端编码 Agent。</span>
+        <span class="l-en"><span class="grad">Open Reasoning</span><br />& Computing Agent.</span>
+        <span class="l-zh"><span class="grad">开放推理</span>与<br />计算智能体。</span>
       </h1>
       <p class="sub reveal" style="--d:0.12s">
-        <span class="l-en">The loop is append-only, aligned to DeepSeek's byte-stable prefix cache — so long sessions hold <b>90%+ cache hit</b> and input-token cost collapses to <b>~1/5</b>. Terminal-first.</span>
-        <span class="l-zh">运行循环 append-only,对齐 DeepSeek 字节稳定的 prefix-cache —— 长会话缓存命中 <b>90%+</b>,输入 token 成本降到 <b>约 1/5</b>。终端优先。</span>
+        <span class="l-en">Choose cloud providers or a managed local Qwen model, then let O.R.C.A code, research, create work artifacts, and operate Windows through a controlled computer-use loop.</span>
+        <span class="l-zh">自由选择云端供应商或由 O.R.C.A 管理的本地 Qwen，让它编程、调研、制作办公产物，并通过受控循环操作 Windows。</span>
       </p>
       <div class="hero-cta reveal" style="--d:0.18s">
         <a class="btn btn-dark" data-os-dl data-goto="desktop" href="#start"><span class="l-en">Download for <span class="os-name">macOS</span></span><span class="l-zh">下载 <span class="os-name">macOS</span> 版</span></a>
-        <span class="install"><span class="ps1">$</span>npm i -g deepseek-orca@next<button data-copy="npm i -g deepseek-orca@next">Copy</button></span>
+        <span class="install"><span class="ps1">$</span>npm i -g orca-agent<button data-copy="npm i -g orca-agent">Copy</button></span>
         <a class="btn btn-ghost" href="#how"><span class="l-en">How it works ↓</span><span class="l-zh">工作原理 ↓</span></a>
       </div>
       <div class="also reveal" style="--d:0.22s"><span class="l-en">Also via <a href="#start" data-goto="brew">Homebrew</a> and <a href="#start" data-goto="desktop">desktop apps</a> · macOS / Windows / Linux</span><span class="l-zh">也可通过 <a href="#start" data-goto="brew">Homebrew</a> 与<a href="#start" data-goto="desktop">桌面端</a>安装 · macOS / Windows / Linux</span></div>
@@ -82,8 +78,8 @@ const ld = {
       <div class="term-stage reveal" style="--d:0.26s">
         <div class="fig"><span class="l-en">fig. 01 — a live session, cache still warm</span><span class="l-zh">图 01 —— 一场实时会话,缓存依然温热</span></div>
         <div class="term">
-          <div class="term-bar"><i></i><i></i><i></i><span class="title">~/app — deepseek-orca chat</span></div>
-          <div class="term-body"><span class="tl"><span class="t-acc">◆</span> deepseek-orca <span class="t-dim">v<span class="rxv">{goVer}</span> · deepseek-v4-flash · ~/app</span></span><span class="tl"><span class="t-vio">›</span> add retry with backoff to the http client</span><span class="tl"><span class="t-ok">✓</span> edit <span class="t-dim">internal/net/client.go</span>  <span class="t-add">+24 −3</span></span><span class="tl"><span class="t-ok">✓</span> edit <span class="t-dim">internal/net/client_test.go</span>  <span class="t-add">+41 −0</span></span><span class="tl"><span class="t-ok">✓</span> run <span class="t-dim">go test ./internal/net/</span>  <span class="t-ok">ok</span> <span class="t-dim">(0.21s)</span></span><span class="tl"><span class="t-warm">●</span> <span class="t-dim">2 files · cache 94.2% → 95.1%</span></span><span class="tl"><span class="t-vio">›</span> <span class="caret"></span></span></div>
+          <div class="term-bar"><i></i><i></i><i></i><span class="title">~/app — orca chat</span></div>
+          <div class="term-body"><span class="tl"><span class="t-acc">◆</span> orca <span class="t-dim">v<span class="rxv">{goVer}</span> · qwen3.8-27b · ~/app</span></span><span class="tl"><span class="t-vio">›</span> add retry with backoff to the http client</span><span class="tl"><span class="t-ok">✓</span> edit <span class="t-dim">internal/net/client.go</span>  <span class="t-add">+24 −3</span></span><span class="tl"><span class="t-ok">✓</span> edit <span class="t-dim">internal/net/client_test.go</span>  <span class="t-add">+41 −0</span></span><span class="tl"><span class="t-ok">✓</span> run <span class="t-dim">go test ./internal/net/</span>  <span class="t-ok">ok</span> <span class="t-dim">(0.21s)</span></span><span class="tl"><span class="t-warm">●</span> <span class="t-dim">provider · local · work tools</span></span><span class="tl"><span class="t-vio">›</span> <span class="caret"></span></span></div>
           <div class="term-stat"><span>cache <b data-cnt="95.1" data-dec="1" data-suf="% hit">95.1% hit</b></span><span>session <b data-cnt="18" data-suf="m">18m</b></span><span>model <b>deepseek-v4-flash</b></span><span>cost <b data-cnt="0.043" data-dec="3" data-pre="$">$0.043</b></span></div>
         </div>
       </div>
@@ -95,13 +91,13 @@ const ld = {
       <div class="sec-head split reveal">
         <span class="kicker"><span class="l-en">Features</span><span class="l-zh">特性</span></span>
         <h2><span class="l-en">Built for long, <span class="em">cheap</span> sessions.</span><span class="l-zh">为长会话、<span class="em">低成本</span>而生。</span></h2>
-        <p><span class="l-en">Most agents pay full price for the same growing prompt every turn. DeepSeek-Orca keeps the prefix byte-identical so DeepSeek's cache does the heavy lifting — and everything else follows.</span><span class="l-zh">多数 agent 每回合都为同一段不断增长的 prompt 付全价。DeepSeek-Orca 让前缀逐字节稳定,让 DeepSeek 的缓存替你扛下来——其余一切由此而来。</span></p>
+        <p><span class="l-en">O.R.C.A keeps stable prompt prefixes cache-friendly across supported providers while separating coding, assistant, and computer-control contexts.</span><span class="l-zh">O.R.C.A 在支持的供应商之间保持缓存友好的稳定提示词前缀，并隔离编程、助手与电脑控制上下文。</span></p>
       </div>
       <div class="feat-grid">
         <div class="feat reveal">
           <span class="tag">01 / cache-first</span>
           <h3><span class="l-en">Cache-first loop</span><span class="l-zh">缓存优先循环</span></h3>
-          <p><span class="l-en">Append-only history aligned to DeepSeek's prefix cache. 90%+ hit on long sessions; input tokens bill at ~1/5.</span><span class="l-zh">append-only 历史对齐 DeepSeek prefix-cache。长会话 90%+ 命中,输入 token 约 1/5 计费。</span></p>
+          <p><span class="l-en">Append-only history and stable prefixes preserve provider cache reuse without tying the product to one model family.</span><span class="l-zh">append-only 历史与稳定前缀复用供应商缓存，同时不再绑定单一模型家族。</span></p>
           <div class="feat-viz" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="n"></i><i class="n"></i><i class="n"></i></div>
         </div>
         <div class="feat reveal" style="--d:0.06s">
@@ -129,7 +125,7 @@ const ld = {
           <span class="tag">06 / terminal</span>
           <h3><span class="l-en">Terminal-native</span><span class="l-zh">终端原生</span></h3>
           <p><span class="l-en">Not another IDE plugin. <code>git diff</code> handles diffs, <code>ls</code> handles trees — the terminal is the workspace.</span><span class="l-zh">不是又一个 IDE 插件。diff 交给 <code>git diff</code>,树交给 <code>ls</code> —— 终端就是工作面板。</span></p>
-          <code class="feat-chip">$ ssh build-box → deepseek-orca code</code>
+          <code class="feat-chip">$ ssh build-box → orca code</code>
         </div>
       </div>
     </div>
@@ -180,13 +176,13 @@ const ld = {
           <span class="num">01</span>
           <h3><span class="l-en">Install</span><span class="l-zh">安装</span></h3>
           <p><span class="l-en">One command. macOS, Linux, Windows, and WSL.</span><span class="l-zh">一条命令,支持 macOS、Linux、Windows 与 WSL。</span></p>
-          <code>npm i -g deepseek-orca@next</code>
+          <code>npm i -g orca-agent</code>
         </div>
         <div class="step reveal" style="--d:0.08s">
           <span class="num">02</span>
           <h3><span class="l-en">Point it at a repo</span><span class="l-zh">指向你的仓库</span></h3>
-          <p><span class="l-en">DeepSeek-Orca maps the codebase once, then keeps that map in the warm prefix.</span><span class="l-zh">DeepSeek-Orca 只做一次代码库测绘,然后把这份地图常驻在温热的前缀缓存里。</span></p>
-          <code>cd your-project &amp;&amp; deepseek-orca code</code>
+          <p><span class="l-en">O.R.C.A maps the codebase once, then keeps that map in the warm prefix.</span><span class="l-zh">O.R.C.A 只做一次代码库测绘,然后把这份地图常驻在温热的前缀缓存里。</span></p>
+          <code>cd your-project &amp;&amp; orca code</code>
         </div>
         <div class="step reveal" style="--d:0.16s">
           <span class="num">03</span>
@@ -205,7 +201,7 @@ const ld = {
       <div class="sec-head split reveal">
         <span class="kicker"><span class="l-en">Community</span><span class="l-zh">社区共建</span></span>
         <h2><span class="l-en">Built in the open, with <span class="em">{community.contributors} contributors.</span></span><span class="l-zh">开源共建,感谢 <span class="em">{community.contributors} 位贡献者。</span></span></h2>
-        <p><span class="l-en">DeepSeek-Orca is MIT-licensed and developed in public. Every issue, every PR, every late-night review made it what it is — thank you.</span><span class="l-zh">DeepSeek-Orca 采用 MIT 许可,开放开发。每一个 issue、每一条 PR、每一次深夜 review,成就了今天的它——谢谢你们。</span></p>
+        <p><span class="l-en">O.R.C.A is MIT-licensed and developed in public. Every issue, every PR, every late-night review made it what it is — thank you.</span><span class="l-zh">O.R.C.A 采用 MIT 许可,开放开发。每一个 issue、每一条 PR、每一次深夜 review,成就了今天的它——谢谢你们。</span></p>
       </div>
     </div>
     <div class="crew reveal" aria-hidden="false">
@@ -240,7 +236,7 @@ const ld = {
 
   <section class="cta" id="start">
     <h2 class="reveal"><span class="l-en">Start a session that <span class="em">lasts.</span></span><span class="l-zh">开启一场<span class="em">不会中断</span>的会话。</span></h2>
-    <p class="reveal" style="--d:0.08s"><span class="l-en">Open source under MIT. Bring your own DeepSeek API key — your code never leaves your machine and the model.</span><span class="l-zh">MIT 开源。使用你自己的 DeepSeek API Key——代码不会离开你的机器与模型。</span></p>
+    <p class="reveal" style="--d:0.08s"><span class="l-en">Open source under MIT. Bring a provider key or run a local model; you choose where model requests are processed.</span><span class="l-zh">MIT 开源。使用自己的供应商密钥或本地模型，由你决定模型请求在哪里处理。</span></p>
 
     <div class="dl reveal" style="--d:0.14s">
       <div class="dl-tabs" role="tablist">
@@ -250,15 +246,15 @@ const ld = {
       </div>
 
       <div class="dl-pane active" data-pane="npm">
-        <span class="install"><span class="ps1">$</span>npm i -g deepseek-orca@next<button data-copy="npm i -g deepseek-orca@next">Copy</button></span>
+        <span class="install"><span class="ps1">$</span>npm i -g orca-agent<button data-copy="npm i -g orca-agent">Copy</button></span>
         <div class="chan">
           <div class="chan-row rec">
-            <code>npm i -g deepseek-orca@next</code><span class="v">v<span class="rxv">{goVer}</span></span>
+            <code>npm i -g orca-agent</code><span class="v">v<span class="rxv">{goVer}</span></span>
             <span class="s"><span class="l-en">Go rewrite · one binary · no Node · actively developed</span><span class="l-zh">Go 重写 · 单二进制 · 无需 Node · 主力开发中</span></span>
             <span class="chan-badge"><span class="l-en">recommended</span><span class="l-zh">推荐</span></span>
           </div>
           <div class="chan-row">
-            <code>npm i -g deepseek-orca</code><span class="v">v0.53</span>
+            <code>npm i -g orca-agent</code><span class="v">v<span class="rxv">{goVer}</span></span>
             <span class="s"><span class="l-en">deprecated 0.x line · no longer maintained</span><span class="l-zh">已废弃的 0.x 线 · 不再维护</span></span>
             <span class="chan-badge pre"><span class="l-en">deprecated</span><span class="l-zh">已废弃</span></span>
           </div>
@@ -267,7 +263,7 @@ const ld = {
       </div>
 
       <div class="dl-pane" data-pane="brew">
-        <span class="install"><span class="ps1">$</span>brew install nanbo0ne/DeepSeek-Orca/deepseek-orca<button data-copy="brew install nanbo0ne/DeepSeek-Orca/deepseek-orca">Copy</button></span>
+        <span class="install"><span class="ps1">$</span>brew install nanbo0ne/O.R.C.A-for-Windows/orca-agent<button data-copy="brew install nanbo0ne/O.R.C.A-for-Windows/orca-agent">Copy</button></span>
         <div class="dl-note"><span class="l-en">v<span class="rxv">{goVer}</span> (Go rewrite) · macOS &amp; Linux · update with <span class="mono">brew upgrade</span></span><span class="l-zh">v<span class="rxv">{goVer}</span>(Go 重写)· macOS 与 Linux · 通过 <span class="mono">brew upgrade</span> 更新</span></div>
       </div>
 
@@ -276,17 +272,17 @@ const ld = {
           <div class="os-card" data-os="mac">
             <h4>macOS</h4>
             <span class="meta">.dmg · universal (Apple Silicon &amp; Intel)</span>
-            <a class="btn btn-light" href={`${R2}/DeepSeek-Orca-darwin-universal.dmg`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <a class="btn btn-light" href={`${R2}/O.R.C.A-macos-universal.dmg`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
           </div>
           <div class="os-card" data-os="win">
             <h4>Windows</h4>
             <span class="meta">.exe installer · x64 · Windows 10+</span>
-            <a class="btn btn-light" href={`${R2}/DeepSeek-Orca-windows-amd64-installer.exe`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <a class="btn btn-light" href={`${R2}/O.R.C.A-for-Windows-windows-amd64-installer.exe`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
           </div>
           <div class="os-card" data-os="linux">
             <h4>Linux</h4>
             <span class="meta">.tar.gz · amd64</span>
-            <a class="btn btn-light" href={`${R2}/DeepSeek-Orca-linux-amd64.tar.gz`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
+            <a class="btn btn-light" href={`${R2}/O.R.C.A-linux-amd64.tar.gz`} download><span class="l-en">Download · v<span class="rxv">{goVer}</span></span><span class="l-zh">下载 · v<span class="rxv">{goVer}</span></span></a>
           </div>
         </div>
         <div class="dl-note"><span class="l-en">v<span class="rxv">{goVer}</span> · built-in auto-updates · same engine as the CLI · <a href={`${repo}/releases`}>all releases →</a></span><span class="l-zh">v<span class="rxv">{goVer}</span> · 内置自动更新 · 与 CLI 同一引擎 · <a href={`${repo}/releases`}>全部版本 →</a></span></div>
@@ -297,18 +293,18 @@ const ld = {
 
   <footer>
     <div class="foot-inner">
-      <a class="brand" href={`${base}/`}><img src={`${base}/logo.svg`} alt="DeepSeek-Orca logo" /><span>DeepSeek-Orca</span></a>
-      <span><span class="l-en">© 2026 DeepSeek-Orca · MIT licensed · built to be left running.</span><span class="l-zh">© 2026 DeepSeek-Orca · MIT 许可 · 为常驻运行而生。</span></span>
+      <a class="brand" href={`${base}/`}><img src={`${base}/logo.svg`} alt="O.R.C.A logo" /><span>O.R.C.A</span></a>
+      <span><span class="l-en">© 2026 O.R.C.A · MIT licensed · built to be left running.</span><span class="l-zh">© 2026 O.R.C.A · MIT 许可 · 为常驻运行而生。</span></span>
       <nav class="foot-links">
         <a href={repo}>GitHub</a>
-        <a href="https://www.npmjs.com/package/deepseek-orca">npm</a>
+        <a href="https://www.npmjs.com/package/orca-agent">npm</a>
         <a href="https://platform.deepseek.com" target="_blank" rel="noreferrer">DeepSeek</a>
         <a href={`${base}/docs/`}><span class="l-en">Docs</span><span class="l-zh">文档</span></a>
         <a href="#start"><span class="l-en">Install</span><span class="l-zh">安装</span></a>
       </nav>
     </div>
     <div class="foot-sub">
-      <span><span class="l-en">Engineered around DeepSeek's prefix cache.</span><span class="l-zh">围绕 DeepSeek 前缀缓存而设计。</span></span>
+      <span><span class="l-en">Open Reasoning & Computing Agent.</span><span class="l-zh">开放推理与计算智能体。</span></span>
       <span class="ver">v<span class="rxv">{goVer}</span> · @next</span>
     </div>
   </footer>

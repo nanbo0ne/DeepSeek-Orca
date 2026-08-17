@@ -17,10 +17,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	fileenc "deepseek-orca/internal/fileutil/encoding"
-	"deepseek-orca/internal/jobs"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/tool"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/jobs"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 const (

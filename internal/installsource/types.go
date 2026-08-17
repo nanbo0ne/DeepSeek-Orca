@@ -3,7 +3,7 @@ package installsource
 import (
 	"encoding/json"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // request mirrors the public schema. Fields stay exported because Execute

@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"deepseek-orca/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
 )
 
 func TestChatCommandNames(t *testing.T) {

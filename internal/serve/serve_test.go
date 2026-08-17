@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // fakeRunner stands in for an agent.Runner: it records the composed input and

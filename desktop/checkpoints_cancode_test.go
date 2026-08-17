@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/checkpoint"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/checkpoint"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 func seedCheckpoint(t *testing.T, ckptDir string, c checkpoint.Checkpoint) {

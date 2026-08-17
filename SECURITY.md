@@ -2,7 +2,7 @@
 
 ## Supported Releases
 
-Security fixes are provided for the latest stable DeepSeek-Orca desktop
+Security fixes are provided for the latest stable O.R.C.A desktop
 release. Users should update to the newest release before reporting an issue
 that may already have been corrected.
 
@@ -10,7 +10,7 @@ that may already have been corrected.
 
 Please use GitHub's private vulnerability-reporting form:
 
-<https://github.com/nanbo0ne/DeepSeek-Orca/security/advisories/new>
+<https://github.com/nanbo0ne/O.R.C.A-for-Windows/security/advisories/new>
 
 Include the affected version, operating system, reproduction steps, expected
 impact, and any relevant logs with credentials and personal data removed. Do
@@ -29,5 +29,7 @@ the controls documented in [SIGNING.md](SIGNING.md).
 ## Release Integrity
 
 Official downloads are published from this repository's GitHub Releases page.
-Windows release artifacts must carry a valid, timestamped Authenticode
-signature. Do not run an artifact whose signature is missing or invalid.
+Windows release notes state whether artifacts are Authenticode-signed. During
+the current temporary unsigned policy, verify the published SHA-256 digest and
+download only from the official release page. A signed artifact with an invalid
+signature must never be run.

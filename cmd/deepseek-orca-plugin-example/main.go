@@ -1,15 +1,15 @@
-// Command deepseek-orca-plugin-example is a reference DeepSeek-Orca plugin: a minimal MCP stdio
+// Command orca-plugin-example is a reference O.R.C.A plugin: a minimal MCP stdio
 // server speaking newline-delimited JSON-RPC 2.0 on stdin/stdout. It exists to
 // document the contract end-to-end (the protocol the internal/plugin client
 // drives) and to give users a working example to copy.
 //
-// Wire it up in deepseek-orca.toml:
+// Wire it up in orca.toml:
 //
 //	[[plugins]]
 //	name    = "example"
-//	command = "deepseek-orca-plugin-example"
+//	command = "orca-plugin-example"
 //
-// Then deepseek-orca surfaces its tools as "mcp__example__echo" / "mcp__example__wordcount",
+// Then orca surfaces its tools as "mcp__example__echo" / "mcp__example__wordcount",
 // its prompt as the "/mcp__example__review" slash command, and its resource as
 // the "@example:doc://style-guide" reference.
 //
@@ -23,7 +23,7 @@
 //   - resources/list             → {resources: [{uri, name, description, mimeType}]}
 //   - resources/read {uri}       → {contents: [{uri, mimeType, text}]}
 //
-// Logs go to stderr (deepseek-orca forwards plugin stderr to the terminal); stdout is
+// Logs go to stderr (orca forwards plugin stderr to the terminal); stdout is
 // reserved for JSON-RPC so it must never carry stray prose.
 package main
 
@@ -38,11 +38,11 @@ import (
 )
 
 // version is overridable via -ldflags "-X main.version=...". Reported in
-// initialize's serverInfo so deepseek-orca (and humans) can see which build is running.
+// initialize's serverInfo so orca (and humans) can see which build is running.
 var version = "dev"
 
 func main() {
-	log.SetPrefix("deepseek-orca-plugin-example: ")
+	log.SetPrefix("orca-plugin-example: ")
 	log.SetFlags(0)
 	if err := serve(os.Stdin, os.Stdout); err != nil {
 		log.Fatal(err)
@@ -76,7 +76,7 @@ const (
 	codeInvalidParams  = -32602
 )
 
-// serve runs the read-dispatch-reply loop until stdin closes (deepseek-orca closed the
+// serve runs the read-dispatch-reply loop until stdin closes (orca closed the
 // pipe / is shutting down). Each line is one JSON-RPC message.
 func serve(in *os.File, out *os.File) error {
 	r := bufio.NewReader(in)
@@ -123,7 +123,7 @@ func handleLine(line []byte, w *bufio.Writer) error {
 				"prompts":   map[string]any{},
 				"resources": map[string]any{},
 			},
-			"serverInfo": map[string]any{"name": "deepseek-orca-plugin-example", "version": version},
+			"serverInfo": map[string]any{"name": "orca-plugin-example", "version": version},
 		}
 	case "tools/list":
 		resp.Result = map[string]any{"tools": toolList()}
@@ -165,7 +165,7 @@ type toolDef struct {
 }
 
 // tools is the registry. Both demo tools are read-only and declare it via the
-// readOnlyHint annotation, so deepseek-orca runs them in parallel batches and (with the
+// readOnlyHint annotation, so orca runs them in parallel batches and (with the
 // permission layer) auto-allows them without prompting.
 var tools = []toolDef{
 	{
@@ -259,7 +259,7 @@ func textResult(text string, isError bool) map[string]any {
 
 // --- prompts ---
 
-// promptList advertises the server's prompts. They surface in deepseek-orca as
+// promptList advertises the server's prompts. They surface in orca as
 // /mcp__example__<name> slash commands.
 func promptList() []map[string]any {
 	return []map[string]any{{
@@ -272,7 +272,7 @@ func promptList() []map[string]any {
 }
 
 // getPrompt renders a prompt into MCP messages. The returned text becomes the
-// next user turn in deepseek-orca, so it's phrased as an instruction to the model.
+// next user turn in orca, so it's phrased as an instruction to the model.
 func getPrompt(params json.RawMessage) (any, *rpcError) {
 	var p struct {
 		Name      string            `json:"name"`

@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +24,7 @@ const (
 	Version = "v0.9.7"
 	cgRepo  = "colbymchenry/codegraph"
 
-	officialMirrorBase         = "https://dl.deepseek-orca.io/codegraph"
+	officialMirrorBase         = "https://dl.orca-agent.io/codegraph"
 	officialMainlandMirrorBase = ""
 	perSourceDownloadTimeout   = 15 * time.Second
 
@@ -32,11 +33,14 @@ const (
 )
 
 // CacheDir is where the CodeGraph bundle is unpacked on first use:
-// <user cache>/deepseek-orca/codegraph/<Version>. Versioned so a bump installs cleanly
-// beside the old one. DEEPSEEK_ORCA_CACHE_DIR overrides the base (relocate the cache,
+// <user cache>/orca/codegraph/<Version>. Versioned so a bump installs cleanly
+// beside the old one. ORCA_CODEGRAPH_CACHE_DIR overrides the base (relocate the cache,
 // or isolate it in tests). Empty when no cache/config dir resolves.
 func CacheDir() string {
-	base := os.Getenv("DEEPSEEK_ORCA_CACHE_DIR")
+	base := os.Getenv("ORCA_CODEGRAPH_CACHE_DIR")
+	if base == "" {
+		base = os.Getenv("DEEPSEEK_ORCA_CODEGRAPH_CACHE_DIR")
+	}
 	if base == "" {
 		var err error
 		if base, err = os.UserCacheDir(); err != nil {
@@ -44,7 +48,7 @@ func CacheDir() string {
 				return ""
 			}
 		}
-		base = filepath.Join(base, "deepseek-orca")
+		base = filepath.Join(base, "orca")
 	}
 	return filepath.Join(base, "codegraph", Version)
 }
@@ -144,7 +148,7 @@ func InstallWithClient(ctx context.Context, client *http.Client, log func(string
 		if p, ok := cached(); ok {
 			return p, nil // a concurrent winner landed during our retries
 		}
-		return "", fmt.Errorf("codegraph: install to %s failed: %w — the cache directory may be read-only or locked by antivirus; set DEEPSEEK_ORCA_CACHE_DIR to a writable location to relocate it", dir, err)
+		return "", fmt.Errorf("codegraph: install to %s failed: %w — the cache directory may be read-only or locked by antivirus; set ORCA_CODEGRAPH_CACHE_DIR to a writable location to relocate it", dir, err)
 	}
 	p, ok := cached()
 	if !ok {
@@ -276,12 +280,49 @@ func resolveWithin(root, name string) (string, error) {
 	}
 	realParent, err := filepath.EvalSymlinks(parent)
 	if err != nil {
-		return "", err
+		if !errors.Is(err, os.ErrPermission) || runtime.GOOS != "windows" {
+			return "", err
+		}
+		// Some managed Windows installations deny the optional symlink probe.
+		// Keep lexical containment, but reject any observable symlink component
+		// before falling back to the absolute path.
+		if err := rejectSymlinkComponents(root, parent); err != nil {
+			return "", err
+		}
+		realParent = filepath.Clean(parent)
 	}
 	if realParent != root && !strings.HasPrefix(realParent, root+string(os.PathSeparator)) {
 		return "", fmt.Errorf("unsafe path %q in archive: escapes via symlink", name)
 	}
 	return filepath.Join(realParent, filepath.Base(target)), nil
+}
+
+func rejectSymlinkComponents(root, path string) error {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("unsafe path %q in archive", path)
+	}
+	cur := root
+	if rel == "." {
+		return nil
+	}
+	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
+		cur = filepath.Join(cur, part)
+		info, statErr := os.Lstat(cur)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			if errors.Is(statErr, os.ErrPermission) {
+				continue
+			}
+			return statErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("unsafe path %q in archive: escapes via symlink", path)
+		}
+	}
+	return nil
 }
 
 // symlinkWithin rejects a symlink whose target escapes root. linkPath is the
@@ -305,7 +346,7 @@ func extractTarGz(data []byte, dir string) error {
 		return err
 	}
 	defer gz.Close()
-	root, err := filepath.EvalSymlinks(dir)
+	root, err := evalExtractionRoot(dir)
 	if err != nil {
 		return err
 	}
@@ -348,7 +389,7 @@ func extractZip(data []byte, dir string) error {
 	if err != nil {
 		return err
 	}
-	root, err := filepath.EvalSymlinks(dir)
+	root, err := evalExtractionRoot(dir)
 	if err != nil {
 		return err
 	}
@@ -374,6 +415,17 @@ func extractZip(data []byte, dir string) error {
 		}
 	}
 	return nil
+}
+
+func evalExtractionRoot(dir string) (string, error) {
+	root, err := filepath.EvalSymlinks(dir)
+	if err == nil {
+		return root, nil
+	}
+	if !errors.Is(err, os.ErrPermission) || runtime.GOOS != "windows" {
+		return "", err
+	}
+	return filepath.Abs(dir)
 }
 
 func writeFileFromReader(target string, r io.Reader, mode os.FileMode) error {

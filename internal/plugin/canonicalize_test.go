@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func TestCanonicalizeSchemaStable(t *testing.T) {

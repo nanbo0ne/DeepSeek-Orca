@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // Tools adapts the manager's read-only queries to the tool.Tool interface. They

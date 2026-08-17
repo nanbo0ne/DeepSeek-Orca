@@ -11,8 +11,8 @@ import (
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/lipgloss/v2"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 type cliColor struct {
@@ -84,7 +84,7 @@ var (
 		toolProc:     cliColor{"#8a6bb8", 97},
 	}
 	cliThemeStyles = []cliThemeStyle{
-		{name: "slate", mode: "native", accent: cliColor{"#2f6fe0", 33}, description: "DeepSeek-Orca blue-white style"},
+		{name: "slate", mode: "native", accent: cliColor{"#2f6fe0", 33}, description: "O.R.C.A blue-white style"},
 	}
 	activeCLITheme                  = applyCLIThemeStyle(cliDarkTheme, cliThemeStyles[0])
 	queryTerminalBackgroundForTheme = queryTerminalBackground
@@ -95,7 +95,11 @@ func configureCLITheme(mode string) {
 }
 
 func configureCLIThemeWithStyle(mode, style string) {
-	if env := strings.TrimSpace(os.Getenv("DEEPSEEK_ORCA_THEME")); env != "" {
+	env := strings.TrimSpace(os.Getenv("ORCA_THEME"))
+	if env == "" {
+		env = strings.TrimSpace(os.Getenv("DEEPSEEK_ORCA_THEME"))
+	}
+	if env != "" {
 		if st, ok := cliThemeStyleByName(env); ok {
 			mode = st.mode
 			style = st.name
@@ -103,7 +107,11 @@ func configureCLIThemeWithStyle(mode, style string) {
 			mode = env
 		}
 	}
-	if env := strings.TrimSpace(os.Getenv("DEEPSEEK_ORCA_THEME_STYLE")); env != "" {
+	env = strings.TrimSpace(os.Getenv("ORCA_THEME_STYLE"))
+	if env == "" {
+		env = strings.TrimSpace(os.Getenv("DEEPSEEK_ORCA_THEME_STYLE"))
+	}
+	if env != "" {
 		style = env
 	}
 	activeCLITheme = resolveCLIThemeWithStyle(mode, style)

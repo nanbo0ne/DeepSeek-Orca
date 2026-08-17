@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/bot/qq"
-	"deepseek-orca/internal/bot/weixin"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/qq"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/weixin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
 )
 
 type BotRuntimeStatusView struct {
@@ -172,7 +172,7 @@ func (a *App) startDesktopBotGateway(cfg *config.Config) {
 			if sessionWorkspaceRoot == "" {
 				sessionWorkspaceRoot = workspaceRoot
 			}
-			ctrl, err := boot.Build(ctx, boot.Options{
+			ctrl, err := a.buildController(ctx, boot.Options{
 				Model: modelName, RuntimeProfile: promptModeOrca, MemoryProfile: memory.ProfileAssistant,
 				AssistantMemoryStoreDir: store.Dir, MaxSteps: cfg.Bot.MaxSteps, RequireKey: true, Sink: sink,
 				WorkspaceRoot: sessionWorkspaceRoot, SessionDir: filepath.Dir(choice.Path),

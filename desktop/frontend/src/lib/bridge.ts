@@ -1,4 +1,4 @@
-﻿// bridge is the single seam between the React app and the Go kernel. In the Wails
+// bridge is the single seam between the React app and the Go kernel. In the Wails
 // shell it calls the bound App methods (window.go.main.App.*) and subscribes to
 // the runtime event stream (window.runtime.EventsOn). In a plain browser (`pnpm
 // dev` outside the shell) those globals are absent, so it falls back to a mock
@@ -31,11 +31,16 @@ import type {
   EffortInfo,
   FilePreview,
   HistoryMessage,
+	HardwareProfile,
   JobView,
   MCPServerInput,
   MemoryView,
   Meta,
   ModelInfo,
+	LocalAICatalogView,
+	LocalDownloadTask,
+	ComputerUseState,
+	ComputerUseSession,
   NetworkView,
   ProjectNode,
   ProviderView,
@@ -271,7 +276,30 @@ export interface AppBindings {
   ApplyUpdate(): Promise<void>;
   OpenDownloadPage(): Promise<void>;
   NeedsOnboarding(): Promise<boolean>;
+	GetOnboardingState(): Promise<{ required: boolean; completed: boolean; hasCloudModel: boolean; hasLocalRuntime: boolean; platform: string; providers: ProviderView[] }>;
+	CompleteOnboarding(): Promise<void>;
+	ConnectProviderPreset(presetID: string, apiKey: string): Promise<string[]>;
   ConnectKey(apiKey: string): Promise<void>;
+	GetHardwareProfile(): Promise<HardwareProfile>;
+	GetLocalAICatalog(): Promise<LocalAICatalogView>;
+	StartLocalRuntimeInstall(runtimeID: string): Promise<LocalDownloadTask>;
+	StartLocalModelDownload(modelID: string): Promise<LocalDownloadTask>;
+	PauseLocalDownload(taskID: string): Promise<void>;
+	ResumeLocalDownload(taskID: string): Promise<void>;
+	CancelLocalDownload(taskID: string): Promise<void>;
+	StopLocalRuntime(): Promise<void>;
+	UninstallLocalRuntime(): Promise<void>;
+	DeleteLocalModel(modelID: string): Promise<void>;
+	SetLocalModelsDirectory(path: string): Promise<void>;
+	SetComputerControlModel(modelRef: string): Promise<void>;
+	GetComputerUseState(): Promise<ComputerUseState>;
+	StartComputerUseSession(request: { tabId?: string; goal: string; successCriteria?: string; restrictions?: string; modelRef?: string }): Promise<ComputerUseSession>;
+	ObserveComputerUse(): Promise<any>;
+	ExecuteComputerAction(action: any): Promise<any>;
+	SetComputerUseFullAccess(enabled: boolean): Promise<void>;
+	PauseComputerUse(): Promise<ComputerUseSession>;
+	ResumeComputerUse(): Promise<ComputerUseSession>;
+	StopComputerUse(): Promise<void>;
   ListTabs(): Promise<TabMeta[]>;
   OpenProjectTab(workspaceRoot: string, topicID: string): Promise<TabMeta>;
   OpenGlobalTab(topicID: string): Promise<TabMeta>;
@@ -366,6 +394,19 @@ export function onRuntimeSwitchProgress(cb: (progress: RuntimeSwitchProgress) =>
     return window.runtime.EventsOn(RUNTIME_SWITCH_EVENT_CHANNEL, (payload) => cb(payload as RuntimeSwitchProgress));
   }
   return () => {};
+}
+
+export function onLocalAIChanged(cb: () => void): () => void {
+	if (!window.runtime?.EventsOn) return () => {};
+	const offDownload = window.runtime.EventsOn("local:download-progress", cb);
+	const offRuntime = window.runtime.EventsOn("local:runtime-status", cb);
+	const offLoad = window.runtime.EventsOn("local:model-load-progress", cb);
+	return () => { offDownload(); offRuntime(); offLoad(); };
+}
+
+export function onComputerUseChanged(cb: (state: ComputerUseSession) => void): () => void {
+	if (!window.runtime?.EventsOn) return () => {};
+	return window.runtime.EventsOn("computer:session", (payload) => cb(payload as ComputerUseSession));
 }
 
 
@@ -505,9 +546,9 @@ function makeMockApp(): AppBindings {
   let cancelled = false;
   let pendingAskPreview = false;
   let pendingApprovalPreview = false;
-  const globalWorkspaceRoot = "~/Library/Application Support/deepseek-orca/global-workspace";
+  const globalWorkspaceRoot = "~/Library/Application Support/orca/global-workspace";
   let cwd = freshMock ? globalWorkspaceRoot : "~/projects/joyquant-db"; // mutable so PickWorkspace is visible in dev
-  let workspaces = freshMock ? [] : ["~/projects/joyquant-db", "~/projects/joyquant-sys", "~/projects/deepseek-orca", "~/projects/blade"];
+  let workspaces = freshMock ? [] : ["~/projects/joyquant-db", "~/projects/joyquant-sys", "~/projects/orca", "~/projects/blade"];
   let mockEffort = "auto";
   const day = 86_400_000;
   const t0 = Date.now();
@@ -588,10 +629,10 @@ function makeMockApp(): AppBindings {
   const capSkills: SkillView[] = [
     { name: "explore", description: "用隔离 subagent 调研代码库", scope: "builtin", runAs: "subagent", enabled: true },
     { name: "review", description: "审查暂存区 diff", scope: "project", runAs: "inline", enabled: false },
-    { name: "init", description: "为仓库生成 DEEPSEEK_ORCA.md", scope: "builtin", runAs: "inline", enabled: true },
+    { name: "init", description: "为仓库生成 ORCA.md", scope: "builtin", runAs: "inline", enabled: true },
   ];
   let capSkillRoots: SkillRootView[] = [
-    { dir: "~/projects/deepseek-orca/.deepseek-orca/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
+    { dir: "~/projects/orca/.orca/skills", scope: "project", priority: 1, status: "missing", configured: false, removable: true, skills: 0 },
     {
       dir: "~/my-skills",
       scope: "custom",
@@ -603,7 +644,7 @@ function makeMockApp(): AppBindings {
       skillItems: [{ name: "review", description: "审查暂存区 diff", scope: "custom", runAs: "inline" }],
     },
     {
-      dir: "~/.deepseek-orca/skills",
+      dir: "~/.orca/skills",
       scope: "global",
       priority: 6,
       status: "ok",
@@ -612,7 +653,7 @@ function makeMockApp(): AppBindings {
       skills: 2,
       skillItems: [
         { name: "explore", description: "用隔离 subagent 调研代码库", scope: "global", runAs: "subagent" },
-        { name: "init", description: "Scaffold a DEEPSEEK_ORCA.md for this repo", scope: "global", runAs: "inline" },
+        { name: "init", description: "Scaffold an ORCA.md for this repo", scope: "global", runAs: "inline" },
       ],
     },
   ];
@@ -715,12 +756,12 @@ function makeMockApp(): AppBindings {
       noProxy: "",
       proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "" },
     },
-    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, softCompactRatio: 0.5, compactRatio: 0.8, compactForceRatio: 0.9, systemPrompt: "你是 DeepSeek-Orca，一个专注于代码任务的智能编程 Agent。" },
+    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, softCompactRatio: 0.5, compactRatio: 0.8, compactForceRatio: 0.9, systemPrompt: "你是 O.R.C.A，一个专注于代码任务的智能编程 Agent。" },
     bot: {
       enabled: false,
       model: "",
 	  promptMode: "assistant",
-      workspaceRoot: "~/.config/deepseek-orca/bot-workspace",
+      workspaceRoot: "~/.config/orca/bot-workspace",
       maxSteps: 25,
       debounceMs: 1500,
       allowlist: {
@@ -767,7 +808,9 @@ function makeMockApp(): AppBindings {
     uiScale: 0,
     effectiveUIScale: 100,
     automationFullAccessApproved: false,
-    configPath: "~/projects/deepseek-orca/deepseek-orca.toml",
+	computerControlModel: "",
+	computerUseFullAccessApproved: false,
+    configPath: "~/projects/orca/orca.toml",
     providerKinds: ["openai"],
     autoApproveTools: false,
     bypass: false,
@@ -783,7 +826,7 @@ function makeMockApp(): AppBindings {
     provider.apiKeyEnv === "DEEPSEEK_API_KEY" ? { ...provider, keySet: !freshMock } : provider,
   );
   if (freshMock) {
-    settings.configPath = "~/.config/deepseek-orca/config.toml";
+    settings.configPath = "~/.config/orca/config.toml";
   }
   const mockNow = Date.now();
   const mockProjectTree: ProjectNode[] = freshMock ? [] : [
@@ -1589,7 +1632,7 @@ function makeMockApp(): AppBindings {
     async PickWorkspace() {
       // Browser dev has no native dialog; simulate picking a folder and re-root so
       // the topbar folder chip visibly changes.
-      return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/deepseek-orca" : "~/projects/another-project");
+      return mockSwitchWorkspace(cwd.endsWith("another-project") ? "~/projects/orca" : "~/projects/another-project");
     },
     async SwitchWorkspace(path: string) {
       return mockSwitchWorkspace(path);
@@ -1873,8 +1916,8 @@ function makeMockApp(): AppBindings {
     },
     async ReadFile(rel: string) {
       const samples: Record<string, string> = {
-        "README.md": "# DeepSeek-Orca\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
-        "go.mod": "module deepseek-orca\n\ngo 1.23\n",
+        "README.md": "# O.R.C.A\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
+        "go.mod": "module orca-agent\n\ngo 1.23\n",
         "desktop/file.go": "package desktop\n\nfunc main() {\n\tprintln(\"workspace preview\")\n}\n",
         "internal/event.go": "package internal\n\n// mock file used by the browser dev seam\n",
       };
@@ -1931,16 +1974,16 @@ function makeMockApp(): AppBindings {
       console.info("mock RevealPath", path);
     },
     async SavePastedImage(_dataUrl: string) {
-      return ".deepseek-orca/attachments/mock.png";
+      return ".orca/attachments/mock.png";
     },
     async SaveClipboardImage() {
-      return ".deepseek-orca/attachments/mock-clipboard.png";
+      return ".orca/attachments/mock-clipboard.png";
     },
     async ReadClipboardFilePaths() {
       return [];
     },
     async SavePastedFile(name: string, _dataUrl: string) {
-      return `.deepseek-orca/attachments/mock-${name}`;
+      return `.orca/attachments/mock-${name}`;
     },
     async PickExportFile(defaultFilename: string, _mimeType: string) {
       return defaultFilename;
@@ -1962,7 +2005,7 @@ function makeMockApp(): AppBindings {
     },
     async AttachDropped(path: string) {
       const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
-      return { kind: "attachment" as const, path: `.deepseek-orca/attachments/mock-${name}` };
+      return { kind: "attachment" as const, path: `.orca/attachments/mock-${name}` };
     },
     async AttachmentDataURL(_path: string) {
       return "data:image/png;base64,iVBORw0KGgo=";
@@ -1998,15 +2041,15 @@ function makeMockApp(): AppBindings {
     async Memory() {
       return {
         available: true,
-        storeDir: "~/.config/deepseek-orca/projects/-mock/memory",
+        storeDir: "~/.config/orca/projects/-mock/memory",
         docs: [
           {
-            path: "DEEPSEEK_ORCA.md",
+            path: "ORCA.md",
             scope: "project",
-            body: "# DeepSeek-Orca project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
+            body: "# O.R.C.A project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
           },
           {
-            path: "~/.config/deepseek-orca/DEEPSEEK_ORCA.md",
+            path: "~/.config/orca/ORCA.md",
             scope: "user",
             body: t("mock.memoryBody"),
           },
@@ -2030,15 +2073,15 @@ function makeMockApp(): AppBindings {
           },
         ],
         scopes: [
-          { scope: "user", path: "~/.config/deepseek-orca/DEEPSEEK_ORCA.md" },
-          { scope: "project", path: "DEEPSEEK_ORCA.md" },
-          { scope: "local", path: "DEEPSEEK_ORCA.local.md" },
+          { scope: "user", path: "~/.config/orca/ORCA.md" },
+          { scope: "project", path: "ORCA.md" },
+          { scope: "local", path: "ORCA.local.md" },
         ],
       };
     },
     async Remember(scope: string, note: string) {
       emit({ kind: "notice", level: "info", text: `remembered → ${scope}` });
-      return `${scope} DEEPSEEK_ORCA.md (mock): ${note}`;
+      return `${scope} ORCA.md (mock): ${note}`;
     },
     async Forget(name: string) {
       emit({ kind: "notice", level: "info", text: `forgot → ${name}` });
@@ -2203,7 +2246,7 @@ function makeMockApp(): AppBindings {
             provider: normalizedProvider,
             domain: normalizedDomain,
             installId: `mock-${normalizedProvider}-${normalizedDomain}`,
-            url: "https://example.com/deepseek-orca-bot-qr",
+            url: "https://example.com/orca-bot-qr",
             deviceCode: "MOCKDEVICE",
             userCode: normalizedProvider === "weixin" ? "" : "MOCK-CODE",
             interval: 3,
@@ -2348,7 +2391,7 @@ function makeMockApp(): AppBindings {
     async ApplyUpdate() {},
     async OpenDownloadPage() {
       if (typeof window !== "undefined") {
-        window.open("https://github.com/nanbo0ne/DeepSeek-Orca/releases/latest", "_blank", "noopener");
+        window.open("https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/latest", "_blank", "noopener");
       }
     },
     // Dev seam: drives the overlay flow in the browser until ConnectKey sets the
@@ -2356,6 +2399,37 @@ function makeMockApp(): AppBindings {
     async NeedsOnboarding() {
       return !settings.providers.find((p) => p.apiKeyEnv === "DEEPSEEK_API_KEY")?.keySet;
     },
+    async GetOnboardingState() {
+      return { required: false, completed: true, hasCloudModel: true, hasLocalRuntime: false, platform: "browser", providers: settings.providers };
+    },
+    async CompleteOnboarding() { settings.computerUseFullAccessApproved = false; },
+    async ConnectProviderPreset(_presetID: string, _apiKey: string) { return settings.providers[0]?.models ?? []; },
+    async GetHardwareProfile() {
+      return { platform: "browser", supported: false, gpus: [], memoryTotalMiB: 0, memoryFreeMiB: 0, cpuLogicalCores: 0, diskFreeBytes: 0, recommendedRuntime: "", recommendedModel: "" };
+    },
+    async GetLocalAICatalog() {
+      return { supported: false, platform: "browser", models: [], runtimes: [], installedModels: [], downloads: [], status: { state: "unavailable", supported: false, installed: false }, hardware: await this.GetHardwareProfile(), modelsDirectory: "" };
+    },
+    async StartLocalRuntimeInstall(_runtimeID: string) { throw new Error("local AI is only available in the Windows app"); },
+    async StartLocalModelDownload(_modelID: string) { throw new Error("local AI is only available in the Windows app"); },
+    async PauseLocalDownload(_taskID: string) {},
+    async ResumeLocalDownload(_taskID: string) {},
+    async CancelLocalDownload(_taskID: string) {},
+    async StopLocalRuntime() {},
+    async UninstallLocalRuntime() {},
+    async DeleteLocalModel(_modelID: string) {},
+    async SetLocalModelsDirectory(_path: string) {},
+    async SetComputerControlModel(modelRef: string) { settings.computerControlModel = modelRef; },
+    async GetComputerUseState() {
+      return { capabilities: { platform: "browser", supported: false, screenCapture: false, uiAutomation: false, inputInjection: false, overlay: false, emergencyStop: false, unavailableReason: "仅 Windows 支持" }, session: { id: "", goal: "", state: "idle", actionCount: 0, logs: [] }, approved: settings.computerUseFullAccessApproved, consentVersion: settings.computerUseFullAccessApproved ? 1 : 0, modelRef: settings.computerControlModel };
+    },
+    async StartComputerUseSession(_request: { tabId?: string; goal: string; successCriteria?: string; restrictions?: string; modelRef?: string }) { throw new Error("computer use is only available in the Windows app"); },
+    async ObserveComputerUse() { throw new Error("computer use is only available in the Windows app"); },
+    async ExecuteComputerAction(_action: any) { throw new Error("computer use is only available in the Windows app"); },
+    async SetComputerUseFullAccess(enabled: boolean) { settings.computerUseFullAccessApproved = enabled; },
+    async PauseComputerUse() { return (await this.GetComputerUseState()).session; },
+    async ResumeComputerUse() { return (await this.GetComputerUseState()).session; },
+    async StopComputerUse() {},
     async ConnectKey(apiKey: string) {
       if (!apiKey.trim()) throw new Error("key is required");
       settings.providers.forEach((p) => {

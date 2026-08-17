@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/frontmatter"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/frontmatter"
 )
 
 // OutputStyle is one selectable persona. Body is appended to the system prompt
@@ -76,7 +76,7 @@ func Dirs() []string {
 
 // conventionDirs mirrors config.ConventionDirs (kept local to avoid an import
 // cycle; config imports nothing from here, but this package stays dependency-light).
-var conventionDirs = []string{".deepseek-orca", ".agents", ".agent", ".claude"}
+var conventionDirs = []string{".orca", ".deepseek-orca", ".agents", ".agent", ".claude"}
 
 // List returns every available style — built-ins plus the markdown files under
 // dirs — deduped by lowercased name, with custom files overriding built-ins.

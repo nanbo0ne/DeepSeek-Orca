@@ -1,7 +1,7 @@
 ﻿Unicode true
 
 ####
-## DeepSeek-Orca per-user NSIS installer.
+## O.R.C.A for Windows per-user NSIS installer.
 ##
 ## This file is COMMITTED and customized (Wails leaves an existing project.nsi
 ## untouched and only regenerates wails_tools.nsh). The customizations vs.
@@ -29,7 +29,8 @@
 ## Install per-user (no admin). Must be defined BEFORE including wails_tools.nsh,
 ## which only sets the "admin" default when REQUEST_EXECUTION_LEVEL is undefined.
 !define REQUEST_EXECUTION_LEVEL "user"
-!define UNINST_KEY_NAME "DeepSeek-Orca"
+!define UNINST_KEY_NAME "O.R.C.A for Windows"
+!define LEGACY_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeepSeek-Orca"
 
 ####
 ## Include the wails tools (auto-generated; provides INFO_* defines and the
@@ -88,17 +89,17 @@ UninstPage custom un.DeleteDataPage un.DeleteDataPageLeave
 #!finalize 'signtool --file "%1"'
 
 Name "${INFO_PRODUCTNAME}"
-OutFile "..\..\bin\DeepSeek-Orca-Setup-${INFO_PRODUCTVERSION}-windows-${ARCH}.exe" # Name of the installer's file.
-!define DEEPSEEK_ORCA_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+OutFile "..\..\bin\O.R.C.A-for-Windows-windows-${ARCH}-installer.exe" # Name of the installer's file.
+!define ORCA_DEFAULT_INSTALLDIR "$LOCALAPPDATA\Programs\O.R.C.A for Windows"
 InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation" # Reuse the previous install path on update; .onInit falls back to the default on first install.
-InstallDir "${DEEPSEEK_ORCA_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
+InstallDir "${ORCA_DEFAULT_INSTALLDIR}" # Per-user install location (no admin rights required).
 ShowInstDetails show # This will always show the installation details.
 
 ####
 ## Per-user uninstaller registry (HKCU). Replaces wails.writeUninstaller /
 ## wails.deleteUninstaller, which write HKLM and would fail without admin rights.
 ####
-!macro deepseek-orca.writeUninstaller
+!macro orca.writeUninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
     WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${INFO_COMPANYNAME}"
@@ -120,7 +121,7 @@ ShowInstDetails show # This will always show the installation details.
     WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" "$0"
 !macroend
 
-!macro deepseek-orca.deleteUninstaller
+!macro orca.deleteUninstaller
     Delete "$INSTDIR\uninstall.exe"
     Delete "$INSTDIR\uninstall.bat"
     DeleteRegKey HKCU "${UNINST_KEY}"
@@ -154,7 +155,25 @@ shortcut_choice_done:
    StrCmp $INSTDIR "" fallback done
 
 fallback:
-   StrCpy $INSTDIR "${DEEPSEEK_ORCA_DEFAULT_INSTALLDIR}"
+   ; V2 used a separate uninstall key. Reuse its install directory for an
+   ; in-place upgrade so users do not end up with two desktop installations.
+   ClearErrors
+   ReadRegStr $0 HKCU "${LEGACY_UNINST_KEY}" "InstallLocation"
+   IfErrors legacy_display_icon
+   StrCmp $0 "" legacy_display_icon 0
+   StrCpy $INSTDIR $0
+   Goto done
+
+legacy_display_icon:
+   ClearErrors
+   ReadRegStr $0 HKCU "${LEGACY_UNINST_KEY}" "DisplayIcon"
+   IfErrors legacy_default
+   StrCmp $0 "" legacy_default
+   ${GetParent} "$0" $INSTDIR
+   StrCmp $INSTDIR "" legacy_default done
+
+legacy_default:
+   StrCpy $INSTDIR "${ORCA_DEFAULT_INSTALLDIR}"
 done:
 FunctionEnd
 
@@ -187,6 +206,7 @@ Section
 
     DetailPrint "Closing running ${INFO_PRODUCTNAME}..."
     nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM "${PRODUCT_EXECUTABLE}" /T /F'
+    nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM "deepseek-orca-desktop.exe" /T /F'
     Sleep 1000
 
     !insertmacro wails.webview2runtime
@@ -211,13 +231,16 @@ Section
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
 
-    !insertmacro deepseek-orca.writeUninstaller
+    Delete "$SMPROGRAMS\DeepSeek-Orca.lnk"
+    Delete "$DESKTOP\DeepSeek-Orca.lnk"
+    !insertmacro orca.writeUninstaller
 SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
 
     nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM "${PRODUCT_EXECUTABLE}" /F'
+    nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /IM "deepseek-orca-desktop.exe" /F'
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
@@ -231,8 +254,8 @@ Section "uninstall"
         RMDir /r "$AppData\deepseek-orca"
         RMDir /r "$LocalAppData\deepseek-orca"
         RMDir /r "$Profile\.deepseek-orca"
-        RMDir /r "$AppData\DeepSeek-Orca"
-        RMDir /r "$LocalAppData\DeepSeek-Orca"
+        RMDir /r "$AppData\O.R.C.A"
+        RMDir /r "$LocalAppData\O.R.C.A"
         RMDir /r "$INSTDIR\data"
         RMDir /r "$INSTDIR\.deepseek-orca"
     ${EndIf}
@@ -240,7 +263,7 @@ Section "uninstall"
     Delete "$INSTDIR\${PRODUCT_EXECUTABLE}"
     Delete "$INSTDIR\node.exe"
     RMDir /r "$INSTDIR\codegraph"
-    !insertmacro deepseek-orca.deleteUninstaller
+    !insertmacro orca.deleteUninstaller
 
     ${If} $DeleteSavedData == ${BST_CHECKED}
         RMDir /r "$INSTDIR"
@@ -256,7 +279,7 @@ Function un.DeleteDataPage
         Abort
     ${EndIf}
 
-    ${NSD_CreateLabel} 0 0 100% 24u "Remove saved DeepSeek-Orca data?"
+    ${NSD_CreateLabel} 0 0 100% 24u "Remove saved O.R.C.A data?"
     Pop $0
     ${NSD_CreateCheckbox} 0 32u 100% 24u "Delete configuration, conversations, memory, cache, and other saved data. This cannot be undone."
     Pop $DeleteSavedDataCheckbox

@@ -8,11 +8,11 @@ func TestExpandVars(t *testing.T) {
 
 	cases := []struct{ in, want string }{
 		{"Bearer ${DEEPSEEK_ORCA_TEST_TOKEN}", "Bearer sk-123"},
-		{"${DEEPSEEK_ORCA_TEST_MISSING}", ""},                                   // unset, no default → empty
-		{"${DEEPSEEK_ORCA_TEST_MISSING:-fallback}", "fallback"},                 // unset → default
-		{"${DEEPSEEK_ORCA_TEST_EMPTY:-fallback}", "fallback"},                   // set-but-empty → default
-		{"${DEEPSEEK_ORCA_TEST_TOKEN:-fallback}", "sk-123"},                     // set → value, default ignored
-		{"no vars here", "no vars here"},                                   // untouched
+		{"${DEEPSEEK_ORCA_TEST_MISSING}", ""},                                        // unset, no default → empty
+		{"${DEEPSEEK_ORCA_TEST_MISSING:-fallback}", "fallback"},                      // unset → default
+		{"${DEEPSEEK_ORCA_TEST_EMPTY:-fallback}", "fallback"},                        // set-but-empty → default
+		{"${DEEPSEEK_ORCA_TEST_TOKEN:-fallback}", "sk-123"},                          // set → value, default ignored
+		{"no vars here", "no vars here"},                                             // untouched
 		{"a${DEEPSEEK_ORCA_TEST_TOKEN}b${DEEPSEEK_ORCA_TEST_MISSING}c", "ask-123bc"}, // multiple refs
 	}
 	for _, c := range cases {

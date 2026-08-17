@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // explainError maps a provider HTTP failure to an actionable, localized message

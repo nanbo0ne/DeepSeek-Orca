@@ -11,10 +11,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
-	_ "deepseek-orca/internal/tool/builtin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 )
 
 // TestTruncateToolOutputUnderCap leaves small payloads alone — the cap should

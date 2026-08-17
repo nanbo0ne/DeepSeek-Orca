@@ -5,12 +5,12 @@ import (
 	"io"
 	"strings"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // TextSink renders a turn's event stream to ANSI text on an io.Writer. It is
-// the reference terminal frontend: a headless `deepseek-orca run` writes to stdout,
+// the reference terminal frontend: a headless `orca run` writes to stdout,
 // and during the cache-first migration the chat TUI is fed through it too. The
 // output is byte-for-byte what the agent used to print directly, now driven by
 // typed events instead of inline Fprint calls.

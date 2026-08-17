@@ -1,4 +1,4 @@
-﻿// 简体中文 UI 文案。键集必须与 en.ts 完全一致 —— 下面的 `Record<DictKey, string>`
+// 简体中文 UI 文案。键集必须与 en.ts 完全一致 —— 下面的 `Record<DictKey, string>`
 // 注解会在编译期强制这一点：缺键或多键都会让 tsc 报错。{placeholder} 占位符在
 // 调用时由 lib/i18n.tsx 填充，需与英文保持同名。
 
@@ -64,7 +64,7 @@ export const zh: Record<DictKey, string> = {
   "sidebar.memorySkills": "记忆与 Skill",
   "sidebar.workspace": "工作区",
   "sidebar.changeWorkspace": "更改",
-  "sidebar.navigation": "DeepSeek-Orca 导航",
+  "sidebar.navigation": "O.R.C.A 导航",
   "sidebar.collapse": "收起导航",
   "sidebar.expand": "展开导航",
   "sidebar.expandBlocked": "关闭工作区面板后可展开导航",
@@ -87,7 +87,7 @@ export const zh: Record<DictKey, string> = {
   "toolLibrary.saved": "工具库设置已保存。正在运行的回合保持当前工具，下一轮会使用新设置。",
   "toolLibrary.effectHint": "关闭后的工具组不会作为专用工具暴露，也会从工具路由提示词中移除。bash 仍保留用于开发命令兜底。",
   "toolLibrary.threadManagement": "线程管理",
-  "toolLibrary.threadManagementDesc": "开放 thread_list，用于查看已保存的 DeepSeek-Orca 会话主题。",
+  "toolLibrary.threadManagementDesc": "开放 thread_list，用于查看已保存的 O.R.C.A 会话主题。",
   "toolLibrary.webSearch": "联网搜索",
   "toolLibrary.webSearchDesc": "开放 web_search，用于不知道 URL 时查询当前网页信息。",
   "toolLibrary.replRuntime": "Node/Python 运行时",
@@ -281,7 +281,7 @@ export const zh: Record<DictKey, string> = {
   "caps.hideDiagnostics": "隐藏诊断路径",
 
   // 欢迎 / 空状态
-  "welcome.title": "欢迎使用 DeepSeek-Orca",
+  "welcome.title": "欢迎使用 O.R.C.A",
   "welcome.tagline": "描述任务，或随便问点什么。",
   "welcome.hintCommands": "命令",
   "welcome.hintFiles": "引用文件",
@@ -292,7 +292,7 @@ export const zh: Record<DictKey, string> = {
   "welcome.ex4": "找出并修复这个项目里的一个 bug",
 
   // 输入框
-  "composer.placeholder": "给 DeepSeek-Orca 发消息…  ( / 命令 · @ 文件 · ! 终端 )",
+  "composer.placeholder": "给 O.R.C.A 发消息…  ( / 命令 · @ 文件 · ! 终端 )",
   "composer.normalMode": "对话模式",
   "composer.normalModeDesc": "直接对话或执行任务。",
   "composer.planMode": "计划模式",
@@ -569,7 +569,7 @@ export const zh: Record<DictKey, string> = {
   "memory.instructionFiles": "指令文件",
   "memory.instructionFilesHint": "这些 Markdown 文件会持续参与上下文，适合保存长期规则和项目约定。",
   "memory.expandDoc": "展开预览",
-  "memory.noDocs": "未找到 DEEPSEEK_ORCA.md。可在上方快速添加一条。",
+  "memory.noDocs": "未找到 ORCA.md。可在上方快速添加一条。",
   "memory.savedMemories": "已保存的记忆",
   "memory.memoryEntries": "记忆条目",
   "memory.addMemory": "+ 添加记忆",
@@ -758,7 +758,7 @@ export const zh: Record<DictKey, string> = {
   "settings.autoPlan.off": "关闭",
   "settings.autoPlan.on": "开启",
   "settings.agentRuntime": "Agent 运行",
-  "settings.agentRuntimeHint": "保存为用户级默认值。项目的 ./deepseek-orca.toml 可以覆盖；设为 0 表示不限。",
+  "settings.agentRuntimeHint": "保存为用户级默认值。项目的 ./orca.toml 可以覆盖；设为 0 表示不限。",
   "settings.executorMaxSteps": "执行轮数上限",
   "settings.executorMaxStepsHint": "限制主 agent 每轮回复最多调用多少轮工具。复杂代码任务适合不限。",
   "settings.plannerMaxSteps": "规划轮数上限",
@@ -858,7 +858,7 @@ export const zh: Record<DictKey, string> = {
   "settings.botDebounceMs": "合并窗口 ms",
   "settings.botWorkspaceRoot": "机器人独立工作区",
   "settings.botWorkspaceRootHint": "手机或 IM 机器人触发的对话默认在这里运行，避免写入当前随机目录。",
-  "settings.botWorkspaceRootDefault": "留空使用 DeepSeek-Orca 默认 bot-workspace",
+  "settings.botWorkspaceRootDefault": "留空使用 O.R.C.A 默认 bot-workspace",
   "settings.botChannels": "连接渠道",
   "settings.botChannelsHint": "当前开放 QQ 和微信；飞书/Lark 暂未开放。",
   "settings.botQQHint": "QQ 官方 Bot API v2。",
@@ -1004,7 +1004,7 @@ export const zh: Record<DictKey, string> = {
   "settings.pageDesc.bots": "配置 QQ、飞书和微信机器人渠道。",
   "settings.pageDesc.mcp": "管理 MCP 服务器连接和工具发现。",
   "settings.pageDesc.skills": "浏览、启用和管理 Agent Skill 与来源。",
-  "settings.pageDesc.memory": "管理 DeepSeek-Orca 会长期参考的偏好、项目约定和指令文件。",
+  "settings.pageDesc.memory": "管理 O.R.C.A 会长期参考的偏好、项目约定和指令文件。",
   "settings.pageDesc.network": "代理与网络配置。",
   "settings.pageDesc.permissions": "写操作模式与细粒度工具权限规则。",
   "settings.pageDesc.sandbox": "Bash 沙箱、网络出口与工作区根目录。",
@@ -1032,7 +1032,7 @@ export const zh: Record<DictKey, string> = {
   "settings.addProvider.chooseTitle": "添加供应商",
   "settings.addProvider.chooseHint": "选择官方预设，或添加一个自定义 OpenAI-compatible 接入。",
   "settings.addProvider.officialChoice": "官方供应商",
-  "settings.addProvider.officialChoiceHint": "从 DeepSeek-Orca 预设的 DeepSeek 与 Mimo 接入中选择。",
+  "settings.addProvider.officialChoiceHint": "从 O.R.C.A 预设的 DeepSeek 与 Mimo 接入中选择。",
   "settings.addProvider.customChoice": "自定义供应商",
   "settings.addProvider.customChoiceHint": "按 base_url、模型、密钥环境变量等参数手动配置。",
   "settings.addProvider.officialTitle": "添加官方供应商",
@@ -1204,7 +1204,7 @@ export const zh: Record<DictKey, string> = {
   // 软件更新
 
   // onboarding — first-run API-key overlay
-  "onboarding.title": "连接 DeepSeek-Orca",
+  "onboarding.title": "连接 O.R.C.A",
   "onboarding.tagline": "粘贴一个 DeepSeek API key 即可开始。密钥仅存于本应用的本地凭据文件，不会发往任何地方。",
   "onboarding.inputLabel": "API 密钥",
   "onboarding.inputPlaceholder": "sk-…",
@@ -1291,7 +1291,7 @@ export const zh: Record<DictKey, string> = {
   "sideChat.loading": "思考中…",
 
   // 崩溃兜底页
-  "crash.title": "DeepSeek-Orca 遇到错误 —— 请截图发送",
+  "crash.title": "O.R.C.A 遇到错误 —— 请截图发送",
   "crash.copy": "复制",
 
   // 模拟/演示种子数据（仅浏览器开发模式）
@@ -1328,8 +1328,8 @@ export const zh: Record<DictKey, string> = {
   "mock.askQ1Opt2Desc": "放弃本地所有修改，强制与远端同步",
   "mock.askQ1Opt3Label": "另建分支保存改动",
   "mock.askQ1Opt3Desc": "先创建分支把本地改动保存起来，再拉取主分支",
-  "mock.askQ2Header": "DeepSeek-Orca 构建",
-  "mock.askQ2Prompt": "对于 deepseek-orca 二进制缺失的问题，你想怎么做？",
+  "mock.askQ2Header": "O.R.C.A 构建",
+  "mock.askQ2Prompt": "对于 orca 二进制缺失的问题，你想怎么做？",
   "mock.askQ2Opt1Label": "先查文档",
   "mock.askQ2Opt1Desc": "查看 README / 构建文档来确定正确的构建命令",
   "mock.askQ2Opt2Label": "看构建配置",
@@ -1345,6 +1345,6 @@ export const zh: Record<DictKey, string> = {
   "mock.changedFile1Prompt": "更新规范草案 v0.3",
   "mock.changedFile2Prompt": "记录项目上下文",
   "mock.changedFile1Path": "docs/dev-standard.md",
-  "mock.changedFile2Path": ".deepseek-orca/project.md",
+  "mock.changedFile2Path": ".orca/project.md",
 };
 

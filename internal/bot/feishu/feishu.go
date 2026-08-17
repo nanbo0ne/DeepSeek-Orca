@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
@@ -423,7 +423,7 @@ func (a *adapter) sdkClient() (*lark.Client, error) {
 	opts := []lark.ClientOptionFunc{
 		lark.WithLogLevel(larkcore.LogLevelError),
 		lark.WithReqTimeout(15 * time.Second),
-		lark.WithSource("deepseek-orca"),
+		lark.WithSource("orca"),
 	}
 	if feishuDomain(a.cfg.Domain) == "lark" {
 		opts = append(opts, lark.WithOpenBaseUrl(lark.LarkBaseUrl), lark.WithOAuthBaseUrl(lark.OAuthBaseUrlLark))

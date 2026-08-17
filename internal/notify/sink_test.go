@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 var errTestFailure = errors.New("failed")

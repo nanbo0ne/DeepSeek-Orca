@@ -14,19 +14,19 @@ type LayoutPreferences = {
   sizes?: Partial<Record<LayoutSizeKey, number>>;
 };
 
-const STORAGE_KEY = "deepseek-orca.layoutPreferences.v1";
+const STORAGE_KEY = "orca.layoutPreferences.v1";
 
 const LEGACY_SIZE_KEYS: Record<LayoutSizeKey, string[]> = {
-  sidebarWidth: ["deepseek-orca.sidebar.width"],
+  sidebarWidth: ["orca.sidebar.width"],
   sidebarWidthGraphite: [],
   rightDockWidth: [],
   rightDockTreeWidth: [],
   rightDockPreviewWidth: [],
   workspaceFileTreePanelWidth: [],
-  workspaceTreeWidth: ["deepseek-orca.workspaceTree.width"],
-  composerHeight: ["deepseek-orca.composerHeight"],
-  drawerWidth: ["deepseek-orca.drawer.width"],
-  settingsDrawerWidth: ["deepseek-orca.settingsDrawer.width"],
+  workspaceTreeWidth: ["orca.workspaceTree.width"],
+  composerHeight: ["orca.composerHeight"],
+  drawerWidth: ["orca.drawer.width"],
+  settingsDrawerWidth: ["orca.settingsDrawer.width"],
 };
 
 type ClampSize = (value: number) => number;

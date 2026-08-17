@@ -23,8 +23,8 @@ func TestCommandDirsIncludeConventions(t *testing.T) {
 			t.Errorf("CommandDirs missing %q\ngot:\n%s", want, joined)
 		}
 	}
-	// The project's .deepseek-orca/commands must be the highest-priority (last) entry.
-	if last := dirs[len(dirs)-1]; last != filepath.Join(".deepseek-orca", "commands") {
-		t.Errorf("project .deepseek-orca/commands should be highest priority (last), got %q", last)
+	// The project's .orca/commands must be the highest-priority (last) entry.
+	if last := dirs[len(dirs)-1]; last != filepath.Join(".orca", "commands") {
+		t.Errorf("project .orca/commands should be highest priority (last), got %q", last)
 	}
 }

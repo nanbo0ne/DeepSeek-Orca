@@ -32,7 +32,7 @@ const (
 	ansiCyan    = "\033[38;5;44m"
 	ansiMagenta = "\033[38;5;176m"
 	ansiReverse = "\033[7m"
-	// ansiAccent is the dark theme fallback for DeepSeek-Orca's Slate blue brand
+	// ansiAccent is the dark theme fallback for O.R.C.A's Slate blue brand
 	// color. accent() uses the active CLI theme, but tests and legacy callers can
 	// still refer to this concrete escape sequence.
 	ansiAccent = "\033[38;5;33m"

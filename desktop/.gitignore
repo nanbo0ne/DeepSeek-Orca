@@ -8,6 +8,7 @@
 # (Each `!` un-ignore needs its parent dir un-ignored first.)
 !/build/windows
 /build/windows/*
+!/build/windows/info.json
 !/build/windows/icon.ico
 !/build/windows/installer
 /build/windows/installer/*
@@ -28,7 +29,7 @@
 !/build/linux
 /build/linux/*
 !/build/linux/nfpm.yaml
-!/build/linux/deepseek-orca.desktop
+!/build/linux/orca.desktop
 
 # Go test binaries
 *.test

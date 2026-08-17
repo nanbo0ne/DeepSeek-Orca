@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/acp"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/acp"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 
-	_ "deepseek-orca/internal/tool/builtin"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 )
 
 const acpTestProviderKind = "acp-test-provider"
@@ -63,7 +63,7 @@ func TestACPInitializesWithoutAPIKey(t *testing.T) {
 			t.Fatalf("Run --acp initialize rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, `"protocolVersion":1`) || !strings.Contains(out, `"name":"deepseek-orca"`) {
+	if !strings.Contains(out, `"protocolVersion":1`) || !strings.Contains(out, `"name":"orca"`) {
 		t.Fatalf("initialize output = %s", out)
 	}
 }

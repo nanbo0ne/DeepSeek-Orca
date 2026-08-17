@@ -1,4 +1,4 @@
-module deepseek-orca
+module github.com/nanbo0ne/O.R.C.A-for-Windows
 
 go 1.25.0
 

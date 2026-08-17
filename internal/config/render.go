@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
 )
 
 type RenderScope string
@@ -16,7 +18,7 @@ const (
 	RenderScopeProject RenderScope = "project"
 )
 
-// RenderTOML renders the config as annotated TOML in the `deepseek-orca setup` house style:
+// RenderTOML renders the config as annotated TOML in the `orca setup` house style:
 // comments preserved, system_prompt as a multi-line string, helpful hints. The
 // output round-trips back through Load (see render_test.go).
 func RenderTOML(c *Config) string {
@@ -25,7 +27,7 @@ func RenderTOML(c *Config) string {
 
 // RenderTOMLForScope renders an annotated TOML file for a specific persistence
 // target. User configs can carry desktop and account-level preferences; project
-// deepseek-orca.toml stays focused on project behavior and intentionally excludes
+// orca.toml stays focused on project behavior and intentionally excludes
 // desktop-only preferences.
 func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if c == nil {
@@ -39,26 +41,26 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	defaults := Default()
 	var b strings.Builder
 
-	b.WriteString("# DeepSeek-Orca configuration.\n")
-	b.WriteString("# Resolution order: flag > ./deepseek-orca.toml > ~/.config/deepseek-orca/config.toml > built-in defaults.\n")
+	b.WriteString("# O.R.C.A configuration.\n")
+	fmt.Fprintf(&b, "# Resolution order: flag > ./%s > ~/.config/%s/config.toml > legacy aliases > built-in defaults.\n", product.ProjectConfigName, product.ConfigDirName)
 	b.WriteString("# Secrets come from the environment via api_key_env; never put keys here.\n\n")
 
 	fmt.Fprintf(&b, "config_version = %d   # schema marker for diagnostics; old versions may ignore it\n", configVersion(c))
 	fmt.Fprintf(&b, "default_model = %q\n", c.DefaultModel)
 	if c.Language != "" {
-		fmt.Fprintf(&b, "language      = %q   # ui/model language; empty = auto-detect from $LANG / $DEEPSEEK_ORCA_LANG\n", c.Language)
+		fmt.Fprintf(&b, "language      = %q   # ui/model language; empty = auto-detect from $LANG / $ORCA_LANG\n", c.Language)
 	} else {
-		b.WriteString("# language      = \"zh\"   # ui/model language; empty = auto-detect from $LANG / $DEEPSEEK_ORCA_LANG\n")
+		b.WriteString("# language      = \"zh\"   # ui/model language; empty = auto-detect from $LANG / $ORCA_LANG\n")
 	}
 	b.WriteString("\n")
 
 	if shouldRenderUI(c, defaults, scope) {
 		b.WriteString("[ui]\n")
-		fmt.Fprintf(&b, "theme = %q   # auto|dark|light; CLI colors only; DEEPSEEK_ORCA_THEME can override per run\n", c.UITheme())
+		fmt.Fprintf(&b, "theme = %q   # auto|dark|light; CLI colors only; ORCA_THEME can override per run\n", c.UITheme())
 		if style := c.UIThemeStyle(); style != "" {
-			fmt.Fprintf(&b, "theme_style = %q   # CLI accent palette; DEEPSEEK_ORCA_THEME_STYLE can override per run\n", style)
+			fmt.Fprintf(&b, "theme_style = %q   # CLI accent palette; ORCA_THEME_STYLE can override per run\n", style)
 		} else {
-			b.WriteString("# theme_style = \"slate\"   # DeepSeek-Orca native blue-white style\n")
+			b.WriteString("# theme_style = \"slate\"   # O.R.C.A native blue-white style\n")
 		}
 		if layout := c.UIShortcutLayout(); layout != "classic" {
 			fmt.Fprintf(&b, "shortcut_layout = %q   # classic|desktop; compatibility setting; Shift+Tab toggles Plan, Ctrl+Y toggles YOLO\n", layout)
@@ -87,7 +89,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		if style := c.DesktopThemeStyle(); style != "" {
 			fmt.Fprintf(&b, "theme_style = %q   # desktop fixed visual style\n", style)
 		} else {
-			b.WriteString("# theme_style = \"slate\"   # DeepSeek-Orca native blue-white style\n")
+			b.WriteString("# theme_style = \"slate\"   # O.R.C.A native blue-white style\n")
 		}
 		fmt.Fprintf(&b, "close_behavior = %q   # desktop: quit|background when the window close button is clicked\n", c.DesktopCloseBehavior())
 		fmt.Fprintf(&b, "check_updates = %v   # desktop: check for new versions on startup\n", c.DesktopCheckUpdates())
@@ -104,7 +106,25 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		fmt.Fprintf(&b, "assistant_auto_memory_enabled = %v   # desktop: assistant mode silently updates profile memories when leaving a conversation\n", c.DesktopAssistantAutoMemoryEnabled())
 		fmt.Fprintf(&b, "assistant_memory_recall_enabled = %v   # desktop: assistant mode injects assistant memories before each turn\n", c.DesktopAssistantMemoryRecallEnabled())
 		fmt.Fprintf(&b, "automation_full_access_approved = %v   # desktop: one-time consent for trusted Orca tool execution\n", c.Desktop.AutomationFullAccess)
+		fmt.Fprintf(&b, "onboarding_completed = %v   # desktop: generic cloud/local setup has been acknowledged\n", c.Desktop.OnboardingCompleted)
+		if c.Desktop.ComputerControlModel != "" {
+			fmt.Fprintf(&b, "computer_control_model = %q   # fully-qualified model used for Computer Use\n", c.Desktop.ComputerControlModel)
+		}
+		fmt.Fprintf(&b, "computer_use_full_access_approved = %v   # one-time Computer Use consent\n", c.Desktop.ComputerUseFullAccess)
+		fmt.Fprintf(&b, "computer_use_consent_version = %d\n", c.Desktop.ComputerUseConsent)
+		fmt.Fprintf(&b, "computer_debug_capture = %v   # persist diagnostic screenshots; default false\n", c.Desktop.ComputerDebugCapture)
 		b.WriteString("\n")
+
+		b.WriteString("[local_ai]\n")
+		fmt.Fprintf(&b, "enabled = %v\n", c.LocalAI.Enabled)
+		if c.LocalAI.RuntimeVersion != "" {
+			fmt.Fprintf(&b, "runtime_version = %q\n", c.LocalAI.RuntimeVersion)
+		}
+		if c.LocalAI.ModelsDir != "" {
+			fmt.Fprintf(&b, "models_dir = %q\n", c.LocalAI.ModelsDir)
+		}
+		fmt.Fprintf(&b, "idle_unload_minutes = %d\n", c.LocalAIIdleUnloadMinutes())
+		fmt.Fprintf(&b, "vram_reserve_mib = %d\n\n", c.LocalAIVRAMReserveMiB())
 
 		b.WriteString("[notifications]\n")
 		fmt.Fprintf(&b, "enabled = %v   # system notifications for CLI chat/run; default off\n", c.Notifications.Enabled)
@@ -151,7 +171,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		if c.Network.Proxy.Password != "" {
 			fmt.Fprintf(&b, "password = %q   # supports ${VAR} expansion\n", c.Network.Proxy.Password)
 		} else {
-			b.WriteString("# password = \"${DEEPSEEK_ORCA_PROXY_PASSWORD}\"   # optional; supports ${VAR} expansion\n")
+			b.WriteString("# password = \"${ORCA_PROXY_PASSWORD}\"   # optional; supports ${VAR} expansion\n")
 		}
 		b.WriteString("\n")
 	}
@@ -300,7 +320,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if c.Codegraph.Path != "" {
 		fmt.Fprintf(&b, "path         = %q   # optional launcher override\n", c.Codegraph.Path)
 	} else {
-		b.WriteString("# path       = \"\"   # empty = cache, then PATH, then a bundle beside deepseek-orca\n")
+		b.WriteString("# path       = \"\"   # empty = cache, then PATH, then a bundle beside orca\n")
 	}
 	b.WriteString("\n")
 
@@ -453,7 +473,7 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	if len(c.Plugins) == 0 {
 		b.WriteString("# [[plugins]]\n")
 		b.WriteString("# name    = \"example\"\n")
-		b.WriteString("# command = \"deepseek-orca-plugin-example\"\n")
+		b.WriteString("# command = \"orca-plugin-example\"\n")
 		b.WriteString("# [[plugins]]                                  # a remote server over Streamable HTTP\n")
 		b.WriteString("# name    = \"stripe\"\n")
 		b.WriteString("# type    = \"http\"\n")
@@ -672,7 +692,7 @@ func renderBotSessionMappings(mappings []BotConnectionSessionMapping) string {
 }
 
 // renderRuleList emits a permission rule list. A populated list renders as an
-// active TOML array; an empty one renders as a commented example so `deepseek-orca setup`
+// active TOML array; an empty one renders as a commented example so `orca setup`
 // scaffolds discoverable guidance without imposing surprising rules.
 func renderRuleList(key string, rules []string, example string) string {
 	if len(rules) == 0 {

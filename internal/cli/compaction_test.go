@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // TestCompactionCardLines locks the finished-compaction card: a header naming

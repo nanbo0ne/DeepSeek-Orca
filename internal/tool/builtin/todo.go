@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"deepseek-orca/internal/evidence"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(todoWrite{}) }

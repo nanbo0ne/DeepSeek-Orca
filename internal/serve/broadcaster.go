@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // Broadcaster is the event.Sink the controller emits to in server mode. It

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
 )
 
 func TestBashForegroundTimeoutConfig(t *testing.T) {

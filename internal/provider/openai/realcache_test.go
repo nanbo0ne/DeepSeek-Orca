@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // probeResult captures the cache-relevant numbers from one real completion.

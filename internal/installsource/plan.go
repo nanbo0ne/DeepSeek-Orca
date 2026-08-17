@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 var githubAPIBaseURL = "https://api.github.com"

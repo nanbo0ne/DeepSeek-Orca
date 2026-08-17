@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
 )
 
 type gitStatusEntry struct {

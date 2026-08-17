@@ -15,9 +15,9 @@ import (
 
 	"golang.org/x/text/transform"
 
-	fileenc "deepseek-orca/internal/fileutil/encoding"
-	"deepseek-orca/internal/proc"
-	"deepseek-orca/internal/tool"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 const grepMaxMatches = 200

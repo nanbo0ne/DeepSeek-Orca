@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
 )
 
 func renderMemory(width int, set *memory.Set) string {

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
 )
 
 const closeWaitBudget = 5 * time.Second

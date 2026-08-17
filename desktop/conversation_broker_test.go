@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 type mapBackedSink struct{ values map[string]string }

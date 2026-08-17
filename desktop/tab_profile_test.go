@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 func testTab(id, root string) *WorkspaceTab {
@@ -637,7 +637,7 @@ func TestSetBypassPreservesPlanMode(t *testing.T) {
 
 func userConfigPathForTest() string {
 	if dir, err := os.UserConfigDir(); err == nil {
-		return dir + "/deepseek-orca/deepseek-orca.toml"
+		return dir + "/github.com/nanbo0ne/O.R.C.A-for-Windows/deepseek-orca.toml"
 	}
 	return ""
 }

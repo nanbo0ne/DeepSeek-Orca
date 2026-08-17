@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // renderSink renders DeepSeek-Orca event streams into compact IM messages.

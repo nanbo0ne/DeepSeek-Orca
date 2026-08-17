@@ -1,8 +1,8 @@
 // Package hook runs user-configured shell-command hooks around the agent loop:
 // PreToolUse / PostToolUse fire around each tool call, UserPromptSubmit before a
 // turn, Stop after it. Hooks come from settings.json — a project
-// (.deepseek-orca/settings.json, only when the project is trusted) and a global
-// (~/.deepseek-orca/settings.json) file. A hook's exit
+// (.orca/settings.json, only when the project is trusted) and a global
+// (~/.orca/settings.json) file. A hook's exit
 // code is its verdict: 0 = pass, 2 = block (only on the gating events), other =
 // warn. The payload is delivered as JSON on stdin; output is captured (capped)
 // and surfaced to the user. This package only loads, matches, and runs hooks;
@@ -24,7 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
 )
 
 // Event is a point in the agent loop a hook can fire at.
@@ -122,16 +123,16 @@ func (h ResolvedHook) timeout() time.Duration {
 
 // SettingsDirname / SettingsFilename locate a scope's settings.json.
 const (
-	SettingsDirname  = ".deepseek-orca"
+	SettingsDirname  = product.ProjectStateDir
 	SettingsFilename = "settings.json"
 )
 
-// GlobalSettingsPath is ~/.deepseek-orca/settings.json (homeDir overrides ~).
+// GlobalSettingsPath is ~/.orca/settings.json (homeDir overrides ~).
 func GlobalSettingsPath(homeDir string) string {
 	return filepath.Join(home(homeDir), SettingsDirname, SettingsFilename)
 }
 
-// ProjectSettingsPath is <root>/.deepseek-orca/settings.json.
+// ProjectSettingsPath is <root>/.orca/settings.json.
 func ProjectSettingsPath(projectRoot string) string {
 	return filepath.Join(projectRoot, SettingsDirname, SettingsFilename)
 }

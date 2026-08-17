@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/fileutil"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // SessionParams is everything a Factory needs to assemble one ACP session's
@@ -39,7 +39,7 @@ type SessionParams struct {
 }
 
 // Factory builds the per-session controller. The composition root (the cli's
-// `deepseek-orca acp` command) implements it by reusing setup()'s assembly: a
+// `orca acp` command) implements it by reusing setup()'s assembly: a
 // Provider for Model, a tool Registry rooted at Cwd via builtin.Workspace, a
 // per-session MCP host from MCPServers, the event Sink, all wired into a
 // control.Controller. The returned controller owns its own cleanup (Close stops
@@ -63,7 +63,7 @@ type AgentInfo struct {
 // Serve runs an ACP agent on r/w (stdin/stdout in production) until the input
 // ends or ctx is cancelled. It owns the JSON-RPC connection and the session
 // registry; the Factory supplies the kernel wiring. This is the single entry
-// point the `deepseek-orca acp` command calls.
+// point the `orca acp` command calls.
 //
 // stdout is the JSON-RPC channel: callers must keep all other output (logs,
 // diagnostics) off w and on stderr, or the wire corrupts.

@@ -12,9 +12,9 @@
 package event
 
 import (
-	"deepseek-orca/internal/evidence"
-	"deepseek-orca/internal/nilutil"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Kind tags an Event. Read the field(s) documented for that kind.

@@ -1,0 +1,39 @@
+{
+  "name": "orca-agent",
+  "version": "0.0.0",
+  "description": "Open Reasoning & Computing Agent for the terminal.",
+  "bin": {
+    "orca": "bin/orca.js"
+  },
+  "files": [
+    "bin/orca.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/nanbo0ne/O.R.C.A-for-Windows#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanbo0ne/O.R.C.A-for-Windows.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nanbo0ne/O.R.C.A-for-Windows/issues"
+  },
+  "keywords": [
+    "orca",
+    "ai",
+    "agent",
+    "cli",
+    "coding-assistant",
+    "tui"
+  ],
+  "optionalDependencies": {
+    "@orca-agent/cli-darwin-arm64": "0.0.0",
+    "@orca-agent/cli-darwin-x64": "0.0.0",
+    "@orca-agent/cli-linux-arm64": "0.0.0",
+    "@orca-agent/cli-linux-x64": "0.0.0",
+    "@orca-agent/cli-win32-arm64": "0.0.0",
+    "@orca-agent/cli-win32-x64": "0.0.0"
+  }
+}

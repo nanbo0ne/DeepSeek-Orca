@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // buildExamplePlugin compiles cmd/deepseek-orca-plugin-example into a temp binary and
@@ -24,7 +24,7 @@ func buildExamplePlugin(t *testing.T) string {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	out, err := exec.Command("go", "build", "-o", bin, "deepseek-orca/cmd/deepseek-orca-plugin-example").CombinedOutput()
+	out, err := exec.Command("go", "build", "-o", bin, "github.com/nanbo0ne/O.R.C.A-for-Windows/cmd/deepseek-orca-plugin-example").CombinedOutput()
 	if err != nil {
 		t.Fatalf("build example plugin: %v\n%s", err, out)
 	}

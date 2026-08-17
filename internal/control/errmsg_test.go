@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 func TestExplainError(t *testing.T) {

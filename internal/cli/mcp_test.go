@@ -9,9 +9,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
 )
 
 func TestParseMCPAddStdio(t *testing.T) {
@@ -292,7 +292,7 @@ func TestRenderMCPManagerDetailCompactsConfigPath(t *testing.T) {
 		stage: mcpStageDetail,
 		name:  "github",
 		snapshot: mcpSnapshot{
-			configPath: "/Users/example/Library/Application Support/deepseek-orca/config.toml",
+			configPath: "/Users/example/Library/Application Support/github.com/nanbo0ne/O.R.C.A-for-Windows/config.toml",
 			servers: []mcpServerView{{
 				Name: "github", Transport: "stdio", Status: "deferred", Configured: true,
 				Tier: "lazy", Command: "npx", Args: []string{"-y", "@modelcontextprotocol/server-github"},
@@ -305,7 +305,7 @@ func TestRenderMCPManagerDetailCompactsConfigPath(t *testing.T) {
 			t.Fatalf("detail line exceeds width 80 (%d): %q\n%s", visibleWidth(line), line, got)
 		}
 	}
-	if strings.Contains(got, "Application Support/deepseek-orca/config.toml") {
+	if strings.Contains(got, "Application Support/github.com/nanbo0ne/O.R.C.A-for-Windows/config.toml") {
 		t.Fatalf("long config path should be compacted:\n%s", got)
 	}
 }

@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"deepseek-orca/internal/promptprofile"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/promptprofile"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 var reComposeBlock = regexp.MustCompile(`(?s)^\s*(?:<host_context\b[^>]*>.*?</host_context>|<(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>.*?</(?:memory-update|background-jobs|system-reminder|workflow-reminder|automation-context)>)\s*(?:\n|$)`)

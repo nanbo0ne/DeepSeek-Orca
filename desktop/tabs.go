@@ -17,15 +17,16 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // --- WorkspaceTab -----------------------------------------------------------
@@ -1500,7 +1501,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			a.noticeForTab(tab.ID, fmt.Sprintf("could not prepare shared assistant profile: %v", storeErr))
 		}
 	}
-	ctrl, err := boot.Build(buildCtx, boot.Options{
+	ctrl, err := a.buildController(buildCtx, boot.Options{
 		Model:                   model,
 		RequireKey:              false,
 		Sink:                    tab.sink,
@@ -2105,7 +2106,7 @@ func (a *App) generateTopicTitleWithProvider(workspaceRoot, userText, assistantT
 		Temperature: 0.2,
 		MaxTokens:   64,
 		Messages: []provider.Message{
-			{Role: provider.RoleSystem, Content: "You generate short DeepSeek-Orca conversation titles. Output exactly one concise Chinese title, preferably 6-18 Chinese characters. Do not include quotes, prefixes, numbering, explanations, or newlines."},
+			{Role: provider.RoleSystem, Content: "You generate short Orca conversation titles. Output exactly one concise Chinese title, preferably 6-18 Chinese characters. Do not include quotes, prefixes, numbering, explanations, or newlines."},
 			{Role: provider.RoleUser, Content: "User request:\n" + userText + "\n\nAssistant reply:\n" + assistantText},
 		},
 	}
@@ -2215,9 +2216,9 @@ func desktopConfigDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".deepseek-orca")
+		return filepath.Join(home, "."+product.ConfigDirName)
 	}
-	return filepath.Join(dir, "deepseek-orca")
+	return filepath.Join(dir, product.ConfigDirName)
 }
 
 func (a *App) saveTabsLocked() {
@@ -2804,21 +2805,21 @@ func topicTitlesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitlesFile)
 	}
-	return filepath.Join(workspaceRoot, ".deepseek-orca", topicTitlesFile)
+	return filepath.Join(workspaceRoot, product.ProjectStateDir, topicTitlesFile)
 }
 
 func topicTitleSourcesPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicTitleSourcesFile)
 	}
-	return filepath.Join(workspaceRoot, ".deepseek-orca", topicTitleSourcesFile)
+	return filepath.Join(workspaceRoot, product.ProjectStateDir, topicTitleSourcesFile)
 }
 
 func topicCreatedAtsPath(workspaceRoot string) string {
 	if workspaceRoot == "" {
 		return filepath.Join(desktopConfigDir(), "global", topicCreatedAtsFile)
 	}
-	return filepath.Join(workspaceRoot, ".deepseek-orca", topicCreatedAtsFile)
+	return filepath.Join(workspaceRoot, product.ProjectStateDir, topicCreatedAtsFile)
 }
 
 func loadTopicTitles(workspaceRoot string) map[string]string {
@@ -4473,9 +4474,9 @@ func globalWorkspaceRoot() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".deepseek-orca", "global-workspace")
+		return filepath.Join(home, "."+product.ConfigDirName, "global-workspace")
 	}
-	return filepath.Join(dir, "deepseek-orca", "global-workspace")
+	return filepath.Join(dir, product.ConfigDirName, "global-workspace")
 }
 
 func independentWorkspaceRoot(topicID string) string {
@@ -4490,9 +4491,9 @@ func independentWorkspaceRoot(topicID string) string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".deepseek-orca", "independent-workspaces", safe, "workspace")
+		return filepath.Join(home, "."+product.ConfigDirName, "independent-workspaces", safe, "workspace")
 	}
-	return filepath.Join(dir, "deepseek-orca", "independent-workspaces", safe, "workspace")
+	return filepath.Join(dir, product.ConfigDirName, "independent-workspaces", safe, "workspace")
 }
 
 func automationWorkspaceRoot() string {

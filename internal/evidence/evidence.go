@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // TodoItem mirrors the todo_write item shape the host needs for step matching.

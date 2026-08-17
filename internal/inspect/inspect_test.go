@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/tool"
-	_ "deepseek-orca/internal/tool/builtin" // self-register built-ins for LookupBuiltin
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin" // self-register built-ins for LookupBuiltin
 )
 
 // fakeTool is a minimal Tool for registry projection tests. It never implements
@@ -26,7 +26,7 @@ func (f fakeTool) Execute(context.Context, json.RawMessage) (string, error) { re
 
 func TestProviders(t *testing.T) {
 	cfg := config.Default()
-	// Default model is deepseek-flash; give its key so KeyReady flips true.
+	// DeepSeek remains the compatibility default; giving it a key makes KeyReady flip true.
 	t.Setenv("DEEPSEEK_API_KEY", "sk-test")
 	t.Setenv("MIMO_API_KEY", "") // ensure mimo stays not-ready
 
@@ -56,11 +56,11 @@ func TestProviders(t *testing.T) {
 			t.Errorf("mimo provider %q should not be key-ready", p.Name)
 		}
 	}
-	if !sawDefault {
-		t.Error("default provider not found in projection")
-	}
 	if !sawReady {
 		t.Error("no deepseek provider found to check key readiness")
+	}
+	if !sawDefault {
+		t.Error("default provider not found in projection")
 	}
 }
 

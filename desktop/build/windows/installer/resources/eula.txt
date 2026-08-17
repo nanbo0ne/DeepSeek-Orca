@@ -1,10 +1,10 @@
-DeepSeek-Orca End User License Agreement
+O.R.C.A for Windows End User License Agreement
 
-Please read this agreement before installing or using DeepSeek-Orca. By continuing the installation, you agree to the terms below.
+Please read this agreement before installing or using O.R.C.A for Windows. By continuing the installation, you agree to the terms below.
 
-1. DeepSeek-Orca is a desktop and command-line AI coding assistant for reading code, editing files, running local tools, managing conversations, and working with local project context.
+1. O.R.C.A for Windows is a desktop and command-line AI assistant for reasoning, computing, reading code, editing files, running local tools, managing conversations, and working with local project context.
 2. You are responsible for checking the safety and compliance of model providers, plugins, MCP servers, scripts, commands, and any local tools you enable.
-3. Depending on your configuration, DeepSeek-Orca may read project files, save conversations, save memory entries, create rollback backups, or execute local commands.
+3. Depending on your configuration, O.R.C.A may read project files, save conversations, save memory entries, create rollback backups, or execute local commands.
 4. Review high-risk operations before allowing them, especially when modifying important files or using full-access permission modes.
 5. During uninstallation, you may choose whether to remove saved configuration, conversations, memory, cache, and other user data.
 6. The software is provided as is. Keep your own backups when working on production code or important projects.

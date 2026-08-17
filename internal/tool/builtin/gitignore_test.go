@@ -150,11 +150,11 @@ func TestFindRepoRoot(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got, err := filepath.EvalSymlinks(findRepoRoot(sub))
+	got, err := filepath.Abs(findRepoRoot(sub))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, _ := filepath.EvalSymlinks(dir)
+	want, _ := filepath.Abs(dir)
 	if got != want {
 		t.Fatalf("findRepoRoot(%q) = %q, want %q", sub, got, want)
 	}

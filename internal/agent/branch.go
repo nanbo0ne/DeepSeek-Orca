@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
 )
 
 // BranchMeta is the small sidecar record that turns flat session files into a

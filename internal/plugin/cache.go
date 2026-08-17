@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // cacheableToolsOf extracts the persistable subset of remote tools so Start()

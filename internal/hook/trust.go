@@ -6,14 +6,14 @@ import (
 	"path/filepath"
 )
 
-// Trust gates project hooks. A project's .deepseek-orca/settings.json can run
+// Trust gates project hooks. A project's .orca/settings.json can run
 // arbitrary shell commands, so cloning a repo must not silently execute its
 // hooks: project hooks load only after the user explicitly trusts that project
-// root. The trust flag lives in user-global state (~/.deepseek-orca/trust.json),
+// root. The trust flag lives in user-global state (~/.orca/trust.json),
 // NOT in the project file itself — an attacker controls the latter. Global
-// hooks (~/.deepseek-orca/settings.json) are the user's own and always run.
+// hooks (~/.orca/settings.json) are the user's own and always run.
 
-// TrustFilename is the user-global trust store under ~/.deepseek-orca.
+// TrustFilename is the user-global trust store under ~/.orca.
 const TrustFilename = "trust.json"
 
 type trustFile struct {
@@ -21,7 +21,7 @@ type trustFile struct {
 	Projects map[string]bool `json:"projects"`
 }
 
-// TrustPath is ~/.deepseek-orca/trust.json (homeDir overrides ~).
+// TrustPath is ~/.orca/trust.json (homeDir overrides ~).
 func TrustPath(homeDir string) string {
 	return filepath.Join(home(homeDir), SettingsDirname, TrustFilename)
 }

@@ -7,9 +7,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/mcpdiag"
-	"deepseek-orca/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/mcpdiag"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
 )
 
 const (

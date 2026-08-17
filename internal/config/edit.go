@@ -7,10 +7,11 @@ import (
 	"runtime"
 	"strings"
 
-	"deepseek-orca/internal/fileutil"
-	"deepseek-orca/internal/mcpdiag"
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/permission"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/mcpdiag"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/permission"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
 )
 
 // edit.go is the programmatic mutation surface a settings UI drives: change the
@@ -696,7 +697,7 @@ func ClearPluginAuthenticationInSource(name string) (PluginEntry, bool, string, 
 }
 
 func pluginTOMLSourcePath(name string) string {
-	for _, path := range []string{"deepseek-orca.toml", userConfigPath()} {
+	for _, path := range []string{product.ProjectConfigName, product.LegacyProjectConfigName, userConfigPath(), legacyUserConfigPath()} {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
@@ -754,7 +755,7 @@ func SaveMinimalProjectAutoPlan(path, mode string) (string, error) {
 	if err := cfg.SetAutoPlan(mode); err != nil {
 		return "", err
 	}
-	body := fmt.Sprintf(`# DeepSeek-Orca project configuration.
+	body := fmt.Sprintf(`# O.R.C.A project configuration.
 # Project-local overrides are merged over the user config.
 
 [agent]
@@ -771,7 +772,7 @@ func writeConfigFile(path, body string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("save: create dir: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, ".deepseek-orca.*.toml.tmp")
+	tmp, err := os.CreateTemp(dir, ".orca.*.toml.tmp")
 	if err != nil {
 		return fmt.Errorf("save: create temp: %w", err)
 	}
@@ -810,23 +811,23 @@ func isUserConfigPath(path string) bool {
 }
 
 // Save writes the configuration back to the file it was loaded from
-// (SourcePath), or to ./deepseek-orca.toml when none exists yet — the conventional
+// (SourcePath), or to ./orca.toml when none exists yet — the conventional
 // project-local target a fresh GUI session would create.
 func (c *Config) Save() error {
 	path := SourcePath()
 	if path == "" {
-		path = "deepseek-orca.toml"
+		path = product.ProjectConfigName
 	}
 	return c.SaveTo(path)
 }
 
-// SaveForRoot saves the config to root's deepseek-orca.toml, falling back to the
-// user's global config when root has no existing deepseek-orca.toml.
+// SaveForRoot saves the config to root's orca.toml, falling back to the
+// user's global config when root has no existing orca.toml.
 func (c *Config) SaveForRoot(root string) error {
 	root = resolveRoot(root)
-	projectTOML := "deepseek-orca.toml"
+	projectTOML := product.ProjectConfigName
 	if root != "." {
-		projectTOML = filepath.Join(root, "deepseek-orca.toml")
+		projectTOML = filepath.Join(root, product.ProjectConfigName)
 	}
 	if _, err := os.Stat(projectTOML); err == nil {
 		return c.SaveTo(projectTOML)

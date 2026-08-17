@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"deepseek-orca/internal/jobs"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/jobs"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // bash_output / kill_shell / wait operate the background jobs registered by

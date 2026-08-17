@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // mcpEntryAction assembles the DTO for a single MCP server install. The

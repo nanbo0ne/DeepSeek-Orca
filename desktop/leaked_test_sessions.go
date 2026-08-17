@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Older Windows test runs did not isolate APPDATA and could leave one exact

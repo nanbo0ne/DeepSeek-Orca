@@ -1,5 +1,5 @@
 {
-  "name": "deepseek-orca-site",
+  "name": "orca-for-windows-site",
   "type": "module",
   "private": true,
   "scripts": {

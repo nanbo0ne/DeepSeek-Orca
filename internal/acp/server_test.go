@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // --- fakes: a Factory wrapping a behavior-driven runner in a real Controller ---

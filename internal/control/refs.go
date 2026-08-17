@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/documentextract"
-	"deepseek-orca/internal/proc"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/documentextract"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // maxFileRefBytes caps how much of an @-referenced file is injected into a
@@ -41,7 +41,7 @@ type refKind int
 const (
 	refResource refKind = iota // an MCP resource: @<server>:<uri>
 	refFile                    // a local file or directory: @<path>
-	refImage                   // a local image attachment: @.deepseek-orca/attachments/<file>
+	refImage                   // a local image attachment: @.orca/attachments/<file>
 )
 
 // ref is a resolved @reference found in a submitted line.
@@ -105,7 +105,8 @@ func isNativeImageRef(path string) bool {
 }
 
 func isAttachmentRef(token string) bool {
-	return strings.HasPrefix(filepath.ToSlash(token), ".deepseek-orca/attachments/")
+	path := filepath.ToSlash(token)
+	return strings.HasPrefix(path, ".orca/attachments/") || strings.HasPrefix(path, ".deepseek-orca/attachments/")
 }
 
 func isImageAttachmentRef(token string) bool {

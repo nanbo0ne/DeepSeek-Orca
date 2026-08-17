@@ -6,7 +6,7 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepseek-orca/desktop/internal/update"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/desktop/internal/update"
 )
 
 // updater_app.go exposes update detection while keeping in-app installation off.
@@ -47,7 +47,7 @@ func (a *App) OpenDownloadPage() {
 	}
 }
 
-// ApplyUpdate is disabled in DeepSeek-Orca builds.
+// ApplyUpdate is disabled in O.R.C.A builds.
 func (a *App) ApplyUpdate() error {
 	return nil
 }

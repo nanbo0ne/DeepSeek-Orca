@@ -1,4 +1,4 @@
-﻿// English UI strings — the canonical dictionary. Keys are dotted by area; values
+// English UI strings — the canonical dictionary. Keys are dotted by area; values
 // may contain {placeholders} filled at call time (see lib/i18n.tsx). zh.ts must
 // mirror this key set exactly (its `Record<DictKey, string>` annotation enforces
 // it at compile time), so adding a key here makes the build fail until zh has it.
@@ -63,7 +63,7 @@ export const en = {
   "sidebar.memorySkills": "Memory & Skills",
   "sidebar.workspace": "Workspace",
   "sidebar.changeWorkspace": "Change",
-  "sidebar.navigation": "DeepSeek-Orca navigation",
+  "sidebar.navigation": "O.R.C.A navigation",
   "sidebar.collapse": "Collapse navigation",
   "sidebar.expand": "Expand navigation",
   "sidebar.expandBlocked": "Close the workspace panel before expanding navigation",
@@ -86,7 +86,7 @@ export const en = {
   "toolLibrary.saved": "Tool library settings saved. Running turns keep their current tools; the next turn uses the new settings.",
   "toolLibrary.effectHint": "Disabled groups are not exposed as dedicated tools and are removed from the tool-routing prompt. Bash remains available for development commands.",
   "toolLibrary.threadManagement": "Thread management",
-  "toolLibrary.threadManagementDesc": "Expose thread_list for saved DeepSeek-Orca conversation topics.",
+  "toolLibrary.threadManagementDesc": "Expose thread_list for saved O.R.C.A conversation topics.",
   "toolLibrary.webSearch": "Web search",
   "toolLibrary.webSearchDesc": "Expose web_search for current web facts when the URL is unknown.",
   "toolLibrary.replRuntime": "Node/Python runtime",
@@ -291,7 +291,7 @@ export const en = {
   "welcome.ex4": "Find and fix a bug in this project",
 
   // composer
-  "composer.placeholder": "Message DeepSeek-Orca…  ( / commands · @ files · ! shell )",
+  "composer.placeholder": "Message O.R.C.A…  ( / commands · @ files · ! shell )",
   "composer.normalMode": "chat mode",
   "composer.normalModeDesc": "Answer or work directly.",
   "composer.planMode": "plan mode",
@@ -568,7 +568,7 @@ export const en = {
   "memory.instructionFiles": "Instruction files",
   "memory.instructionFilesHint": "These Markdown files stay in context and are best for durable rules and project conventions.",
   "memory.expandDoc": "Expand preview",
-  "memory.noDocs": "No DEEPSEEK_ORCA.md found. Quick-add one above.",
+  "memory.noDocs": "No ORCA.md found. Quick-add one above.",
   "memory.savedMemories": "Saved memories",
   "memory.memoryEntries": "Memory entries",
   "memory.addMemory": "+ Add memory",
@@ -756,7 +756,7 @@ export const en = {
   "settings.autoPlan.off": "Off",
   "settings.autoPlan.on": "On",
   "settings.agentRuntime": "Agent runtime",
-  "settings.agentRuntimeHint": "Saved as user defaults. A project's ./deepseek-orca.toml can override them; use 0 for no limit.",
+  "settings.agentRuntimeHint": "Saved as user defaults. A project's ./orca.toml can override them; use 0 for no limit.",
   "settings.executorMaxSteps": "Executor step limit",
   "settings.executorMaxStepsHint": "Caps the main agent's tool-call rounds per turn. Unlimited fits larger code tasks.",
   "settings.plannerMaxSteps": "Planner step limit",
@@ -856,7 +856,7 @@ export const en = {
   "settings.botDebounceMs": "Debounce ms",
   "settings.botWorkspaceRoot": "Bot workspace",
   "settings.botWorkspaceRootHint": "Mobile or IM bot turns run here by default, so they do not write into a random current directory.",
-  "settings.botWorkspaceRootDefault": "Leave empty to use DeepSeek-Orca's default bot-workspace",
+  "settings.botWorkspaceRootDefault": "Leave empty to use O.R.C.A's default bot-workspace",
   "settings.botChannels": "Connect channels",
   "settings.botChannelsHint": "QQ and WeChat are available now. Feishu/Lark is temporarily disabled.",
   "settings.botQQHint": "QQ official Bot API v2.",
@@ -1002,7 +1002,7 @@ export const en = {
   "settings.pageDesc.bots": "Configure QQ, Feishu, and WeChat bot channels.",
   "settings.pageDesc.mcp": "Manage MCP server connections and tool discovery.",
   "settings.pageDesc.skills": "Browse, enable, and manage agent skills and skill sources.",
-  "settings.pageDesc.memory": "Manage preferences, project conventions, and instruction files DeepSeek-Orca keeps referencing.",
+  "settings.pageDesc.memory": "Manage preferences, project conventions, and instruction files O.R.C.A keeps referencing.",
   "settings.pageDesc.network": "Proxy and network configuration.",
   "settings.pageDesc.permissions": "Writer mode and fine-grained tool permission rules.",
   "settings.pageDesc.sandbox": "Bash sandbox, network egress, and workspace root.",
@@ -1030,7 +1030,7 @@ export const en = {
   "settings.addProvider.chooseTitle": "Add provider",
   "settings.addProvider.chooseHint": "Choose an official preset, or add a custom OpenAI-compatible access.",
   "settings.addProvider.officialChoice": "Official provider",
-  "settings.addProvider.officialChoiceHint": "Choose from DeepSeek-Orca presets for DeepSeek and Mimo.",
+  "settings.addProvider.officialChoiceHint": "Choose from O.R.C.A presets for DeepSeek and Mimo.",
   "settings.addProvider.customChoice": "Custom provider",
   "settings.addProvider.customChoiceHint": "Configure base_url, models, key env, and related parameters manually.",
   "settings.addProvider.officialTitle": "Add official provider",
@@ -1202,7 +1202,7 @@ export const en = {
   // software update
 
   // onboarding — first-run API-key overlay
-  "onboarding.title": "Connect DeepSeek-Orca",
+  "onboarding.title": "Connect O.R.C.A",
   "onboarding.tagline": "Paste a DeepSeek API key to start. Stored locally in this app's credentials, never sent anywhere else.",
   "onboarding.inputLabel": "API key",
   "onboarding.inputPlaceholder": "sk-…",
@@ -1289,7 +1289,7 @@ export const en = {
   "sideChat.loading": "Thinking…",
 
   // crash page
-  "crash.title": "DeepSeek-Orca hit an error — screenshot this and send it over",
+  "crash.title": "O.R.C.A hit an error — screenshot this and send it over",
   "crash.copy": "Copy",
 
   // mock / demo seed data (browser dev only)
@@ -1326,8 +1326,8 @@ export const en = {
   "mock.askQ1Opt2Desc": "Abandon all local changes, force sync with remote",
   "mock.askQ1Opt3Label": "Create branch to save changes",
   "mock.askQ1Opt3Desc": "Create a branch to save local changes first, then pull main branch",
-  "mock.askQ2Header": "DeepSeek-Orca build",
-  "mock.askQ2Prompt": "What do you want to do about the missing deepseek-orca binary?",
+  "mock.askQ2Header": "O.R.C.A build",
+  "mock.askQ2Prompt": "What do you want to do about the missing orca binary?",
   "mock.askQ2Opt1Label": "Check docs first",
   "mock.askQ2Opt1Desc": "Read README / build docs to determine the correct build command",
   "mock.askQ2Opt2Label": "Check build config",
@@ -1343,7 +1343,7 @@ export const en = {
   "mock.changedFile1Prompt": "Update draft spec v0.3",
   "mock.changedFile2Prompt": "Record project context",
   "mock.changedFile1Path": "docs/dev-standard.md",
-  "mock.changedFile2Path": ".deepseek-orca/project.md",
+  "mock.changedFile2Path": ".orca/project.md",
 };
 
 export type DictKey = keyof typeof en;

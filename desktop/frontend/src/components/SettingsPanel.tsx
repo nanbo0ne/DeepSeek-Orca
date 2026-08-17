@@ -1,15 +1,15 @@
 ﻿import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Check, ChevronDown, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, Download, Pause, Play, RefreshCw, ShieldCheck, Square, Trash2, X } from "lucide-react";
 import { asArray } from "../lib/array";
 import { useDeferredClose } from "../lib/useMountTransition";
-import { app, openExternal } from "../lib/bridge";
+import { app, onComputerUseChanged, onLocalAIChanged, openExternal } from "../lib/bridge";
 import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from "../lib/i18n";
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
 import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP, applyUIScale, effectiveUIScale, getUIScale } from "../lib/uiScale";
 import { checkDesktopUpdate } from "../lib/updateCheck";
-import type { BotConnectionView, BotInstallStartResult, BotSettingsView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView, VisionCapability } from "../lib/types";
+import type { BotConnectionView, BotInstallStartResult, BotSettingsView, ComputerUseState, LocalAICatalogView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView, VisionCapability } from "../lib/types";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
@@ -28,7 +28,10 @@ const SETTINGS_TABS: SettingsTab[] = [
   "permissions",
   "sandbox",
   "network",
+	"localAI",
+	"computer",
   "appearance",
+	"about",
 ];
 
 // SettingsPanel is the desktop settings centre — a centred modal with left
@@ -95,7 +98,7 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
   // The settings-reliant pages (general, models, network, permissions,
   // sandbox, appearance) need SettingsView loaded. MCP, Skills, and Memory
   // load their own data and render regardless.
-  const needsSettings = tab === "general" || tab === "models" || (BOT_SETTINGS_ENABLED && tab === "bots") || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "appearance";
+  const needsSettings = tab === "general" || tab === "models" || (BOT_SETTINGS_ENABLED && tab === "bots") || tab === "network" || tab === "permissions" || tab === "sandbox" || tab === "computer" || tab === "appearance";
 
   return (
     <div className="management-modal-backdrop settings-modal-backdrop" data-state={status} onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}>
@@ -133,6 +136,8 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
                 {tab === "permissions" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><PermissionsSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "sandbox" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><SandboxSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "network" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><NetworkSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
+				{tab === "localAI" && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><LocalAISection /></SettingsPageShell>}
+				{tab === "computer" && s && <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}><ComputerUseSection s={s} busy={busy} apply={apply} /></SettingsPageShell>}
                 {tab === "appearance" && s && (
                   <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}>
                     <AppearanceSection
@@ -156,6 +161,7 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
                     />
                   </SettingsPageShell>
                 )}
+				{tab === "about" && <SettingsPageShell key={tab} s={s} tab={tab} busy={false} apply={apply}><AboutSection /></SettingsPageShell>}
               </>
             )}
           </main>
@@ -185,8 +191,10 @@ function settingsPageKind(tab: SettingsTab): "form" | "manager" {
     case "models":
     case "mcp":
     case "skills":
-    case "memory":
-      return "manager";
+	case "memory":
+	case "localAI":
+	case "computer":
+		return "manager";
     default:
       return "form";
   }
@@ -276,6 +284,88 @@ type ModelsSectionProps = SectionProps & {
   backgroundApply: (fn: () => Promise<void>) => Promise<void>;
 };
 
+function LocalAISection() {
+  const [catalog, setCatalog] = useState<LocalAICatalogView | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reload = () => { void app.GetLocalAICatalog().then(setCatalog).catch((e) => setError(String(e))); };
+  useEffect(() => {
+    reload();
+    return onLocalAIChanged(reload);
+  }, []);
+  if (!catalog) return <div className="empty">正在读取本地 AI 状态…</div>;
+  const installed = new Set(catalog.installedModels.map((model) => model.id));
+  return (
+    <>
+      {error && <div className="banner banner--error">{error}</div>}
+      {!catalog.supported && <div className="banner">本地推理首版仅支持 Windows；云端模型不受影响。</div>}
+      <SettingsSection title="硬件与运行器" description={`${catalog.hardware.gpus.map((gpu) => `${gpu.name} ${Math.round(gpu.dedicatedMiB / 1024)}GB`).join("、") || "未检测到独立显卡"} · ${Math.round(catalog.hardware.memoryTotalMiB / 1024)}GB 内存`}>
+        <div className="settings-inline-actions">
+          <span className="settings-value">推荐：{catalog.hardware.recommendedModel || "暂不推荐本地模型"}</span>
+          {catalog.runtime ? <button className="btn btn--ghost" onClick={() => void app.StopLocalRuntime().then(reload)}><Square size={14} />停止运行器</button> : (
+            <button className="btn btn--primary" disabled={!catalog.supported} onClick={() => void app.StartLocalRuntimeInstall(catalog.hardware.recommendedRuntime).then(reload)}><Download size={14} />安装 llama.cpp</button>
+          )}
+        </div>
+        <div className="settings-field__hint-line">运行器独立安装，服务仅监听本机；卸载运行器不会删除模型文件。</div>
+      </SettingsSection>
+      <SettingsSection title="模型库" description={`目录：${catalog.modelsDirectory}`}>
+        {catalog.models.map((model) => {
+          const isInstalled = installed.has(model.id);
+          const task = catalog.downloads.find((item) => item.targetId === model.id);
+          return <div className="settings-list-row" key={model.id}>
+            <div className="settings-list-row__main"><strong>{model.name}</strong><span>{model.description}</span><small>{model.vision ? "视觉" : "文本"} · {model.toolUse ? "工具" : "对话"} · {model.license}</small></div>
+            <div className="settings-list-row__actions">
+              {task && <LocalDownloadStatus task={task} onReload={reload} />}
+              {isInstalled ? <button className="btn btn--ghost" onClick={() => void app.DeleteLocalModel(model.id).then(reload)}><Trash2 size={14} />删除</button> : <button className="btn btn--primary" disabled={!catalog.supported || !!task} onClick={() => void app.StartLocalModelDownload(model.id).then(reload)}><Download size={14} />下载</button>}
+            </div>
+          </div>;
+        })}
+      </SettingsSection>
+    </>
+  );
+}
+
+function LocalDownloadStatus({ task, onReload }: { task: LocalAICatalogView["downloads"][number]; onReload: () => void }) {
+  const progress = task.totalBytes > 0 ? Math.min(100, Math.round((task.downloadedBytes / task.totalBytes) * 100)) : 0;
+  const active = task.state === "downloading" || task.state === "queued" || task.state === "verifying";
+  const formatSize = (value: number) => value >= 1024 ** 3 ? `${(value / 1024 ** 3).toFixed(1)} GB` : `${Math.max(0, Math.round(value / 1024 ** 2))} MB`;
+  const formatEta = (seconds: number) => seconds > 3600 ? `${Math.ceil(seconds / 3600)}小时` : seconds > 60 ? `${Math.ceil(seconds / 60)}分钟` : `${Math.max(0, Math.ceil(seconds))}秒`;
+  return <div className="local-download-status">
+    <div className="local-download-status__meta"><span>{task.state === "completed" ? "已校验" : task.state === "failed" ? "下载失败" : `${progress}%`}</span><span>{task.source || "镜像"}</span></div>
+    <div className="local-download-status__bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${progress}%` }} /></div>
+    <div className="local-download-status__meta"><span>{formatSize(task.downloadedBytes)} / {formatSize(task.totalBytes)}</span><span>{task.bytesPerSecond > 0 ? `${formatSize(task.bytesPerSecond)}/秒` : task.error || (task.etaSeconds > 0 ? `剩余 ${formatEta(task.etaSeconds)}` : "准备中")}</span></div>
+    {active && <div className="local-download-status__controls">
+      {task.state === "downloading" ? <button className="icon-button" title="暂停下载" aria-label="暂停下载" onClick={() => void app.PauseLocalDownload(task.id).then(onReload)}><Pause size={13} /></button> : <button className="icon-button" title="继续下载" aria-label="继续下载" onClick={() => void app.ResumeLocalDownload(task.id).then(onReload)}><Play size={13} /></button>}
+      <button className="icon-button icon-button--danger" title="取消下载" aria-label="取消下载" onClick={() => void app.CancelLocalDownload(task.id).then(onReload)}><X size={13} /></button>
+    </div>}
+  </div>;
+}
+
+function ComputerUseSection({ s, busy, apply }: SectionProps) {
+  const [state, setState] = useState<ComputerUseState | null>(null);
+  const reload = () => { void app.GetComputerUseState().then(setState).catch(() => {}); };
+  useEffect(() => { reload(); return onComputerUseChanged(reload); }, []);
+  const modelOptions = s.providers.flatMap((provider) => provider.models.map((model) => `${provider.name}/${model}`));
+  return <>
+    <SettingsSection title="Windows Computer Use" description="Orca 会使用屏幕观察、UI Automation 和受控输入完成电脑任务。截图默认只存在于当前请求，不写入会话。">
+      <SettingsField label="控制模型" hint="必须确认支持视觉与结构化动作；本地 Qwen 模型会显示在这里。">
+        <select className="settings-select" disabled={busy} value={s.computerControlModel || ""} onChange={(event) => void apply(() => app.SetComputerControlModel(event.target.value))}><option value="">自动选择合格模型</option>{modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}</select>
+      </SettingsField>
+      <SettingsField label="完全访问" hint="一次授权后不再逐项询问点击和输入；UAC、安全桌面、密码、验证码和 CAPTCHA 始终禁止。">
+        <button className={`btn ${s.computerUseFullAccessApproved ? "btn--primary" : "btn--ghost"}`} disabled={busy || !state?.capabilities.supported} onClick={() => void apply(() => app.SetComputerUseFullAccess(!s.computerUseFullAccessApproved))}>{s.computerUseFullAccessApproved ? <><ShieldCheck size={14} />已授权，可撤销</> : <><ShieldCheck size={14} />授权一次</>}</button>
+      </SettingsField>
+      {state && <div className="settings-field__hint-line">{state.capabilities.supported ? `Windows 能力：${state.capabilities.uiAutomation ? "UI Automation" : "无 UIA"}、${state.capabilities.screenCapture ? "屏幕捕获" : "无屏幕捕获"}、${state.capabilities.overlay ? "蓝色边缘提示" : "无覆盖层"}` : `当前不可用：${state.capabilities.unavailableReason || "平台不支持"}`}</div>}
+    </SettingsSection>
+  </>;
+}
+
+function AboutSection() {
+  const [version, setVersion] = useState("-");
+  useEffect(() => { void app.Version().then(setVersion).catch(() => {}); }, []);
+  return <SettingsSection title="O.R.C.A for Windows" description="Open Reasoning & Computing Agent">
+    <div className="settings-about"><strong>当前版本：{version}</strong><span>编程模式、助手模式与固定 Orca 主对话。</span><button className="btn btn--ghost" onClick={() => openExternal("https://github.com/nanbo0ne/O.R.C.A-for-Windows")}>GitHub</button></div>
+  </SettingsSection>;
+}
+
 function normalizeInitialSettingsTab(tab?: SettingsTab): SettingsTab {
   if (tab === "providers") return "models";
   return tab ?? "general";
@@ -303,8 +393,14 @@ function settingsTabLabel(id: SettingsTab, t: ReturnType<typeof useT>): string {
       return t("settings.tab.permissions");
     case "sandbox":
       return t("settings.tab.sandbox");
-    case "appearance":
-      return t("settings.tab.appearance");
+		case "appearance":
+			return t("settings.tab.appearance");
+		case "localAI":
+			return "本地 AI";
+		case "computer":
+			return "电脑控制";
+		case "about":
+			return "关于";
   }
 }
 
@@ -330,8 +426,14 @@ function settingsTabMeta(id: SettingsTab, s: SettingsView, t: ReturnType<typeof 
       return permissionModeLabel(s.permissions.mode, t);
     case "sandbox":
       return sandboxModeLabel(s.sandbox.bash, t);
-    case "appearance":
-      return t("settings.appearanceMeta");
+		case "appearance":
+			return t("settings.appearanceMeta");
+		case "localAI":
+			return "llama.cpp";
+		case "computer":
+			return s.computerUseFullAccessApproved ? "已授权" : "未授权";
+		case "about":
+			return "O.R.C.A";
   }
 }
 

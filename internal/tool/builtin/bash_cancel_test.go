@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // TestBashCancelReturnsPromptly proves a cancelled bash run stops fast instead of

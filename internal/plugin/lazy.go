@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // DefaultStartupBudget is the per-plugin latency budget used by boot when

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=O.R.C.A
+Comment=O.R.C.A desktop - Open Reasoning & Computing Agent
+Exec=orca
+Icon=orca
+Categories=Development;Utility;
+Terminal=false
+StartupWMClass=orca

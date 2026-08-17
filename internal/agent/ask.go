@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // AskTool lets the model put a structured multiple-choice question (or a few) to

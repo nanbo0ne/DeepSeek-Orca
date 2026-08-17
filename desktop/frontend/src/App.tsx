@@ -92,7 +92,7 @@ import { useWindowStatePersistence } from "./lib/windowState";
 import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
 import logoWordmark from "./assets/logo-wordmark.png";
 
-const SIDEBAR_COLLAPSED_KEY = "deepseek-orca.sidebar.collapsed";
+const SIDEBAR_COLLAPSED_KEY = "orca.sidebar.collapsed";
 const SIDEBAR_DEFAULT_WIDTH = 264;
 const SIDEBAR_MIN_WIDTH = 264;
 const SIDEBAR_MAX_WIDTH = 300;
@@ -371,7 +371,7 @@ function fence(label: string, value: string): string {
 }
 
 function sessionItemsToMarkdown(title: string, items: Item[], live?: LiveStream): string {
-  const lines: string[] = [`# ${title.trim() || "DeepSeek-Orca session"}`, ""];
+  const lines: string[] = [`# ${title.trim() || "O.R.C.A session"}`, ""];
   for (const item of materializeLiveItems(items, live)) {
     switch (item.kind) {
       case "user":
@@ -430,7 +430,7 @@ function sessionItemsToJson(title: string, items: Item[], live?: LiveStream): st
 
 function safeFilename(name: string): string {
   const cleaned = name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80);
-  return cleaned || "deepseek-orca-session";
+  return cleaned || "orca-session";
 }
 
 function modelDisplayLabel(ref: string, displayLabel?: string): string {
@@ -2544,8 +2544,8 @@ export default function App() {
 
         <aside className={`sidebar${responsiveSidebarCollapsed ? " sidebar--collapsed" : ""}`} aria-label={t("sidebar.navigation")}>
           <div className="sidebar__brand" aria-hidden={responsiveSidebarCollapsed}>
-            <img src={logoWordmark} alt="DeepSeek-Orca" className="sidebar__brand-logo" draggable={false} />
-            <span className="sidebar__brand-text">DeepSeek-Orca</span>
+            <img src={logoWordmark} alt="O.R.C.A" className="sidebar__brand-logo" draggable={false} />
+            <span className="sidebar__brand-text">O.R.C.A</span>
           </div>
 
           <button

@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/provider/openai"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // echoTool is a trivial read-only tool used to drive a multi-step tool loop:
@@ -356,8 +356,8 @@ func TestSessionAggregateCacheRate(t *testing.T) {
 }
 
 func TestReleaseCacheHitGuard(t *testing.T) {
-	if os.Getenv("DEEPSEEK_ORCA_RELEASE_CACHE_GUARD") == "" {
-		t.Skip("set DEEPSEEK_ORCA_RELEASE_CACHE_GUARD=1 to run the release cache guard")
+	if os.Getenv("ORCA_RELEASE_CACHE_GUARD") == "" && os.Getenv("DEEPSEEK_ORCA_RELEASE_CACHE_GUARD") == "" {
+		t.Skip("set ORCA_RELEASE_CACHE_GUARD=1 to run the release cache guard")
 	}
 
 	threshold := envInt("DEEPSEEK_ORCA_CACHE_GUARD_THRESHOLD", 90)

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // connector is the Claude-style "⎿" gutter that ties a continuation block (tool

@@ -3,12 +3,12 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // stubGate denies any call whose tool name is in deny; everything else allows.

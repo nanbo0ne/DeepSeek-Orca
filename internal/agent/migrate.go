@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // legacyEvent is the subset of the v0.x typed event stream (<name>.events.jsonl)

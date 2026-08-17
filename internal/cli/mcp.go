@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"deepseek-orca/internal/codegraph"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/codegraph"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
-// mcp.go holds the MCP server-management surface shared by the `deepseek-orca mcp`
+// mcp.go holds the MCP server-management surface shared by the `orca mcp`
 // subcommand (config-only; takes effect next session) and the in-chat `/mcp add`
 // / `/mcp remove` slash commands (which hot-connect via the controller). Both
 // parse arguments through parseMCPAdd so the grammar is identical everywhere.
@@ -148,7 +148,7 @@ func tokenizeArgs(s string) []string {
 	return out
 }
 
-// mcpCommand implements `deepseek-orca mcp <add|remove|list>`. It edits config only
+// mcpCommand implements `orca mcp <add|remove|list>`. It edits config only
 // (validate → UpsertPlugin/RemovePlugin → Save); the server connects on the next
 // session start. For a live connect inside an open chat, use `/mcp add`.
 func mcpCommand(args []string) int {
@@ -199,7 +199,7 @@ func mcpList() int {
 	if bin, ok := codegraph.Resolve(cfg.Codegraph.Path); ok {
 		fmt.Printf("%-16s (stdio, built-in)%s  %s serve --mcp\n", "codegraph", codegraphMeta, bin)
 	} else {
-		fmt.Printf("%-16s (built-in, not installed)%s  run `deepseek-orca codegraph install`", "codegraph", codegraphMeta)
+		fmt.Printf("%-16s (built-in, not installed)%s  run `orca codegraph install`", "codegraph", codegraphMeta)
 		if cfg.Codegraph.Enabled && cfg.Codegraph.AutoInstall {
 			fmt.Print(" (or let auto_install fetch it on next startup)")
 		}
@@ -254,7 +254,7 @@ func mcpAddCLI(args []string) int {
 
 func mcpRemoveCLI(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: deepseek-orca mcp remove <name>")
+		fmt.Fprintln(os.Stderr, "usage: orca mcp remove <name>")
 		return 2
 	}
 	name := args[0]
@@ -276,15 +276,15 @@ func mcpRemoveCLI(args []string) int {
 }
 
 func mcpUsage() {
-	fmt.Println(`Manage MCP servers (persisted to deepseek-orca.toml).
+	fmt.Println(`Manage MCP servers (persisted to orca.toml).
 
 Usage:
-  deepseek-orca mcp list
-  deepseek-orca mcp add <name> <command> [args...]        stdio server
-  deepseek-orca mcp add <name> --http <url> [--header K=V] remote (Streamable HTTP)
-  deepseek-orca mcp add <name> --sse  <url>               remote (legacy SSE)
-  deepseek-orca mcp import                                import Codex-enabled servers from cc-switch
-  deepseek-orca mcp remove <name>
+  orca mcp list
+  orca mcp add <name> <command> [args...]        stdio server
+  orca mcp add <name> --http <url> [--header K=V] remote (Streamable HTTP)
+  orca mcp add <name> --sse  <url>               remote (legacy SSE)
+  orca mcp import                                import Codex-enabled servers from cc-switch
+  orca mcp remove <name>
 
 Flags for add:
   --http <url> | --sse <url>   remote transport (omit for a stdio command)
@@ -292,8 +292,8 @@ Flags for add:
   --header K=V                 set an HTTP header (repeatable, remote)
 
 Examples:
-  deepseek-orca mcp add fs npx -y @modelcontextprotocol/server-filesystem .
-  deepseek-orca mcp add stripe --http https://mcp.stripe.com --header "Authorization=Bearer $STRIPE_KEY"
+  orca mcp add fs npx -y @modelcontextprotocol/server-filesystem .
+  orca mcp add stripe --http https://mcp.stripe.com --header "Authorization=Bearer $STRIPE_KEY"
 
 Changes take effect on the next session; inside a running chat, use /mcp add to
 connect a server live.`)

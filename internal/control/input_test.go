@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 type fakeAutoPlanClassifier struct {
@@ -60,7 +60,7 @@ func TestSkillsReflectStoreChangesAfterControllerBuild(t *testing.T) {
 	if _, ok := c.RunSkill("/hot now"); ok {
 		t.Fatal("skill should not exist before it is written")
 	}
-	writeControlSkill(t, project, ".deepseek-orca/skills/hot/SKILL.md", "---\nname: hot\ndescription: Hot install\n---\nHot body")
+	writeControlSkill(t, project, ".orca/skills/hot/SKILL.md", "---\nname: hot\ndescription: Hot install\n---\nHot body")
 
 	if skills := c.Skills(); len(skills) != 1 || skills[0].Name != "hot" {
 		t.Fatalf("Skills() = %+v, want newly installed hot skill", skills)
@@ -361,7 +361,7 @@ func TestSubmitRememberCommandQuickAddsMemory(t *testing.T) {
 	if len(runner.inputs) != 0 {
 		t.Fatalf("/remember should not start a model turn, inputs=%q", runner.inputs)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	body, err := os.ReadFile(filepath.Join(dir, "ORCA.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

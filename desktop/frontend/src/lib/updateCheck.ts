@@ -2,8 +2,8 @@ import { app } from "./bridge";
 import type { UpdateInfo } from "./types";
 
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-export const UPDATE_AVAILABLE_EVENT = "deepseek-orca:update-available";
-const UPDATE_CACHE_KEY = "deepseek-orca.update-check.v1";
+export const UPDATE_AVAILABLE_EVENT = "orca:update-available";
+const UPDATE_CACHE_KEY = "orca.update-check.v1";
 
 interface CachedUpdateCheck {
   checkedAt: number;

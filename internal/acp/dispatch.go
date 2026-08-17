@@ -9,9 +9,9 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/permission"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/permission"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // notifier is the slice of Conn the dispatch sink depends on: it pushes

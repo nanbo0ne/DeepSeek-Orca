@@ -1,6 +1,6 @@
 package skill
 
-// Built-in skills ship with DeepSeek-Orca and back the dedicated subagent tools
+// Built-in skills ship with O.R.C.A and back the dedicated subagent tools
 // (explore / research / review / security_review) plus the inline `test`
 // playbook. A user/project file with the same name overrides the built-in (see
 // Store.List / Store.Read). Tool names in the bodies match internal/tool/builtin.
@@ -58,7 +58,7 @@ const builtinResearchBody = `你正在作为研究 subagent 运行。请结合�
 
 父级 Agent 给你的 task 就是研究问题。请保持聚焦。`
 
-const builtinInstallCapabilityBody = `这是一个内联 Skill。用户要求从 URL、本地文件、本地文件夹、.mcp.json 或包名安装 DeepSeek-Orca MCP 服务器或 Skill 时使用它。移除已安装 Skill 或 MCP 服务器时，遵循底部的“卸载”规则；同一个工具，不同 op。
+const builtinInstallCapabilityBody = `这是一个内联 Skill。用户要求从 URL、本地文件、本地文件夹、.mcp.json 或包名安装 O.R.C.A MCP 服务器或 Skill 时使用它。移除已安装 Skill 或 MCP 服务器时，遵循底部的“卸载”规则；同一个工具，不同 op。
 
 你是安装器，不是猜 shell 脚本的人：
 1. 从用户请求中精确提取 source 字符串。它可能是 https URL、GitHub URL、本地路径、.mcp.json、可执行文件路径或 npm 包名。
@@ -163,16 +163,16 @@ const builtinTestBody = `这是一个内联 Skill，你在父级循环中运行�
 
 每轮开头用一行状态说明进展，例如“正在运行 go test ./...”或“foo_test.go 有 2 个失败，第一个是 ...”，让用户始终知道你在做什么。`
 
-const builtinInitBody = `这是一个内联 Skill，你在父级循环中运行。用户调用 /init 时，请为当前项目引导或刷新 AGENTS.md，也就是会加载进未来每个会话的持久记忆文件。分析代码库，然后写出简洁、高信号的 AGENTS.md。
+const builtinInitBody = `这是一个内联 Skill，你在父级循环中运行。用户调用 /init 时，请为当前项目引导或刷新 ORCA.md，也就是会加载进未来每个会话的持久记忆文件。分析代码库，然后写出简洁、高信号的 ORCA.md。
 
 操作方式：
-1. 先检查是否已有记忆文档：列出项目根目录，查找 AGENTS.md、DEEPSEEK_ORCA.md、CLAUDE.md。如果存在，读取并原地改进（修正过期事实、补齐缺口），写回同一个文件名，不要整体覆盖掉有用内容，也不要创建第二个文件。
+1. 先检查是否已有记忆文档：列出项目根目录，查找 ORCA.md、AGENTS.md、DEEPSEEK_ORCA.md、CLAUDE.md。如果存在，读取并原地改进（修正过期事实、补齐缺口），写回同一个文件名，不要整体覆盖掉有用内容，也不要创建第二个文件。新项目优先使用 ORCA.md。
 2. 探索要足够准确，但不要穷尽：
    - 项目形状：ls 或目录列表、manifest（go.mod、package.json、pyproject.toml、Cargo.toml 等）、README。
    - 构建、测试、运行命令：从 manifest 和 scripts 推导并验证确切名称，不要猜。
    - 架构：主要包/模块如何配合，入口点在哪里。
    - 约定：格式、命名、错误处理、测试模式；从真实代码推断（读几个代表性文件），不要靠假设。
-3. 使用 write_file 写 AGENTS.md（默认文件名 AGENTS.md，除非已有文档使用其他名称），每个章节保持简洁：
+3. 使用 write_file 写 ORCA.md（默认文件名 ORCA.md，除非已有文档使用其他名称），每个章节保持简洁：
    - 标题和一行项目描述。
    - ## Project：项目是什么、技术栈、入口点在哪里。
    - ## Commands：确切的 build/test/run/lint 命令。
@@ -229,7 +229,7 @@ func builtinSkills() []Skill {
 		},
 		{
 			Name:        "install-capability",
-			Description: "Install or uninstall DeepSeek-Orca MCP servers and skills from a URL, GitHub/raw file, local path/folder, .mcp.json, executable, or package name. Plans with install_source (op=install or op=uninstall) before applying, surfacing per-action riskLevel.",
+			Description: "Install or uninstall O.R.C.A MCP servers and skills from a URL, GitHub/raw file, local path/folder, .mcp.json, executable, or package name. Plans with install_source (op=install or op=uninstall) before applying, surfacing per-action riskLevel.",
 			Body:        builtinInstallCapabilityBody,
 			Scope:       ScopeBuiltin,
 			Path:        "(builtin)",

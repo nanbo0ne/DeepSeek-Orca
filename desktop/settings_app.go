@@ -9,15 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/bot/weixin"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
-	"deepseek-orca/internal/visioncap"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/weixin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/visioncap"
 )
 
 // settings_app.go is the desktop Settings panel's command surface: it reads the
@@ -31,6 +32,11 @@ import (
 
 type ProviderView struct {
 	Name              string   `json:"name"`
+	PresetID          string   `json:"presetId,omitempty"`
+	Label             string   `json:"label,omitempty"`
+	Description       string   `json:"description,omitempty"`
+	Category          string   `json:"category,omitempty"`
+	AccountURL        string   `json:"accountUrl,omitempty"`
 	BuiltIn           bool     `json:"builtIn"`
 	Added             bool     `json:"added"`
 	Kind              string   `json:"kind"`
@@ -167,6 +173,8 @@ type SettingsView struct {
 	UIScale              int             `json:"uiScale"`
 	EffectiveUIScale     int             `json:"effectiveUIScale"`
 	AutomationFullAccess bool            `json:"automationFullAccessApproved"`
+	ComputerControlModel string          `json:"computerControlModel"`
+	ComputerUseApproved  bool            `json:"computerUseFullAccessApproved"`
 	ConfigPath           string          `json:"configPath"`
 	// ProviderKinds lists the provider implementations the kernel actually
 	// registered (provider.Kinds()), so the editor's "kind" picker offers only
@@ -218,6 +226,9 @@ func officialProviderHost(baseURL string) string {
 
 func officialProviderKindFromEntry(p config.ProviderEntry) string {
 	host := officialProviderHost(p.BaseURL)
+	if preset, ok := config.ProviderPresetByID(p.Name); ok && host == officialProviderHost(preset.Entry.BaseURL) {
+		return preset.ID
+	}
 	switch config.CanonicalDesktopOfficialProviderName(p.Name) {
 	case "deepseek":
 		if host == "api.deepseek.com" {
@@ -277,7 +288,7 @@ func removeProviderAccess(c *config.Config, names ...string) {
 }
 
 func providerViewFromEntry(p config.ProviderEntry, builtIn, added bool) ProviderView {
-	return ProviderView{
+	v := ProviderView{
 		Name: p.Name, BuiltIn: builtIn, Added: added, Kind: p.Kind, BaseURL: p.BaseURL,
 		Models: nonNil(p.ChatModelList()), ModelsURL: p.ModelsURL, Default: p.DefaultModel(),
 		APIKeyEnv:         p.APIKeyEnv,
@@ -288,18 +299,22 @@ func providerViewFromEntry(p config.ProviderEntry, builtIn, added bool) Provider
 		SupportedEfforts:  nonNil(p.SupportedEfforts),
 		DefaultEffort:     p.DefaultEffort,
 	}
+	if preset, ok := config.ProviderPresetByID(officialProviderKindFromEntry(p)); ok {
+		v.PresetID = preset.ID
+		v.Label = preset.Label
+		v.Description = preset.Description
+		v.Category = preset.Category
+		v.AccountURL = preset.AccountURL
+	}
+	return v
 }
 
 func officialProviderViews(added map[string]bool) []ProviderView {
 	var out []ProviderView
-	for _, kind := range []string{"deepseek", "mimo-api", "mimo-token-plan"} {
-		entries, _, err := officialProviderTemplate(kind)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			out = append(out, providerViewFromEntry(entry, true, added[entry.Name]))
-		}
+	for _, preset := range config.ProviderPresetCatalog() {
+		v := providerViewFromEntry(preset.Entry, true, added[preset.ID] || added[preset.Entry.Name])
+		v.PresetID, v.Label, v.Description, v.Category, v.AccountURL = preset.ID, preset.Label, preset.Description, preset.Category, preset.AccountURL
+		out = append(out, v)
 	}
 	return out
 }
@@ -410,6 +425,8 @@ func (a *App) Settings() SettingsView {
 			return 100
 		}(),
 		AutomationFullAccess: cfg.Desktop.AutomationFullAccess,
+		ComputerControlModel: strings.TrimSpace(cfg.Desktop.ComputerControlModel),
+		ComputerUseApproved:  cfg.Desktop.ComputerUseFullAccess && cfg.Desktop.ComputerUseConsent == computerUseConsentVersion,
 		ConfigPath:           cfgPath,
 		ProviderKinds:        nonNil(provider.Kinds()),
 		AutoApproveTools:     ctrl != nil && ctrl.AutoApproveTools(),
@@ -513,7 +530,7 @@ func botDomainOrDefault(domain string) string {
 // applyConfigChange mutates the user-global config and rebuilds the controller so
 // the change takes effect this session. Desktop settings such as providers and
 // keys are account-level, not per-project: writing them to the global config
-// rather than the cwd's deepseek-orca.toml is what lets them survive a workspace switch.
+// rather than the cwd's orca.toml is what lets them survive a workspace switch.
 func (a *App) applyConfigChange(mutate func(*config.Config) error) error {
 	a.configWriteMu.Lock()
 	defer a.configWriteMu.Unlock()
@@ -605,10 +622,23 @@ func (a *App) activeWorkspaceRoot() string {
 }
 
 func projectConfigPathForRoot(root string) string {
+	var canonical string
 	if strings.TrimSpace(root) == "" || root == "." {
-		return "deepseek-orca.toml"
+		canonical = product.ProjectConfigName
+	} else {
+		canonical = filepath.Join(root, product.ProjectConfigName)
 	}
-	return filepath.Join(root, "deepseek-orca.toml")
+	if _, err := os.Stat(canonical); err == nil {
+		return canonical
+	}
+	legacy := product.LegacyProjectConfigName
+	if strings.TrimSpace(root) != "" && root != "." {
+		legacy = filepath.Join(root, legacy)
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return canonical
 }
 
 func sameConfigPath(a, b string) bool {
@@ -661,7 +691,7 @@ func (a *App) rebuild() error {
 			model = resolved
 		}
 	}
-	ctrl, err := boot.Build(a.bootContext(), boot.Options{
+	ctrl, err := a.buildController(a.bootContext(), boot.Options{
 		Model: model, RequireKey: false,
 		Sink:                    tab.sink,
 		WorkspaceRoot:           tab.WorkspaceRoot,
@@ -855,43 +885,20 @@ func desktopAutoPlanMode(mode string) string {
 }
 
 func officialProviderTemplate(kind string) ([]config.ProviderEntry, string, error) {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "deepseek", "deepseek-official":
-		return []config.ProviderEntry{{
-			Name:          "deepseek",
-			Kind:          "openai",
-			BaseURL:       "https://api.deepseek.com",
-			Models:        []string{"deepseek-v4-flash", "deepseek-v4-pro"},
-			Default:       "deepseek-v4-flash",
-			APIKeyEnv:     "DEEPSEEK_API_KEY",
-			BalanceURL:    "https://api.deepseek.com/user/balance",
-			ContextWindow: 1_000_000,
-		}}, "DEEPSEEK_API_KEY", nil
-	case "mimo-api", "xiaomi-mimo", "xiaomi_mimo":
-		return []config.ProviderEntry{{
-			Name:          "mimo-api",
-			Kind:          "openai",
-			BaseURL:       "https://api.xiaomimimo.com/v1",
-			Models:        []string{"mimo-v2.5", "mimo-v2.5-pro"},
-			Default:       "mimo-v2.5-pro",
-			APIKeyEnv:     "MIMO_API_KEY",
-			ContextWindow: 1_048_576,
-			NoProxy:       true,
-		}}, "MIMO_API_KEY", nil
-	case "mimo-token-plan", "xiaomi-mimo-token-plan", "xiaomi_mimo_token_plan":
-		return []config.ProviderEntry{{
-			Name:          "mimo-token-plan",
-			Kind:          "openai",
-			BaseURL:       "https://token-plan-cn.xiaomimimo.com/v1",
-			Models:        []string{"mimo-v2.5-pro"},
-			Default:       "mimo-v2.5-pro",
-			APIKeyEnv:     "MIMO_TOKEN_PLAN_API_KEY",
-			ContextWindow: 1_048_576,
-			NoProxy:       true,
-		}}, "MIMO_TOKEN_PLAN_API_KEY", nil
-	default:
+	id := strings.ToLower(strings.TrimSpace(kind))
+	switch id {
+	case "deepseek-official":
+		id = "deepseek"
+	case "xiaomi-mimo", "xiaomi_mimo":
+		id = "mimo-api"
+	case "xiaomi-mimo-token-plan", "xiaomi_mimo_token_plan":
+		id = "mimo-token-plan"
+	}
+	preset, ok := config.ProviderPresetByID(id)
+	if !ok {
 		return nil, "", fmt.Errorf("unknown official provider template %q", kind)
 	}
+	return []config.ProviderEntry{preset.Entry}, preset.Entry.APIKeyEnv, nil
 }
 
 func chatProviderModels(models []string) []string {
@@ -1648,7 +1655,7 @@ func (a *App) rebuildAutomationTabModel(tab *WorkspaceTab, modelRef string, expe
 		currentPath: func() string { return tab.currentSessionPath() },
 	})
 
-	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
+	newCtrl, err := a.buildController(a.bootContext(), boot.Options{
 		Model:                   modelRef,
 		RequireKey:              false,
 		Sink:                    tab.sink,

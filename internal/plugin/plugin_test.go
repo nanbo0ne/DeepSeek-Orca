@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // TestStdioEndToEnd drives a real subprocess (this test binary re-invoked in

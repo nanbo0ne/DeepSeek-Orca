@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 const (
@@ -416,7 +416,7 @@ func (a *adapter) postJSON(ctx context.Context, endpoint, token string, payload 
 func weixinBaseInfo() map[string]string {
 	return map[string]string{
 		"channel_version": ilinkChannelVersion,
-		"bot_agent":       "DeepSeek-Orca/1.0 (OpenClaw-compatible)",
+		"bot_agent":       "O.R.C.A/3.0 (OpenClaw-compatible)",
 	}
 }
 
@@ -574,7 +574,7 @@ func (a *adapter) sendMessage(ctx context.Context, msg bot.OutboundMessage) (bot
 		return bot.SendResult{}, a.tokenMissingError()
 	}
 
-	clientID := fmt.Sprintf("deepseek-orca-%d", time.Now().UnixNano())
+	clientID := fmt.Sprintf("orca-%d", time.Now().UnixNano())
 	payload := map[string]any{
 		"base_info": weixinBaseInfo(),
 		"msg": map[string]any{

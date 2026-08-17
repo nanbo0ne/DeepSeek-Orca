@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 func TestNormalizeSkillPathDirectoryLayout(t *testing.T) {

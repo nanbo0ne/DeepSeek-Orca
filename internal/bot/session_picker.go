@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 const maxBotSessionChoices = 15
@@ -154,9 +155,9 @@ func globalBotWorkspaceRoot() string {
 		if home == "" {
 			return ""
 		}
-		return filepath.Join(home, ".deepseek-orca", "global-workspace")
+		return filepath.Join(home, "."+product.ConfigDirName, "global-workspace")
 	}
-	return filepath.Join(dir, "deepseek-orca", "global-workspace")
+	return filepath.Join(dir, product.ConfigDirName, "global-workspace")
 }
 
 func desktopProjectRoots() []string {

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 
 	"golang.org/x/text/encoding/simplifiedchinese"
 )

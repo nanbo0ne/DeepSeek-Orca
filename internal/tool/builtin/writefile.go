@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(writeFile{}) }

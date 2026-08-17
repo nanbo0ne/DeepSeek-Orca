@@ -1,18 +1,18 @@
-# DeepSeek-Orca Desktop Edition
+# O.R.C.A Desktop Edition
 
 This desktop build exposes **Coding** and **Assistant** conversation modes plus one fixed internal **Orca** control conversation.
 
 ## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.3)
+- [Windows installer](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64-installer.exe)
+- [Windows portable](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-macos-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-linux-amd64.deb)
+- [Release page](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
 
 ## Scope
 
-DeepSeek-Orca Desktop provides project and independent workspaces, a fixed Orca entry, persistent sessions, forks, checkpoints, rollback, multi-provider models, optional vision attachments, tool approval and sandbox controls, MCP, Skills, CodeGraph, memory, Plan/Todo/Goal workflows, Work artifacts, background jobs, bots, and chronological process display.
+O.R.C.A Desktop provides project and independent workspaces, a fixed Orca entry, persistent sessions, forks, checkpoints, rollback, multi-provider models, optional vision attachments, tool approval and sandbox controls, MCP, Skills, CodeGraph, memory, Plan/Todo/Goal workflows, Work artifacts, background jobs, bots, and chronological process display.
 
 Coding mode handles repositories and engineering with shell, Git, LSP, CodeGraph, review, testing, and verification. Assistant mode handles research, writing, office artifacts, automations, and computer work with a personal memory profile. The top-level **Orca** entry is shared by desktop, QQ, and Weixin, adds selective conversation dispatch, and has no ordinary mode selector. Legacy automation topics migrate to ordinary independent workspaces.
 

@@ -19,30 +19,31 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/codegraph"
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/hook"
-	"deepseek-orca/internal/installsource"
-	"deepseek-orca/internal/instruction"
-	"deepseek-orca/internal/jobs"
-	"deepseek-orca/internal/lsp"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/outputstyle"
-	"deepseek-orca/internal/permission"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/promptprofile"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/skill"
-	"deepseek-orca/internal/tool"
-	"deepseek-orca/internal/tool/builtin"
-	"deepseek-orca/internal/tool/hosttools"
-	"deepseek-orca/internal/visioncap"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/codegraph"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/hook"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/installsource"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/instruction"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/jobs"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/lsp"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/outputstyle"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/permission"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/promptprofile"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/hosttools"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/visioncap"
 )
 
 // ErrUnknownModel is returned by Build when the configured model can't be
@@ -107,6 +108,11 @@ type Options struct {
 	// TurnLease coordinates controllers that may share one persisted session.
 	TurnLease      func(context.Context, string) (func(), error)
 	RefreshOnLease bool
+	// RuntimeProviders are process-local provider entries supplied by a host.
+	// They are merged into the loaded config only for this controller and are
+	// never persisted. The desktop uses this for its authenticated llama.cpp
+	// sidecar, whose loopback port and token change on every launch.
+	RuntimeProviders []config.ProviderEntry
 }
 
 const (
@@ -166,13 +172,18 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, entry := range opts.RuntimeProviders {
+		if err := cfg.UpsertProvider(entry); err != nil {
+			return nil, fmt.Errorf("runtime provider %q: %w", entry.Name, err)
+		}
+	}
 	modelName := opts.Model
 	if modelName == "" {
 		modelName = cfg.DefaultModel
 	}
 	entry, ok := cfg.ResolveModel(modelName)
 	if !ok {
-		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `deepseek-orca setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
+		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `orca setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
 	}
 	if opts.EffortOverride != nil {
 		entry.Effort = *opts.EffortOverride
@@ -200,7 +211,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	mainVisionEnabled := visionMode == config.VisionModeOn || (visionMode == config.VisionModeAuto && visionStore.Get(entry).Status == visioncap.Supported)
 
 	if migErr != nil {
-		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "config migration from ~/.deepseek-orca failed: " + migErr.Error()})
+		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "legacy V2 config migration failed: " + migErr.Error()})
 	} else if migrated != nil {
 		sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: migrated.Notice()})
 	}
@@ -257,7 +268,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		sysPrompt = promptprofile.CodingSystemPrompt(sysPrompt, outputStylePrompt, config.TaskTrackingPolicy, toolRoutingPolicy, config.BuildVisionModePolicy(visionMode), config.ActiveLanguagePolicy)
 	}
 
-	// Persistent memory (DEEPSEEK_ORCA.md / AGENTS.md hierarchy + auto-memory index)
+	// Persistent memory (ORCA.md / AGENTS.md hierarchy + auto-memory index)
 	// folds into the system prompt exactly here, once: it becomes part of the
 	// durable, cache-stable prefix every turn reuses, so memory costs nothing per
 	// turn. Mid-session changes never touch this prefix — they ride the
@@ -418,7 +429,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 			}
 		default:
 			sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo,
-				Text: "codegraph: not installed — run `deepseek-orca codegraph install` to enable symbol-graph tools"})
+				Text: "codegraph: not installed — run `orca codegraph install` to enable symbol-graph tools"})
 		}
 	}
 	eagerSpecs = append(eagerSpecs, opts.ExtraPlugins...)
@@ -511,7 +522,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	subagentStore := newSubagentStore(config.SessionDir())
 
 	// Permission policy gates every tool call. The headless gate (no Approver)
-	// resolves "ask" to allow — preserving `deepseek-orca run` autonomy — while deny
+	// resolves "ask" to allow — preserving `orca run` autonomy — while deny
 	// rules hard-block in every mode. Interactive frontends (chat, desktop) swap
 	// in an interactive gate later via Controller.EnableInteractiveApproval.
 	// Sub-agents always run headless: they have no UI to answer a prompt, so they
@@ -640,7 +651,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		parentSession := agent.ParentSession(sctx)
 		var run *agent.SubagentRun
 		if subagentStore == nil || parentSession == "" {
-			// Headless runs (e.g. `deepseek-orca run`) have no persistent session to
+			// Headless runs (e.g. `orca run`) have no persistent session to
 			// own a transcript. Run the skill sub-agent ephemerally, as before
 			// persisted transcripts existed, instead of failing. Continuation and
 			// fork need a persisted owner, so they error here.
@@ -782,7 +793,7 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		ImageLoader:                  mainImageLoader,
 	}, sink)
 
-	// Custom slash commands (.deepseek-orca/commands + user dir). Best-effort: a malformed
+	// Custom slash commands (.orca/commands + user dir). Best-effort: a malformed
 	// file is skipped, and a load error never blocks the session.
 	cmds, _ := command.Load(config.CommandDirsForRoot(root)...)
 
@@ -924,7 +935,7 @@ func migrateLegacySessionSources(sink event.Sink) {
 	if home, herr := os.UserHomeDir(); herr == nil {
 		sources = append(sources, legacySource{
 			dir:     filepath.Join(home, ".deepseek-orca", "sessions"),
-			label:   "~/.deepseek-orca/sessions",
+			label:   "~/.orca/sessions",
 			migrate: agent.MigrateLegacySessions,
 		})
 	}
@@ -979,11 +990,11 @@ func rememberPermissionRule(workspaceRoot, rule string) control.RememberResult {
 func rememberPermissionConfigPath(workspaceRoot string) string {
 	workspaceRoot = strings.TrimSpace(workspaceRoot)
 	if workspaceRoot != "" {
-		return filepath.Join(workspaceRoot, "deepseek-orca.toml")
+		return filepath.Join(workspaceRoot, product.ProjectConfigName)
 	}
 	path := config.SourcePath()
 	if path == "" {
-		path = "deepseek-orca.toml" // match Config.Save() fallback
+		path = product.ProjectConfigName // match Config.Save() fallback
 	}
 	return path
 }

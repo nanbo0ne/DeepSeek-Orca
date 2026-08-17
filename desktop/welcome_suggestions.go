@@ -14,10 +14,10 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 const (
@@ -204,7 +204,7 @@ func (a *App) generateWelcomeSuggestions() (welcomeSuggestionCache, error) {
 }
 
 func welcomeSuggestionPrompt(data string) string {
-	return `你正在为用户本人准备 DeepSeek-Orca 首页的四个快捷提问。请根据 conversations 判断用户最近真正可能继续关心的事情，并模仿 style_samples 中用户自己的语气、句长、称呼和提问习惯。
+	return `你正在为用户本人准备 Orca 首页的四个快捷提问。请根据 conversations 判断用户最近真正可能继续关心的事情，并模仿 style_samples 中用户自己的语气、句长、称呼和提问习惯。
 
 生成恰好 4 条互不重复、用户此刻可能亲自对 Orca 说出的中文问题或请求：
 - 必须像用户的话，而不是助手给用户的建议、任务派发或项目经理总结。
@@ -254,7 +254,7 @@ func welcomeSuggestionText(raw string) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		lower := strings.ToLower(trimmed)
-		if trimmed == "" || strings.Contains(lower, "referenced context") || strings.Contains(lower, ".deepseek-orca/attachments") || strings.Contains(lower, "snapshot path") || strings.Contains(lower, "<image ") {
+		if trimmed == "" || strings.Contains(lower, "referenced context") || strings.Contains(lower, ".orca/attachments") || strings.Contains(lower, "snapshot path") || strings.Contains(lower, "<image ") {
 			continue
 		}
 		trimmed = welcomeBearerToken.ReplaceAllString(trimmed, "Bearer [REDACTED]")

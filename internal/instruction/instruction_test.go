@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
 )
 
 func TestExtractHostChecksFromStructuredSection(t *testing.T) {

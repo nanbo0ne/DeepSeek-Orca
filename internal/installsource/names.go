@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // packageNameRe matches valid npm package-name segments. Pinned by [a-z0-9._-]

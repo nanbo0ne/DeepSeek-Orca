@@ -1,18 +1,18 @@
 [简体中文](README.md) | **English**
 
-# DeepSeek-Orca Desktop
+# O.R.C.A for Windows
 
-DeepSeek-Orca is a local desktop engineering workspace for using AI models on real projects. It combines multi-provider chat, project-scoped sessions, inspectable tools, planning, memory, MCP, skills, CodeGraph, and reversible execution in one Windows, macOS, and Linux application.
+**O.R.C.A** means **Open Reasoning & Computing Agent**: a local desktop workspace that keeps reasoning, engineering execution, and everyday Work under the user's control. It combines multi-provider chat, project-scoped sessions, inspectable tools, planning, memory, MCP, skills, CodeGraph, artifacts, and reversible execution in one Windows, macOS, and Linux application.
 
 Ordinary conversations expose two profiles: **Coding** for repository work and **Assistant** for everyday Work tasks. A fixed, higher-priority **Orca** conversation coordinates desktop and phone automation.
 
 ## Download
 
-- [Windows installer](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.3)
+- [Windows installer](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64-installer.exe)
+- [Windows portable package](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-macos-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-linux-amd64.deb)
+- [All release assets](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
 
 The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
 
@@ -27,7 +27,7 @@ The mode is stored per conversation. A conversation with history shows a cache-i
 
 ### Providers and models
 
-Use DeepSeek, OpenAI-compatible providers, and Anthropic-compatible providers. Configure endpoints, API keys, model lists, context windows, reasoning effort, pricing metadata, planner models, and optional executor/planner separation from Settings. User and project provider entries are merged by name, and background model refresh preserves manually curated providers and models. Balance information loads asynchronously so a slow provider does not block opening a conversation.
+First launch no longer depends on a DeepSeek key. The built-in catalog covers OpenAI, Anthropic, OpenRouter, DeepSeek, DashScope, Zhipu, Kimi, MiniMax, Volcano Ark, Baidu Qianfan, Tencent Hunyuan, StepFun, Xiaomi MiMo, SiliconFlow, and isolated subscription-plan endpoints, plus custom OpenAI- and Anthropic-compatible services. Every endpoint has its own provider ID, credential slot, and fully qualified model references, so same-name models never cross provider boundaries.
 
 ### Workspaces and sessions
 
@@ -41,7 +41,11 @@ Use DeepSeek, OpenAI-compatible providers, and Anthropic-compatible providers. C
 
 Vision under Settings > Models offers **Off**, **Auto**, and **On**. New installations default to Auto: provider model metadata is used when available, otherwise each newly configured model is checked by a history-free request containing the Orca icon and a random verification code. Image bytes are sent only to models confirmed to support vision. Capability is tracked independently per provider type, endpoint, and model, with automatic, manually supported, and manually unsupported choices plus recheck controls in Settings. DeepSeek being marked unsupported is expected and does not affect text use.
 
-Pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files remain limited to 8 images per turn, 20 MB total, and 10 MB per image. A text-only main model receives references rather than image bytes and may explicitly delegate selected current-turn images to a confirmed vision-capable subagent. Sessions store paths, names, and MIME types, never image base64; an unsupported or unknown target returns a clear error instead of pretending it saw the image. Screenshot automation and full computer-use are outside this edition.
+Pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files remain limited to 8 images per turn, 20 MB total, and 10 MB per image. Windows also includes optional Computer Use: an isolated control subagent re-observes after every action and can use UI Automation, guarded mouse/keyboard input, windows, and scrolling. Screenshots stay in memory by default and `Esc` is an emergency stop. UAC secure desktop, lock screen, passwords, verification codes, CAPTCHAs, and higher-integrity processes are always blocked. The V3 macOS/Linux builds keep chat functionality but do not provide local inference or Computer Use.
+
+### Local AI and model library
+
+Windows users can install the O.R.C.A-managed `llama.cpp` sidecar and Qwen GGUF models independently. On 16GB-class GPUs the first recommendation is Qwen3.8-27B IQ3_XXS; startup fits context, batch size, and GPU layers to current free VRAM while preserving headroom. Downloads support verified domestic mirrors, resumable transfers, live speed/ETA, and SHA-256 verification. Uninstalling the runtime leaves model files intact, and models never live inside the application install directory.
 
 ### Tools and local execution
 
@@ -83,7 +87,7 @@ Trusted automation access is confirmed once on desktop and can be revoked in Set
 
 ## Privacy and Safety
 
-DeepSeek-Orca is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when the selected vision mode permits the target model and a turn includes the image. Vision probing itself makes one very small request to the configured provider. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
+O.R.C.A is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when the selected vision mode permits the target model and a turn includes the image. Vision probing itself makes one very small request to the configured provider. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
 
 Tool execution is visible in the transcript. Approval, sandbox, workspace roots, read-only tools, and background-task status are separate controls. Cancel, pause, rollback, checkpoints, and session trash provide recovery paths for long tasks.
 

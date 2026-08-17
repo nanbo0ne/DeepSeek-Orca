@@ -10,7 +10,7 @@ import (
 
 	"aead.dev/minisign"
 
-	"deepseek-orca/desktop/internal/update"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/desktop/internal/update"
 )
 
 // TestSignFiles signs a file with a throwaway key pair (injected via env, exactly
@@ -60,7 +60,7 @@ func TestGenManifest(t *testing.T) {
 		"DeepSeek-Orca-linux-amd64.tar.gz",
 		"DeepSeek-Orca-linux-amd64.deb",            // human download, not the updater channel
 		"DeepSeek-Orca-linux-amd64.tar.gz.minisig", // must be skipped
-		"README.txt",                          // unmatched, must be skipped
+		"README.txt", // unmatched, must be skipped
 	}
 	for _, n := range names {
 		if err := os.WriteFile(filepath.Join(dir, n), []byte(n), 0o644); err != nil {

@@ -3,8 +3,8 @@ package event
 import (
 	"sync"
 
-	"deepseek-orca/internal/evidence"
-	"deepseek-orca/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
 )
 
 // Sync wraps a Sink so concurrent Emit calls are serialized. The base Sink

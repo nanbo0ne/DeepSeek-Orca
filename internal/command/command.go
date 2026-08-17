@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"deepseek-orca/internal/frontmatter"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/frontmatter"
 )
 
 // Command is a custom slash command loaded from a .md file.

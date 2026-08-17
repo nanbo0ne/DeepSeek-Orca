@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/bot/feishu"
-	"deepseek-orca/internal/bot/qq"
-	"deepseek-orca/internal/bot/weixin"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/feishu"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/qq"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/weixin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 func botCommand(args []string, version string) int {
@@ -183,7 +183,7 @@ func botStart(args []string, version string) int {
 		gw.Stop()
 	}()
 
-	fmt.Fprintf(os.Stderr, "deepseek-orca bot starting (model: %s, channels: %s)...\n", modelName, *channels)
+	fmt.Fprintf(os.Stderr, "orca bot starting (model: %s, channels: %s)...\n", modelName, *channels)
 	fmt.Fprintf(os.Stderr, "workspace: %s\n", workspaceRoot)
 	fmt.Fprintf(os.Stderr, "version: %s\n", version)
 
@@ -282,7 +282,7 @@ func botDoctor(args []string) int {
 		} else if weixin.HasSavedAccount(bc.Weixin.AccountID) {
 			addCheck("bot.weixin.token", "ok", "saved iLink account is available")
 		} else {
-			addCheck("bot.weixin.token", "missing", bc.Weixin.TokenEnv+" is not set; run `deepseek-orca bot weixin-login` to save an iLink account")
+			addCheck("bot.weixin.token", "missing", bc.Weixin.TokenEnv+" is not set; run `orca bot weixin-login` to save an iLink account")
 		}
 	} else {
 		addCheck("bot.weixin", "disabled", "")
@@ -353,17 +353,17 @@ func botWeixinLogin(args []string) int {
 		return 1
 	}
 	fmt.Printf("\nWeChat login succeeded: account_id=%s user_id=%s base_url=%s\n", result.AccountID, result.UserID, result.BaseURL)
-	fmt.Println("Credential saved to the DeepSeek-Orca user config directory; you can also set [bot.weixin] account_id to this account_id.")
+	fmt.Println("Credential saved to the O.R.C.A user config directory; you can also set [bot.weixin] account_id to this account_id.")
 	return 0
 }
 
 func botUsage() {
-	fmt.Print(`deepseek-orca bot - multi-channel IM bot gateway (QQ / Feishu / WeChat)
+	fmt.Print(`orca bot - multi-channel IM bot gateway (QQ / Feishu / WeChat)
 
 Usage:
-  deepseek-orca bot start   [--channels qq,feishu,weixin] [--dir PATH] [--model NAME]
-  deepseek-orca bot doctor  [--json]
-  deepseek-orca bot weixin-login [--timeout SECONDS]
+  orca bot start   [--channels qq,feishu,weixin] [--dir PATH] [--model NAME]
+  orca bot doctor  [--json]
+  orca bot weixin-login [--timeout SECONDS]
 
 Subcommands:
   start         Start the bot gateway
@@ -371,12 +371,12 @@ Subcommands:
   weixin-login  Log in to WeChat iLink by QR code
 
 Examples:
-  deepseek-orca bot start --channels qq,feishu
-  deepseek-orca bot start --dir /path/to/project --model deepseek-pro
-  deepseek-orca bot doctor --json
+  orca bot start --channels qq,feishu
+  orca bot start --dir /path/to/project --model deepseek-pro
+  orca bot doctor --json
 
 Configuration:
-  Edit deepseek-orca.toml:
+  Edit orca.toml:
     [bot]           enabled / model / workspace_root / max_steps
     [bot.allowlist]  enabled / qq_users / feishu_users / weixin_users
     [bot.qq]         enabled / app_id / app_secret_env

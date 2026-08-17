@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
 )
 
 func startCONNECTProxy(t *testing.T) string {

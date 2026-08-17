@@ -1,16 +1,16 @@
 **简体中文** | [English](README.en.md)
 
-# DeepSeek-Orca 桌面版
+# O.R.C.A for Windows
 
-DeepSeek-Orca 是一个本地桌面 AI 工作区，整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph、办公产物和可回溯执行。普通会话提供 **编程模式** 与 **助手模式**；固定的 **Orca** 主对话负责桌面和手机管控。
+**O.R.C.A** 是 **Open Reasoning & Computing Agent** 的缩写：一个把推理、工程执行与日常工作的边界交给用户掌控的本地桌面 AI 工作区。它整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph、办公产物和可回溯执行。普通会话提供 **编程模式** 与 **助手模式**；固定的 **Orca** 主对话负责桌面和手机管控。
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-darwin-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/DeepSeek-Orca/releases/download/desktop-v2.1.3/DeepSeek-Orca-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/desktop-v2.1.3)
+- [Windows 安装包](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64-installer.exe)
+- [Windows 便携版](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64.zip)
+- [macOS 通用 DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-macos-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-linux-amd64.deb)
+- [全部发布文件](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
 
 应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
 
@@ -25,7 +25,7 @@ DeepSeek-Orca 是一个本地桌面 AI 工作区，整合多 Provider 对话、�
 
 ### 模型与 Provider
 
-支持 DeepSeek、OpenAI 兼容 Provider 和 Anthropic 兼容 Provider。可以配置 API 地址、模型列表、Key 环境变量、上下文窗口、思考强度、价格信息，以及可选的规划模型和执行模型。余额查询异步进行，不会阻塞会话打开和历史恢复。
+首次启动不再依赖 DeepSeek Key。内置目录覆盖 OpenAI、Anthropic、OpenRouter、DeepSeek、阿里云百炼、智谱、Kimi、MiniMax、火山方舟、百度千帆、腾讯混元、StepFun、Xiaomi MiMo、SiliconFlow 和各自独立的套餐端点，也支持自定义 OpenAI/Anthropic 兼容服务。每个端点拥有独立 Provider ID、密钥槽和完整模型引用，同名模型不会跨来源回退。
 
 ### 工作区与会话
 
@@ -39,7 +39,11 @@ DeepSeek-Orca 是一个本地桌面 AI 工作区，整合多 Provider 对话、�
 
 “设置 > 模型”中的识图模式分为 **关闭 / 自动 / 开启**。新安装默认使用“自动”：每个新接入模型会收到一次不写入历史的独立探测，其中包含 Orca 图标和随机验证码；只有正确读出验证码才确认支持视觉。能力按 Provider 类型、接口地址和模型分别缓存，设置页会显示状态、检测时间、失败原因和“重新检测”入口。DeepSeek 被识别为不支持图片是正常结果，不影响其文本能力，也不属于版本验收失败。
 
-输入框粘贴、拖入图片或工作区 `@` 引用支持 PNG、JPEG、WebP、GIF；每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。文本主模型只会得到图片引用，并可在确有需要时把本轮已验证图片交给支持视觉的 subagent。会话只保存路径、名称和 MIME，不保存 base64；目标模型能力未知或不支持时会明确报错，不能假装看过图片。当前版本不包含截图自动化或完整 computer-use。
+输入框粘贴、拖入图片或工作区 `@` 引用支持 PNG、JPEG、WebP、GIF；每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。Windows 版还提供可选 Computer Use：控制子代理在每个动作后重新观察屏幕，支持 UI Automation、受控鼠标键盘、窗口和滚轮操作；默认不落盘截图，`Esc` 可紧急停止。UAC 安全桌面、锁屏、密码、验证码、CAPTCHA 和高完整性进程始终拒绝。macOS/Linux 保留对话能力，但 V3 首版不提供本地推理和 Computer Use。
+
+### 本地 AI 与模型库
+
+Windows 用户可以独立安装 O.R.C.A 管理的 `llama.cpp` 运行器和 Qwen GGUF 模型。16GB 级显存优先推荐 Qwen3.8-27B IQ3_XXS，启动时根据当前空闲显存自动降低上下文、batch 或 GPU 层数，并保留显存余量；模型下载支持国内镜像、断点续传、速度/剩余时间、SHA-256 校验和独立删除。运行器卸载不会删除模型，模型库也不会写入安装目录。
 
 ### 工具、权限与本地执行
 

@@ -1,6 +1,6 @@
-# DeepSeek-Orca Desktop (Wails shell)
+# O.R.C.A Desktop (Wails shell)
 
-A native desktop window around the DeepSeek-Orca Go kernel. The same
+A native desktop window around the O.R.C.A Go kernel. The same
 transport-agnostic `control.Controller` that backs the chat TUI and the HTTP/SSE
 server is bound **directly** to a React webview — Go methods in, typed events
 out, no HTTP hop.
@@ -25,11 +25,11 @@ out, no HTTP hop.
 
 ## Why a nested module
 
-`desktop/` is its own Go module (`module deepseek-orca/desktop`, `replace deepseek-orca =>
+`desktop/` is its own Go module (`module github.com/nanbo0ne/O.R.C.A-for-Windows/desktop`, `replace github.com/nanbo0ne/O.R.C.A-for-Windows =>
 ../`). That keeps the CGO + WebKit desktop build entirely separate from the CLI's
 `CGO_ENABLED=0` single-static-binary guarantee: the parent module's `go build /
 vet / test ./...` skip this directory, while the import path stays under
-`deepseek-orca/` so it can still import the `deepseek-orca/internal/*` kernel.
+`O.R.C.A-for-Windows/` so it can still import the `github.com/nanbo0ne/O.R.C.A-for-Windows/internal/*` kernel.
 
 ## Prerequisites
 
@@ -66,7 +66,7 @@ diff seam can all be built without rebuilding Go.
 
 ```sh
 cd desktop
-wails build          # → build/bin/DeepSeek-Orca(.app/.exe)
+wails build          # → build/bin/Orca(.app/.exe)
 ```
 
 **Linux on WebKitGTK 4.1 only** (Fedora 40+, Ubuntu 24.04+, Arch — no
@@ -120,11 +120,11 @@ clearly labelled until its assets are replaced. See the repository's
 macOS builds still do not have an Apple Developer ID certificate, so downloaded
 DMGs may trip Gatekeeper on first run:
 
-- **macOS** — open `DeepSeek-Orca-darwin-universal.dmg` and drag DeepSeek-Orca into
+- **macOS** — open `O.R.C.A-macos-universal.dmg` and drag Orca into
   Applications. Gatekeeper may then report the app "is damaged" or is from an
   unidentified developer; clear the quarantine attribute and open it:
   ```sh
-  xattr -dr com.apple.quarantine /Applications/DeepSeek-Orca.app
+  xattr -dr com.apple.quarantine /Applications/Orca.app
   ```
 
 A correctly signed Windows installer should not report an unknown publisher.
@@ -138,7 +138,7 @@ signature sits next to each artifact in the release; verify with the
 [minisign](https://jedisct1.github.io/minisign/) CLI:
 
 ```sh
-minisign -Vm DeepSeek-Orca-darwin-arm64.zip \
+minisign -Vm O.R.C.A-macos-arm64.zip \
   -P RWSw66n0RsoSr6Zhh6qt5YO95YkpCayTOCMFVDNUQSjJYwxoYngNVBSq
 ```
 
@@ -185,7 +185,7 @@ handled here, and what to reach for if a target misbehaves:
 - **Windows / WebView2** — `Theme: SystemDefault` follows the OS light/dark
   setting; the installer embeds the WebView2 bootstrapper. Canary builds disable
   WebView2 GPU acceleration by default to smoke-test blank-window reports; set
-  `DEEPSEEK_ORCA_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
+  `ORCA_DESKTOP_DISABLE_WEBVIEW2_GPU=1` or `0` to force the fallback on or
   off.
 - **macOS / WebKit** — inset/hidden title bar (`TitleBarHiddenInset`); the CSS
   marks the top bar as an OS drag region (`--wails-draggable: drag`) and leaves

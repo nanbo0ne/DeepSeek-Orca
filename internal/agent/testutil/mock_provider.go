@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Turn describes one expected Stream call: the text, optional reasoning,

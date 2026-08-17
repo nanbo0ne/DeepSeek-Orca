@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/term"
 
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 // errCancelled is returned by selectOne when the user aborts (q or Ctrl-C).

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // touch sets a file's mtime to t. Used by the listing-order test so it
@@ -69,7 +69,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 
 func TestSessionImageReferenceDoesNotPersistBase64(t *testing.T) {
 	s := NewSession("")
-	s.Add(provider.Message{Role: provider.RoleUser, Content: "look", Images: []provider.ImageContent{{Path: ".deepseek-orca/attachments/a.png", MediaType: "image/png", Data: "SECRET_BASE64"}}})
+	s.Add(provider.Message{Role: provider.RoleUser, Content: "look", Images: []provider.ImageContent{{Path: ".orca/attachments/a.png", MediaType: "image/png", Data: "SECRET_BASE64"}}})
 	path := filepath.Join(t.TempDir(), "vision.jsonl")
 	if err := s.Save(path); err != nil {
 		t.Fatal(err)
@@ -102,14 +102,14 @@ func TestMissingHistoricalImageAddsProviderPlaceholder(t *testing.T) {
 	messages := []provider.Message{{
 		Role:    provider.RoleUser,
 		Content: "Please inspect the attached image.",
-		Images:  []provider.ImageContent{{Path: ".deepseek-orca/attachments/missing.png", MediaType: "image/png"}},
+		Images:  []provider.ImageContent{{Path: ".orca/attachments/missing.png", MediaType: "image/png"}},
 	}}
 
 	got := a.hydrateImageMessages(context.Background(), messages)
 	if len(got[0].Images) != 0 {
 		t.Fatalf("missing image should be omitted from provider request: %+v", got[0].Images)
 	}
-	if !strings.Contains(got[0].Content, "[Historical image unavailable: .deepseek-orca/attachments/missing.png]") {
+	if !strings.Contains(got[0].Content, "[Historical image unavailable: .orca/attachments/missing.png]") {
 		t.Fatalf("missing image placeholder not added: %q", got[0].Content)
 	}
 	if strings.Contains(messages[0].Content, "Historical image unavailable") {

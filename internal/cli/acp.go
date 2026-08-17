@@ -10,19 +10,19 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/acp"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/tool"
-	"deepseek-orca/internal/tool/builtin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/acp"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 )
 
-// acpCommand runs DeepSeek-Orca as an Agent Client Protocol agent: a stdio JSON-RPC
+// acpCommand runs O.R.C.A as an Agent Client Protocol agent: a stdio JSON-RPC
 // server that editors and other host clients drive (initialize, session/new,
 // session/prompt, session/cancel). It keeps v2 wire-compatible with the many
 // tools that integrated with v1 over ACP.
@@ -41,7 +41,7 @@ func acpCommand(args []string, version string) int {
 	defer stop()
 
 	factory := &acpFactory{model: *model}
-	info := acp.AgentInfo{Name: "deepseek-orca", Version: version}
+	info := acp.AgentInfo{Name: "orca", Version: version}
 	if err := acp.Serve(ctx, os.Stdin, os.Stdout, factory, info); err != nil {
 		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, err)
 		return 1

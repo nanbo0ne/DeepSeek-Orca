@@ -1,7 +1,7 @@
-// Package memory implements DeepSeek-Orca's persistent memory. It mirrors Claude
-// Code's two-layer model while honoring DeepSeek-Orca's cache-first architecture:
+// Package memory implements Orca's persistent memory. It mirrors Claude Code's
+// two-layer model while honoring O.R.C.A's cache-first architecture:
 //
-//   - Hierarchical doc memory: DEEPSEEK_ORCA.md / AGENTS.md files discovered from the
+//   - Hierarchical doc memory: ORCA.md / AGENTS.md files discovered from the
 //     user config dir and up the project tree, with "@path" imports. This is the
 //     analog of CLAUDE.md.
 //   - Auto-memory store: per-project fact files with frontmatter plus a MEMORY.md
@@ -27,29 +27,29 @@ import (
 type Scope string
 
 const (
-	ScopeUser     Scope = "user"     // ~/.config/deepseek-orca/DEEPSEEK_ORCA.md
-	ScopeAncestor Scope = "ancestor" // a DEEPSEEK_ORCA.md above the project root
-	ScopeProject  Scope = "project"  // ./DEEPSEEK_ORCA.md (committed, shared)
-	ScopeLocal    Scope = "local"    // ./DEEPSEEK_ORCA.local.md (personal, git-ignored)
+	ScopeUser     Scope = "user"     // ~/.config/orca/ORCA.md
+	ScopeAncestor Scope = "ancestor" // an ORCA.md above the project root
+	ScopeProject  Scope = "project"  // ./ORCA.md (committed, shared)
+	ScopeLocal    Scope = "local"    // ./ORCA.local.md (personal, git-ignored)
 )
 
 // docNames are the recognized memory filenames at each level, in load order.
-// DEEPSEEK_ORCA.md is ours; AGENTS.md and CLAUDE.md are the cross-tool conventions.
+// ORCA.md is canonical; the old filename remains readable for migration.
 // When several distinct files exist in one directory, all load (each labeled with
 // its source path), so a repo already carrying an AGENTS.md / CLAUDE.md is picked
 // up without renaming. New docs are created as AGENTS.md (the universal
 // convention) — see defaultDocName / Set.DocPath.
-var docNames = []string{"DEEPSEEK_ORCA.md", "AGENTS.md", "CLAUDE.md"}
+var docNames = []string{"ORCA.md", "DEEPSEEK_ORCA.md", "AGENTS.md", "CLAUDE.md"}
 
 // localNames are the personal, git-ignored overrides, highest precedence.
-var localNames = []string{"DEEPSEEK_ORCA.local.md", "AGENTS.local.md", "CLAUDE.local.md"}
+var localNames = []string{"ORCA.local.md", "DEEPSEEK_ORCA.local.md", "AGENTS.local.md", "CLAUDE.local.md"}
 
 // defaultDocName / defaultLocalName are the filenames a fresh doc is created as
 // when a directory has none yet: AGENTS.md is the widely-shared convention, so a
 // new project's memory is portable to other agent tools out of the box.
 const (
-	defaultDocName   = "AGENTS.md"
-	defaultLocalName = "AGENTS.local.md"
+	defaultDocName   = "ORCA.md"
+	defaultLocalName = "ORCA.local.md"
 )
 
 // maxImportDepth bounds "@path" import recursion (matches Claude Code's limit).

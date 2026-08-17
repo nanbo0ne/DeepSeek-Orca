@@ -31,7 +31,7 @@ const SEVERITY = ['crash', 'data-loss', 'security'];
 const ALLOWED = new Set([...AREA, ...PLATFORM, ...SEVERITY]);
 
 const SYSTEM = [
-  'You categorize GitHub issues for DeepSeek-Orca, a Go-based AI coding agent with a Wails desktop app and a terminal UI.',
+  'You categorize GitHub issues for O.R.C.A, a Go-based AI agent with a Wails desktop app and a terminal UI.',
   'Pick labels ONLY from these fixed sets. Never invent labels.',
   'area (0-2, the affected subsystem):',
   '  agent: core agent loop / tool-calling / reasoning',

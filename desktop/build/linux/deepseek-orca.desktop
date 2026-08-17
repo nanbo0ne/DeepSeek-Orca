@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=DeepSeek-Orca
-Comment=DeepSeek-Orca desktop — a Wails shell around the Go kernel
-Exec=deepseek-orca-desktop
-Icon=deepseek-orca-desktop
-Categories=Development;Utility;
-Terminal=false
-StartupWMClass=deepseek-orca-desktop

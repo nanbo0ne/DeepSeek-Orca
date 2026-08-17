@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/visioncap"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/visioncap"
 )
 
 type VisionCapability = visioncap.Capability

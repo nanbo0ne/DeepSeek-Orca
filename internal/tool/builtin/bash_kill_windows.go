@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"deepseek-orca/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
 )
 
 // setKillTree hides the child's console and makes a cancelled command kill its

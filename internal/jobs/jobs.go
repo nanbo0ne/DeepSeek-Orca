@@ -20,9 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/event"
-	fileenc "deepseek-orca/internal/fileutil/encoding"
-	"deepseek-orca/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
 )
 
 // Status is a job's lifecycle state.

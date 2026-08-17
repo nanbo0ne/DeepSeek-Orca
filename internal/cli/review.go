@@ -7,12 +7,12 @@ import (
 	"os"
 	"strings"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/skill"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func reviewCommand(args []string) int {

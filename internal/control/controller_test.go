@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/checkpoint"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/permission"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/checkpoint"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/permission"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 type typedNilControllerSink struct{}

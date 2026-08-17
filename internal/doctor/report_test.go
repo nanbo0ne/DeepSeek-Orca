@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 func TestRedactHome(t *testing.T) {
@@ -95,7 +95,7 @@ func TestCollectReportDoesNotRequireAPIKey(t *testing.T) {
 	if report.Providers[0].KeyPresent {
 		t.Fatal("provider key should be reported missing when env is empty")
 	}
-	if !strings.Contains(text, "deepseek-orca 1.2.3 doctor") {
+	if !strings.Contains(text, "orca 1.2.3 doctor") {
 		t.Fatalf("text report missing header:\n%s", text)
 	}
 	if !strings.Contains(text, "missing") {

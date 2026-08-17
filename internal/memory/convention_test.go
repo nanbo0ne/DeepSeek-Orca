@@ -32,14 +32,14 @@ func TestSymlinkedAgentAndClaudeDocsComposeOnce(t *testing.T) {
 	}
 }
 
-func TestDocPathDefaultsToAgents(t *testing.T) {
+func TestDocPathDefaultsToOrca(t *testing.T) {
 	proj := t.TempDir()
 	set := Load(Options{CWD: proj})
-	if got := set.DocPath(ScopeProject); filepath.Base(got) != "AGENTS.md" {
-		t.Errorf("fresh project should default to AGENTS.md, got %s", got)
+	if got := set.DocPath(ScopeProject); filepath.Base(got) != "ORCA.md" {
+		t.Errorf("fresh project should default to ORCA.md, got %s", got)
 	}
-	if got := set.DocPath(ScopeLocal); filepath.Base(got) != "AGENTS.local.md" {
-		t.Errorf("fresh local should default to AGENTS.local.md, got %s", got)
+	if got := set.DocPath(ScopeLocal); filepath.Base(got) != "ORCA.local.md" {
+		t.Errorf("fresh local should default to ORCA.local.md, got %s", got)
 	}
 }
 

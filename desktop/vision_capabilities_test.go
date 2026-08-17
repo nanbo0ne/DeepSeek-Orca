@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/visioncap"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/visioncap"
 )
 
 func TestShouldAutoProbeVision(t *testing.T) {

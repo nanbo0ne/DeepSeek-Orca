@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 // SlashItem is one slash-completion suggestion. Insert is the token text placed
@@ -111,7 +111,7 @@ func themeArgItems(prior []string) []SlashItem {
 		mode string
 		desc string
 	}{
-		{"slate", "native", "DeepSeek-Orca 蓝白风格"},
+		{"slate", "native", "O.R.C.A 蓝白风格"},
 	} {
 		items = append(items, SlashItem{Label: st.name, Insert: st.name, Hint: st.mode + "：" + st.desc})
 	}

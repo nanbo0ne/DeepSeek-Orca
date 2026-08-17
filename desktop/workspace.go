@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // The desktop is a GUI app: launched from Finder or `open`, it starts with the
@@ -17,9 +17,9 @@ import (
 // cwd isn't writable.
 
 // workspaceStatePath is where the last working folder is remembered (under the
-// user config dir, shared with the rest of DeepSeek-Orca's state).
+// user config dir, shared with the rest of O.R.C.A's state).
 func workspaceStatePath() string {
-	dir := config.MemoryUserDir() // …/deepseek-orca
+	dir := config.MemoryUserDir() // …/orca
 	if dir == "" {
 		return ""
 	}
@@ -175,7 +175,7 @@ func cwdWritable() bool {
 	if err != nil {
 		return false
 	}
-	f, err := os.CreateTemp(cwd, ".deepseek-orca-wtest-*")
+	f, err := os.CreateTemp(cwd, ".orca-wtest-*")
 	if err != nil {
 		return false
 	}

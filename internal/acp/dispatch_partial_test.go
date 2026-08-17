@@ -3,7 +3,7 @@ package acp
 import (
 	"testing"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // TestUpdateSinkSkipsPartialDispatch probes the ACP adapter against the early

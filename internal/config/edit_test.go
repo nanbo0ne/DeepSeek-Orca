@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 
 	"github.com/BurntSushi/toml"
 )
@@ -843,6 +843,7 @@ func TestSaveToRoundTrips(t *testing.T) {
 
 func TestSaveToScopesUserAndProjectFiles(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
 	c := Default()
 	c.Desktop.Theme = "dark"
 	c.Desktop.ThemeStyle = "slate"

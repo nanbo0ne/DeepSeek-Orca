@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Pruning is the free half of context maintenance: stale tool results are

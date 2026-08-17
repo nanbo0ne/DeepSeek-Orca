@@ -5,12 +5,12 @@
 #
 # Output lands in <repo>/dist/ with stable, platform-keyed names that
 # desktop/cmd/sign's `manifest` subcommand maps back to update.PlatformKey:
-#   macOS:   DeepSeek-Orca-darwin-<arch>.zip                  (ditto archive; updater channel)
-#            DeepSeek-Orca-darwin-universal.dmg               (drag-to-install; human download)
-#   Windows: DeepSeek-Orca-windows-<arch>-installer.exe       (NSIS per-user installer; updater channel)
-#            DeepSeek-Orca-windows-<arch>.zip                 (portable human download)
-#   Linux:   DeepSeek-Orca-linux-<arch>.tar.gz                (bare binary; updater channel)
-#            DeepSeek-Orca-linux-<arch>.deb                   (Debian/Ubuntu package; human download)
+#   macOS:   O.R.C.A-darwin-<arch>.zip                       (ditto archive; updater channel)
+#            O.R.C.A-darwin-universal.dmg                    (drag-to-install; human download)
+#   Windows: O.R.C.A-for-Windows-windows-<arch>-installer.exe (NSIS per-user installer)
+#            O.R.C.A-for-Windows-windows-<arch>.zip           (portable human download)
+#   Linux:   O.R.C.A-linux-<arch>.tar.gz                     (bare binary; updater channel)
+#            O.R.C.A-linux-<arch>.deb                        (Debian/Ubuntu package; human download)
 #
 # Usage: scripts/desktop-build.sh <os/arch> <version> [channel]
 #   e.g. scripts/desktop-build.sh darwin/arm64 v1.1.0
@@ -25,8 +25,10 @@ os="${PLATFORM%/*}"
 arch="${PLATFORM#*/}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APPNAME="DeepSeek-Orca"            # wails.json productName -> DeepSeek-Orca.app
-BINNAME="deepseek-orca-desktop"    # wails.json outputfilename -> linux binary name
+APPNAME="O.R.C.A"                  # user-facing app/bundle name
+BINNAME="Orca"                      # wails.json outputfilename -> linux binary name
+ARTIFACT_BASE="O.R.C.A"
+[ "$os" = windows ] && ARTIFACT_BASE="O.R.C.A-for-Windows"
 
 prepare_windows_installer_resources() {
 	[ "$os" = windows ] || return 0
@@ -145,11 +147,11 @@ mkdir -p "$ROOT/dist"
 
 case "$os" in
 darwin)
-	# Wails names the bundle after outputfilename (deepseek-orca-desktop.app); repackage
-	# it as DeepSeek-Orca.app for a clean user-facing name.
+	# Wails names the bundle after outputfilename (Orca.app); repackage it as
+	# O.R.C.A.app for a clean user-facing name.
 	staging=$(mktemp -d)
 	app="$staging/${APPNAME}.app"
-	cp -R "build/bin/deepseek-orca-desktop.app" "$app"
+	cp -R "build/bin/Orca.app" "$app"
 
 	# Two signing paths, selected by HAS_APPLE_CERT (set by release-desktop.yml when
 	# the APPLE_* secrets are present). With a real Developer ID cert + notarization
@@ -182,10 +184,10 @@ darwin)
 		# One universal .app covers Intel + Apple Silicon; publish it under both
 		# manifest keys so the updater's darwin-arm64/darwin-amd64 lookup finds it
 		# (avoids a scarce macos-13 Intel runner).
-		ditto -c -k --keepParent "$app" "$ROOT/dist/${APPNAME}-darwin-arm64.zip"
-		ditto -c -k --keepParent "$app" "$ROOT/dist/${APPNAME}-darwin-amd64.zip"
+		ditto -c -k --keepParent "$app" "$ROOT/dist/${ARTIFACT_BASE}-darwin-arm64.zip"
+		ditto -c -k --keepParent "$app" "$ROOT/dist/${ARTIFACT_BASE}-darwin-amd64.zip"
 	else
-		ditto -c -k --keepParent "$app" "$ROOT/dist/${APPNAME}-darwin-${arch}.zip"
+		ditto -c -k --keepParent "$app" "$ROOT/dist/${ARTIFACT_BASE}-darwin-${arch}.zip"
 	fi
 	# A drag-to-Applications .dmg for first-time human download. Named -universal so
 	# cmd/sign's substring match (darwin-arm64/darwin-amd64) skips it: the .zip stays
@@ -193,7 +195,7 @@ darwin)
 	# while still writing the image, so gate on the file existing, not the exit code.
 	dmgsrc=$(mktemp -d)
 	cp -R "$app" "$dmgsrc/${APPNAME}.app"
-	dmg="$ROOT/dist/${APPNAME}-darwin-universal.dmg"
+	dmg="$ROOT/dist/${ARTIFACT_BASE}-macos-universal.dmg"
 	create-dmg \
 		--volname "$APPNAME" \
 		--window-size 540 380 \
@@ -216,32 +218,36 @@ darwin)
 	rm -rf "$staging" "$dmgsrc"
 	;;
 windows)
-	# `wails build -nsis` writes the installer under build/bin. Newer DeepSeek-Orca
-	# builds use the user-facing `DeepSeek-Orca-Setup-...exe` name, while older
-	# Wails/Reasonix scripts used `...installer.exe`.
+	# `wails build -nsis` writes the installer under build/bin. Wails versions
+	# Wails versions use the user-facing O.R.C.A installer name; older versions
+	# may still emit a generic `...installer.exe` name.
 	installer=$(find build/bin -maxdepth 1 -type f \( -iname "*setup*.exe" -o -iname "*installer*.exe" \) | head -n1 || true)
 	[ -n "$installer" ] || { echo "no NSIS installer found in build/bin" >&2; exit 1; }
-	packaged_installer="$ROOT/dist/${APPNAME}-windows-${arch}-installer.exe"
+	packaged_installer="$ROOT/dist/${ARTIFACT_BASE}-windows-${arch}-installer.exe"
 	copy_stable_windows_installer "$installer" "$packaged_installer"
 	verify_windows_installer_archive "$packaged_installer"
 	portable=$(find build/bin -maxdepth 1 -type f -name "*.exe" ! -iname "*setup*.exe" ! -iname "*installer*.exe" | head -n1 || true)
 	[ -n "$portable" ] || { echo "no portable Windows exe found in build/bin" >&2; exit 1; }
 	staging=$(mktemp -d)
-	cp "$portable" "$staging/${APPNAME}.exe"
-	src_win=$(cygpath -w "$staging/${APPNAME}.exe")
-	zip_win=$(cygpath -w "$ROOT/dist/${APPNAME}-windows-${arch}.zip")
+	cp "$portable" "$staging/Orca.exe"
+	src_win=$(cygpath -w "$staging/Orca.exe")
+	zip_win=$(cygpath -w "$ROOT/dist/${ARTIFACT_BASE}-windows-${arch}.zip")
 	powershell.exe -NoProfile -Command "Compress-Archive -Force -LiteralPath '$src_win' -DestinationPath '$zip_win'"
 	rm -rf "$staging"
+	# V2 updater compatibility aliases. They intentionally retain the previous
+	# asset names for one major release while all current UI uses O.R.C.A.
+	cp "$packaged_installer" "$ROOT/dist/DeepSeek-Orca-windows-${arch}-installer.exe"
+	cp "$ROOT/dist/${ARTIFACT_BASE}-windows-${arch}.zip" "$ROOT/dist/DeepSeek-Orca-windows-${arch}.zip"
 	;;
 linux)
-	tar -czf "$ROOT/dist/${APPNAME}-linux-${arch}.tar.gz" -C build/bin "$BINNAME"
+	tar -czf "$ROOT/dist/${ARTIFACT_BASE}-linux-${arch}.tar.gz" -C build/bin "$BINNAME"
 	# Also build a .deb for Debian/Ubuntu users (goreleaser/nfpm; see
 	# desktop/build/linux/nfpm.yaml). Human-download only: the Linux updater channel
 	# stays the tarball and cmd/sign's manifest skips .deb files. nfpm reads
 	# $DEB_VERSION/$DEB_ARCH — dpkg wants a strict numeric version, so reuse numver.
 	DEB_VERSION="$numver" DEB_ARCH="$arch" \
 		nfpm package --config build/linux/nfpm.yaml --packager deb \
-		--target "$ROOT/dist/${APPNAME}-linux-${arch}.deb"
+		--target "$ROOT/dist/${ARTIFACT_BASE}-linux-${arch}.deb"
 	;;
 *)
 	echo "unsupported os: $os" >&2

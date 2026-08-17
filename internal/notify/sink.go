@@ -1,8 +1,8 @@
 package notify
 
 import (
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // Message is the user-visible payload sent to the platform notifier.
@@ -51,17 +51,17 @@ func message(cfg config.NotificationsConfig, e event.Event) (Message, bool) {
 	case event.TurnDone:
 		if cfg.TurnDone {
 			if e.Err != nil {
-				return Message{Title: "DeepSeek-Orca", Body: "Turn failed"}, true
+				return Message{Title: "O.R.C.A", Body: "Turn failed"}, true
 			}
-			return Message{Title: "DeepSeek-Orca", Body: "Turn finished"}, true
+			return Message{Title: "O.R.C.A", Body: "Turn finished"}, true
 		}
 	case event.ApprovalRequest:
 		if cfg.ApprovalRequest {
-			return Message{Title: "DeepSeek-Orca", Body: "Approval needed"}, true
+			return Message{Title: "O.R.C.A", Body: "Approval needed"}, true
 		}
 	case event.AskRequest:
 		if cfg.AskRequest {
-			return Message{Title: "DeepSeek-Orca", Body: "Question needs your answer"}, true
+			return Message{Title: "O.R.C.A", Body: "Question needs your answer"}, true
 		}
 	}
 	return Message{}, false

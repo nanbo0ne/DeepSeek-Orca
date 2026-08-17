@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"deepseek-orca/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
 )
 
 const maxImageAttachmentBytes = 10 * 1024 * 1024
@@ -27,7 +27,7 @@ var safeAttachmentExt = regexp.MustCompile(`^\.[a-z0-9]{1,12}$`)
 
 // SaveAttachmentDataURL stores a non-image file (dropped/pasted in the desktop
 // app, where the browser exposes bytes but not a real path) under
-// .deepseek-orca/attachments and returns its repo-relative path for @referencing.
+// .orca/attachments and returns its repo-relative path for @referencing.
 // origName supplies only the extension; the stored name is generated.
 func SaveAttachmentDataURL(origName, dataURL string) (string, error) {
 	const marker = ";base64,"
@@ -373,12 +373,18 @@ func cleanAttachmentPath(path string) (string, error) {
 		return "", fmt.Errorf("attachment path must be relative")
 	}
 	clean := filepath.Clean(filepath.FromSlash(path))
-	root := filepath.Join(".deepseek-orca", "attachments")
-	if clean == "." || clean == root || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || !strings.HasPrefix(clean, root+string(filepath.Separator)) {
-		return "", fmt.Errorf("attachment path is outside .deepseek-orca/attachments")
+	root := filepath.Join(".orca", "attachments")
+	legacyRoot := filepath.Join(".deepseek-orca", "attachments")
+	if clean == legacyRoot || strings.HasPrefix(clean, legacyRoot+string(filepath.Separator)) {
+		root = legacyRoot
 	}
-	if err := ensureAttachmentRoot(); err != nil {
-		return "", err
+	if clean == "." || clean == root || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || !strings.HasPrefix(clean, root+string(filepath.Separator)) {
+		return "", fmt.Errorf("attachment path is outside .orca/attachments")
+	}
+	if root == filepath.Join(".orca", "attachments") {
+		if err := ensureAttachmentRoot(); err != nil {
+			return "", err
+		}
 	}
 	if err := rejectSymlinkComponents(clean, root); err != nil {
 		return "", err
@@ -392,7 +398,7 @@ func rejectSymlinkComponents(path, root string) error {
 		return err
 	}
 	if rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-		return fmt.Errorf("attachment path is outside .deepseek-orca/attachments")
+		return fmt.Errorf("attachment path is outside .orca/attachments")
 	}
 	cur := root
 	for _, part := range strings.Split(rel, string(filepath.Separator)) {
@@ -412,7 +418,7 @@ func rejectSymlinkComponents(path, root string) error {
 }
 
 func ensureAttachmentRoot() error {
-	root := filepath.Join(".deepseek-orca", "attachments")
+	root := filepath.Join(".orca", "attachments")
 	if info, err := os.Lstat(root); err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("attachment directory must not be a symlink")
@@ -512,7 +518,7 @@ func createAttachmentFile(ext string) (string, *os.File, error) {
 func attachmentPath(ext string) string {
 	seq := attachmentPathSeq.Add(1)
 	name := fmt.Sprintf("clipboard-%s-%06d%s", attachmentNow().Format("20060102-150405.000000"), seq, ext)
-	return filepath.Join(".deepseek-orca", "attachments", name)
+	return filepath.Join(".orca", "attachments", name)
 }
 
 func detectedImageMime(raw []byte) string {

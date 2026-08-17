@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 
-	"deepseek-orca/internal/codegraph"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/codegraph"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
 )
 
-// codegraphCommand backs `deepseek-orca codegraph` — managing the CodeGraph
-// code-intelligence runtime that deepseek-orca otherwise fetches lazily on first use.
+// codegraphCommand backs `orca codegraph` — managing the CodeGraph
+// code-intelligence runtime that orca otherwise fetches lazily on first use.
 func codegraphCommand(args []string) int {
 	sub := ""
 	if len(args) > 0 {
@@ -66,17 +66,17 @@ func codegraphStatus() int {
 	if p, ok := codegraph.Resolve(cfg.Codegraph.Path); ok {
 		fmt.Printf("%-13s %s\n", "resolved:", p)
 	} else {
-		fmt.Printf("%-13s %s\n", "resolved:", "(not installed — run `deepseek-orca codegraph install`)")
+		fmt.Printf("%-13s %s\n", "resolved:", "(not installed — run `orca codegraph install`)")
 	}
 	return 0
 }
 
 func codegraphUsage() {
-	fmt.Print(`deepseek-orca codegraph — manage the CodeGraph code-intelligence runtime
+	fmt.Print(`orca codegraph — manage the CodeGraph code-intelligence runtime
 
 Usage:
-  deepseek-orca codegraph install   download + cache the runtime for this platform
-  deepseek-orca codegraph status    show config, cache dir, and resolved launcher
+  orca codegraph install   download + cache the runtime for this platform
+  orca codegraph status    show config, cache dir, and resolved launcher
 
 CodeGraph is fetched automatically on first use (unless [codegraph].auto_install
 is false); this command installs it explicitly or reports where it resolves from.

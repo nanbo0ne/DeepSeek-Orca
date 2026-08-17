@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
 )
 
 // TestServeRejectsNonJSONPost guards the CSRF defense: a state-changing POST that

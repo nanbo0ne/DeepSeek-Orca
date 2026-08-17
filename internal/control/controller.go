@@ -28,25 +28,25 @@ import (
 	"time"
 	"unicode"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/billing"
-	"deepseek-orca/internal/checkpoint"
-	"deepseek-orca/internal/codegraph"
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/diff"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/hook"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/jobs"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/nilutil"
-	"deepseek-orca/internal/permission"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/skill"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/billing"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/checkpoint"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/codegraph"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/hook"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/jobs"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/permission"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // ErrTurnRunning reports that a caller tried to start a second foreground turn
@@ -165,6 +165,7 @@ type Controller struct {
 	trustedAutomationAccess     bool
 	trustedAutomationConfigured bool
 	automationAccessNoticeTurn  int
+	trustedComputerUseAccess    bool
 
 	// autoApproveTools is "YOLO/full access" mode: while set, every tool approval
 	// request is auto-allowed for the rest of the session (writers and bash run
@@ -3132,7 +3133,29 @@ func (c *Controller) requestApproval(ctx context.Context, tool, subject string) 
 }
 
 func (c *Controller) approvalBypassAllowsLocked(tool string) bool {
-	return c.trustedAutomationAccess || (tool != planApprovalTool && (c.toolApprovalMode == ToolApprovalYolo || c.approvedPlanAutoApproveTools))
+	computerUseApproved := c.trustedComputerUseAccess && strings.HasPrefix(tool, "computer_")
+	return c.trustedAutomationAccess || computerUseApproved || (tool != planApprovalTool && (c.toolApprovalMode == ToolApprovalYolo || c.approvedPlanAutoApproveTools))
+}
+
+// SetTrustedComputerUseAccess applies the separate, versioned Computer Use
+// consent. It bypasses repeated approval only for computer_* tools and never
+// changes the approval posture of shell, file, MCP, or plan tools.
+func (c *Controller) SetTrustedComputerUseAccess(on bool) {
+	c.mu.Lock()
+	c.trustedComputerUseAccess = on
+	pending := make([]chan approvalReply, 0)
+	if on {
+		for id, approval := range c.approvals {
+			if strings.HasPrefix(approval.tool, "computer_") {
+				delete(c.approvals, id)
+				pending = append(pending, approval.reply)
+			}
+		}
+	}
+	c.mu.Unlock()
+	for _, reply := range pending {
+		reply <- approvalReply{allow: true}
+	}
 }
 
 func (c *Controller) autoApprovalWouldAllowLocked(tool, subject string) bool {

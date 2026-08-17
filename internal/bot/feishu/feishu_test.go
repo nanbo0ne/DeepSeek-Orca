@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 func TestVerificationTokenValidRequiresConfiguredToken(t *testing.T) {

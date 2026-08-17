@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepseek-orca/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
 )
 
 // --- loadSessionTitles ---

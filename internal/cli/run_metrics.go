@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"os"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
 )
 
 // RunMetrics is the machine-readable token/cache/cost summary `run --metrics`

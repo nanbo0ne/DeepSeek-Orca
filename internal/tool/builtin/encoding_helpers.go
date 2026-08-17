@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	fileenc "deepseek-orca/internal/fileutil/encoding"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
 )
 
 // readFileEncoded reads a file and decodes its encoding to UTF-8.

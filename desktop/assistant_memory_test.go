@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 func TestAssistantMemoryRealMessageSkipsInjectedContext(t *testing.T) {

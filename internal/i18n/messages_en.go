@@ -7,7 +7,7 @@ var English = Messages{
 	WelcomeTitleFmt: "Welcome to %s",
 	NoConfigYet:     "No configuration found yet — let's set it up.",
 	StartingChatFmt: "Starting %s…",
-	SetKeyHint:      "Set your API key, then run `deepseek-orca chat`.",
+	SetKeyHint:      "Configure a provider key, then run `orca chat`.",
 	ConfigLabel:     "config",
 	ModelsLabel:     "models",
 	ConfigNotFound:  "not found — using built-in defaults",
@@ -15,18 +15,18 @@ var English = Messages{
 	NoKey:           "no key",
 	Ready:           "ready",
 	GetStarted:      "Get started",
-	StepScaffold:    "scaffold deepseek-orca.toml",
+	StepScaffold:    "scaffold orca.toml",
 	StepSetKey:      "set API key",
 
-	InitHint:       "Project memory (AGENTS.md) is generated in-session: run `deepseek-orca chat`, then `/init` — the model analyzes the codebase and writes it. For configuration, use `deepseek-orca setup`.",
-	StepSetKeyHint: "run `deepseek-orca setup`, or export DEEPSEEK_API_KEY=…",
+	InitHint:       "Project memory (ORCA.md) is generated in-session: run `orca chat`, then `/init` — the model analyzes the codebase and writes it. For configuration, use `orca setup`.",
+	StepSetKeyHint: "run `orca setup` to configure a provider key.",
 	StepChatDesc:   "interactive session",
 	StepRunDesc:    "one-shot task",
-	HelpFooter:     "deepseek-orca help · all commands",
+	HelpFooter:     "orca help · all commands",
 
 	ChatTip:           "Context is kept across turns. Type 'exit' or Ctrl-D to quit.",
 	TurnCancelled:     "cancelled — back to prompt",
-	NoSessionToResume: "no saved session to resume — start a new one with `deepseek-orca chat`",
+	NoSessionToResume: "no saved session to resume — start a new one with `orca chat`",
 	ResumeRequiresTTY: "--resume needs an interactive terminal; pass --continue for the most recent session",
 	PickSessionLabel:  "Resume which session?",
 
@@ -72,7 +72,7 @@ var English = Messages{
 
 	OutputStyleNone:    "no output styles available",
 	OutputStyleHeader:  "output styles:",
-	OutputStyleHint:    "set agent.output_style in deepseek-orca.toml to apply one (takes effect next session)",
+	OutputStyleHint:    "set agent.output_style in orca.toml to apply one (takes effect next session)",
 	ThemeHeader:        "themes:",
 	ThemeHint:          "switch with /theme <auto|light|dark|style>",
 	ThemeChangedFmt:    "theme switched to %s / %s",
@@ -144,7 +144,7 @@ var English = Messages{
 	SkillPickerStatusNotDir:      "not-directory",
 	SkillPickerStatusUnreadable:  "unreadable",
 	SlashPromptEmpty:             "the MCP prompt returned no content to send",
-	SlashMCPNone:                 "no MCP servers configured — add a [[plugins]] entry in deepseek-orca.toml",
+	SlashMCPNone:                 "no MCP servers configured — add a [[plugins]] entry in orca.toml",
 	CtrlCQuitHint:                "press Ctrl+C again to quit",
 	CompHintSlash:                "↑/↓ move · Tab/Enter select · Esc close",
 	CompHintFile:                 "↑/↓ move · Tab/Enter open folder or pick file · Esc close",
@@ -199,7 +199,7 @@ var English = Messages{
 	ArgEffortXHigh:  "extra deep reasoning",
 	ArgEffortMax:    "maximum reasoning",
 	ArgThemeCurrent: "current",
-	ArgLanguageAuto: "auto-detect from DEEPSEEK_ORCA_LANG / locale",
+	ArgLanguageAuto: "auto-detect from ORCA_LANG / locale",
 	ArgLanguageEn:   "English",
 	ArgLanguageZh:   "中文",
 
@@ -210,11 +210,11 @@ var English = Messages{
 	ListSkillsHeaderFmt: "skills (%d)",
 	ListSkillsNone:      "skills: none defined — invoke a built-in like /init, or author one with install_skill",
 	ListHooksHeaderFmt:  "hooks (%d active)",
-	ListHooksNone:       "hooks: none active — configure in .deepseek-orca/settings.json (project, after trust) or ~/.deepseek-orca/settings.json (global)",
+	ListHooksNone:       "hooks: none active — configure in .orca/settings.json (project, after trust) or ~/.orca/settings.json (global)",
 	ListMcpHeader:       "mcp servers",
-	ListMcpNone:         "mcp: no servers connected — add one in deepseek-orca.toml ([[plugins]]) or a project .mcp.json",
+	ListMcpNone:         "mcp: no servers connected — add one in orca.toml ([[plugins]]) or a project .mcp.json",
 
-	MemoryNone:             "memory: none — add with “/remember <note>” or create DEEPSEEK_ORCA.md in the project root",
+	MemoryNone:             "memory: none — add with “/remember <note>” or create ORCA.md in the project root",
 	MemoryLoaded:           "memory loaded:",
 	MemorySavedHeader:      "  saved memories (delete with “/forget <name>”):",
 	MemoryStoredUnderFmt:   "  stored under %s",
@@ -248,12 +248,12 @@ var English = Messages{
 
 	SelectProvidersLabel:  "Select providers to enable",
 	EnterAPIKeysHeader:    "Enter API keys (Enter to skip and set later):",
-	MissingKeyIntro:       "deepseek-orca.toml is ready — just an API key away.",
+	MissingKeyIntro:       "orca.toml is ready — just a provider key away.",
 	WroteFileFmt:          "Wrote %s",
 	SetupComplete:         "Setup complete.",
 	SetupCancelled:        "setup cancelled.",
 	TryHintFmt:            "Try: %s",
-	NextHint:              "Next: set your API key (run `deepseek-orca setup` or export DEEPSEEK_API_KEY=...), then run `deepseek-orca run \"your task\"`.",
+	NextHint:              "Next: configure a provider key with `orca setup`, then run `orca run \"your task\"`.",
 	ConfirmReconfigureFmt: "%s already exists. Reconfigure and overwrite?",
 	KeepingExisting:       "Keeping existing config.",
 	NotOverwritingFmt:     "%s already exists; not overwriting",
@@ -268,7 +268,7 @@ var English = Messages{
 	NoModelsAvailableFmt:       "%s: no models available, skipping",
 	CustomFetchEmpty:           "/models returned an empty list — falling back to manual entry",
 	AnthropicFetchEmpty:        "/models returned an empty list — Anthropic-compatible providers usually don't expose one, falling back to manual entry",
-	SkipStaleCustomEntryFmt:    "skipping stale %q entry from deepseek-orca.toml (pointing at %s) — please remove it from [[providers]]",
+	SkipStaleCustomEntryFmt:    "skipping stale %q entry from orca.toml (pointing at %s) — please remove it from [[providers]]",
 	APIKeyAlreadySetFmt:        "reusing existing value for %s",
 	APIKeyResetPromptFmt:       "Re-enter %s?",
 
@@ -301,14 +301,14 @@ var English = Messages{
 	AnthropicSelectModelsLabel:     "Select models to enable for %s",
 
 	UnknownCommandFmt:         "unknown command %q",
-	UsageRunHint:              "usage: deepseek-orca run [--model NAME] <task>",
+	UsageRunHint:              "usage: orca run [--model NAME] <task>",
 	ErrorPrefix:               "error:",
 	ReconfigureOnUnknownModel: "Configured model is no longer available — re-running setup.",
 	WriteConfigErr:            "write config:",
 	WriteEnvErr:               "write .env:",
 
 	ProviderErrBadRequest:          "Malformed request (HTTP 400): the request body was rejected. This is likely a bug — please report it if it persists.",
-	ProviderErrAuth:                "Authentication failed (HTTP 401): your API key is missing, wrong, or expired. Check the key in .env or run `deepseek-orca setup`.",
+	ProviderErrAuth:                "Authentication failed (HTTP 401): the provider key is missing, wrong, or expired. Check the provider settings or run `orca setup`.",
 	ProviderErrInsufficientBalance: "Insufficient balance (HTTP 402): your account is out of credit. Top up your account, then retry.",
 	ProviderErrUnprocessable:       "Invalid parameters (HTTP 422): a request parameter was rejected. This is likely a bug — please report it if it persists.",
 	ProviderErrRateLimited:         "Rate limit reached (HTTP 429): too many requests (TPM/RPM). Retried with backoff — slow down or try again shortly.",
@@ -330,31 +330,31 @@ var English = Messages{
 	ProviderPickLabel:    "Select a model from %s",
 	ProviderNoModelsFmt:  "provider %s has no configured models",
 
-	UsageBody: `deepseek-orca — a config- and plugin-driven coding agent (multi-model)
+	UsageBody: `orca — a config- and plugin-driven coding agent (multi-model)
 
 Usage:
-  deepseek-orca chat [--model NAME] [-c|--continue] [--resume]   interactive session (multi-turn; -c resumes the latest, --resume picks one)
-  deepseek-orca run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>   run one task and exit
-  deepseek-orca serve [--model NAME] [--addr HOST:PORT]      serve the session over HTTP+SSE (browser client at /)
-  deepseek-orca acp [--model NAME]                           serve Agent Client Protocol over stdio (also: deepseek-orca --acp)
-  deepseek-orca setup [path]                                 interactive config wizard; writes deepseek-orca.toml (+ .env)
-  deepseek-orca config auto-plan [off|on]                    configure automatic plan mode
-  deepseek-orca mcp <add|remove|list>                        manage MCP servers in deepseek-orca.toml
-  deepseek-orca doctor [--json]                              print redacted local diagnostics
-  deepseek-orca bot start|doctor|weixin-login                multi-channel IM bot gateway
-  deepseek-orca version
-  deepseek-orca help
+  orca chat [--model NAME] [-c|--continue] [--resume]   interactive session (multi-turn; -c resumes the latest, --resume picks one)
+  orca run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>   run one task and exit
+  orca serve [--model NAME] [--addr HOST:PORT]      serve the session over HTTP+SSE (browser client at /)
+  orca acp [--model NAME]                           serve Agent Client Protocol over stdio (also: orca --acp)
+  orca setup [path]                                 interactive config wizard; writes orca.toml (+ .env)
+  orca config auto-plan [off|on]                    configure automatic plan mode
+  orca mcp <add|remove|list>                        manage MCP servers in orca.toml
+  orca doctor [--json]                              print redacted local diagnostics
+  orca bot start|doctor|weixin-login                multi-channel IM bot gateway
+  orca version
+  orca help
 
 Examples:
-  deepseek-orca chat
-  deepseek-orca chat --continue
-  deepseek-orca run "implement the TODOs in main.go"
-  deepseek-orca run --model mimo-pro "add unit tests for this function"
-  echo "explain this code" | deepseek-orca run
+  orca chat
+  orca chat --continue
+  orca run "implement the TODOs in main.go"
+  orca run --model mimo-pro "add unit tests for this function"
+  echo "explain this code" | orca run
 
 Configuration:
-  Resolution: flag > ./deepseek-orca.toml > ~/.config/deepseek-orca/config.toml > built-in defaults
-  Secrets come from the environment via api_key_env (e.g. DEEPSEEK_API_KEY).
-  Run 'deepseek-orca setup' to scaffold a config; see docs/SPEC.md.
+  Resolution: flag > ./orca.toml > ~/.config/orca/config.toml > built-in defaults
+  Secrets come from the environment via api_key_env.
+  Run 'orca setup' to scaffold a config; see docs/SPEC.md.
 `,
 }

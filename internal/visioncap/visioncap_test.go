@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 type fakeProvider struct {

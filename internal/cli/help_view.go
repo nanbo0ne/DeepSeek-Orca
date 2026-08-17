@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 const helpMaxDynamicItems = 8

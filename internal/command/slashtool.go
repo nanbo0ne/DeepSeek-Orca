@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // SlashEntry is one invocable slash command exposed to the model through the

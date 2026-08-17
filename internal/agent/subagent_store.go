@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/fileutil"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 type SubagentStatus string
@@ -86,7 +86,7 @@ func (r *SubagentRun) Release() {
 }
 
 // EphemeralSubagentRun is a non-persisted run for callers without an owning
-// parent session — e.g. headless `deepseek-orca run`, which never mints a session
+// parent session — e.g. headless `orca run`, which never mints a session
 // path. Its empty Ref makes the store's MarkRunning/SaveCompleted/SaveFailed
 // methods no-op and keeps FormatSubagentResult from emitting a transcript
 // reference, so the sub-agent behaves exactly as it did before persisted

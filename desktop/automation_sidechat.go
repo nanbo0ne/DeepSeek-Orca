@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool/hosttools"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/hosttools"
 )
 
 type AutomationView = hosttools.AutomationView
@@ -217,7 +217,7 @@ func (a *App) SendSideChat(tabID, input string) error {
 func (a *App) sideChatRequestMessages(tabID string, side []SideChatMessage) []provider.Message {
 	contextText := a.sideChatMainContext(tabID)
 	msgs := []provider.Message{
-		{Role: provider.RoleSystem, Content: "你是 DeepSeek-Orca 的侧边聊天助手。你只能根据主对话和用户问题进行只读解答，不要修改文件、运行命令、创建自动化或调用任何工具。回答要简洁、具体、中文优先。主对话最近 1-2 轮最重要，但必要时可以参考更早上下文。"},
+		{Role: provider.RoleSystem, Content: "你是 Orca 的侧边聊天助手。你只能根据主对话和用户问题进行只读解答，不要修改文件、运行命令、创建自动化或调用任何工具。回答要简洁、具体、中文优先。主对话最近 1-2 轮最重要，但必要时可以参考更早上下文。"},
 		{Role: provider.RoleUser, Content: "主对话上下文如下：\n\n" + contextText},
 	}
 	start := 0

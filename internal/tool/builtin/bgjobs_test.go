@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/jobs"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/jobs"
 )
 
 // End-to-end through the actual tools: a background bash job runs under a manager

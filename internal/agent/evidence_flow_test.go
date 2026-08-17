@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/evidence"
-	"deepseek-orca/internal/instruction"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/instruction"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // scriptedProvider replays a distinct chunk set per Stream call, so a multi-turn

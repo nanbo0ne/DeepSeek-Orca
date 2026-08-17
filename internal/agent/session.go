@@ -5,7 +5,7 @@ package agent
 import (
 	"sync"
 
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Session holds the conversation history for one task. The run loop (one turn at

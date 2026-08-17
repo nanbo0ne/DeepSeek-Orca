@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func TestRepeatGuardBlocksRepeatedSuccessfulBashFileWrite(t *testing.T) {

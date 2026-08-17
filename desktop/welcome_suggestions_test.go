@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 func TestParseWelcomeSuggestions(t *testing.T) {
@@ -19,7 +19,7 @@ func TestParseWelcomeSuggestions(t *testing.T) {
 }
 
 func TestWelcomeSuggestionTextRedactsSecretsPathsAndAttachments(t *testing.T) {
-	raw := "继续 D:\\private\\project\\main.go\nAPI_KEY=sk-supersecret123456\nAuthorization: Bearer abc.def.ghi\nReferenced context: .deepseek-orca/attachments/file.txt"
+	raw := "继续 D:\\private\\project\\main.go\nAPI_KEY=sk-supersecret123456\nAuthorization: Bearer abc.def.ghi\nReferenced context: .orca/attachments/file.txt"
 	got := welcomeSuggestionText(raw)
 	for _, forbidden := range []string{"D:\\private", "supersecret", "abc.def.ghi", "attachments/file.txt"} {
 		if strings.Contains(got, forbidden) {
@@ -79,7 +79,7 @@ func TestWelcomeSuggestionPromptRequiresUserVoice(t *testing.T) {
 func TestWelcomeUserStyleSamplesUseDisplayedUserTextOnly(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "style.jsonl")
-	wrapped := "Referenced context: .deepseek-orca/attachments/example.txt\n\nInternal compose wrapper"
+	wrapped := "Referenced context: .orca/attachments/example.txt\n\nInternal compose wrapper"
 	session := agent.NewSession("")
 	session.Add(provider.Message{Role: provider.RoleUser, Content: wrapped})
 	session.Add(provider.Message{Role: provider.RoleAssistant, Content: "建议用户下一步复盘项目"})

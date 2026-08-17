@@ -8,8 +8,8 @@ import (
 
 func singleInstanceLock(app *App) *options.SingleInstanceLock {
 	// Allow contributors to run a dev build alongside the installed app.
-	// Set DEEPSEEK_ORCA_DEV=1 to skip the single-instance lock.
-	if os.Getenv("DEEPSEEK_ORCA_DEV") != "" {
+	// Set ORCA_DEV=1 to skip the single-instance lock.
+	if os.Getenv("ORCA_DEV") != "" {
 		return nil
 	}
 	return &options.SingleInstanceLock{

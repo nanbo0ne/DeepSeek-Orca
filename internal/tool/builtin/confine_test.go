@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepseek-orca/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
 )
 
 func TestWithin(t *testing.T) {

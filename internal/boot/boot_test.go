@@ -18,21 +18,21 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/tool"
-	"deepseek-orca/internal/tool/builtin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 
 	// Blank import registers the provider kind the same way cmd/deepseek-orca's main
 	// does; importing builtin above registers the built-in tools.
-	_ "deepseek-orca/internal/provider/openai"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
 )
 
 type profileTestTool struct{ name string }
@@ -788,7 +788,7 @@ base_url = "https://example.invalid"
 model = "x"
 api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
-	writeFile(t, dir, ".deepseek-orca/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
+	writeFile(t, dir, ".orca/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
 
 	ctrl, err := Build(context.Background(), Options{})
 	if err != nil {
@@ -861,7 +861,7 @@ base_url = "https://example.invalid"
 model = "x"
 api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 `)
-	writeFile(t, dir, ".deepseek-orca/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
+	writeFile(t, dir, ".orca/skills/projskill.md", "---\ndescription: a project skill\n---\nplaybook")
 
 	ctrl, err := Build(context.Background(), Options{})
 	if err != nil {
@@ -896,7 +896,7 @@ func TestBuildOmitsExcludedSkillRootsFromPromptAndRuntimeList(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	t.Chdir(dir)
 	excluded := filepath.Join(home, ".agents", "skills")
-	writeFile(t, dir, ".deepseek-orca/skills/keep.md", "---\ndescription: keep\n---\nplaybook")
+	writeFile(t, dir, ".orca/skills/keep.md", "---\ndescription: keep\n---\nplaybook")
 	writeFile(t, home, ".agents/skills/noisy.md", "---\ndescription: noisy\n---\nplaybook")
 	writeFile(t, dir, "deepseek-orca.toml", fmt.Sprintf(`
 default_model = "test-model"
@@ -967,7 +967,7 @@ api_key_env = "DEEPSEEK_ORCA_TEST_KEY_UNSET"
 	defer ctrl.Close()
 
 	sys := systemMessage(ctrl.History())
-	if !strings.Contains(sys, "You are DeepSeek-Orca, a coding agent") {
+	if !strings.Contains(sys, "You are Orca, a coding agent") {
 		t.Fatalf("normal core prompt missing:\n%s", sys)
 	}
 	if !strings.Contains(sys, "# User-configured instructions\n\nJUST THE BASE") {
@@ -1057,11 +1057,11 @@ func TestRememberPermissionRuleUsesWorkspaceRoot(t *testing.T) {
 	cwd := robustTempDir(t)
 	workspace := robustTempDir(t)
 	t.Chdir(cwd)
-	writeFile(t, cwd, "deepseek-orca.toml", `
+	writeFile(t, cwd, "orca.toml", `
 [permissions]
 allow = ["Bash(cwd*)"]
 `)
-	writeFile(t, workspace, "deepseek-orca.toml", `
+	writeFile(t, workspace, "orca.toml", `
 [permissions]
 allow = ["Bash(workspace*)"]
 `)
@@ -1069,11 +1069,11 @@ allow = ["Bash(workspace*)"]
 	const rule = "Bash(go test ./...)"
 	rememberPermissionRule(workspace, rule)
 
-	cwdCfg := config.LoadForEdit(filepath.Join(cwd, "deepseek-orca.toml"))
+	cwdCfg := config.LoadForEdit(filepath.Join(cwd, "orca.toml"))
 	if hasPermissionRule(cwdCfg.Permissions.Allow, rule) {
 		t.Fatalf("remembered rule was written to cwd config: %v", cwdCfg.Permissions.Allow)
 	}
-	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
+	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "orca.toml"))
 	if !hasPermissionRule(workspaceCfg.Permissions.Allow, rule) {
 		t.Fatalf("remembered rule missing from workspace config: %v", workspaceCfg.Permissions.Allow)
 	}
@@ -1095,7 +1095,7 @@ allow = ["Bash(user)"]
 
 	const rule = "Edit(src/app.go)"
 	res := rememberPermissionRule(workspace, rule)
-	if !res.Saved || res.Path != filepath.Join(workspace, "deepseek-orca.toml") {
+	if !res.Saved || res.Path != filepath.Join(workspace, "orca.toml") {
 		t.Fatalf("remember result = %+v, want saved to workspace config", res)
 	}
 
@@ -1103,7 +1103,7 @@ allow = ["Bash(user)"]
 	if hasPermissionRule(userCfg.Permissions.Allow, rule) {
 		t.Fatalf("workspace rule was written to user config: %v", userCfg.Permissions.Allow)
 	}
-	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
+	workspaceCfg := config.LoadForEdit(filepath.Join(workspace, "orca.toml"))
 	if !hasPermissionRule(workspaceCfg.Permissions.Allow, rule) {
 		t.Fatalf("workspace rule missing from project config: %v", workspaceCfg.Permissions.Allow)
 	}
@@ -1134,14 +1134,14 @@ allow = ["Bash(user*)"]
 	if !hasPermissionRule(userCfg.Permissions.Allow, rule) {
 		t.Fatalf("empty root should remember into SourcePath config: %v", userCfg.Permissions.Allow)
 	}
-	if _, err := os.Stat(filepath.Join(cwd, "deepseek-orca.toml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(cwd, "orca.toml")); !os.IsNotExist(err) {
 		t.Fatalf("empty root should not create cwd config when SourcePath exists, err=%v", err)
 	}
 }
 
 func TestRememberPermissionRuleSkipsRuleCoveredByExistingAllow(t *testing.T) {
 	workspace := robustTempDir(t)
-	writeFile(t, workspace, "deepseek-orca.toml", `
+	writeFile(t, workspace, "orca.toml", `
 [permissions]
 allow = ["Bash(go test:*)"]
 `)
@@ -1150,7 +1150,7 @@ allow = ["Bash(go test:*)"]
 	if res.Saved || res.CoveredBy != "Bash(go test:*)" {
 		t.Fatalf("remember result = %+v, want already covered", res)
 	}
-	cfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
+	cfg := config.LoadForEdit(filepath.Join(workspace, "orca.toml"))
 	if len(cfg.Permissions.Allow) != 1 || cfg.Permissions.Allow[0] != "Bash(go test:*)" {
 		t.Fatalf("allow rules = %v, want only existing prefix", cfg.Permissions.Allow)
 	}
@@ -1158,7 +1158,7 @@ allow = ["Bash(go test:*)"]
 
 func TestRememberPermissionRulePrunesNarrowRulesWhenSavingBroaderRule(t *testing.T) {
 	workspace := robustTempDir(t)
-	writeFile(t, workspace, "deepseek-orca.toml", `
+	writeFile(t, workspace, "orca.toml", `
 [permissions]
 allow = ["Bash(go test ./...)", "Bash(go build ./...)"]
 `)
@@ -1167,7 +1167,7 @@ allow = ["Bash(go test ./...)", "Bash(go build ./...)"]
 	if !res.Saved || res.CoveredBy != "" {
 		t.Fatalf("remember result = %+v, want saved broader rule", res)
 	}
-	cfg := config.LoadForEdit(filepath.Join(workspace, "deepseek-orca.toml"))
+	cfg := config.LoadForEdit(filepath.Join(workspace, "orca.toml"))
 	if hasPermissionRule(cfg.Permissions.Allow, "Bash(go test ./...)") {
 		t.Fatalf("narrow go test rule should be pruned: %v", cfg.Permissions.Allow)
 	}
@@ -1186,7 +1186,7 @@ func hasPermissionRule(rules []string, want string) bool {
 }
 
 // TestBuildMigratesLegacyConfigEndToEnd drives the real boot path: a v0.x
-// ~/.deepseek-orca/config.json with no v1+ config present must be imported during
+// ~/.orca/config.json with no v1+ config present must be imported during
 // Build — config written, key pinned into the env, and the user told via a notice.
 func TestBuildMigratesLegacyConfigEndToEnd(t *testing.T) {
 	home := robustTempDir(t)

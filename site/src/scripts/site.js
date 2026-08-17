@@ -1,4 +1,4 @@
-// DeepSeek-Orca site — vanilla interactions
+// O.R.C.A site — vanilla interactions
 (function () {
   const motionOK = () =>
     document.body.dataset.motion === "rich" &&
@@ -96,7 +96,7 @@
   });
 
   /* language switch */
-  const LANG_KEY = "deepseek-orca-lang";
+  const LANG_KEY = "orca-lang";
   const langBtns = Array.from(document.querySelectorAll(".lang-switch button"));
   const setLang = (l) => {
     document.body.dataset.lang = l;
@@ -144,7 +144,7 @@
   });
 
   /* refresh the Go-preview version from the published manifest between rebuilds */
-  fetch("https://dl.deepseek-orca.io/latest/latest.json", { cache: "no-cache" })
+  fetch("https://dl.orca-agent.io/latest/latest.json", { cache: "no-cache" })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => {
       const v = String((d && d.version) || "").replace(/^v/, "");

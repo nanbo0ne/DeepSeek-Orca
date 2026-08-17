@@ -7,8 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 // chooser is the in-chat multiple-choice prompt the `ask` tool raises — the CLI's

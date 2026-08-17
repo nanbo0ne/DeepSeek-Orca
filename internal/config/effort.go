@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/provider/openai"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
 )
 
 const (

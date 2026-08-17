@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 func (m *chatTUI) runLanguageSubcommand(input string) {

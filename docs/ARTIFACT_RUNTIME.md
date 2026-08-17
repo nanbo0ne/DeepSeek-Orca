@@ -1,6 +1,6 @@
 # Work 产物运行时
 
-DeepSeek-Orca 2.1.0 在助手模式和 Orca 中提供内置的 DOCX、XLSX、PPTX 与 PDF 产物运行时。实现位于 Go 内核中，不会调用用户机器上的 Python、Microsoft Office 或 LibreOffice。
+O.R.C.A 2.1.0 在助手模式和 Orca 中提供内置的 DOCX、XLSX、PPTX 与 PDF 产物运行时。实现位于 Go 内核中，不会调用用户机器上的 Python、Microsoft Office 或 LibreOffice。
 
 ## 能力边界
 

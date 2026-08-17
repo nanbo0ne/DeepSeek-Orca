@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/evidence"
-	"deepseek-orca/internal/instruction"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/instruction"
 )
 
 func TestCompleteStepRejectsMissingEvidence(t *testing.T) {

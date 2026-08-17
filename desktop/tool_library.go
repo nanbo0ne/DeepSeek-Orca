@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 type ToolLibrarySettings = config.ToolLibraryConfig

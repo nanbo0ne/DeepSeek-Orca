@@ -19,14 +19,15 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/documentextract"
-	fileenc "deepseek-orca/internal/fileutil/encoding"
-	"deepseek-orca/internal/notify"
-	"deepseek-orca/internal/proc"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/documentextract"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/notify"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/proc"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // Tools returns the default host-tool library. It intentionally excludes visual
@@ -132,7 +133,7 @@ func automationFilePath() string {
 		home, _ := os.UserHomeDir()
 		dir = home
 	}
-	return filepath.Join(dir, "deepseek-orca", "desktop-automations.json")
+	return filepath.Join(dir, product.ConfigDirName, "desktop-automations.json")
 }
 
 func (s *automationStore) ensureLoadedLocked() {
@@ -460,7 +461,7 @@ func runAutomation(ctx context.Context, item *automationItem) {
 func executeAutomation(ctx context.Context, item *automationItem) (string, error) {
 	switch item.Action {
 	case "notify":
-		err := notify.NewPlatformSender().Send(notify.Message{Title: firstNonEmpty(item.Label, "DeepSeek-Orca Automation"), Body: item.Message})
+		err := notify.NewPlatformSender().Send(notify.Message{Title: firstNonEmpty(item.Label, "O.R.C.A Automation"), Body: item.Message})
 		return "status=done action=notify result=notification_sent", err
 	case "host_command":
 		argv := nativeShellArgv("auto", item.Command)
@@ -473,7 +474,7 @@ func executeAutomation(ctx context.Context, item *automationItem) (string, error
 		if runErr != nil {
 			return result, runErr
 		}
-		_ = notify.NewPlatformSender().Send(notify.Message{Title: "DeepSeek-Orca Automation Done", Body: item.Label})
+		_ = notify.NewPlatformSender().Send(notify.Message{Title: "O.R.C.A Automation Done", Body: item.Label})
 		return result, nil
 	default:
 		return "", fmt.Errorf("unknown automation action %q", item.Action)
@@ -660,7 +661,7 @@ type threadList struct{}
 
 func (threadList) Name() string { return "thread_list" }
 func (threadList) Description() string {
-	return "List saved DeepSeek-Orca conversation threads/topics from the local session store. This manages Orca sessions, not Codex threads."
+	return "List saved Orca conversation threads/topics from the local session store. This manages Orca sessions, not Codex threads."
 }
 func (threadList) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":200}}}`)
@@ -701,7 +702,7 @@ type conversationSearch struct{ workDir string }
 
 func (conversationSearch) Name() string { return "conversation_search" }
 func (conversationSearch) Description() string {
-	return "Search older local DeepSeek-Orca conversation transcripts after context compression. Returns short snippets and locators; use conversation_read for fuller nearby transcript. Read-only."
+	return "Search older local Orca conversation transcripts after context compression. Returns short snippets and locators; use conversation_read for fuller nearby transcript. Read-only."
 }
 func (conversationSearch) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Words or phrase to search for in user/assistant conversation text."},"scope":{"type":"string","enum":["current_workspace","all"],"description":"current_workspace searches sessions for the active workspace plus legacy/global sessions; all searches every known local session directory."},"limit":{"type":"integer","minimum":1,"maximum":20}},"required":["query"]}`)
@@ -739,7 +740,7 @@ type conversationRead struct{ workDir string }
 
 func (conversationRead) Name() string { return "conversation_read" }
 func (conversationRead) Description() string {
-	return "Read a fuller nearby transcript window for a locator returned by conversation_search. Read-only and limited to local DeepSeek-Orca session files."
+	return "Read a fuller nearby transcript window for a locator returned by conversation_search. Read-only and limited to local Orca session files."
 }
 func (conversationRead) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"locator":{"type":"string","description":"A locator returned by conversation_search, formatted as path#index."},"before":{"type":"integer","minimum":0,"maximum":12},"after":{"type":"integer","minimum":0,"maximum":12}},"required":["locator"]}`)
@@ -759,7 +760,7 @@ func (c conversationRead) Execute(_ context.Context, args json.RawMessage) (stri
 		return "", err
 	}
 	if !conversationPathAllowed(path, conversationSessionDirs(c.workDir, "all")) {
-		return "", fmt.Errorf("locator is outside known DeepSeek-Orca session directories")
+		return "", fmt.Errorf("locator is outside known Orca session directories")
 	}
 	sess, err := agent.LoadSession(path)
 	if err != nil {
@@ -867,7 +868,7 @@ func conversationSessionDirs(workDir, scope string) []string {
 		base := config.MemoryUserDir()
 		for _, root := range []string{
 			filepath.Join(base, "projects"),
-			filepath.Join(base, "deepseek-orca", "independent-workspaces"),
+			filepath.Join(base, product.LegacyConfigDirName, "independent-workspaces"),
 			filepath.Join(base, "independent-workspaces"),
 		} {
 			_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
@@ -1425,7 +1426,7 @@ func (notifyUser) Execute(_ context.Context, args json.RawMessage) (string, erro
 		return "", err
 	}
 	if p.Title == "" {
-		p.Title = "DeepSeek-Orca"
+		p.Title = "O.R.C.A"
 	}
 	if err := notify.NewPlatformSender().Send(notify.Message{Title: p.Title, Body: p.Body}); err != nil {
 		return "", err
@@ -1495,7 +1496,7 @@ func runWebSearch(ctx context.Context, query string, limit int) ([]searchResult,
 			errs = append(errs, source.Name+": "+err.Error())
 			continue
 		}
-		req.Header.Set("User-Agent", "Mozilla/5.0 DeepSeek-Orca")
+		req.Header.Set("User-Agent", "Mozilla/5.0 O.R.C.A")
 		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.6")
 		resp, err := client.Do(req)
 		if err != nil {

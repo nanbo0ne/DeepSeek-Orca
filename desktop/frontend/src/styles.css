@@ -1,5 +1,5 @@
-﻿/*
- * DeepSeek-Orca desktop — single-column, developer-dense, terminal-flavored chat UI.
+/*
+ * O.R.C.A desktop: single-column, developer-dense, terminal-flavored chat UI.
  *
  * Multi-platform notes:
  *  - System font stack only; no web-font fetches (offline-first, consistent).
@@ -195,7 +195,7 @@
     "Helvetica Neue", Arial, sans-serif;
 }
 
-/* DeepSeek-Orca brand refresh: light, blue, low-shadow product shell. */
+/* O.R.C.A brand refresh: light, blue, low-shadow product shell. */
 :root,
 :root[data-theme="light"],
 :root[data-theme-style] {
@@ -13507,6 +13507,88 @@ a[href] {
 }
 .onboarding__privacy {
   opacity: 0.8;
+}
+.onboarding__choices {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 4px;
+}
+.onboarding__choice {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.onboarding__choice:hover {
+  border-color: var(--accent);
+  background: var(--bg-elev);
+}
+.onboarding__choice span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.onboarding__choice small {
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.onboarding__links {
+  flex-wrap: wrap;
+}
+.local-download-status {
+  display: grid;
+  gap: 4px;
+  width: min(220px, 34vw);
+  min-width: 150px;
+}
+.local-download-status__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--fg-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.local-download-status__meta span:first-child {
+  color: var(--fg);
+}
+.local-download-status__bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border-soft);
+}
+.local-download-status__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 180ms ease;
+}
+.local-download-status__controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+@media (max-width: 680px) {
+  .onboarding__card {
+    width: min(440px, calc(100vw - 24px));
+    padding: 24px 20px 20px;
+  }
+  .local-download-status {
+    width: min(190px, 42vw);
+    min-width: 120px;
+  }
 }
 .onboarding__skip {
   background: none;

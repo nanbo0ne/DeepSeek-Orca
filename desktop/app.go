@@ -26,21 +26,23 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/billing"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/fileref"
-	fileenc "deepseek-orca/internal/fileutil/encoding"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/mcpdiag"
-	"deepseek-orca/internal/memory"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/desktop/computeruse"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileref"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/localai"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/mcpdiag"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 // eventChannel is the Wails runtime event name the frontend subscribes to for the
@@ -53,7 +55,7 @@ const runtimeSwitchEventChannel = "runtime:switch-progress"
 // singleInstanceID is used by Wails to route a second desktop launch back to the
 // running instance. Keep it stable across releases so launcher/Dock/taskbar
 // reopen behavior remains predictable on every platform.
-const singleInstanceID = "com.deepseek-orca.desktop"
+const singleInstanceID = product.SingleInstanceID
 
 // App is the Wails-bound application object: the desktop frontend's command
 // surface. Its exported methods (Submit/Cancel/Approve/…) are generated into JS
@@ -107,6 +109,10 @@ type App struct {
 	visionProbeMu                sync.Mutex
 	visionProbeRunMu             sync.Mutex
 	visionProbing                map[string]bool
+	localAIMu                    sync.Mutex
+	localAI                      *localai.Manager
+	localServer                  *localai.RuntimeServer
+	computerUse                  *computeruse.Service
 }
 
 type balanceCacheEntry struct {
@@ -235,13 +241,13 @@ func (a *App) ensureMediaTokenStore() *mediaTokenStore {
 }
 
 // workspaceMediaMiddleware returns an HTTP middleware that intercepts
-// /__deepseek-orca_workspace_media/{token}/{filename} requests and serves the
+// /__orca_workspace_media/{token}/{filename} requests and serves the
 // corresponding workspace file. All other paths pass through to the Wails
 // default asset handler unchanged.
 func (a *App) workspaceMediaMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			prefix := "/__deepseek-orca_workspace_media/"
+			prefix := "/__orca_workspace_media/"
 			if !strings.HasPrefix(r.URL.Path, prefix) {
 				next.ServeHTTP(w, r)
 				return
@@ -297,6 +303,8 @@ func NewApp() *App {
 		sessionGate:      newSessionExecutionGate(),
 	}
 	a.conversationBroker = NewConversationBroker(a)
+	a.localServer = localai.NewRuntimeServer(a.emitLocalRuntimeStatus)
+	a.computerUse = computeruse.NewService(computeruse.NewPlatformBackend(), a.onComputerUseEvent)
 	return a
 }
 
@@ -670,6 +678,12 @@ func (a *App) snapshotAllTabs() {
 // shutdown snapshots all tabs, saves the final window geometry, and closes tabs.
 func (a *App) shutdown(context.Context) {
 	a.stopDesktopBotGateway()
+	if a.computerUse != nil {
+		_ = a.computerUse.Stop("application shutdown")
+	}
+	if a.localServer != nil {
+		_ = a.localServer.Stop()
+	}
 	a.stopTray()
 	// Save window geometry synchronously from Go so it's persisted even if the
 	// frontend's beforeunload promise hasn't resolved yet.
@@ -2860,7 +2874,7 @@ func (a *App) SetConversationModeForTab(tabID string, mode string) (retErr error
 	success := false
 	defer func() { a.finishTabRuntimeReconfigure(tab, generation, success) }()
 	emitPhase(RuntimeSwitchBuilding, 35, fromMode, "")
-	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
+	newCtrl, err := a.buildController(a.bootContext(), boot.Options{
 		Model:                   tab.model,
 		RequireKey:              false,
 		Sink:                    tab.sink,
@@ -2972,7 +2986,7 @@ type CommandInfo struct {
 }
 
 // Commands lists the slash commands available this session — built-in actions,
-// custom commands (.deepseek-orca/commands), and MCP prompts — for the composer's "/"
+// custom commands (.orca/commands), and MCP prompts — for the composer's "/"
 // autocomplete menu.
 func (a *App) Commands() []CommandInfo {
 	out := []CommandInfo{
@@ -4257,7 +4271,7 @@ func (a *App) SetModelForTab(tabID, name string) error {
 		carried = oldCtrl.History()
 	}
 
-	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
+	newCtrl, err := a.buildController(a.bootContext(), boot.Options{
 		Model:                   name,
 		RequireKey:              false,
 		Sink:                    tab.sink,
@@ -4377,7 +4391,7 @@ func (a *App) SetEffortForTab(tabID, level string) error {
 		_ = oldCtrl.Snapshot()
 		carried = oldCtrl.History()
 	}
-	newCtrl, err := boot.Build(a.bootContext(), boot.Options{
+	newCtrl, err := a.buildController(a.bootContext(), boot.Options{
 		Model:                   tab.model,
 		RequireKey:              false,
 		Sink:                    tab.sink,
@@ -4730,7 +4744,7 @@ func (a *App) ReadFile(rel string) FilePreview {
 		token := a.ensureMediaTokenStore().create(path, info.Name(), mime, kind, info.Size(), info.ModTime())
 		out.Kind = kind
 		out.Mime = mime
-		out.URL = "/__deepseek-orca_workspace_media/" + token + "/" + url.PathEscape(info.Name())
+		out.URL = "/__orca_workspace_media/" + token + "/" + url.PathEscape(info.Name())
 		return out
 	}
 	f, err := os.Open(path)
@@ -4947,7 +4961,7 @@ func (a *App) withActiveWorkspaceDo(fn func() error) error {
 }
 
 // SavePastedImage stores a browser clipboard image data URL under the active
-// tab's workspace .deepseek-orca/attachments and returns the relative @-reference path.
+// tab's workspace .orca/attachments and returns the relative @-reference path.
 func (a *App) SavePastedImage(dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveImageDataURL(dataURL)
@@ -4955,7 +4969,7 @@ func (a *App) SavePastedImage(dataURL string) (string, error) {
 }
 
 // SaveClipboardImage reads the native OS clipboard image under the active tab's
-// workspace .deepseek-orca/attachments and returns the relative @-reference path.
+// workspace .orca/attachments and returns the relative @-reference path.
 func (a *App) SaveClipboardImage() (string, error) {
 	return a.withActiveWorkspace(control.SaveClipboardImage)
 }
@@ -4969,7 +4983,7 @@ func (a *App) ReadClipboardFilePaths() ([]string, error) {
 
 // SavePastedFile stores a dropped non-image file (the browser exposes its bytes
 // as a data URL but not a real path) under the active tab's workspace
-// .deepseek-orca/attachments and returns the relative @-reference path.
+// .orca/attachments and returns the relative @-reference path.
 func (a *App) SavePastedFile(name, dataURL string) (string, error) {
 	return a.withActiveWorkspace(func() (string, error) {
 		return control.SaveAttachmentDataURL(name, dataURL)
@@ -5025,7 +5039,7 @@ func (a *App) SaveExportFile(path, payload string, base64Encoded bool) error {
 func safeExportFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "deepseek-orca-session.md"
+		return "orca-session.md"
 	}
 	return filepath.Base(name)
 }
@@ -5056,7 +5070,7 @@ func (a *App) AttachmentDataURL(path string) (string, error) {
 
 // DroppedItem is one OS-dropped file resolved into a composer context entry: an
 // in-tree file becomes a workspace @reference (read in place, no copy), while an
-// image or out-of-tree file is copied into .deepseek-orca/attachments.
+// image or out-of-tree file is copied into .orca/attachments.
 type DroppedItem struct {
 	Kind       string `json:"kind"` // "workspace" | "attachment"
 	Path       string `json:"path"`
@@ -5067,7 +5081,7 @@ type DroppedItem struct {
 // AttachDropped turns an absolute path from the native file-drop bridge into a
 // composer context entry. Images are stored as attachments so the chip shows a
 // thumbnail; other in-workspace files are referenced relatively (no copy); files
-// outside the workspace are copied into .deepseek-orca/attachments.
+// outside the workspace are copied into .orca/attachments.
 func (a *App) AttachDropped(path string) (DroppedItem, error) {
 	var item DroppedItem
 	err := a.withActiveWorkspaceDo(func() error {
@@ -5172,7 +5186,7 @@ type MemoryView struct {
 // writableScopes are the quick-add targets the panel offers, broad → specific.
 var writableScopes = []memory.Scope{memory.ScopeUser, memory.ScopeProject, memory.ScopeLocal}
 
-// Memory returns the loaded memory for the panel: the DEEPSEEK_ORCA.md hierarchy, the
+// Memory returns the loaded memory for the panel: the ORCA.md hierarchy, the
 // saved auto-memories, and the writable scopes. Read-only; mutations go through
 // Remember / SaveDoc.
 func (a *App) Memory() MemoryView {
@@ -5258,13 +5272,6 @@ func parseScope(s string) memory.Scope {
 	}
 }
 
-// onboardingKeyEnv is the default provider (deepseek) key from config.Default().
-const onboardingKeyEnv = "DEEPSEEK_API_KEY"
-
-// onboardingBalanceURL doubles as a zero-token connectivity + auth probe:
-// billing.FetchWithClient surfaces 401/403 for a bad key.
-const onboardingBalanceURL = "https://api.deepseek.com/user/balance"
-
 // NativeConfirmRequest is the payload for ConfirmAction — a native OS confirmation
 // dialog that replaces web-style confirm() for destructive or important actions.
 type NativeConfirmRequest struct {
@@ -5325,34 +5332,4 @@ func (a *App) ConfirmAction(req NativeConfirmRequest) (bool, error) {
 		return false, err
 	}
 	return result == confirm, nil
-}
-
-func (a *App) NeedsOnboarding() bool {
-	return strings.TrimSpace(os.Getenv(onboardingKeyEnv)) == ""
-}
-
-// ConnectKey validates apiKey against the balance endpoint, persists it to the
-// global credentials file, and rebuilds the controller so the new key takes effect.
-func (a *App) ConnectKey(apiKey string) error {
-	apiKey = strings.TrimSpace(apiKey)
-	if apiKey == "" {
-		return fmt.Errorf("key is required")
-	}
-	ctx, cancel := context.WithTimeout(a.ctx, 8*time.Second)
-	defer cancel()
-	if _, err := billing.FetchWithClient(ctx, nil, onboardingBalanceURL, apiKey); err != nil {
-		return fmt.Errorf("validate: %w", err)
-	}
-	if err := upsertDotEnv(onboardingKeyEnv, apiKey); err != nil {
-		return fmt.Errorf("save: %w", err)
-	}
-	if err := a.rebuild(); err != nil {
-		// Key is persisted; surface the failure but let the next rebuild load it.
-		a.mu.Lock()
-		if tab := a.activeTabLocked(); tab != nil {
-			tab.StartupErr = err.Error()
-		}
-		a.mu.Unlock()
-	}
-	return nil
 }

@@ -17,8 +17,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 
 	"golang.org/x/net/websocket"
 )
@@ -274,8 +274,8 @@ func (a *adapter) connectGateway(ctx context.Context, token string) error {
 		Shard:   [2]int{0, 1},
 		Properties: properties{
 			OS:      "windows",
-			Browser: "deepseek-orca",
-			Device:  "deepseek-orca-bot",
+			Browser: "orca",
+			Device:  "orca-bot",
 		},
 	}
 	identifyJSON, _ := json.Marshal(identify)

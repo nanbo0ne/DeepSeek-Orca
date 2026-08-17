@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/hook"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/hook"
 )
 
 func renderHooks(width int, hooks []hook.ResolvedHook, trusted bool, projectDefines bool) string {
@@ -28,9 +28,9 @@ func renderHooks(width int, hooks []hook.ResolvedHook, trusted bool, projectDefi
 	case projectDefines && !trusted:
 		b.WriteString(viewHint(viewCompactText("project hooks are not trusted; run /hooks trust to enable shell-command hooks", viewBudget(width, 2))))
 	case trusted:
-		b.WriteString(viewHint(viewCompactText("project trusted · config: project .deepseek-orca/settings.json + global ~/.deepseek-orca/settings.json", viewBudget(width, 2))))
+		b.WriteString(viewHint(viewCompactText("project trusted · config: project .orca/settings.json + global ~/.orca/settings.json", viewBudget(width, 2))))
 	default:
-		b.WriteString(viewHint(viewCompactText("project not trusted · config: project .deepseek-orca/settings.json + global ~/.deepseek-orca/settings.json", viewBudget(width, 2))))
+		b.WriteString(viewHint(viewCompactText("project not trusted · config: project .orca/settings.json + global ~/.orca/settings.json", viewBudget(width, 2))))
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

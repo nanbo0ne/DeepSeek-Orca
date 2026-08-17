@@ -1,4 +1,4 @@
-module deepseek-orca/desktop
+module github.com/nanbo0ne/O.R.C.A-for-Windows/desktop
 
 go 1.25.0
 
@@ -6,15 +6,17 @@ toolchain go1.26.4
 
 // The desktop shell is a nested module so its CGO/WebKit build never touches the
 // CLI's CGO_ENABLED=0 single-static-binary guarantee. The replace lets it import
-// the same deepseek-orca/internal/* kernel (the import path stays under deepseek-orca/, so
+// the same orca/internal/* kernel (the import path stays under orca/, so
 // the internal rule still permits it). `go mod tidy` here resolves Wails + its
 // transitive deps; the parent module's go build/test ./... skips this directory.
-require deepseek-orca v0.0.0
+require github.com/nanbo0ne/O.R.C.A-for-Windows v0.0.0
 
 require (
 	aead.dev/minisign v0.3.0
 	fyne.io/systray v1.12.2
+	github.com/auuunya/go-element v1.0.1
 	github.com/godbus/dbus/v5 v5.2.2
+	github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237
 	github.com/minio/selfupdate v0.6.0
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/mod v0.37.0
@@ -27,16 +29,19 @@ require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/gen2brain/shm v0.0.0-20230802011745-f2460f5984f7 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
+	github.com/jezek/xgb v1.1.0 // indirect
 	github.com/labstack/echo/v4 v4.15.2 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
 	github.com/leaanthony/gosod v1.0.4 // indirect
 	github.com/leaanthony/slicer v1.6.0 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
@@ -54,4 +59,4 @@ require (
 	golang.org/x/net v0.55.0 // indirect
 )
 
-replace deepseek-orca => ../
+replace github.com/nanbo0ne/O.R.C.A-for-Windows => ../

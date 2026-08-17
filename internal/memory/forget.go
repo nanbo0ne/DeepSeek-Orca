@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // forgetTool deletes a saved memory the model judges wrong or stale. Like

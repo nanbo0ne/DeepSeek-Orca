@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
 )
 
 // errActiveSession is returned when a delete targets the session in use.
@@ -362,7 +362,14 @@ func validateSessionPath(dir, sessionPath string) (string, string, error) {
 		}
 		realPath, err := filepath.EvalSymlinks(absPath)
 		if err != nil {
-			return "", "", err
+			// Some managed Windows environments deny symlink inspection even for
+			// ordinary files. The lexical containment check above still applies;
+			// keep the path usable when the OS refuses this optional probe.
+			if errors.Is(err, os.ErrPermission) {
+				realPath = absPath
+			} else {
+				return "", "", err
+			}
 		}
 		rel, err := filepath.Rel(realDir, realPath)
 		if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." || filepath.IsAbs(rel) {
@@ -411,7 +418,11 @@ func validateTrashedSessionPath(dir, sessionPath string) (string, string, string
 		}
 		realPath, err := filepath.EvalSymlinks(absPath)
 		if err != nil {
-			return "", "", "", err
+			if errors.Is(err, os.ErrPermission) {
+				realPath = absPath
+			} else {
+				return "", "", "", err
+			}
 		}
 		rel, err := filepath.Rel(realRoot, realPath)
 		if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." || filepath.IsAbs(rel) {

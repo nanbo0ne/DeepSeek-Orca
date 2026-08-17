@@ -1,4 +1,4 @@
-// Package checkpoint is deepseek-orca's snapshot-based edit safety net. Before a writer
+// Package checkpoint is orca's snapshot-based edit safety net. Before a writer
 // tool changes a file, the agent records the file's pre-edit content here, keyed
 // to the current user turn; a frontend can then rewind the workspace (and, via the
 // controller, the conversation) to an earlier turn.
@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/diff"
-	fileenc "deepseek-orca/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
 )
 
 // FileSnap is one file's state at the moment it was first touched in a turn.

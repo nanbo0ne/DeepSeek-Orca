@@ -10,9 +10,10 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/frontmatter"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/frontmatter"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 const (
@@ -99,9 +100,9 @@ func (t *installSourceTool) skillInstallRoot(scope string) (string, error) {
 		if t.home == "" {
 			return "", newErr(ErrSourceUnreadable, "global skill install requires a home directory")
 		}
-		return filepath.Join(t.home, ".deepseek-orca", skill.SkillsDirname), nil
+		return filepath.Join(t.home, product.ProjectStateDir, skill.SkillsDirname), nil
 	}
-	return filepath.Join(t.root, ".deepseek-orca", skill.SkillsDirname), nil
+	return filepath.Join(t.root, product.ProjectStateDir, skill.SkillsDirname), nil
 }
 
 // skillCanonicalPath computes the canonical install destination:
@@ -123,7 +124,7 @@ func (t *installSourceTool) skillCanonicalPath(name, scope string) (string, erro
 func (t *installSourceTool) verifySkill(scope, name string, act *action) error {
 	custom := []string(nil)
 	if scope == "project" {
-		cfg := config.LoadForEdit(filepath.Join(t.root, "deepseek-orca.toml"))
+		cfg := config.LoadForEdit(filepath.Join(t.root, product.ProjectConfigName))
 		custom = cfg.SkillCustomPaths()
 	} else {
 		cfg := config.LoadForEdit(t.configPath(scope))

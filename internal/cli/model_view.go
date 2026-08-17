@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 func renderModels(width int, refs []string, active string) string {

@@ -1,6 +1,6 @@
 # Windows Code-Signing Policy
 
-DeepSeek-Orca's official Windows application and NSIS installer are built from
+O.R.C.A's official Windows application and NSIS installer are built from
 the tagged source in this public repository and signed through SignPath.
 
 Free code signing is provided by [SignPath.io](https://signpath.io/), with a
@@ -11,9 +11,9 @@ maintainers or GitHub Actions runners.
 
 ## Signed Artifacts
 
-- `deepseek-orca-desktop.exe`, distributed inside the Windows portable ZIP and
+- `Orca.exe`, distributed inside the Windows portable ZIP and
   installed by the NSIS package.
-- `DeepSeek-Orca-windows-amd64-installer.exe`, distributed from the official
+- `O.R.C.A-for-Windows-windows-amd64-installer.exe`, distributed from the official
   GitHub Release.
 
 The release workflow signs the application first, packages that signed binary,
@@ -57,12 +57,12 @@ submitted under the release policy.
 On Windows, a downloaded release can be checked with:
 
 ```powershell
-Get-AuthenticodeSignature .\DeepSeek-Orca-windows-amd64-installer.exe |
+Get-AuthenticodeSignature .\O.R.C.A-for-Windows-windows-amd64-installer.exe |
   Format-List Status,StatusMessage,SignerCertificate,TimeStamperCertificate
 ```
 
 `Status` must be `Valid`. Downloads should come only from
-<https://github.com/nanbo0ne/DeepSeek-Orca/releases>.
+<https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases>.
 
 ## Reporting Problems
 

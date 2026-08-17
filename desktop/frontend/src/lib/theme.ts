@@ -1,4 +1,4 @@
-// theme.ts keeps the desktop shell on the fixed DeepSeek-Orca light product
+// theme.ts keeps the desktop shell on the fixed O.R.C.A light product
 // theme. Older versions exposed multiple modes/styles, so the helpers still
 // accept legacy inputs but normalize them to the single supported appearance.
 //
@@ -39,8 +39,8 @@ const LEGACY_STYLE_MAP: Record<string, ThemeStyle> = {
 const DEFAULT_THEME_STYLE: ThemeStyle = "slate";
 const DEFAULT_THEME: Theme = "light";
 
-const THEME_KEY = "deepseek-orca-theme";
-const STYLE_KEY = "deepseek-orca-theme-style";
+const THEME_KEY = "orca-theme";
+const STYLE_KEY = "orca-theme-style";
 let currentTheme: Theme = DEFAULT_THEME;
 let currentThemeStyle: ThemeStyle = DEFAULT_THEME_STYLE;
 
@@ -139,7 +139,7 @@ export function initTheme(): void {
   applyTheme(theme, getThemeStyle(theme), { persist: false });
 
   if (typeof window !== "undefined" && window.runtime) {
-    // Light shell: matches the DeepSeek-Orca blue-white surface.
+    // Light shell: matches the O.R.C.A blue-white surface.
     WindowSetBackgroundColour(246, 250, 255, 255);
   }
 }

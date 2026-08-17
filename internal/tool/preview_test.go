@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"deepseek-orca/internal/diff"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
 )
 
 type fakeWriter struct {

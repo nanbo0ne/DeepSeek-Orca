@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"deepseek-orca/internal/fileutil"
-	"deepseek-orca/internal/mcpdiag"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/mcpdiag"
 )
 
 // mcpJSONFile is the project-root file Claude Code calls .mcp.json. DeepSeek-Orca reads
@@ -70,7 +70,7 @@ func specsToEntries(specs map[string]mcpServerSpec, skip map[string]bool) []Plug
 	return entries
 }
 
-// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.deepseek-orca/config.json.
+// legacyConfigPath is the v0.x (TypeScript line) config file, ~/.orca/config.json.
 func legacyConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -79,7 +79,7 @@ func legacyConfigPath() string {
 	return filepath.Join(home, ".deepseek-orca", "config.json")
 }
 
-// loadLegacyMCP reads the v0.x ~/.deepseek-orca/config.json and returns its enabled
+// loadLegacyMCP reads the v0.x ~/.orca/config.json and returns its enabled
 // MCP servers as PluginEntry values — both the canonical mcpServers map and the
 // older `mcp` string list (mcpServers wins on a name collision, matching v0.x;
 // servers listed in mcpDisabled are skipped) — so upgrading from v0.x keeps MCP

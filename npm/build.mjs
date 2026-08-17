@@ -30,9 +30,9 @@ mkdirSync(STAGE, { recursive: true });
 
 const subPackages = [];
 for (const t of TARGETS) {
-  const name = `@deepseek-orca/cli-${t.node}`;
+  const name = `@orca-agent/cli-${t.node}`;
   const dir = join(STAGE, `cli-${t.node}`);
-  const exe = t.goos === "windows" ? "deepseek-orca.exe" : "deepseek-orca";
+  const exe = t.goos === "windows" ? "orca.exe" : "orca";
   mkdirSync(join(dir, "bin"), { recursive: true });
 
   console.log(`build ${t.goos}/${t.goarch} -> ${name}`);
@@ -45,7 +45,7 @@ for (const t of TARGETS) {
       `-s -w -X main.version=${tag}`,
       "-o",
       join(dir, "bin", exe),
-      "./cmd/deepseek-orca",
+      "./cmd/orca",
     ],
     {
       cwd: ROOT,
@@ -60,14 +60,14 @@ for (const t of TARGETS) {
       {
         name,
         version,
-        description: `deepseek-orca prebuilt binary for ${t.node}.`,
+        description: `O.R.C.A prebuilt binary for ${t.node}.`,
         os: [t.goos === "windows" ? "win32" : t.goos],
         cpu: [t.goarch === "amd64" ? "x64" : "arm64"],
         files: ["bin/"],
         license: "MIT",
         repository: {
           type: "git",
-          url: "git+https://github.com/nanbo0ne/DeepSeek-Orca.git",
+          url: "git+https://github.com/nanbo0ne/O.R.C.A-for-Windows.git",
         },
       },
       null,
@@ -77,13 +77,13 @@ for (const t of TARGETS) {
   subPackages.push({ name, dir });
 }
 
-const mainDir = join(STAGE, "deepseek-orca");
+const mainDir = join(STAGE, "orca-agent");
 mkdirSync(mainDir, { recursive: true });
-cpSync(join(HERE, "deepseek-orca", "bin"), join(mainDir, "bin"), { recursive: true });
+cpSync(join(HERE, "orca-agent", "bin"), join(mainDir, "bin"), { recursive: true });
 cpSync(join(ROOT, "README.md"), join(mainDir, "README.md"));
 
 const mainPkg = JSON.parse(
-  readFileSync(join(HERE, "deepseek-orca", "package.json"), "utf8"),
+  readFileSync(join(HERE, "orca-agent", "package.json"), "utf8"),
 );
 mainPkg.version = version;
 for (const key of Object.keys(mainPkg.optionalDependencies)) {
@@ -103,7 +103,7 @@ if (!publish) {
 // `-canary.` build is the opt-in tester channel (`canary`); everything else — the
 // 1.x line and rc prereleases — ships under `next`. Only a `--tag canary` publish
 // moves canary, so `next`/`latest` users never resolve a canary. Promote a 1.x
-// stable to default with a manual `npm dist-tag add deepseek-orca@<ver> latest`.
+// stable to default with a manual `npm dist-tag add orca-agent@<ver> latest`.
 const distTag = version.includes("-canary.")
   ? "canary"
   : version.startsWith("0.") && !version.includes("-")
@@ -115,5 +115,5 @@ for (const sub of subPackages) {
   console.log(`publish ${sub.name}@${version} (${distTag})`);
   execFileSync("npm", publishArgs, { cwd: sub.dir, stdio: "inherit" });
 }
-console.log(`publish deepseek-orca@${version} (${distTag})`);
+console.log(`publish orca-agent@${version} (${distTag})`);
 execFileSync("npm", publishArgs, { cwd: mainDir, stdio: "inherit" });

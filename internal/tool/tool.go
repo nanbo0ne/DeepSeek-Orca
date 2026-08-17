@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"deepseek-orca/internal/diff"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Tool is a capability the model can invoke.

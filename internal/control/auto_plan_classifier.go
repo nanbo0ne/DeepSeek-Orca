@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"deepseek-orca/internal/nilutil"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 const autoPlanClassifierPrompt = `You classify whether a coding-agent user request should first enter read-only planning mode.

@@ -1,0 +1,52 @@
+# O.R.C.A configuration example.
+# Resolution: flags > ./orca.toml > user O.R.C.A config > built-in defaults.
+
+config_version = 11
+language = "zh"
+default_model = "deepseek/deepseek-v4-flash"
+
+# Each provider owns its endpoint, credential slot, and fully qualified models.
+# Subscription plans must use a separate provider entry and key environment variable.
+[[providers]]
+name = "deepseek"
+kind = "openai"
+base_url = "https://api.deepseek.com"
+api_key_env = "DEEPSEEK_API_KEY"
+models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+default = "deepseek-v4-flash"
+context_window = 1000000
+no_proxy = true
+
+# Custom OpenAI-compatible provider example.
+#[[providers]]
+#name = "my-provider"
+#kind = "openai"
+#base_url = "https://example.com/v1"
+#api_key_env = "MY_PROVIDER_API_KEY"
+#models = ["model-name"]
+#default = "model-name"
+
+[agent]
+max_steps = 120
+planner_model = ""
+subagent_model = ""
+
+[desktop]
+conversation_mode = "assistant"
+computer_control_model = ""
+computer_use_full_access_approved = false
+
+[local_ai]
+# Windows-only optional llama.cpp runtime and model library.
+models_dir = ""
+idle_unload_minutes = 10
+vram_reserve_mib = 0
+
+[permissions]
+mode = "ask"
+
+[codegraph]
+enabled = true
+
+# Project instructions: ORCA.md
+# Project assets: .orca/skills, .orca/commands, .orca/output-styles

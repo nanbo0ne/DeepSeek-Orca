@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"deepseek-orca/internal/diff"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // TestWritersImplementPreviewer locks in that every file-writer exposes the

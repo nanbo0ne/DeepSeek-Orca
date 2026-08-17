@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 type savedAccount struct {
@@ -56,7 +56,7 @@ func savedAccountPath(accountID string) string {
 func loadSavedAccount(accountID string) (savedAccount, error) {
 	path := savedAccountPath(accountID)
 	if path == "" {
-		return savedAccount{}, fmt.Errorf("deepseek-orca user config dir is unavailable")
+		return savedAccount{}, fmt.Errorf("O.R.C.A user config dir is unavailable")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -77,7 +77,7 @@ func loadAnySavedAccount() (savedAccount, error) {
 func loadAnySavedAccountWithID() (string, savedAccount, error) {
 	root := config.MemoryUserDir()
 	if root == "" {
-		return "", savedAccount{}, fmt.Errorf("deepseek-orca user config dir is unavailable")
+		return "", savedAccount{}, fmt.Errorf("O.R.C.A user config dir is unavailable")
 	}
 	entries, err := os.ReadDir(weixinAccountDir(root))
 	if err != nil {
@@ -112,7 +112,7 @@ func HasSavedAccount(accountID string) bool {
 func saveAccount(accountID string, account savedAccount) error {
 	path := savedAccountPath(accountID)
 	if path == "" {
-		return fmt.Errorf("deepseek-orca user config dir is unavailable")
+		return fmt.Errorf("O.R.C.A user config dir is unavailable")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err

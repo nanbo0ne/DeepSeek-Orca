@@ -16,8 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 const (
@@ -60,9 +61,9 @@ func DefaultPath() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, ".deepseek-orca")
+		dir = filepath.Join(home, "."+product.ConfigDirName)
 	} else {
-		dir = filepath.Join(dir, "deepseek-orca")
+		dir = filepath.Join(dir, product.ConfigDirName)
 	}
 	return filepath.Join(dir, "vision-capabilities.json")
 }

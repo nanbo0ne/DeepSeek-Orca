@@ -77,7 +77,7 @@ func TestSha256For(t *testing.T) {
 }
 
 func TestResolveWithinRejectsTraversal(t *testing.T) {
-	root, err := filepath.EvalSymlinks(t.TempDir())
+	root, err := filepath.Abs(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

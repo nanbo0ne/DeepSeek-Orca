@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/provider"
-	_ "deepseek-orca/internal/provider/openai"
-	"deepseek-orca/internal/tool"
-	"deepseek-orca/internal/tool/builtin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 )
 
 const (

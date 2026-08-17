@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/command"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/command"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // Snapshot bundles every capability surface so a front-end can populate its
@@ -255,7 +255,7 @@ func Resources(host *plugin.Host) []ResourceInfo {
 	return out
 }
 
-// CommandInfo is one custom slash command loaded from .deepseek-orca/commands. Name
+// CommandInfo is one custom slash command loaded from .orca/commands. Name
 // has no leading slash (e.g. "review" or "git:commit").
 type CommandInfo struct {
 	Name        string `json:"name"`

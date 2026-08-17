@@ -30,7 +30,7 @@ func TestResolveRefsVisionToggleAndWorkspaceSnapshot(t *testing.T) {
 	if err != nil || len(errs) != 0 || len(images) != 1 {
 		t.Fatalf("enabled block=%q images=%+v errs=%v err=%v", block, images, errs, err)
 	}
-	if !strings.HasPrefix(images[0].Path, ".deepseek-orca/attachments/") {
+	if !strings.HasPrefix(images[0].Path, ".orca/attachments/") {
 		t.Fatalf("workspace image was not snapshotted: %+v", images[0])
 	}
 	hydrated, err := LoadImageContent(context.Background(), root, images[0])
@@ -90,9 +90,9 @@ func TestClassifyRef(t *testing.T) {
 	files := map[string]bool{
 		"src/main.go": true,
 		"README.md":   true,
-		".deepseek-orca/attachments/clipboard-20260601-010203.000000.png": true,
-		".deepseek-orca/attachments/clipboard-20260601-010203.000000.yml": true,
-		".deepseek-orca/attachments/clipboard-20260601-010203.000000.zip": true,
+		".orca/attachments/clipboard-20260601-010203.000000.png": true,
+		".orca/attachments/clipboard-20260601-010203.000000.yml": true,
+		".orca/attachments/clipboard-20260601-010203.000000.zip": true,
 	}
 	exists := func(p string) bool { return files[p] }
 
@@ -104,9 +104,9 @@ func TestClassifyRef(t *testing.T) {
 		{"docs:doc://style", true, refResource}, // known server + uri
 		{"src/main.go", true, refFile},          // existing file
 		{"README.md", true, refFile},            // existing file
-		{".deepseek-orca/attachments/clipboard-20260601-010203.000000.png", true, refImage},
-		{".deepseek-orca/attachments/clipboard-20260601-010203.000000.yml", true, refFile},
-		{".deepseek-orca/attachments/clipboard-20260601-010203.000000.zip", true, refFile},
+		{".orca/attachments/clipboard-20260601-010203.000000.png", true, refImage},
+		{".orca/attachments/clipboard-20260601-010203.000000.yml", true, refFile},
+		{".orca/attachments/clipboard-20260601-010203.000000.zip", true, refFile},
 		{"ghost:issue://1", false, 0}, // unknown server, no such file
 		{"missing.go", false, 0},      // nonexistent path → not a ref
 		{"docs:", false, 0},           // empty uri → not a resource, no file
@@ -125,13 +125,13 @@ func TestClassifyRef(t *testing.T) {
 
 func TestResolveRefsAttachmentKinds(t *testing.T) {
 	temp := t.TempDir()
-	attachmentsDir := filepath.Join(temp, ".deepseek-orca", "attachments")
+	attachmentsDir := filepath.Join(temp, ".orca", "attachments")
 	if err := os.MkdirAll(attachmentsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ymlRef := filepath.ToSlash(".deepseek-orca/attachments/config.yml")
-	zipRef := filepath.ToSlash(".deepseek-orca/attachments/archive.zip")
-	pngRef := filepath.ToSlash(".deepseek-orca/attachments/shot.png")
+	ymlRef := filepath.ToSlash(".orca/attachments/config.yml")
+	zipRef := filepath.ToSlash(".orca/attachments/archive.zip")
+	pngRef := filepath.ToSlash(".orca/attachments/shot.png")
 	if err := os.WriteFile(filepath.Join(temp, filepath.FromSlash(ymlRef)), []byte("name: deepseek-orca\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

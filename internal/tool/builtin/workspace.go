@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // Workspace builds a built-in tool set bound to a working directory, so several

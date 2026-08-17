@@ -1,7 +1,7 @@
-// Command deepseek-orca-desktop is the Wails shell around the DeepSeek-Orca kernel: a native
+// Command Orca is the Wails shell around the O.R.C.A kernel: a native
 // window hosting a webview frontend, with the Go-side control.Controller bound
 // directly to the UI (no HTTP hop — bindings in, runtime events out). It lives in
-// a nested module (deepseek-orca/desktop) so the CGO/WebKit desktop build never touches
+// a nested module (github.com/nanbo0ne/O.R.C.A-for-Windows/desktop) so the CGO/WebKit desktop build never touches
 // the CLI's CGO_ENABLED=0 single-static-binary guarantee, while still importing
 // the same internal/* kernel.
 package main
@@ -20,10 +20,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
 	// Blank imports wire compile-time built-ins into their registries, exactly as
-	// cmd/deepseek-orca does — boot.Build resolves providers/tools from these registries.
-	_ "deepseek-orca/internal/provider/anthropic"
-	_ "deepseek-orca/internal/provider/openai"
-	_ "deepseek-orca/internal/tool/builtin"
+	// The CLI entry point does — boot.Build resolves providers/tools from these registries.
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/anthropic"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 )
 
 // assets embeds the built frontend. `all:` so dotfiles (e.g. the dist .gitkeep
@@ -34,7 +35,7 @@ import (
 var assets embed.FS
 
 // version is injected at build time via `wails build -ldflags "-X main.version=..."`,
-// mirroring cmd/deepseek-orca/main.go. The auto-updater reads it (App.Version) to compare
+// mirroring cmd/orca/main.go. The auto-updater reads it (App.Version) to compare
 // against the published manifest; an un-injected dev build stays "dev" and never
 // prompts to update.
 var version = "dev"
@@ -44,7 +45,7 @@ var version = "dev"
 // tracks the opt-in pre-release line and never crosses over to stable.
 var channel = "stable"
 
-const disableWebview2GPUEnv = "DEEPSEEK_ORCA_DESKTOP_DISABLE_WEBVIEW2_GPU"
+const disableWebview2GPUEnv = "ORCA_DESKTOP_DISABLE_WEBVIEW2_GPU"
 
 func windowsWebview2GPUDisabled() bool {
 	if raw, ok := os.LookupEnv(disableWebview2GPUEnv); ok {
@@ -75,7 +76,7 @@ func main() {
 	}
 
 	err := wails.Run(&options.App{
-		Title:     "DeepSeek-Orca",
+		Title:     product.WindowsName,
 		Width:     width,
 		Height:    height,
 		MinWidth:  760,
@@ -119,7 +120,7 @@ func main() {
 			WebviewGpuIsDisabled: windowsWebview2GPUDisabled(),
 		},
 		Linux: &linux.Options{
-			ProgramName: "DeepSeek-Orca",
+			ProgramName: product.Name,
 			// WebKitGTK GPU compositing is inconsistent across distros/drivers and
 			// is the one real cross-platform rough edge for a Go+webview stack:
 			// "always" can yield blank or flickering webviews on some setups, so

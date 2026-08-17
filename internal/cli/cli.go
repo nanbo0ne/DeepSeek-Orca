@@ -1,4 +1,4 @@
-// Package cli implements deepseek-orca's command-line entry: subcommand routing, flag
+// Package cli implements Orca's command-line entry: subcommand routing, flag
 // parsing, assembly from config, and exit codes. The core is config-driven —
 // providers and tools are resolved from configuration, not hardcoded.
 package cli
@@ -20,16 +20,17 @@ import (
 	"strings"
 	"syscall"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/boot"
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/notify"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/provider/openai"
-	"deepseek-orca/internal/serve"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/boot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/notify"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/serve"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -80,7 +81,7 @@ func Run(args []string, version string) int {
 	case "init":
 		// Project memory (AGENTS.md) is model-generated in-session — `/init` runs
 		// the codebase analysis. This CLI entry just points there (and to `setup`
-		// for config), so `deepseek-orca init` isn't a dead end.
+		// for config), so `orca init` isn't a dead end.
 		configureCLIThemeFromConfigNoProbe()
 		return initHint()
 	case "acp":
@@ -102,7 +103,7 @@ func Run(args []string, version string) int {
 		configureCLIThemeFromConfigNoProbe()
 		return botCommand(rest, version)
 	case "version", "--version", "-v":
-		fmt.Println("deepseek-orca", version)
+		fmt.Println("orca", version)
 		return 0
 	case "help", "--help", "-h":
 		usage()
@@ -344,7 +345,7 @@ func runServe(args []string) int {
 		ctrl.SetSessionPath(agent.NewSessionPath(ctrl.SessionDir(), ctrl.Label()))
 	}
 
-	fmt.Printf("deepseek-orca serve — %s on http://%s\n", ctrl.Label(), *addr)
+	fmt.Printf("orca serve — %s on http://%s\n", ctrl.Label(), *addr)
 	// Use graceful shutdown so SIGINT/SIGTERM drain active connections.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -566,7 +567,7 @@ func reserveNativeScrollbackFrame(w io.Writer, rows int) {
 }
 
 // setupTargets is where the wizard writes: the TOML config and the secrets file.
-// Keys always go to the deepseek-orca-owned global credentials file so they never land
+// Keys always go to the orca-owned global credentials file so they never land
 // in a project's own .env; only the config location is project-local under --local.
 type setupTargets struct {
 	config string
@@ -574,15 +575,15 @@ type setupTargets struct {
 }
 
 // defaultConfigTarget is the user-global config file, falling back to a
-// project-local deepseek-orca.toml only when the user config dir can't be resolved.
+// project-local orca.toml only when the user config dir can't be resolved.
 func defaultConfigTarget() string {
 	if p := config.UserConfigPath(); p != "" {
 		return p
 	}
-	return "deepseek-orca.toml"
+	return product.ProjectConfigName
 }
 
-// defaultEnvTarget is the deepseek-orca-owned global credentials file, falling back to
+// defaultEnvTarget is the orca-owned global credentials file, falling back to
 // a project-local .env only when the user config dir can't be resolved.
 func defaultEnvTarget() string {
 	if p := config.UserCredentialsPath(); p != "" {
@@ -591,15 +592,15 @@ func defaultEnvTarget() string {
 	return ".env"
 }
 
-// resolveSetupTargets picks where `deepseek-orca setup` writes. Keys always go to the
-// global env. The config goes to the user-global dir by default, to ./deepseek-orca.toml
+// resolveSetupTargets picks where `orca setup` writes. Keys always go to the
+// global env. The config goes to the user-global dir by default, to ./orca.toml
 // under --local, or to an explicit path argument when given.
 func resolveSetupTargets(args []string) setupTargets {
 	t := setupTargets{config: defaultConfigTarget(), env: defaultEnvTarget()}
 	for _, a := range args {
 		switch a {
 		case "--local", "-l":
-			t.config = "deepseek-orca.toml"
+			t.config = product.ProjectConfigName
 		default:
 			t.config = a
 		}
@@ -615,9 +616,9 @@ func displayPath(p string) string {
 	return p
 }
 
-// setupConfig runs the configuration wizard (the `deepseek-orca setup` command),
-// writing config.toml to the user-global dir (or ./deepseek-orca.toml under --local)
-// and API keys to the deepseek-orca-owned global .env — never a project's own .env.
+// setupConfig runs the configuration wizard (the `orca setup` command),
+// writing config.toml to the user-global dir (or ./orca.toml under --local)
+// and API keys to the orca-owned global .env — never a project's own .env.
 // Project memory is a separate concern — the in-session `/init` skill generates
 // AGENTS.md (see initHint).
 func setupConfig(args []string) int {
@@ -640,7 +641,7 @@ func setupConfig(args []string) int {
 	if isInteractive() {
 		rc := interactiveSetup(t.config, t.env)
 		if rc == 0 {
-			fmt.Printf(i18n.M.TryHintFmt+"\n", bold("deepseek-orca chat"))
+			fmt.Printf(i18n.M.TryHintFmt+"\n", bold("orca chat"))
 		}
 		return rc
 	}
@@ -666,17 +667,17 @@ func writeDefaultConfig(path string) int {
 	return 0
 }
 
-// initHint handles `deepseek-orca init`. Unlike a config scaffold, project memory is
+// initHint handles `orca init`. Unlike a config scaffold, project memory is
 // model-generated by analyzing the codebase, so it lives as the in-session
 // `/init` skill rather than a CLI command. This entry just points the user there
-// (and to `deepseek-orca setup` for config) so the verb isn't a dead end.
+// (and to `orca setup` for config) so the verb isn't a dead end.
 func initHint() int {
 	fmt.Println(i18n.M.InitHint)
 	return 0
 }
 
 // interactiveSetup runs the setup wizard, then writes the config to configPath
-// and any entered API keys to envPath (the deepseek-orca-owned global .env, never a
+// and any entered API keys to envPath (the orca-owned global .env, never a
 // project's own). The wizard is intentionally minimal: pick language, pick
 // provider, enter API keys. Language is asked first so every subsequent prompt
 // is already in the user's language even when env auto-detection got it wrong.
@@ -708,7 +709,7 @@ func interactiveSetup(configPath, envPath string) int {
 	// in their language before any substantive prompt.
 	fmt.Println()
 	fmt.Print(boxed([]string{
-		accent("◆") + " " + fmt.Sprintf(i18n.M.WelcomeTitleFmt, bold("deepseek-orca")),
+		accent("◆") + " " + fmt.Sprintf(i18n.M.WelcomeTitleFmt, bold("O.R.C.A")),
 		"",
 		dim(i18n.M.NoConfigYet),
 	}))
@@ -1061,12 +1062,12 @@ func containsString(xs []string, v string) bool {
 
 // filterStaleCustomEntries drops the wizard's own magic-name entries
 // (Name="custom" with Kind="openai" or Name="anthropic" with Kind="anthropic")
-// that older versions of the wizard wrote into deepseek-orca.toml. They collide
+// that older versions of the wizard wrote into orca.toml. They collide
 // with the wizard's "custom" / "anthropic" menu items on re-run, showing up
 // as duplicate broken entries. The new wizard writes host-derived slugs
 // (e.g. "custom-token-sensenova-cn") so a hit on the magic name is
 // unambiguously stale. The returned slice is the dropped set so the caller
-// can warn the user to clean up deepseek-orca.toml by hand.
+// can warn the user to clean up orca.toml by hand.
 func filterStaleCustomEntries(providers []config.ProviderEntry) (kept, dropped []config.ProviderEntry) {
 	for _, p := range providers {
 		if p.Name == "custom" && p.Kind == "openai" {
@@ -1087,9 +1088,9 @@ func filterStaleCustomEntries(providers []config.ProviderEntry) (kept, dropped [
 // "custom-token-sensenova-cn" or "anthropic-api-anthropic-com". We can't
 // reuse the wizard's menu-item labels ("custom" / "anthropic") because
 // those would collide with the menu item itself and end up rendered as
-// duplicate provider entries on subsequent re-runs of `deepseek-orca setup`.
+// duplicate provider entries on subsequent re-runs of `orca setup`.
 // The host-based slug also gives users a meaningful name to grep for in
-// deepseek-orca.toml. Falls back to a short sha1 of the raw URL when the URL
+// orca.toml. Falls back to a short sha1 of the raw URL when the URL
 // doesn't parse, so even malformed input still produces a unique name.
 func providerSlug(kind, baseURL string) string {
 	var host string
@@ -1119,7 +1120,7 @@ func providerSlug(kind, baseURL string) string {
 }
 
 // providerFamily is a wizard-only grouping of provider SKUs by vendor; it does
-// not exist in config because users editing deepseek-orca.toml deal with SKU names
+// not exist in config because users editing orca.toml deal with SKU names
 // directly. Keys mirror the SKU name prefix (deepseek-*, mimo) so adding a new
 // preset only requires a familyOf case.
 type providerFamily struct {
@@ -1368,7 +1369,7 @@ func groupByFamily(providers []config.ProviderEntry) ([]string, map[string][]int
 
 // withBuiltinFamilies guarantees the wizard always offers the built-in provider
 // families (DeepSeek, MiMo) even when the loaded config replaced them — a
-// deepseek-orca.toml that defines only [[providers]] for deepseek otherwise hides
+// orca.toml that defines only [[providers]] for deepseek otherwise hides
 // MiMo from setup, since [[providers]] replaces the presets wholesale. Families
 // already present are left untouched (the user's customizations win); only the
 // missing built-in families get their default entries appended.
@@ -1387,7 +1388,7 @@ func withBuiltinFamilies(providers []config.ProviderEntry) []config.ProviderEntr
 
 // promptMissingKeys re-runs the wizard's key-entry step for any enabled
 // provider whose api_key_env is unset. Newly entered values are appended to the
-// deepseek-orca-owned global .env so the chat session that follows picks them up via
+// orca-owned global .env so the chat session that follows picks them up via
 // config.Load. The user can hit Enter to skip — the chat banner falls back to a
 // one-line warning so they still see what's missing. Returns a non-zero exit
 // code only when writing the env file fails.
@@ -1503,7 +1504,7 @@ func isTTY(f *os.File) bool {
 
 // appendEnv merges KEY=value lines into a .env file. Existing assignments of
 // any key that's about to be written are dropped first, then the new values
-// are appended — so re-running `deepseek-orca setup` with a corrected key replaces the
+// are appended — so re-running `orca setup` with a corrected key replaces the
 // stale one instead of stacking duplicates (loadDotEnv is first-wins, so a
 // naive append would leave the old key in effect). The new values are also
 // pinned into the current process env so a chat session started right after
@@ -1591,7 +1592,7 @@ func welcome(version string) int {
 			if cfg.Language != "" {
 				i18n.DetectLanguage(cfg.Language)
 			}
-			fmt.Printf("\n"+i18n.M.StartingChatFmt+"\n\n", bold("deepseek-orca chat"))
+			fmt.Printf("\n"+i18n.M.StartingChatFmt+"\n\n", bold("orca chat"))
 			return chatREPL(nil)
 		}
 		fmt.Println("\n" + i18n.M.SetKeyHint)
@@ -1614,7 +1615,7 @@ func welcome(version string) int {
 
 	var b strings.Builder
 	b.WriteString(boxed([]string{
-		accent("◆") + " " + bold("deepseek-orca") + "  " + dim(version),
+		accent("◆") + " " + bold("O.R.C.A") + "  " + dim(version),
 		dim(i18n.M.Subtitle),
 	}))
 
@@ -1648,13 +1649,13 @@ func welcome(version string) int {
 		n++
 	}
 	if src == "" {
-		step("deepseek-orca setup", i18n.M.StepScaffold)
+		step("orca setup", i18n.M.StepScaffold)
 	}
 	if ready == 0 {
 		step(i18n.M.StepSetKey, i18n.M.StepSetKeyHint)
 	}
-	step("deepseek-orca chat", i18n.M.StepChatDesc)
-	step(`deepseek-orca run "task"`, i18n.M.StepRunDesc)
+	step("orca chat", i18n.M.StepChatDesc)
+	step(`orca run "task"`, i18n.M.StepRunDesc)
 
 	fmt.Fprintf(&b, "\n  %s\n", dim(i18n.M.HelpFooter))
 
@@ -1686,7 +1687,7 @@ func configCommand(args []string) int {
 
 func configAutoPlanCommand(args []string) int {
 	fs := flag.NewFlagSet("config auto-plan", flag.ContinueOnError)
-	local := fs.Bool("local", false, "write ./deepseek-orca.toml instead of the user config")
+	local := fs.Bool("local", false, "write ./orca.toml instead of the user config")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -1708,7 +1709,7 @@ func configAutoPlanCommand(args []string) int {
 	}
 	path := config.UserConfigPath()
 	if *local {
-		path = "deepseek-orca.toml"
+		path = product.ProjectConfigName
 	}
 	if path == "" {
 		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, "cannot resolve config path")
@@ -1748,12 +1749,12 @@ func configAutoPlanCommand(args []string) int {
 
 func configUsage() {
 	fmt.Print(`Usage:
-  deepseek-orca config auto-plan [--local] [off|on]
+  orca config auto-plan [--local] [off|on]
 `)
 }
 
 func configAutoPlanUsage() {
 	fmt.Print(`Usage:
-  deepseek-orca config auto-plan [--local] [off|on]
+  orca config auto-plan [--local] [off|on]
 `)
 }

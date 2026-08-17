@@ -3,7 +3,7 @@ export const UI_SCALE_MIN = 80;
 export const UI_SCALE_MAX = 125;
 export const UI_SCALE_STEP = 5;
 
-const UI_SCALE_KEY = "deepseek-orca-ui-scale";
+const UI_SCALE_KEY = "orca-ui-scale";
 
 export function isUIScale(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && (value === UI_SCALE_AUTO || (value >= UI_SCALE_MIN && value <= UI_SCALE_MAX && value % UI_SCALE_STEP === 0));

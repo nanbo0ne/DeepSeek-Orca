@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // TestModelRefsFromConfig verifies the /model picker enumerates configured

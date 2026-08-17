@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // rememberTool lets the model persist a durable fact to the auto-memory store.

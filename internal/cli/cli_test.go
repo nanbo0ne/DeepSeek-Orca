@@ -16,11 +16,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/event"
-	"deepseek-orca/internal/i18n"
-	"deepseek-orca/internal/notify"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/notify"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 func TestChdirTo(t *testing.T) {
@@ -101,7 +101,7 @@ func TestMetadataCommandsDoNotProbeTerminalTheme(t *testing.T) {
 			t.Fatalf("version rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "deepseek-orca test-version") {
+	if !strings.Contains(out, "orca test-version") {
 		t.Fatalf("version output = %q", out)
 	}
 
@@ -113,7 +113,7 @@ func TestMetadataCommandsDoNotProbeTerminalTheme(t *testing.T) {
 	if !strings.Contains(out, "Usage:") && !strings.Contains(out, "用法：") {
 		t.Fatalf("help output missing usage:\n%s", out)
 	}
-	if !strings.Contains(out, "deepseek-orca run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>") {
+	if !strings.Contains(out, "orca run  [--model NAME] [--max-steps N] [-c|--continue] [--resume PATH] <task>") {
 		t.Fatalf("help output missing run resume flags:\n%s", out)
 	}
 }
@@ -183,7 +183,7 @@ func TestRunMetadataCommandsDoNotMigrateLegacyConfig(t *testing.T) {
 			t.Fatalf("version rc = %d, want 0", rc)
 		}
 	})
-	if !strings.Contains(out, "deepseek-orca test-version") {
+	if !strings.Contains(out, "orca test-version") {
 		t.Fatalf("version output = %q", out)
 	}
 	if _, err := os.Stat(config.UserConfigPath()); !os.IsNotExist(err) {
@@ -226,7 +226,7 @@ func TestConfigAutoPlanLocalCreatesMinimalProjectOverride(t *testing.T) {
 		t.Fatalf("config auto-plan --local output = %q", out)
 	}
 
-	body, err := os.ReadFile("deepseek-orca.toml")
+	body, err := os.ReadFile("orca.toml")
 	if err != nil {
 		t.Fatalf("read project config: %v", err)
 	}

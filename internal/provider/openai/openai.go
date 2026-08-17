@@ -24,8 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // defaultStreamIdleTimeout caps how long a started SSE stream may go without any

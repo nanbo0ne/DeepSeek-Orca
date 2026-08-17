@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/plugin"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // TestE2ECodegraphMCP drives the whole integration against a real CodeGraph
@@ -26,14 +26,17 @@ import (
 //
 // With DEEPSEEK_ORCA_CODEGRAPH_BIN unset it falls back to Resolve("") (bundle / PATH).
 func TestE2ECodegraphMCP(t *testing.T) {
-	if os.Getenv("DEEPSEEK_ORCA_CODEGRAPH_E2E") == "" {
-		t.Skip("set DEEPSEEK_ORCA_CODEGRAPH_E2E=1 to run the CodeGraph MCP end-to-end test")
+	if os.Getenv("ORCA_CODEGRAPH_E2E") == "" && os.Getenv("DEEPSEEK_ORCA_CODEGRAPH_E2E") == "" {
+		t.Skip("set ORCA_CODEGRAPH_E2E=1 to run the CodeGraph MCP end-to-end test")
 	}
-	bin := os.Getenv("DEEPSEEK_ORCA_CODEGRAPH_BIN")
+	bin := os.Getenv("ORCA_CODEGRAPH_BIN")
+	if bin == "" {
+		bin = os.Getenv("DEEPSEEK_ORCA_CODEGRAPH_BIN")
+	}
 	if bin == "" {
 		var ok bool
 		if bin, ok = Resolve(""); !ok {
-			t.Fatal("DEEPSEEK_ORCA_CODEGRAPH_E2E is set but no codegraph binary found — set DEEPSEEK_ORCA_CODEGRAPH_BIN to the launcher path")
+			t.Fatal("ORCA_CODEGRAPH_E2E is set but no codegraph binary found — set ORCA_CODEGRAPH_BIN to the launcher path")
 		}
 	}
 	t.Logf("codegraph binary: %s", bin)

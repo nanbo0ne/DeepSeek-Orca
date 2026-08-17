@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 // fakeNotifier captures Notify calls and answers Request via an injectable hook,

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"deepseek-orca/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
 )
 
 // TestControllerAccessorIsRaceSafe guards the switchModel concurrency contract:

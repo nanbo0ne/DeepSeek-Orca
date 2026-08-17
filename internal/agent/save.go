@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/fileutil"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // Save writes the session's messages to path in JSONL — one provider.Message

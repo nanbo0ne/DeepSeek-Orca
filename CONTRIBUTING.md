@@ -1,6 +1,6 @@
-# Contributing to DeepSeek-Orca
+# Contributing to O.R.C.A
 
-Thank you for your interest in contributing to DeepSeek-Orca! This guide covers
+Thank you for your interest in contributing to O.R.C.A! This guide covers
 everything you need to get started.
 
 ## Prerequisites
@@ -12,17 +12,17 @@ everything you need to get started.
 ## Getting started
 
 ```bash
-git clone https://github.com/nanbo0ne/DeepSeek-Orca.git
-cd DeepSeek-Orca
-go build ./cmd/deepseek-orca    # builds the CLI binary
-go test ./...              # runs the full test suite
+git clone https://github.com/nanbo0ne/O.R.C.A-for-Windows.git
+cd O.R.C.A-for-Windows
+go build ./cmd/orca    # builds the CLI binary
+go test ./...          # runs the full test suite
 ```
 
 ## Project structure
 
 | Directory | Purpose |
 |-----------|---------|
-| `cmd/deepseek-orca` | CLI entry point |
+| `cmd/orca` | Canonical CLI entry point |
 | `internal/agent` | Agent loop, session, coordinator |
 | `internal/cli` | TUI, subcommands, setup wizard |
 | `internal/control` | Transport-agnostic controller |
@@ -33,7 +33,7 @@ go test ./...              # runs the full test suite
 | `internal/plugin` | MCP client (stdio + HTTP) |
 | `internal/event` | Typed event stream |
 | `internal/hook` | Shell hooks (PreToolUse, …) |
-| `internal/memory` | DEEPSEEK_ORCA.md hierarchy + auto-memory |
+| `internal/memory` | ORCA.md hierarchy + legacy-compatible auto-memory |
 | `internal/skill` | Skill discovery from Markdown |
 | `internal/sandbox` | OS-level sandboxing |
 | `internal/serve` | HTTP/SSE server frontend |
@@ -117,11 +117,11 @@ ci: add golangci-lint and govulncheck
 ## Submitting changes
 
 1. Fork the repository
-2. Create a feature branch from `main-v2`
+2. Create a feature branch from `main`
 3. Make your changes with tests
 4. Ensure `go test ./...` passes
 5. Ensure `gofmt -l .` shows no changes
-6. Submit a pull request to `main-v2`
+6. Submit a pull request to `main`
 
 ## Reporting issues
 

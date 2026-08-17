@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a bug in DeepSeek-Orca
+description: Report a bug in O.R.C.A
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -22,7 +22,7 @@ body:
     id: version
     attributes:
       label: Exact version
-      description: Output of `deepseek-orca --version`.
+      description: Output of `orca --version`.
       placeholder: e.g. 1.0.0
     validations:
       required: true

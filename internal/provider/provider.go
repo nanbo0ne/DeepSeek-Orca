@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/nilutil"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/nilutil"
 )
 
 // Role is the role of a message.
@@ -429,7 +429,7 @@ func (e *AuthError) Error() string {
 	if e.KeyEnv != "" {
 		key = e.KeyEnv
 	}
-	return fmt.Sprintf("authentication failed for provider %q (HTTP %d): %s is invalid or expired — update it (in .env or your environment) and retry, or run `deepseek-orca setup`",
+	return fmt.Sprintf("authentication failed for provider %q (HTTP %d): %s is invalid or expired — update it (in .env or your environment) and retry, or run `orca setup`",
 		e.Provider, e.Status, key)
 }
 

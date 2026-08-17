@@ -1,14 +1,17 @@
 package builtin
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/netclient"
-	"deepseek-orca/internal/sandbox"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/sandbox"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // ConfineBash returns the bash built-in bound to an OS-sandbox spec, overriding
@@ -22,7 +25,7 @@ func ConfineBash(spec sandbox.Spec, timeout ...time.Duration) tool.Tool {
 	return b
 }
 
-// ConfineWebFetch returns the web_fetch built-in bound to DeepSeek-Orca proxy
+// ConfineWebFetch returns the web_fetch built-in bound to O.R.C.A proxy
 // settings while preserving its SSRF-guarded dialer.
 func ConfineWebFetch(proxySpec netclient.ProxySpec) tool.Tool {
 	return webFetch{proxySpec: proxySpec}
@@ -77,7 +80,7 @@ func confine(roots []string, target string) error {
 		}
 	}
 	return fmt.Errorf("path %q is outside the workspace (writes are confined to %s); "+
-		"write inside it, or widen [sandbox] workspace_root / allow_write in deepseek-orca.toml",
+		"write inside it, or widen [sandbox] workspace_root / allow_write in orca.toml",
 		target, strings.Join(roots, ", "))
 }
 
@@ -96,6 +99,14 @@ func realPath(path string) (string, error) {
 	for {
 		if real, err := filepath.EvalSymlinks(cur); err == nil {
 			return filepath.Join(real, tail), nil
+		} else if runtime.GOOS == "windows" && errors.Is(err, os.ErrPermission) {
+			// Symlink inspection is an optional hardening probe on Windows. Keep
+			// the lexical absolute path when policy blocks the probe, while still
+			// rejecting an observable symlink component.
+			if hasSymlinkComponent(cur) {
+				return "", err
+			}
+			return filepath.Join(cur, tail), nil
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {
@@ -104,6 +115,29 @@ func realPath(path string) (string, error) {
 		tail = filepath.Join(filepath.Base(cur), tail)
 		cur = parent
 	}
+}
+
+func hasSymlinkComponent(path string) bool {
+	volumeRoot := filepath.VolumeName(path) + string(filepath.Separator)
+	rel, err := filepath.Rel(volumeRoot, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return true
+	}
+	cur := volumeRoot
+	if rel == "." {
+		return false
+	}
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		cur = filepath.Join(cur, part)
+		info, statErr := os.Lstat(cur)
+		if statErr != nil {
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // within reports whether path is at or below root. Both must be absolute,

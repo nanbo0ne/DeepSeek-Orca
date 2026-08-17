@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/control"
-	"deepseek-orca/internal/provider"
-	_ "deepseek-orca/internal/provider/openai" // registers the "openai" provider kind
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai" // registers the "openai" provider kind
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 type liveFactory struct{ prov provider.Provider }

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 // showMemory reports what memory is loaded and where it lives — the TUI analog

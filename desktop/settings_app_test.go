@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/provider"
-	"deepseek-orca/internal/visioncap"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/visioncap"
 )
 
 func TestConcurrentConfigWritesPreserveBothChanges(t *testing.T) {

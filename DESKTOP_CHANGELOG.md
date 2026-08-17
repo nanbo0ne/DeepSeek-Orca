@@ -1,4 +1,13 @@
-# DeepSeek-Orca Desktop Changelog
+# O.R.C.A Desktop Changelog
+
+## V3.0.0 - 2026-08-17
+
+- Renamed the product to O.R.C.A for Windows, expanded as Open Reasoning & Computing Agent, with new application identity, repository links, executable/package names, icons, media route, configuration path, and migration-compatible legacy aliases.
+- Replaced DeepSeek-specific first launch with provider-neutral onboarding and a backend-owned provider preset catalog covering official, aggregate, domestic, subscription-plan, and custom compatible endpoints with isolated credentials and complete model references.
+- Added optional Windows local AI management for a pinned llama.cpp runtime, hardware-aware loading, resumable and checksummed model downloads, Qwen recommendations, model library lifecycle, and local role-model selection.
+- Added Windows Computer Use with isolated control-agent context, screenshot/UI Automation observations, guarded pointer and keyboard actions, per-action re-observation, persistent one-time authorization, telemetry without screenshots, visual control overlays, and global Escape cancellation.
+- Migrated configuration to V11 and canonical `orca.toml`, `.orca`, `ORCA.md`, `ORCA_*`, and O.R.C.A user-state paths while preserving V2 sessions, attachments, providers, credentials, memory, telemetry, and tracked legacy project files.
+- Kept local inference and Computer Use explicitly unavailable on macOS/Linux in V3 while retaining the full conversation, provider, artifact, and engineering experience on those platforms.
 
 ## V2.1.3 - 2026-08-15
 

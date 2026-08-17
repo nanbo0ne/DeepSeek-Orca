@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"deepseek-orca/internal/agent"
-	"deepseek-orca/internal/i18n"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/agent"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/i18n"
 )
 
 const resumeListCap = 10

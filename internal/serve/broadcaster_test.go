@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 )
 
 func TestBroadcasterFanOut(t *testing.T) {

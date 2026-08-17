@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"deepseek-orca/internal/evidence"
-	"deepseek-orca/internal/provider"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 // --- Kind constants ---

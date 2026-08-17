@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to the Go line (DeepSeek-Orca 1.0+) are recorded here. The legacy
-`0.x` TypeScript history lives on the [`v1`](https://github.com/nanbo0ne/DeepSeek-Orca/tree/v1)
+All notable changes to the Go line (O.R.C.A 1.0+) are recorded here. The legacy
+`0.x` TypeScript history lives on the [`v1`](https://github.com/nanbo0ne/O.R.C.A-for-Windows/tree/v1)
 branch.
 
 ## [1.0.0] — 2026-06-03
@@ -13,7 +13,7 @@ TypeScript line; a new codebase that becomes the default (`main-v2`).
 
 - **Go kernel**: a single static binary (CGO-free), cross-compiled for
   darwin/linux/windows on amd64 + arm64. Distributed via npm (the package wraps
-  the native binary), Homebrew (`nanbo0ne/DeepSeek-Orca` tap), and release archives;
+  the native binary), Homebrew (`nanbo0ne/O.R.C.A-for-Windows` tap), and release archives;
   no Node runtime needed to run it.
 - **Agent core**: the loop, built-in tools (read/write/edit/multi_edit/glob/grep/
   ls/bash/web_fetch/todo_write), permission gate, sandboxed bash, and the
@@ -48,4 +48,4 @@ TypeScript line; a new codebase that becomes the default (`main-v2`).
   support for the fetched runtime is unverified — install `codegraph` on PATH if
   the auto-fetch doesn't resolve there.
 
-[1.0.0]: https://github.com/nanbo0ne/DeepSeek-Orca/releases/tag/v1.0.0
+[1.0.0]: https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/v1.0.0

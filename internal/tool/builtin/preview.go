@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"deepseek-orca/internal/diff"
-	fileenc "deepseek-orca/internal/fileutil/encoding"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
+	fileenc "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/fileutil/encoding"
 )
 
 // preview.go gives the file-writing built-ins the optional tool.Previewer

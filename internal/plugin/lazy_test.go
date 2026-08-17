@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // helperSpec returns a Spec that re-invokes this test binary as a minimal MCP

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepseek-orca/internal/config"
-	"deepseek-orca/internal/skill"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/skill"
 )
 
 // apply dispatches to the per-action implementation. Each branch is

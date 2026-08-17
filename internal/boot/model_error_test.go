@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/event"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/event"
 
-	_ "deepseek-orca/internal/provider/openai"
-	_ "deepseek-orca/internal/tool/builtin"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
+	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool/builtin"
 )
 
 // TestBuildUnknownModelErrorIsActionable: a default_model that doesn't resolve

@@ -269,7 +269,7 @@ func TestConfineRejectsEscape(t *testing.T) {
 func TestConfineAllowsInside(t *testing.T) {
 	dir := t.TempDir()
 	// confine uses realPath which resolves symlinks, so we need to resolve too.
-	real, _ := filepath.EvalSymlinks(dir)
+	real, _ := filepath.Abs(dir)
 	target := filepath.Join(real, "inside", "file.txt")
 	err := confine([]string{real}, target)
 	if err != nil {

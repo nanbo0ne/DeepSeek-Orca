@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"deepseek-orca/internal/bot"
-	"deepseek-orca/internal/bot/qq"
-	"deepseek-orca/internal/bot/weixin"
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/qq"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/bot/weixin"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 type BotConnectionCredentialView struct {
@@ -320,7 +320,7 @@ func (a *App) TestBotConnection(id, target string) (BotConnectionDiagnostic, err
 	weixinCfg.Enabled = true
 	weixinCfg.AccountID = firstNonEmptyBot(conn.Credential.AccountID, weixinCfg.AccountID)
 	weixinCfg.TokenEnv = firstNonEmptyBot(conn.Credential.TokenEnv, weixinCfg.TokenEnv)
-	result, err := weixin.SendText(ctx, weixinCfg, target, "DeepSeek-Orca bot 测试消息：连接和发送链路可用。")
+	result, err := weixin.SendText(ctx, weixinCfg, target, "O.R.C.A bot 测试消息：连接和发送链路可用。")
 	if err != nil {
 		return BotConnectionDiagnostic{ID: conn.ID, Label: conn.Label, Status: "error", Message: readableBotError(err)}, nil
 	}

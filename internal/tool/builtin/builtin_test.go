@@ -16,7 +16,7 @@ import (
 
 	"golang.org/x/text/encoding/simplifiedchinese"
 
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // argsJSON marshals m into the JSON form a tool expects. Tests must not build

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"deepseek-orca/internal/config"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 )
 
 // TestUpsertEnvFile proves a new key is appended, an existing key is replaced in

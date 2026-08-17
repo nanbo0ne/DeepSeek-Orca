@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"deepseek-orca/internal/doctor"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/doctor"
 )
 
 func doctorCommand(args []string, version string) int {

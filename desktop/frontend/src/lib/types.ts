@@ -697,7 +697,7 @@ export interface AssistantMemorySettings {
 export type ProcessDisplayMode = "compact" | "detailed";
 
 // SettingsTab is the top-level navigation item in the Settings Centre modal.
-export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "permissions" | "sandbox" | "network" | "appearance";
+export type SettingsTab = "general" | "models" | "providers" | "bots" | "mcp" | "skills" | "memory" | "permissions" | "sandbox" | "network" | "localAI" | "computer" | "appearance" | "about";
 
 // Settings panel payloads (desktop/settings_app.go).
 export interface ProviderView {
@@ -921,10 +921,76 @@ export interface SettingsView {
   uiScale: number; // 0 = follow Windows DPI; otherwise 80..125
   effectiveUIScale: number;
   automationFullAccessApproved: boolean;
+  computerControlModel: string;
+  computerUseFullAccessApproved: boolean;
   configPath: string;
   providerKinds: string[]; // provider implementations the kernel registered (for the kind picker)
   autoApproveTools: boolean;
   bypass: boolean; // legacy JSON key for live YOLO/full-access tool auto-approval
+}
+
+export interface OnboardingState {
+  required: boolean;
+  completed: boolean;
+  hasCloudModel: boolean;
+  hasLocalRuntime: boolean;
+  platform: string;
+  providers: ProviderView[];
+}
+
+export interface HardwareGPU {
+  name: string;
+  vendor: string;
+  dedicatedMiB: number;
+  availableMiB: number;
+  backend: string;
+}
+
+export interface HardwareProfile {
+  platform: string;
+  supported: boolean;
+  gpus: HardwareGPU[];
+  memoryTotalMiB: number;
+  memoryFreeMiB: number;
+  cpuLogicalCores: number;
+  diskFreeBytes: number;
+  recommendedRuntime: string;
+  recommendedModel: string;
+  localAIRecommended?: boolean;
+}
+
+export interface LocalArtifact { name: string; size: number; sha256: string; sources: string[] }
+export interface LocalModelSpec {
+  id: string; name: string; description: string; license: string;
+  minVramGiB: number; recommendedVramGiB: number; contextSize: number;
+  contextFallback: number[]; vision: boolean; toolUse: boolean; artifacts: LocalArtifact[];
+}
+export interface LocalRuntimeSpec { id: string; backend: string; version: string; artifacts: LocalArtifact[] }
+export interface LocalModelInstallation { id: string; name: string; path: string; modelPath: string; mmprojPath?: string; size: number; installedAt: string; vision: boolean; toolUse: boolean }
+export interface LocalRuntimeInstallation { id: string; backend: string; version: string; installedAt: string; path: string; serverPath: string }
+export interface LocalDownloadTask {
+  id: string; kind: string; targetId: string; label: string; state: string; artifact?: string; downloadedBytes: number; totalBytes: number;
+  bytesPerSecond: number; etaSeconds: number; source: string; error?: string;
+}
+export interface LocalRuntimeStatus {
+  state: string; modelId?: string; baseUrl?: string; profile?: { contextSize: number; gpuLayers: string; batchSize: number; ubatchSize: number; threads: number }; lastError?: string;
+}
+export interface LocalAICatalogView {
+  supported: boolean; platform: string; models: LocalModelSpec[]; runtimes: LocalRuntimeSpec[];
+  installedModels: LocalModelInstallation[]; runtime?: LocalRuntimeInstallation;
+  downloads: LocalDownloadTask[]; status: LocalRuntimeStatus; hardware: HardwareProfile; modelsDirectory: string;
+}
+
+export interface ComputerUseCapabilities {
+  platform: string; supported: boolean; screenCapture: boolean; uiAutomation: boolean;
+  inputInjection: boolean; overlay: boolean; emergencyStop: boolean; unavailableReason?: string;
+}
+export interface ComputerUseSession {
+  id: string; tabId?: string; goal: string; successCriteria?: string; restrictions?: string; modelRef?: string;
+  state: string; currentApp?: string; currentAction?: string; actionCount: number; lastError?: string;
+}
+export interface ComputerUseState {
+  capabilities: ComputerUseCapabilities; session: ComputerUseSession; approved: boolean; consentVersion: number; modelRef?: string;
 }
 
 export interface UpdateInfo {

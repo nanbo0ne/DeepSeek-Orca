@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"deepseek-orca/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
 )
 
 // VerifyCheck is a host-observable project check extracted from structured
@@ -33,7 +33,8 @@ func FromContext(ctx context.Context) []VerifyCheck {
 	return append([]VerifyCheck(nil), checks...)
 }
 
-// ExtractHostChecks reads only the structured "DeepSeek-Orca host checks" section.
+// ExtractHostChecks reads the canonical "O.R.C.A host checks" section and its
+// legacy V2 heading.
 // Ordinary project instructions remain guidance and do not become hard gates.
 func ExtractHostChecks(docs []memory.Source) []VerifyCheck {
 	seen := map[string]bool{}
@@ -43,7 +44,7 @@ func ExtractHostChecks(docs []memory.Source) []VerifyCheck {
 		for i, raw := range strings.Split(doc.Body, "\n") {
 			line := strings.TrimRight(raw, "\r")
 			if heading, ok := markdownHeading(line); ok {
-				inSection = strings.EqualFold(heading, "DeepSeek-Orca host checks")
+				inSection = strings.EqualFold(heading, "O.R.C.A host checks") || strings.EqualFold(heading, "DeepSeek-Orca host checks")
 				continue
 			}
 			if !inSection {

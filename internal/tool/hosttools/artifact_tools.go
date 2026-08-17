@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"deepseek-orca/internal/artifact"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/artifact"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 // ArtifactTools returns the bundled Work artifact surface. It is registered by

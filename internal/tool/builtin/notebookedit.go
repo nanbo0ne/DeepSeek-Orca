@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"deepseek-orca/internal/diff"
-	"deepseek-orca/internal/tool"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/diff"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
 )
 
 func init() { tool.RegisterBuiltin(notebookEdit{}) }
