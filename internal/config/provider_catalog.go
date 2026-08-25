@@ -72,7 +72,7 @@ func anthropicPreset() ProviderPreset {
 }
 
 func deepSeekPreset() ProviderPreset {
-	p := preset("deepseek", "DeepSeek", "DeepSeek 官方按量 API", "china", "https://platform.deepseek.com/api_keys", "https://api.deepseek.com", "DEEPSEEK_API_KEY", "deepseek-v4-flash", "deepseek-v4-pro")
+	p := preset("deepseek", "DeepSeek", "DeepSeek 官方按量 API", "china", "https://platform.deepseek.com/api_keys", "https://api.deepseek.com", "DEEPSEEK_API_KEY", "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp")
 	p.Entry.BalanceURL = "https://api.deepseek.com/user/balance"
 	p.Entry.ContextWindow = 1_000_000
 	return p

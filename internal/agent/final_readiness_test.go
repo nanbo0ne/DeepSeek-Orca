@@ -36,8 +36,8 @@ func TestFinalReadinessFailureBranches(t *testing.T) {
 		{"no writer never gates", []instruction.VerifyCheck{check}, readinessLedger(checkAfter), true, ""},
 		{"incomplete todo without writer is reported", nil, readinessLedger(todo), false, "latest successful todo_write"},
 		{"completed todo without writer satisfies", nil, readinessLedger(doneTodo), true, ""},
-		{"writer without checks requires fallback verification", nil, readinessLedger(writer), false, "relevant test"},
-		{"ordinary shell command is not verification", nil, readinessLedger(writer, listingAfter), false, "relevant test"},
+		{"writer without checks reports advisory only", nil, readinessLedger(writer), true, ""},
+		{"ordinary shell command reports advisory only", nil, readinessLedger(writer, listingAfter), true, ""},
 		{"writer with fallback verification satisfies", nil, readinessLedger(writer, checkAfter), true, ""},
 		{"missing project check after writer is reported", []instruction.VerifyCheck{check}, readinessLedger(checkAfter, writer), false, "go test ./..."},
 		{"project check run after writer satisfies", []instruction.VerifyCheck{check}, readinessLedger(writer, checkAfter), true, ""},
@@ -62,6 +62,9 @@ func TestFinalReadinessFailureBranches(t *testing.T) {
 				t.Fatalf("finalReadinessFailure() = %q, want it to mention %q", got, tc.wantContain)
 			}
 		})
+	}
+	if got := (&Agent{evidence: readinessLedger(writer), requirePostWriteVerification: true}).finalReadinessCheck(); !strings.Contains(got.advisory, "relevant test") {
+		t.Fatalf("advisory = %q, want a verification suggestion", got.advisory)
 	}
 }
 

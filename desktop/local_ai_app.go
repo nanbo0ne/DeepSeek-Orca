@@ -85,13 +85,32 @@ func (a *App) GetLocalAICatalog() LocalAICatalogView {
 	if cfg, err := config.Load(); err == nil && strings.TrimSpace(cfg.LocalAI.ModelsDir) != "" {
 		modelsDir = cfg.LocalAI.ModelsDir
 	}
-	return LocalAICatalogView{
+	return normalizeLocalAICatalogView(LocalAICatalogView{
 		Supported: runtime.GOOS == "windows", Platform: runtime.GOOS,
 		Models: localai.ModelCatalog(), Runtimes: localai.RuntimeCatalog(),
 		InstalledModels: manager.InstalledModels(), Runtime: runtimePtr,
 		Downloads: manager.Tasks(), Status: a.localServer.Status(), Hardware: hardware,
 		ModelsDirectory: modelsDir,
+	})
+}
+
+func normalizeLocalAICatalogView(view LocalAICatalogView) LocalAICatalogView {
+	if view.Models == nil {
+		view.Models = []localai.ModelSpec{}
 	}
+	if view.Runtimes == nil {
+		view.Runtimes = []localai.RuntimeSpec{}
+	}
+	if view.InstalledModels == nil {
+		view.InstalledModels = []localai.ModelInstallation{}
+	}
+	if view.Downloads == nil {
+		view.Downloads = []localai.DownloadTask{}
+	}
+	if view.Hardware.GPUs == nil {
+		view.Hardware.GPUs = []localai.GPUAdapter{}
+	}
+	return view
 }
 
 func (a *App) StartLocalRuntimeInstall(runtimeID string) (localai.DownloadTask, error) {
@@ -287,7 +306,7 @@ func (a *App) prepareLocalRuntimeProviders(ctx context.Context, cfg *config.Conf
 	if err := os.Setenv(localai.ProviderKeyEnv, status.APIKey); err != nil {
 		return nil, err
 	}
-	entry := config.ProviderEntry{Name: localai.ProviderID, Kind: "openai", BaseURL: status.BaseURL, Model: modelID, APIKeyEnv: localai.ProviderKeyEnv, ContextWindow: status.Profile.ContextSize, NoProxy: true}
+	entry := config.ProviderEntry{Name: localai.ProviderID, Kind: "openai", BaseURL: status.BaseURL, Model: modelID, APIKeyEnv: localai.ProviderKeyEnv, ContextWindow: status.Profile.ContextSize, ModelContextWindows: map[string]int{modelID: status.Profile.ContextSize}, NoProxy: true}
 	return []config.ProviderEntry{entry}, nil
 }
 

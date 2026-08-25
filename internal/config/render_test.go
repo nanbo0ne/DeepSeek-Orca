@@ -31,9 +31,10 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	orig.Agent.SubagentModels = map[string]string{"review": "deepseek-pro"}
 	orig.Tools.BashTimeoutSeconds = intPtr(900)
 	orig.Permissions = PermissionsConfig{
-		Mode:  "deny",
-		Deny:  []string{"Bash(rm -rf*)"},
-		Allow: []string{"Bash(go test:*)", "read_file"},
+		Mode:            "deny",
+		AutoReviewModel: "deepseek-pro/deepseek-v4-pro",
+		Deny:            []string{"Bash(rm -rf*)"},
+		Allow:           []string{"Bash(go test:*)", "read_file"},
 	}
 	orig.Network = NetworkConfig{
 		ProxyMode: "custom",
@@ -71,10 +72,14 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	mm, _ := orig.Provider("mimo-pro")
 	mm.BaseURL = "http://localhost:8000/v1"
 	mm.ReasoningProtocol = "openai"
+	mm.ModelContextWindows = map[string]int{"mimo-v2.5": 262144, "mimo-v2.5-pro": 1048576}
 	ds, _ := orig.Provider("deepseek-flash")
 	ds.Effort = "max"
 
 	rendered := RenderTOML(orig)
+	if strings.Contains(rendered, "ui_scale") {
+		t.Fatalf("retired ui_scale was written back:\n%s", rendered)
+	}
 
 	var got Config
 	if _, err := toml.Decode(rendered, &got); err != nil {
@@ -183,6 +188,8 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 	if g, _ := got.Provider("mimo-pro"); g == nil || g.BaseURL != "http://localhost:8000/v1" || g.ReasoningProtocol != "openai" {
 		t.Errorf("mimo-pro base_url not preserved: %+v", g)
+	} else if g.ModelContextWindows["mimo-v2.5"] != 262144 || g.ModelContextWindows["mimo-v2.5-pro"] != 1048576 {
+		t.Errorf("mimo-pro model_context_windows not preserved: %+v", g.ModelContextWindows)
 	}
 	if g, _ := got.Provider("deepseek-flash"); g == nil || g.Effort != "max" {
 		t.Errorf("deepseek-flash effort not preserved: %+v", g)
@@ -192,6 +199,9 @@ func TestRenderTOMLRoundTrips(t *testing.T) {
 	}
 	if got.Permissions.Mode != "deny" {
 		t.Errorf("permissions.mode = %q, want deny", got.Permissions.Mode)
+	}
+	if got.Permissions.AutoReviewModel != orig.Permissions.AutoReviewModel {
+		t.Errorf("permissions.auto_review_model = %q, want %q", got.Permissions.AutoReviewModel, orig.Permissions.AutoReviewModel)
 	}
 	if len(got.Permissions.Deny) != 1 || got.Permissions.Deny[0] != "Bash(rm -rf*)" {
 		t.Errorf("permissions.deny = %v, want [Bash(rm -rf*)]", got.Permissions.Deny)

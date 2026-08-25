@@ -304,6 +304,7 @@ type PricingWindow struct {
 // DeepSeek billing uses Beijing time, whose UTC+8 offset has no DST transitions.
 type PricingSchedule struct {
 	UTCOffsetMinutes int
+	PeakWeekdaysOnly bool
 	PeakWindows      []PricingWindow
 	Peak             PricingRates
 	OffPeak          PricingRates
@@ -319,11 +320,14 @@ func (p *Pricing) SnapshotAt(at time.Time) *Pricing {
 	if schedule := p.Schedule; schedule != nil {
 		rates = schedule.OffPeak
 		local := at.In(time.FixedZone("pricing", schedule.UTCOffsetMinutes*60))
-		minute := local.Hour()*60 + local.Minute()
-		for _, window := range schedule.PeakWindows {
-			if minute >= window.StartMinute && minute < window.EndMinute {
-				rates = schedule.Peak
-				break
+		weekdayAllowed := !schedule.PeakWeekdaysOnly || (local.Weekday() >= time.Monday && local.Weekday() <= time.Friday)
+		if weekdayAllowed {
+			minute := local.Hour()*60 + local.Minute()
+			for _, window := range schedule.PeakWindows {
+				if minute >= window.StartMinute && minute < window.EndMinute {
+					rates = schedule.Peak
+					break
+				}
 			}
 		}
 	}

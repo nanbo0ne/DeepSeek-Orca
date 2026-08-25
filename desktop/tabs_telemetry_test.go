@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func TestRuntimeSwitchTelemetryInterruptsUnfinishedRecords(t *testing.T) {
 	}
 }
 
-func TestRuntimeSwitchTelemetryRoundTripsVersionFive(t *testing.T) {
+func TestRuntimeSwitchTelemetryRoundTripsCurrentVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "session.jsonl.telemetry.json")
 	snapshot := tabTelemetrySnapshot{
 		RuntimeSwitches: []RuntimeSwitchRecord{{
@@ -70,8 +71,32 @@ func TestRuntimeSwitchTelemetryRoundTripsVersionFive(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := loadTelemetry(path)
-	if got.Version != 5 || len(got.RuntimeSwitches) != 1 || got.RuntimeSwitches[0].ID != "switch-1" {
+	if got.Version != 6 || len(got.RuntimeSwitches) != 1 || got.RuntimeSwitches[0].ID != "switch-1" {
 		t.Fatalf("round-tripped telemetry = %+v", got)
+	}
+}
+
+func TestRiskReviewTelemetryRoundTripsWithoutArguments(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.jsonl.telemetry.json")
+	snapshot := tabTelemetrySnapshot{RiskReviews: []event.RiskReviewAudit{{
+		Turn: 2, At: 1000, Level: "high", Model: "review/model", DurationMs: 42, Result: "manual_review",
+	}}}
+	if err := saveTelemetry(path, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	got := loadTelemetry(path)
+	if got.Version != 6 || len(got.RiskReviews) != 1 || got.RiskReviews[0].Result != "manual_review" {
+		t.Fatalf("risk review telemetry = %+v", got)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized := string(b)
+	for _, secretField := range []string{"\"arguments\"", "\"subject\"", "\"reason\""} {
+		if strings.Contains(serialized, secretField) {
+			t.Fatalf("risk telemetry persisted sensitive field %q: %s", secretField, b)
+		}
 	}
 }
 

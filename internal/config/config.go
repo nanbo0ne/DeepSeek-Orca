@@ -79,6 +79,7 @@ type DesktopConfig struct {
 	Language              string   `toml:"language"`                          // auto|en|zh; empty/auto = browser/OS auto-detect
 	Theme                 string   `toml:"theme"`                             // desktop is fixed to light; legacy values are ignored
 	ThemeStyle            string   `toml:"theme_style"`                       // desktop is fixed to slate; legacy values are ignored
+	UIStyle               string   `toml:"ui_style"`                          // modern|classic; presentation-only and applied on restart
 	CloseBehavior         string   `toml:"close_behavior"`                    // quit|background; desktop window close behavior
 	CheckUpdates          *bool    `toml:"check_updates"`                     // startup update checks; nil keeps the default enabled
 	ProviderAccess        []string `toml:"provider_access"`                   // desktop-only list of provider entries shown in Settings > Model > Access
@@ -87,7 +88,7 @@ type DesktopConfig struct {
 	ActivityIndicator     bool     `toml:"activity_indicator_enabled"`        // show the optional animated process activity mark
 	VisionEnabled         bool     `toml:"vision_enabled"`                    // send attached image bytes to the selected model
 	VisionMode            string   `toml:"vision_mode"`                       // off|auto|on; vision_enabled is retained for legacy configs
-	UIScale               int      `toml:"ui_scale"`                          // 0 = follow Windows DPI; otherwise 80..125 in five-percent increments
+	UIScale               int      `toml:"ui_scale"`                          // legacy V2 field; V3 reads and ignores it
 	AssistantAutoMemory   *bool    `toml:"assistant_auto_memory_enabled"`     // assistant-mode silent profile memory updates; nil = enabled
 	AssistantMemoryRecall *bool    `toml:"assistant_memory_recall_enabled"`   // inject assistant memories before assistant-mode turns; nil = enabled
 	AutomationFullAccess  bool     `toml:"automation_full_access_approved"`   // one-time consent for trusted automation turns
@@ -131,6 +132,11 @@ const (
 )
 
 const (
+	DesktopUIStyleModern  = "modern"
+	DesktopUIStyleClassic = "classic"
+)
+
+const (
 	VisionModeOff  = "off"
 	VisionModeAuto = "auto"
 	VisionModeOn   = "on"
@@ -148,14 +154,16 @@ func (c *Config) DesktopVisionMode() string {
 }
 
 func (c *Config) DesktopUIScale() int {
-	if c == nil {
-		return 0
-	}
-	scale := c.Desktop.UIScale
-	if scale >= 80 && scale <= 125 && scale%5 == 0 {
-		return scale
-	}
 	return 0
+}
+
+// DesktopUIStyle controls only the desktop presentation layer. Empty and
+// unknown values intentionally select the modern V3 shell.
+func (c *Config) DesktopUIStyle() string {
+	if c != nil && strings.EqualFold(strings.TrimSpace(c.Desktop.UIStyle), DesktopUIStyleClassic) {
+		return DesktopUIStyleClassic
+	}
+	return DesktopUIStyleModern
 }
 
 // DesktopProcessDisplayMode normalizes the two-state desktop process view.
@@ -709,17 +717,20 @@ type AgentConfig struct {
 // token budget; the harness compacts older history as a turn's prompt approaches
 // it (see agent compaction). 0 disables compaction for the instance.
 type ProviderEntry struct {
-	Name          string            `toml:"name"`
-	Kind          string            `toml:"kind"`
-	BaseURL       string            `toml:"base_url"`
-	Model         string            `toml:"model"`      // a single model (back-compat)
-	Models        []string          `toml:"models"`     // a vendor's model list (one base_url/key, many models)
-	ModelsURL     string            `toml:"models_url"` // auto-fetch models from this URL on startup
-	Default       string            `toml:"default"`    // default model when Models is set (else Models[0])
-	APIKeyEnv     string            `toml:"api_key_env"`
-	BalanceURL    string            `toml:"balance_url"` // optional; a provider-specific wallet-balance endpoint (DeepSeek: https://api.deepseek.com/user/balance). Empty = no balance readout.
-	ContextWindow int               `toml:"context_window"`
-	Price         *provider.Pricing `toml:"price"`
+	Name          string   `toml:"name"`
+	Kind          string   `toml:"kind"`
+	BaseURL       string   `toml:"base_url"`
+	Model         string   `toml:"model"`      // a single model (back-compat)
+	Models        []string `toml:"models"`     // a vendor's model list (one base_url/key, many models)
+	ModelsURL     string   `toml:"models_url"` // auto-fetch models from this URL on startup
+	Default       string   `toml:"default"`    // default model when Models is set (else Models[0])
+	APIKeyEnv     string   `toml:"api_key_env"`
+	BalanceURL    string   `toml:"balance_url"` // optional; a provider-specific wallet-balance endpoint (DeepSeek: https://api.deepseek.com/user/balance). Empty = no balance readout.
+	ContextWindow int      `toml:"context_window"`
+	// ModelContextWindows is an explicit per-model override. It is consulted
+	// after discovered/local metadata and before the provider-wide fallback.
+	ModelContextWindows map[string]int    `toml:"model_context_windows"`
+	Price               *provider.Pricing `toml:"price"`
 	// Thinking / Effort are provider-kind-specific knobs forwarded to the provider
 	// via Config.Extra. The anthropic provider reads Thinking="adaptive" to enable
 	// extended thinking and Effort ("low".."max") to tune depth. The
@@ -869,15 +880,15 @@ func officialDeepSeekModelPricing(e *ProviderEntry, model string) *provider.Pric
 		return nil
 	}
 	switch strings.ToLower(model) {
-	case "deepseek-v4-flash":
+	case "deepseek-v4-flash", "deepseek-v4-flash-vision-exp":
 		return deepSeekPeakPricing(
-			provider.PricingRates{CacheHit: 0.05, Input: 1.5, Output: 4.5},
-			provider.PricingRates{CacheHit: 0.10, Input: 3, Output: 9},
+			provider.PricingRates{CacheHit: 0.007, Input: 0.22, Output: 0.66},
+			provider.PricingRates{CacheHit: 0.014, Input: 0.44, Output: 1.32},
 		)
 	case "deepseek-v4-pro":
 		return deepSeekPeakPricing(
-			provider.PricingRates{CacheHit: 0.15, Input: 4.5, Output: 13.5},
-			provider.PricingRates{CacheHit: 0.30, Input: 9, Output: 27},
+			provider.PricingRates{CacheHit: 0.022, Input: 0.66, Output: 1.98},
+			provider.PricingRates{CacheHit: 0.044, Input: 1.32, Output: 3.96},
 		)
 	default:
 		return nil
@@ -889,9 +900,10 @@ func deepSeekPeakPricing(offPeak, peak provider.PricingRates) *provider.Pricing 
 		CacheHit: offPeak.CacheHit,
 		Input:    offPeak.Input,
 		Output:   offPeak.Output,
-		Currency: "¥",
+		Currency: "$",
 		Schedule: &provider.PricingSchedule{
 			UTCOffsetMinutes: 8 * 60,
+			PeakWeekdaysOnly: true,
 			PeakWindows: []provider.PricingWindow{
 				{StartMinute: 9 * 60, EndMinute: 12 * 60},
 				{StartMinute: 14 * 60, EndMinute: 18 * 60},
@@ -961,10 +973,11 @@ type SearchConfig struct {
 // fall back to allow. Allow/Ask/Deny are rule lists of the form "ToolName" or
 // "ToolName(glob)". Precedence: deny > ask > allow > fallback.
 type PermissionsConfig struct {
-	Mode  string   `toml:"mode"`
-	Allow []string `toml:"allow"`
-	Ask   []string `toml:"ask"`
-	Deny  []string `toml:"deny"`
+	Mode            string   `toml:"mode"`
+	AutoReviewModel string   `toml:"auto_review_model"`
+	Allow           []string `toml:"allow"`
+	Ask             []string `toml:"ask"`
+	Deny            []string `toml:"deny"`
 }
 
 // PluginEntry declares an external MCP server. Type selects the transport:
@@ -1221,7 +1234,7 @@ func Default() *Config {
 		// desktop onboarding overlay can replace this choice before sending.
 		DefaultModel: "deepseek-flash",
 		UI:           UIConfig{Theme: "auto"},
-		Desktop:      DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto, ActivityIndicator: true, ConversationMode: "assistant"},
+		Desktop:      DesktopConfig{Language: "zh", Theme: "light", ThemeStyle: "slate", UIStyle: DesktopUIStyleModern, CheckUpdates: boolPtr(true), VisionMode: VisionModeAuto, ActivityIndicator: true, ConversationMode: "assistant"},
 		LocalAI:      LocalAIConfig{IdleUnloadMinutes: 10, VRAMReserveMiB: 2048},
 		Notifications: NotificationsConfig{
 			Enabled:         false,
@@ -1271,8 +1284,8 @@ func Default() *Config {
 			Weixin:     WeixinBotConfig{AccountID: "default", TokenEnv: "WEIXIN_BOT_TOKEN", APIBase: "https://ilinkai.weixin.qq.com"},
 		},
 		Providers: []ProviderEntry{
-			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: deepSeekPeakPricing(provider.PricingRates{CacheHit: 0.05, Input: 1.5, Output: 4.5}, provider.PricingRates{CacheHit: 0.10, Input: 3, Output: 9})},
-			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: deepSeekPeakPricing(provider.PricingRates{CacheHit: 0.15, Input: 4.5, Output: 13.5}, provider.PricingRates{CacheHit: 0.30, Input: 9, Output: 27})},
+			{Name: "deepseek-flash", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: officialDeepSeekModelPricing(&ProviderEntry{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com"}, "deepseek-v4-flash")},
+			{Name: "deepseek-pro", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro", APIKeyEnv: "DEEPSEEK_API_KEY", BalanceURL: "https://api.deepseek.com/user/balance", ContextWindow: 1_000_000, Price: officialDeepSeekModelPricing(&ProviderEntry{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com"}, "deepseek-v4-pro")},
 			{Name: "mimo-pro", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5-pro", APIKeyEnv: "MIMO_TOKEN_PLAN_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.025, Input: 3, Output: 6, Currency: "¥"}, NoProxy: true},
 			{Name: "mimo-flash", Kind: "openai", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Model: "mimo-v2.5", APIKeyEnv: "MIMO_TOKEN_PLAN_API_KEY", ContextWindow: 1_000_000, Price: &provider.Pricing{CacheHit: 0.02, Input: 1, Output: 2, Currency: "¥"}, NoProxy: true},
 		},
@@ -1597,14 +1610,12 @@ func normalizeAutomationPreference(c *Config) {
 	}
 }
 
-// V6 adds application-level UI density on top of the OS DPI scale. Existing
-// installations default to automatic sizing without changing their old text-size
-// preference.
+// V3 ignores the retired application-level zoom and relies on Per-Monitor DPI.
 func normalizeDesktopUIScale(c *Config) {
 	if c == nil {
 		return
 	}
-	c.Desktop.UIScale = c.DesktopUIScale()
+	c.Desktop.UIScale = 0
 	if c.ConfigVersion < 6 {
 		c.ConfigVersion = 6
 	}
@@ -1903,7 +1914,7 @@ func ensureDeepSeekOfficialProvider(c *Config) {
 		Name:          "deepseek",
 		Kind:          "openai",
 		BaseURL:       "https://api.deepseek.com",
-		Models:        []string{"deepseek-v4-flash", "deepseek-v4-pro"},
+		Models:        []string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"},
 		Default:       "deepseek-v4-flash",
 		APIKeyEnv:     "DEEPSEEK_API_KEY",
 		BalanceURL:    "https://api.deepseek.com/user/balance",
@@ -1911,7 +1922,7 @@ func ensureDeepSeekOfficialProvider(c *Config) {
 	}
 	if old, ok := c.Provider("deepseek-flash"); ok {
 		entry = officialProviderFromLegacy(entry, old)
-		entry.Models = mergeModelLists([]string{"deepseek-v4-flash", "deepseek-v4-pro"}, old.ModelList())
+		entry.Models = mergeModelLists([]string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"}, old.ModelList())
 		entry.Default = firstKnownModel(entry.Default, entry.Models, "deepseek-v4-flash")
 	}
 	c.Providers = append(c.Providers, entry)
@@ -2345,7 +2356,27 @@ func (c *Config) ResolveModel(ref string) (*ProviderEntry, bool) {
 		return nil, false
 	}
 	allowed := func(e *ProviderEntry) bool {
-		return e != nil && (len(access) == 0 || access[canonicalDesktopOfficialProviderName(e.Name)])
+		if e == nil || len(access) == 0 {
+			return e != nil
+		}
+		name := strings.TrimSpace(e.Name)
+		canonical := canonicalDesktopOfficialProviderName(name)
+		if access[canonical] {
+			// Legacy official entries are retained for migration only. Once the
+			// access list points at the canonical preset, model pickers and bare
+			// resolution must not expose every historical alias as a duplicate.
+			if name != canonical {
+				if _, curated := ProviderPresetByID(canonical); curated {
+					return false
+				}
+			}
+			return true
+		}
+		// provider_access is an allow-list for curated official identities. A
+		// user-defined OpenAI-compatible provider remains selectable by its
+		// own stable ID and is never silently hidden by that list.
+		_, curated := ProviderPresetByID(canonical)
+		return !curated
 	}
 	resolved := func(e *ProviderEntry, model string) (*ProviderEntry, bool) {
 		if !allowed(e) || !e.HasModel(model) {

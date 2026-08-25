@@ -8,8 +8,11 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 )
 
 type modelFetchStatusError struct {
@@ -32,9 +35,18 @@ func IsModelFetchEndpointMiss(err error) bool {
 }
 
 type ModelMetadata struct {
-	ID           string
-	Vision       *bool
-	VisionReason string
+	ID                     string
+	ContextWindow          int
+	ContextWindowConfirmed bool
+	ContextReason          string
+	Vision                 *bool
+	VisionReason           string
+	ToolUse                *bool
+	ToolUseReason          string
+	StructuredOutput       *bool
+	StructuredOutputReason string
+	Pricing                *provider.Pricing
+	PricingReason          string
 }
 
 // FetchModels calls the OpenAI-compatible GET /models endpoint and returns the
@@ -95,11 +107,134 @@ func FetchModelMetadata(ctx context.Context, baseURL, apiKey string) ([]ModelMet
 		if id == "" {
 			continue
 		}
-		vision, reason := modelVisionMetadata(m)
-		items = append(items, ModelMetadata{ID: id, Vision: vision, VisionReason: reason})
+		contextWindow, contextReason := modelContextMetadata(m)
+		vision, visionReason := modelVisionMetadata(m)
+		toolUse, toolUseReason := modelBooleanCapability(m, []string{"tool_calling", "tools", "function_calling"})
+		structured, structuredReason := modelBooleanCapability(m, []string{"structured_output", "structured_outputs", "json_schema"})
+		pricing, pricingReason := modelPricingMetadata(m)
+		items = append(items, ModelMetadata{
+			ID: id, ContextWindow: contextWindow, ContextWindowConfirmed: contextWindow > 0, ContextReason: contextReason,
+			Vision: vision, VisionReason: visionReason, ToolUse: toolUse, ToolUseReason: toolUseReason,
+			StructuredOutput: structured, StructuredOutputReason: structuredReason, Pricing: pricing, PricingReason: pricingReason,
+		})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 	return items, nil
+}
+
+func modelContextMetadata(raw map[string]any) (int, string) {
+	for _, key := range []string{"context_length", "context_window", "max_context_length", "max_model_len"} {
+		if value := positiveInt(raw[key]); value > 0 {
+			return value, key
+		}
+	}
+	for _, parent := range []string{"architecture", "capabilities", "limits"} {
+		nested, ok := raw[parent].(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, key := range []string{"context_length", "context_window", "max_context_length", "max_model_len", "context"} {
+			if value := positiveInt(nested[key]); value > 0 {
+				return value, parent + "." + key
+			}
+		}
+	}
+	return 0, ""
+}
+
+func modelBooleanCapability(raw map[string]any, keys []string) (*bool, string) {
+	for _, key := range keys {
+		if value, ok := raw[key].(bool); ok {
+			return boolPtr(value), key
+		}
+	}
+	if capabilities, ok := raw["capabilities"].(map[string]any); ok {
+		for _, key := range keys {
+			if value, ok := capabilities[key].(bool); ok {
+				return boolPtr(value), "capabilities." + key
+			}
+		}
+	}
+	if parameters, ok := stringList(raw["supported_parameters"]); ok {
+		for _, key := range keys {
+			if containsString(parameters, key) {
+				return boolPtr(true), "supported_parameters"
+			}
+		}
+	}
+	return nil, ""
+}
+
+func modelPricingMetadata(raw map[string]any) (*provider.Pricing, string) {
+	pricing, ok := raw["pricing"].(map[string]any)
+	if !ok {
+		return nil, ""
+	}
+	input, inputOK := perMillionPrice(firstMapValue(pricing, "prompt", "input"))
+	output, outputOK := perMillionPrice(firstMapValue(pricing, "completion", "output"))
+	cacheHit, cacheOK := perMillionPrice(firstMapValue(pricing, "input_cache_read", "cache_read", "cache_hit"))
+	if !inputOK && !outputOK && !cacheOK {
+		return nil, ""
+	}
+	currency, _ := pricing["currency"].(string)
+	currency = strings.TrimSpace(currency)
+	if currency == "" {
+		currency = "$"
+	}
+	return &provider.Pricing{CacheHit: cacheHit, Input: input, Output: output, Currency: currency}, "pricing"
+}
+
+func firstMapValue(values map[string]any, keys ...string) any {
+	for _, key := range keys {
+		if value, ok := values[key]; ok {
+			return value
+		}
+	}
+	return nil
+}
+
+func perMillionPrice(value any) (float64, bool) {
+	var amount float64
+	switch typed := value.(type) {
+	case float64:
+		amount = typed
+	case json.Number:
+		parsed, err := typed.Float64()
+		if err != nil {
+			return 0, false
+		}
+		amount = parsed
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		if err != nil {
+			return 0, false
+		}
+		amount = parsed
+	default:
+		return 0, false
+	}
+	if amount < 0 {
+		return 0, false
+	}
+	return amount * 1_000_000, true
+}
+
+func positiveInt(value any) int {
+	switch typed := value.(type) {
+	case float64:
+		if typed > 0 {
+			return int(typed)
+		}
+	case json.Number:
+		if parsed, err := typed.Int64(); err == nil && parsed > 0 {
+			return int(parsed)
+		}
+	case string:
+		if parsed, err := strconv.ParseInt(strings.TrimSpace(typed), 10, 64); err == nil && parsed > 0 {
+			return int(parsed)
+		}
+	}
+	return 0
 }
 
 func modelVisionMetadata(raw map[string]any) (*bool, string) {
@@ -140,6 +275,16 @@ func stringList(value any) ([]string, bool) {
 func containsVisionModality(values []string) bool {
 	for _, value := range values {
 		if value == "image" || value == "vision" || value == "image_url" || value == "multimodal" {
+			return true
+		}
+	}
+	return false
+}
+
+func containsString(values []string, target string) bool {
+	target = strings.ToLower(strings.TrimSpace(target))
+	for _, value := range values {
+		if value == target {
 			return true
 		}
 	}

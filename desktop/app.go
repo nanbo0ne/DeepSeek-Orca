@@ -39,6 +39,7 @@ import (
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/localai"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/mcpdiag"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/modelmeta"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/plugin"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
@@ -370,6 +371,30 @@ func (a *App) quitApp() {
 	}
 	a.forceQuit.Store(true)
 	runtime.Quit(a.ctx)
+}
+
+// RestartApp launches the same executable after a short grace period and then
+// follows the normal Wails shutdown path. The delay lets the current instance
+// release its single-instance lock after snapshots and sidecars are closed.
+func (a *App) RestartApp() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := make([]string, 0, len(os.Args))
+	for _, arg := range os.Args[1:] {
+		if !strings.HasPrefix(arg, restartWaitArgPrefix) {
+			args = append(args, arg)
+		}
+	}
+	args = append(args, restartWaitArgPrefix+"1800")
+	cmd := exec.Command(exe, args...)
+	cmd.Dir = filepath.Dir(exe)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	a.quitApp()
+	return nil
 }
 
 func hideForBackground(ctx context.Context) {
@@ -2233,10 +2258,13 @@ func firstNonEmpty(values ...string) string {
 // ContextInfo is the prompt-vs-window gauge payload plus session totals. Used
 // and Window both zero means no context-window data yet.
 type ContextInfo struct {
-	Used          int     `json:"used"`
-	Window        int     `json:"window"`
-	SessionTokens int     `json:"sessionTokens"`
-	CompactRatio  float64 `json:"compactRatio,omitempty"`
+	Used            int     `json:"used"`
+	Window          int     `json:"window"`
+	WindowConfirmed bool    `json:"windowConfirmed"`
+	WindowSource    string  `json:"windowSource,omitempty"`
+	ModelRef        string  `json:"modelRef,omitempty"`
+	SessionTokens   int     `json:"sessionTokens"`
+	CompactRatio    float64 `json:"compactRatio,omitempty"`
 
 	PromptTokens     int `json:"promptTokens,omitempty"`
 	CompletionTokens int `json:"completionTokens,omitempty"`
@@ -2253,6 +2281,7 @@ type ContextInfo struct {
 	RequestCount            int     `json:"requestCount,omitempty"`
 	ElapsedMs               int64   `json:"elapsedMs,omitempty"`
 	SessionCost             float64 `json:"sessionCost,omitempty"`
+	CostAvailable           bool    `json:"costAvailable"`
 	SessionCurrency         string  `json:"sessionCurrency,omitempty"`
 	SessionCostUsd          float64 `json:"sessionCostUsd,omitempty"`
 }
@@ -2284,6 +2313,7 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 		info.RequestCount = usage.RequestCount
 		info.ElapsedMs = usage.ElapsedMs
 		info.SessionCost = usage.SessionCost
+		info.CostAvailable = usage.CostAvailable
 		info.SessionCurrency = usage.SessionCurrency
 		info.SessionCostUsd = usage.SessionCostUsd
 		if last, ok := lastUsageTelemetryEvent(telemetry.UsageEvents); ok {
@@ -2298,6 +2328,12 @@ func (a *App) ContextUsageForTab(tabID string) ContextInfo {
 	if ctrl == nil {
 		return info
 	}
+	contextMetadata := ctrl.ContextMetadata()
+	info.WindowConfirmed = contextMetadata.Confirmed
+	info.WindowSource = contextMetadata.Source
+	info.ModelRef = contextMetadata.ModelRef
+	pricingAvailable, _ := ctrl.PricingInfo()
+	info.CostAvailable = info.CostAvailable && pricingAvailable
 	if messagesHaveConversationContent(ctrl.History()) {
 		used, window := ctrl.ContextSnapshot()
 		info.Used = used
@@ -4132,10 +4168,19 @@ func removeServerOrder(order []string, name string) []string {
 // ModelInfo is one (provider, model) the bottom switcher can pick. Ref ("provider/
 // model") is what SetModel takes; Provider/Model are for display.
 type ModelInfo struct {
-	Ref      string `json:"ref"`
-	Provider string `json:"provider"`
-	Model    string `json:"model"`
-	Current  bool   `json:"current"`
+	Ref                    string `json:"ref"`
+	Provider               string `json:"provider"`
+	Model                  string `json:"model"`
+	Current                bool   `json:"current"`
+	ContextWindow          int    `json:"contextWindow"`
+	ContextWindowConfirmed bool   `json:"contextWindowConfirmed"`
+	ContextSource          string `json:"contextSource,omitempty"`
+	Vision                 string `json:"vision"`
+	ToolUse                string `json:"toolUse"`
+	StructuredOutput       string `json:"structuredOutput"`
+	PricingAvailable       bool   `json:"pricingAvailable"`
+	Currency               string `json:"currency,omitempty"`
+	MetadataSource         string `json:"metadataSource,omitempty"`
 }
 
 type EffortInfo struct {
@@ -4172,6 +4217,7 @@ func (a *App) ModelsForTab(tabID string) []ModelInfo {
 	}
 	access := providerAccessSet(cfg.Desktop.ProviderAccess)
 	out := []ModelInfo{}
+	metadataStore := modelmeta.Load("")
 	for i := range cfg.Providers {
 		p := &cfg.Providers[i]
 		if !modelProviderAccessAllowed(access, p.Name) || !p.Configured() {
@@ -4179,7 +4225,15 @@ func (a *App) ModelsForTab(tabID string) []ModelInfo {
 		}
 		for _, m := range p.ChatModelList() {
 			ref := p.Name + "/" + m
-			out = append(out, ModelInfo{Ref: ref, Provider: p.Name, Model: m, Current: ref == curModel})
+			entry := *p
+			entry.Model = m
+			resolved := modelmeta.Resolve(&entry, metadataStore)
+			out = append(out, ModelInfo{
+				Ref: ref, Provider: p.Name, Model: m, Current: ref == curModel, ContextWindow: resolved.ContextWindow,
+				ContextWindowConfirmed: resolved.ContextConfirmed, ContextSource: resolved.ContextSource, Vision: resolved.Vision,
+				ToolUse: resolved.ToolUse, StructuredOutput: resolved.StructuredOutput, PricingAvailable: resolved.PricingAvailable,
+				Currency: resolved.Currency, MetadataSource: resolved.MetadataSource,
+			})
 		}
 	}
 	return out
@@ -4189,7 +4243,21 @@ func modelProviderAccessAllowed(access map[string]bool, name string) bool {
 	if len(access) == 0 {
 		return true
 	}
-	return access[strings.TrimSpace(name)]
+	name = strings.TrimSpace(name)
+	if access[name] {
+		return true
+	}
+	canonical := config.CanonicalDesktopOfficialProviderName(name)
+	if canonical != name {
+		if _, curated := config.ProviderPresetByID(canonical); curated {
+			return false
+		}
+	}
+	if access[canonical] {
+		return true
+	}
+	_, curated := config.ProviderPresetByID(canonical)
+	return !curated
 }
 
 // SetModel switches the active model and carries the current conversation into the

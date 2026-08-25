@@ -310,7 +310,7 @@ func paintOverlayWindow(window *overlayWindow) {
 	if status != "" {
 		status += "  |  Esc 停止"
 	} else {
-		status = "O.R.C.A 正在控制此屏幕  |  Esc 停止"
+		status = "O.R.C.A. 正在控制此屏幕  |  Esc 停止"
 	}
 	chars, _ := windows.UTF16PtrFromString(status)
 	procTextOutW.Call(hdc, 16, 12, uintptr(unsafe.Pointer(chars)), uintptr(len([]rune(status))))

@@ -149,13 +149,20 @@ export function ContextPanel({
     currentCompletionTokens,
     currentReasoningTokens,
   } = computeContextPanelUsage({ context, info, usage, sessionTokens });
-  const sessionCostValue = info?.sessionCost && info.sessionCost > 0 ? info.sessionCost : sessionCost && sessionCost > 0 ? sessionCost : info?.sessionCostUsd ?? 0;
-  const cost = sessionCostValue;
-  const currency = sessionCurrency || info?.sessionCurrency || usage?.currency || "CNY";
+  const costAvailable = info?.costAvailable === true || context?.costAvailable === true || usage?.costAvailable === true;
+  const cost = info?.costAvailable === true
+    ? (info.sessionCost ?? info.sessionCostUsd ?? 0)
+    : context?.costAvailable === true
+      ? (context.sessionCost ?? context.sessionCostUsd ?? sessionCost ?? 0)
+      : usage?.costAvailable === true
+        ? (sessionCost ?? usage.cost ?? usage.costUsd ?? 0)
+        : 0;
+  const currency = info?.sessionCurrency || context?.sessionCurrency || sessionCurrency || usage?.currency || "";
   const readFiles = asArray(info?.readFiles);
   const changedFiles = asArray(info?.changedFiles);
 
-  const usagePct = windowTokens > 0 ? Math.min(100, Math.round((usedTokens / windowTokens) * 100)) : 0;
+  const hasContextWindow = windowTokens > 0;
+  const usagePct = hasContextWindow ? Math.min(100, Math.round((usedTokens / windowTokens) * 100)) : null;
   const compactPct = context?.compactRatio ? Math.round(context.compactRatio * 100) : 0;
   const cachePct = cacheHitTokens + cacheMissTokens > 0
     ? Math.round((cacheHitTokens / (cacheHitTokens + cacheMissTokens)) * 100)
@@ -166,10 +173,10 @@ export function ContextPanel({
   const displayCompletionTokens = currentBreakdown > 0 ? currentCompletionTokens : completionTokens;
   const displayReasoningTokens = currentBreakdown > 0 ? currentReasoningTokens : reasoningTokens;
   const safeBreakdown = Math.max(displayPromptTokens + displayCompletionTokens + displayReasoningTokens, 1);
-  const promptPct = Math.min(100, (displayPromptTokens / safeBreakdown) * usagePct);
-  const completionPct = Math.min(100, (displayCompletionTokens / safeBreakdown) * usagePct);
-  const reasoningPct = Math.min(100, (displayReasoningTokens / safeBreakdown) * usagePct);
-  const otherPct = Math.max(0, Math.min(100, usagePct - promptPct - completionPct - reasoningPct));
+  const promptPct = usagePct === null ? 0 : Math.min(100, (displayPromptTokens / safeBreakdown) * usagePct);
+  const completionPct = usagePct === null ? 0 : Math.min(100, (displayCompletionTokens / safeBreakdown) * usagePct);
+  const reasoningPct = usagePct === null ? 0 : Math.min(100, (displayReasoningTokens / safeBreakdown) * usagePct);
+  const otherPct = usagePct === null ? 0 : Math.max(0, Math.min(100, usagePct - promptPct - completionPct - reasoningPct));
   const eventTimes = [
     ...readFiles.map((file) => file.time),
     ...changedFiles.map((file) => file.latestTime ?? 0),
@@ -192,7 +199,7 @@ export function ContextPanel({
     time: fmtTime(f.latestTime),
     detail: asArray(f.turns).length > 0 ? `T${asArray(f.turns).join(",")}` : "",
   }));
-  const health = contextHealth(usagePct, cachePct, readRows.length);
+  const health = contextHealth(usagePct ?? 0, cachePct, readRows.length);
 
   return (
     <div className="context-panel">
@@ -204,17 +211,17 @@ export function ContextPanel({
               <div className="context-panel__usage-summary">
                 <div className="context-panel__usage-copy">
                   <strong>{fmtTokens(usedTokens)}</strong>
-                  <span>/ {fmtTokens(windowTokens)} tokens</span>
+                  {hasContextWindow && <span>/ {fmtTokens(windowTokens)} tokens</span>}
                 </div>
-                <div className="context-panel__percent">{usagePct}%</div>
+                {usagePct !== null && <div className="context-panel__percent">{usagePct}%</div>}
               </div>
-              <div className="context-panel__usage-track" aria-hidden="true">
+              {hasContextWindow && <div className="context-panel__usage-track" aria-hidden="true">
                 <span className="context-panel__usage-segment context-panel__usage-segment--prompt" style={{ width: `${promptPct}%` }} />
                 <span className="context-panel__usage-segment context-panel__usage-segment--completion" style={{ width: `${completionPct}%` }} />
                 <span className="context-panel__usage-segment context-panel__usage-segment--reasoning" style={{ width: `${reasoningPct}%` }} />
                 <span className="context-panel__usage-segment context-panel__usage-segment--other" style={{ width: `${otherPct}%` }} />
                 {compactPct > 0 && <span className="context-panel__compact-marker" style={{ left: `${Math.min(100, Math.max(0, compactPct))}%` }} />}
-              </div>
+              </div>}
               {compactPct > 0 && (
                 <div className="context-panel__usage-note">
                   <span>{t("context.compaction")}</span>
@@ -229,7 +236,7 @@ export function ContextPanel({
               <TokenLegend label={t("context.other")} value={otherTokens} color="other" />
               <div className="context-panel__total">
                 <span>{t("context.total")}</span>
-                <strong>{usedTokens.toLocaleString()} / {windowTokens.toLocaleString()}</strong>
+                <strong>{hasContextWindow ? `${usedTokens.toLocaleString()} / ${windowTokens.toLocaleString()}` : usedTokens.toLocaleString()}</strong>
               </div>
             </div>
           </section>
@@ -245,7 +252,7 @@ export function ContextPanel({
             <SectionHeading title={t("context.costMetrics")} />
             <div className="context-panel__stats">
               <MetricCard label={t("context.cacheHit")} value={cachePct > 0 ? `${cachePct}%` : "-"} tone="accent" />
-              <MetricCard label={t("context.sessionCost")} value={fmtMoney(cost, currency)} />
+              {costAvailable && <MetricCard label={t("context.sessionCost")} value={fmtMoney(cost, currency)} />}
             </div>
           </section>
           <section className="context-panel__section context-panel__section--status">

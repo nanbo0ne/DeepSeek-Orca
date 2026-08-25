@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Download } from "lucide-react";
+import logoWordmark from "../assets/logo-wordmark.png";
 import { Tooltip } from "./Tooltip";
 import { useI18n } from "../lib/i18n";
 import { type BalanceInfo, type CollaborationMode, type ContextInfo, type JobView, type ToolApprovalMode, type UpdateInfo, type WireUsage } from "../lib/types";
@@ -144,9 +145,10 @@ export function StatusBar({
   const nowPct = nowRate(usage);
   const avgPct = avgRate(usage);
   const jobsList = jobs ?? [];
+  const costAvailable = context.costAvailable === true && typeof cost === "number";
   const costLabel = formatMoney(cost, currency);
   const tokenLabel = formatTokenCount(sessionTokens);
-  const balanceLabel = balance?.loading ? t("status.balanceLoading") : balance?.available && balance.display ? balance.display : "-";
+  const balanceLabel = balance?.available && balance.display ? balance.display : "";
   const planMode = collaborationMode === "plan";
   const goalMode = collaborationMode === "goal";
 
@@ -202,18 +204,18 @@ export function StatusBar({
         </Tooltip>
       </div>
       <div className="statusbar__group statusbar__group--account">
-        <Tooltip label={t("status.spendTitle")}>
+        {costAvailable && <Tooltip label={t("status.spendTitle")}>
           <span className="stat statusbar__cost">
             <span className="stat__label">{t("status.costLabel")}</span>
             <b>{costLabel}</b>
           </span>
-        </Tooltip>
-        <Tooltip label={t("status.balanceTitle")}>
+        </Tooltip>}
+        {balanceLabel && <Tooltip label={t("status.balanceTitle")}>
           <span className="stat stat--balance statusbar__balance">
             <span className="stat__label">{t("status.balanceLabel")}</span>
             <b className={balanceLabel === "-" ? "stat__value--empty" : undefined}>{balanceLabel}</b>
           </span>
-        </Tooltip>
+        </Tooltip>}
         {planMode && <span className="statusbar__plan">{t("status.plan")}</span>}
         {goalMode && <span className="statusbar__plan">{t("composer.goalMode")}</span>}
         {askWorkflowEnabled && <span className="statusbar__plan">{t("composer.askWorkflow")}</span>}
@@ -248,6 +250,7 @@ export function StatusBar({
           </Tooltip>
         </div>
       )}
+      <img className="statusbar__brand" src={logoWordmark} alt="O.R.C.A." draggable={false} />
     </div>
   );
 }

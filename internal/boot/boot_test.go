@@ -498,6 +498,10 @@ func (p *bootSubagentTestProvider) Stream(context.Context, provider.Request) (<-
 		chunks = []provider.Chunk{{Type: provider.ChunkError, Err: errors.New("subagent skill failed")}}
 	case 5:
 		chunks = []provider.Chunk{{Type: provider.ChunkText, Text: "parent second done"}, {Type: provider.ChunkDone}}
+	case 6:
+		// A failed subagent tool is a hard readiness signal. The host permits one
+		// targeted follow-up, then accepts the answer when no new failure appears.
+		chunks = []provider.Chunk{{Type: provider.ChunkText, Text: "parent second done after verification"}, {Type: provider.ChunkDone}}
 	default:
 		chunks = []provider.Chunk{{Type: provider.ChunkError, Err: fmt.Errorf("unexpected provider call %d", call)}}
 	}

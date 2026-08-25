@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import logoWordmark from "../assets/logo-wordmark.png";
+import logoSymbol from "../assets/logo-symbol.png";
 import { app, onWelcomeSuggestions } from "../lib/bridge";
 import { useT } from "../lib/i18n";
 
@@ -29,7 +29,7 @@ export function Welcome({ onPrompt }: { onPrompt: (text: string) => void }) {
   return (
     <div className="welcome welcome--brand">
       <span className="welcome__brand">
-        <img src={logoWordmark} className="welcome__brand-logo" alt="O.R.C.A" draggable={false} />
+        <img src={logoSymbol} className="welcome__brand-logo" alt="O.R.C.A." draggable={false} />
       </span>
       <h2 className="welcome__title">{t("welcome.title")}</h2>
       <div className="welcome__tag">{t("welcome.tagline")}</div>

@@ -163,12 +163,24 @@ func (c *Config) SetDesktopAppearance(theme, style string) error {
 }
 
 func (c *Config) SetDesktopUIScale(scale int) error {
-	if scale != 0 && (scale < 80 || scale > 125 || scale%5 != 0) {
-		return fmt.Errorf("desktop ui scale %d: must be 0 or 80..125 in increments of 5", scale)
-	}
-	c.Desktop.UIScale = scale
+	_ = scale
+	c.Desktop.UIScale = 0
 	if c.ConfigVersion < 6 {
 		c.ConfigVersion = 6
+	}
+	return nil
+}
+
+// SetDesktopUIStyle updates the reversible desktop presentation mode without
+// touching provider-visible configuration.
+func (c *Config) SetDesktopUIStyle(style string) error {
+	switch strings.ToLower(strings.TrimSpace(style)) {
+	case DesktopUIStyleModern, "":
+		c.Desktop.UIStyle = DesktopUIStyleModern
+	case DesktopUIStyleClassic:
+		c.Desktop.UIStyle = DesktopUIStyleClassic
+	default:
+		return fmt.Errorf("desktop UI style %q: must be modern|classic", style)
 	}
 	return nil
 }
@@ -435,6 +447,20 @@ func (c *Config) SetPermissionMode(mode string) error {
 	default:
 		return fmt.Errorf("permission mode %q: must be ask|allow|deny", mode)
 	}
+}
+
+func (c *Config) SetAutoReviewModel(ref string) error {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		c.Permissions.AutoReviewModel = ""
+		return nil
+	}
+	entry, ok := c.ResolveModel(ref)
+	if !ok {
+		return fmt.Errorf("unknown auto review model %q", ref)
+	}
+	c.Permissions.AutoReviewModel = entry.Name + "/" + entry.Model
+	return nil
 }
 
 // AddPermissionRule appends a rule ("ToolName" or "ToolName(glob)") to the

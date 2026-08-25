@@ -28,11 +28,8 @@ func TestDesktopUpdatePreferenceMigration(t *testing.T) {
 	if fresh.ConfigVersion != 11 || !fresh.DesktopCheckUpdates() || fresh.DesktopUIScale() != 0 || !fresh.Desktop.ActivityIndicator {
 		t.Fatalf("fresh default = version %d, updates %v, scale %d, activity %v; want 11,true,0,true", fresh.ConfigVersion, fresh.DesktopCheckUpdates(), fresh.DesktopUIScale(), fresh.Desktop.ActivityIndicator)
 	}
-	if err := fresh.SetDesktopUIScale(85); err != nil || fresh.DesktopUIScale() != 85 {
-		t.Fatalf("valid manual scale was rejected: err=%v scale=%d", err, fresh.DesktopUIScale())
-	}
-	if err := fresh.SetDesktopUIScale(83); err == nil {
-		t.Fatal("non-five-percent UI scale was accepted")
+	if err := fresh.SetDesktopUIScale(85); err != nil || fresh.DesktopUIScale() != 0 || fresh.Desktop.UIScale != 0 {
+		t.Fatalf("legacy manual scale was not ignored: err=%v scale=%d stored=%d", err, fresh.DesktopUIScale(), fresh.Desktop.UIScale)
 	}
 }
 

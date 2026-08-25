@@ -1,5 +1,7 @@
 package localai
 
+import "strings"
+
 type GPUAdapter struct {
 	Name          string `json:"name"`
 	Vendor        string `json:"vendor"`
@@ -26,12 +28,8 @@ func applyRecommendation(profile *HardwareProfile) {
 	if profile == nil || !profile.Supported {
 		return
 	}
-	var best GPUAdapter
-	for _, gpu := range profile.GPUs {
-		if gpu.DedicatedMiB > best.DedicatedMiB {
-			best = gpu
-		}
-	}
+	profile.GPUs = nonNilGPUs(profile.GPUs)
+	best := bestGPU(profile.GPUs)
 	switch {
 	case best.DedicatedMiB >= 16*1024:
 		profile.RecommendedModel = "qwen3.8-27b-iq3-xxs"
@@ -51,5 +49,34 @@ func applyRecommendation(profile *HardwareProfile) {
 	}
 	if best.DedicatedMiB >= 16*1024 && best.AvailableMiB > 0 && best.AvailableMiB < 12*1024 {
 		profile.Warning = "检测到 16GB 级显卡，但当前空闲显存不足 12GB；启动时会自动降低上下文或 GPU 卸载层数。"
+	}
+}
+
+func nonNilGPUs(gpus []GPUAdapter) []GPUAdapter {
+	if gpus == nil {
+		return []GPUAdapter{}
+	}
+	return gpus
+}
+
+func bestGPU(gpus []GPUAdapter) GPUAdapter {
+	var best GPUAdapter
+	for _, gpu := range gpus {
+		if gpu.DedicatedMiB > best.DedicatedMiB ||
+			(gpu.DedicatedMiB == best.DedicatedMiB && gpuPreference(gpu) > gpuPreference(best)) {
+			best = gpu
+		}
+	}
+	return best
+}
+
+func gpuPreference(gpu GPUAdapter) int {
+	switch strings.ToLower(strings.TrimSpace(gpu.Backend)) {
+	case "cuda":
+		return 3
+	case "vulkan":
+		return 2
+	default:
+		return 1
 	}
 }

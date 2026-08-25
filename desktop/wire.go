@@ -94,6 +94,7 @@ type wireUsage struct {
 	SessionCacheHitTokens  int     `json:"sessionCacheHitTokens"`
 	SessionCacheMissTokens int     `json:"sessionCacheMissTokens"`
 	Cost                   float64 `json:"cost,omitempty"`
+	CostAvailable          bool    `json:"costAvailable"`
 	Currency               string  `json:"currency,omitempty"`
 	// CostUSD is kept for older frontend/status consumers. It mirrors Cost and
 	// does not imply USD.
@@ -200,6 +201,7 @@ func toWire(e event.Event) wireEvent {
 				w.Usage.Cost = cost
 				w.Usage.Currency = e.Pricing.Symbol()
 				w.Usage.CostUSD = cost
+				w.Usage.CostAvailable = true
 			}
 		}
 	case event.ApprovalRequest:

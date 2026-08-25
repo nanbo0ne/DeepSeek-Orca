@@ -31,6 +31,7 @@ import (
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/jobs"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/lsp"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/modelmeta"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/netclient"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/outputstyle"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/permission"
@@ -185,6 +186,10 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w %q (configured: %s); note: defining [[providers]] replaces the built-in presets, so add a [[providers]] entry for it or use a configured name, or run `orca setup` to reconfigure", ErrUnknownModel, modelName, providerNames(cfg))
 	}
+	metadataStore := modelmeta.Load("")
+	mainMetadata := modelmeta.Resolve(entry, metadataStore)
+	entry.ContextWindow = mainMetadata.ContextWindow
+	entry.Price = mainMetadata.Pricing
 	if opts.EffortOverride != nil {
 		entry.Effort = *opts.EffortOverride
 		if entry.Kind == "anthropic" && strings.TrimSpace(entry.Effort) != "" && strings.TrimSpace(entry.Thinking) == "" {
@@ -238,6 +243,31 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Automatic approval reviews use a separate, history-free request. When no
+	// reviewer model is configured, reuse the active provider instance; an
+	// explicit reference gets its own provider so credentials and endpoint
+	// identity stay isolated. A bad explicit reviewer configuration leaves the
+	// classifier unavailable, preserving the existing auto-approval fallback
+	// without attributing an active-model request to the configured model.
+	riskProv := execProv
+	riskModel := entry.Name + "/" + entry.Model
+	if configured := strings.TrimSpace(cfg.Permissions.AutoReviewModel); configured != "" {
+		riskModel = configured
+		if reviewerEntry, ok := cfg.ResolveModel(configured); ok {
+			reviewerProv, reviewerErr := NewProviderWithProxy(reviewerEntry, proxySpec)
+			if reviewerErr != nil {
+				slog.Warn("risk reviewer provider unavailable; automatic review will use fallback behavior", "model", configured, "err", reviewerErr)
+				riskProv = nil
+			} else {
+				riskProv = reviewerProv
+			}
+		} else {
+			slog.Warn("risk reviewer model is not configured; automatic review will use fallback behavior", "model", configured)
+			riskProv = nil
+		}
+	}
+	riskClassifier := control.NewProviderRiskClassifier(riskProv)
 
 	sysPrompt, err := cfg.ResolveSystemPrompt()
 	if err != nil {
@@ -570,6 +600,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 				me.Thinking = "adaptive"
 			}
 		}
+		resolvedMetadata := modelmeta.Resolve(&me, metadataStore)
+		me.ContextWindow = resolvedMetadata.ContextWindow
+		me.Price = resolvedMetadata.Pricing
 		p, err := NewProviderWithProxy(&me, proxySpec)
 		if err != nil {
 			return nil, nil, 0, err
@@ -834,6 +867,9 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 		if !ok {
 			return nil, fmt.Errorf("planner_model %q is not a configured provider", pm)
 		}
+		plannerMetadata := modelmeta.Resolve(pe, metadataStore)
+		pe.ContextWindow = plannerMetadata.ContextWindow
+		pe.Price = plannerMetadata.Pricing
 		if pe.Model != entry.Model {
 			plannerProv, err := NewProviderWithProxy(pe, proxySpec)
 			if err != nil {
@@ -874,36 +910,41 @@ func Build(ctx context.Context, opts Options) (*control.Controller, error) {
 	}
 
 	ctrlOpts := control.Options{
-		Runner:         runner,
-		Executor:       executor,
-		Sink:           sink,
-		Policy:         policy,
-		Label:          label,
-		SystemPrompt:   sysPrompt,
-		SessionDir:     sessionDir,
-		Host:           pluginHost,
-		Commands:       cmds,
-		Skills:         skills,
-		AllSkills:      allSkills,
-		SkillStore:     skillStore,
-		AllSkillStore:  allSkillStore,
-		Hooks:          hookRunner,
-		Memory:         mem,
-		EnhancedMode:   false,
-		MemoryReminder: (assistantMode || orcaMode) && cfg.DesktopAssistantMemoryRecallEnabled(),
-		TurnContext:    opts.TurnContext,
-		Cleanup:        cleanup,
-		BalanceURL:     entry.BalanceURL,
-		BalanceKey:     entry.APIKey(),
-		BalanceClient:  balanceClient,
-		Jobs:           jm,
-		Registry:       reg,
-		PluginCtx:      ctx,
-		WorkspaceRoot:  root,
-		VisionEnabled:  mainVisionEnabled,
-		VisionMode:     visionMode,
-		VisionModels:   visionModels,
-		AutoPlan:       cfg.Agent.AutoPlan,
+		Runner:                 runner,
+		Executor:               executor,
+		Sink:                   sink,
+		Policy:                 policy,
+		Label:                  label,
+		SystemPrompt:           sysPrompt,
+		SessionDir:             sessionDir,
+		Host:                   pluginHost,
+		Commands:               cmds,
+		Skills:                 skills,
+		AllSkills:              allSkills,
+		SkillStore:             skillStore,
+		AllSkillStore:          allSkillStore,
+		Hooks:                  hookRunner,
+		Memory:                 mem,
+		EnhancedMode:           false,
+		MemoryReminder:         (assistantMode || orcaMode) && cfg.DesktopAssistantMemoryRecallEnabled(),
+		TurnContext:            opts.TurnContext,
+		Cleanup:                cleanup,
+		BalanceURL:             entry.BalanceURL,
+		BalanceKey:             entry.APIKey(),
+		BalanceClient:          balanceClient,
+		ModelRef:               mainMetadata.ModelRef,
+		ContextWindowConfirmed: mainMetadata.ContextConfirmed,
+		ContextWindowSource:    mainMetadata.ContextSource,
+		Jobs:                   jm,
+		Registry:               reg,
+		PluginCtx:              ctx,
+		WorkspaceRoot:          root,
+		VisionEnabled:          mainVisionEnabled,
+		VisionMode:             visionMode,
+		VisionModels:           visionModels,
+		AutoPlan:               cfg.Agent.AutoPlan,
+		RiskClassifier:         riskClassifier,
+		RiskModel:              riskModel,
 		OnRemember: func(rule string) control.RememberResult {
 			return rememberPermissionRule(root, rule)
 		},

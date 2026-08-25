@@ -131,6 +131,7 @@ interface State {
   sessionTokens: number;
   sessionCost: number;
   sessionCurrency: string;
+  costAvailable: boolean;
   retry?: { attempt: number; max: number };
   runtimeSwitch?: RuntimeSwitchProgress;
   seq: number;
@@ -143,7 +144,7 @@ export const initialState: State = {
   running: false,
   cancelRequested: false,
   turnActive: false,
-  context: { used: 0, window: 0, sessionTokens: 0 },
+  context: { used: 0, window: 0, sessionTokens: 0, windowConfirmed: false, costAvailable: false },
   jobs: [],
   checkpoints: [],
   turnStartAt: 0,
@@ -152,7 +153,8 @@ export const initialState: State = {
   turnUsageTokens: 0,
   sessionTokens: 0,
   sessionCost: 0,
-  sessionCurrency: "¥",
+  sessionCurrency: "",
+  costAvailable: false,
   seq: 0,
 };
 
@@ -165,8 +167,12 @@ function usageFromContext(context: State["context"], fallback?: WireUsage): Wire
   const cacheHitTokens = context.cacheHitTokens ?? fallback?.cacheHitTokens ?? sessionHit;
   const cacheMissTokens = context.cacheMissTokens ?? fallback?.cacheMissTokens ?? sessionMiss;
   const reasoningTokens = context.reasoningTokens ?? fallback?.reasoningTokens ?? 0;
+  const costAvailable = context.costAvailable === true;
+  const sanitizeCost = (usage: WireUsage): WireUsage => costAvailable
+    ? { ...usage, costAvailable: true, currency: context.sessionCurrency || usage.currency }
+    : { ...usage, cost: undefined, costUsd: undefined, currency: undefined, costAvailable: false };
   if (promptTokens + completionTokens + totalTokens + cacheHitTokens + cacheMissTokens + reasoningTokens + sessionHit + sessionMiss <= 0) {
-    return fallback;
+    return fallback ? sanitizeCost(fallback) : undefined;
   }
   return {
     promptTokens,
@@ -177,9 +183,10 @@ function usageFromContext(context: State["context"], fallback?: WireUsage): Wire
     reasoningTokens,
     sessionCacheHitTokens: sessionHit,
     sessionCacheMissTokens: sessionMiss,
-    cost: fallback?.cost,
-    costUsd: fallback?.costUsd,
-    currency: fallback?.currency ?? context.sessionCurrency,
+    cost: costAvailable ? fallback?.cost : undefined,
+    costAvailable,
+    costUsd: costAvailable ? fallback?.costUsd : undefined,
+    currency: costAvailable ? (context.sessionCurrency || fallback?.currency) : undefined,
   };
 }
 
@@ -594,8 +601,9 @@ function applyEvent(s: State, e: WireEvent): State {
       const turnTokens = s.turnTokens + (e.usage?.completionTokens ?? 0);
       const turnUsageTokens = s.turnUsageTokens + usageTotalTokens(e.usage);
       const sessionTokens = Math.max(0, s.context.sessionTokens ?? s.sessionTokens, s.sessionTokens);
-      const sessionCurrency = e.usage?.currency || s.sessionCurrency || "¥";
-      return { ...s, usage: e.usage, context: { ...s.context, sessionTokens }, turnTokens, turnUsageTokens, sessionTokens, sessionCurrency };
+      const costAvailable = e.usage?.costAvailable ?? (typeof e.usage?.cost === "number" && Boolean(e.usage?.currency));
+      const sessionCurrency = costAvailable ? (e.usage?.currency || s.sessionCurrency) : "";
+      return { ...s, usage: e.usage, context: { ...s.context, sessionTokens, costAvailable }, turnTokens, turnUsageTokens, sessionTokens, sessionCurrency, costAvailable };
     }
     case "notice":
       return { ...s, running: s.turnActive ? s.running : false, turnProcessStartAt: s.turnProcessStartAt || Date.now(), seq: s.seq + 1, items: [...s.items, { kind: "notice", id: e.itemId || `n${s.seq}`, level: e.level ?? "info", text: e.text ?? "", turnId: e.turnId || s.currentTurnId, itemId: e.itemId, itemStatus: e.itemStatus }] };
@@ -695,13 +703,12 @@ export function reducer(s: State, a: Action): State {
         ? Math.max(0, a.context.sessionTokens)
         : s.sessionTokens;
       const usage = usageFromContext(a.context, s.usage);
-      const sessionCost = typeof a.context.sessionCost === "number" && a.context.sessionCost > 0
-        ? a.context.sessionCost
-        : typeof a.context.sessionCostUsd === "number" && a.context.sessionCostUsd > 0
-          ? a.context.sessionCostUsd
-          : s.sessionCost;
-      const sessionCurrency = a.context.sessionCurrency || usage?.currency || s.sessionCurrency || "¥";
-      return { ...s, context: a.context, usage, sessionTokens, sessionCost, sessionCurrency };
+      const costAvailable = a.context.costAvailable === true;
+      const sessionCost = costAvailable
+        ? (typeof a.context.sessionCost === "number" ? a.context.sessionCost : typeof a.context.sessionCostUsd === "number" ? a.context.sessionCostUsd : 0)
+        : 0;
+      const sessionCurrency = costAvailable ? (a.context.sessionCurrency || usage?.currency || "") : "";
+      return { ...s, context: { ...a.context, costAvailable }, usage, sessionTokens, sessionCost, sessionCurrency, costAvailable };
     }
     case "balance": return { ...s, balance: a.balance };
     case "effort": return { ...s, effort: a.effort };
@@ -879,7 +886,9 @@ export function useController() {
   }, [dispatchTo]);
 
   const refreshBalanceForTab = useCallback((tabId: string) => {
-    dispatchTo(tabId, { type: "balance", balance: { available: false, display: "", loading: true } });
+    // Clear the previous provider's value immediately. Unsupported providers
+    // remain absent instead of flashing a misleading loading placeholder.
+    dispatchTo(tabId, { type: "balance", balance: { available: false, display: "" } });
     app.BalanceForTab(tabId)
       .then((balance) => dispatchTo(tabId, { type: "balance", balance }))
       .catch((err) => dispatchTo(tabId, {

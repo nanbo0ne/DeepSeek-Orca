@@ -220,7 +220,7 @@ jobs:
           app_windows="$(cygpath -w "$PWD/desktop/build/bin/Orca.exe")"
           (cd desktop/build/windows/installer && makensis "-DARG_WAILS_AMD64_BINARY=$app_windows" project.nsi)
 
-          installer="$(find desktop/build/bin -maxdepth 1 -type f -iname '*setup*.exe' | head -n1)"
+          installer="$(find desktop/build/bin -maxdepth 1 -type f \( -iname '*setup*.exe' -o -iname '*installer*.exe' \) | head -n1)"
           [ -n "$installer" ] || { echo "NSIS did not produce an installer" >&2; exit 1; }
           rm -f dist/O.R.C.A-for-Windows-windows-amd64-installer.exe dist/O.R.C.A-for-Windows-windows-amd64.zip
           cp "$installer" dist/O.R.C.A-for-Windows-windows-amd64-installer.exe

@@ -4,8 +4,10 @@ package localai
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -46,10 +48,8 @@ func DetectHardware(dataRoot string) HardwareProfile {
 			p.DiskFreeBytes = int64(free)
 		}
 	}
-	p.GPUs = detectNVIDIAGPUs()
-	if len(p.GPUs) == 0 {
-		p.GPUs = detectWindowsVideoControllers()
-	}
+	p.GPUs = mergeGPUAdapters(detectNVIDIAGPUs(), detectWindowsVideoControllers())
+	p.GPUs = nonNilGPUs(p.GPUs)
 	applyRecommendation(&p)
 	return p
 }
@@ -82,20 +82,89 @@ func detectNVIDIAGPUs() []GPUAdapter {
 }
 
 func detectWindowsVideoControllers() []GPUAdapter {
-	script := `Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | ConvertTo-Json -Compress`
+	script := `@(Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion) | ConvertTo-Json -Compress`
 	out, err := hiddenCommand("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil || len(out) == 0 {
 		return nil
 	}
-	// Keep this fallback intentionally conservative: WMI's AdapterRAM is only a
-	// 32-bit estimate on some drivers, so unknown adapters are not over-promoted.
-	text := string(out)
-	var result []GPUAdapter
-	for _, vendor := range []struct{ key, label string }{{"AMD", "AMD"}, {"Radeon", "AMD"}, {"Intel", "Intel"}} {
-		if strings.Contains(text, vendor.key) {
-			result = append(result, GPUAdapter{Name: vendor.label + " GPU", Vendor: vendor.label, Backend: "vulkan"})
-			break
+	var controllers []struct {
+		Name          string `json:"Name"`
+		AdapterRAM    uint64 `json:"AdapterRAM"`
+		DriverVersion string `json:"DriverVersion"`
+	}
+	if err := json.Unmarshal(out, &controllers); err != nil {
+		return nil
+	}
+	result := make([]GPUAdapter, 0, len(controllers))
+	for _, controller := range controllers {
+		name := strings.TrimSpace(controller.Name)
+		if name == "" {
+			continue
 		}
+		vendor, backend := gpuVendorAndBackend(name)
+		result = append(result, GPUAdapter{
+			Name: name, Vendor: vendor, Backend: backend,
+			DedicatedMiB:  int64(controller.AdapterRAM / 1024 / 1024),
+			DriverVersion: strings.TrimSpace(controller.DriverVersion),
+		})
 	}
 	return result
+}
+
+func gpuVendorAndBackend(name string) (string, string) {
+	lower := strings.ToLower(name)
+	switch {
+	case strings.Contains(lower, "nvidia"):
+		return "NVIDIA", "cuda"
+	case strings.Contains(lower, "amd"), strings.Contains(lower, "radeon"):
+		return "AMD", "vulkan"
+	case strings.Contains(lower, "intel"):
+		return "Intel", "vulkan"
+	default:
+		return "Unknown", "vulkan"
+	}
+}
+
+func mergeGPUAdapters(primary, discovered []GPUAdapter) []GPUAdapter {
+	merged := make([]GPUAdapter, 0, len(primary)+len(discovered))
+	index := map[string]int{}
+	add := func(gpu GPUAdapter) {
+		key := strings.ToLower(strings.TrimSpace(gpu.Name))
+		if key == "" {
+			return
+		}
+		if at, ok := index[key]; ok {
+			current := merged[at]
+			if gpu.DedicatedMiB > current.DedicatedMiB {
+				current.DedicatedMiB = gpu.DedicatedMiB
+			}
+			if gpu.AvailableMiB > 0 {
+				current.AvailableMiB = gpu.AvailableMiB
+			}
+			if current.DriverVersion == "" {
+				current.DriverVersion = gpu.DriverVersion
+			}
+			if gpuPreference(gpu) > gpuPreference(current) {
+				current.Backend = gpu.Backend
+				current.Vendor = gpu.Vendor
+			}
+			merged[at] = current
+			return
+		}
+		index[key] = len(merged)
+		merged = append(merged, gpu)
+	}
+	for _, gpu := range primary {
+		add(gpu)
+	}
+	for _, gpu := range discovered {
+		add(gpu)
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		if merged[i].DedicatedMiB != merged[j].DedicatedMiB {
+			return merged[i].DedicatedMiB > merged[j].DedicatedMiB
+		}
+		return gpuPreference(merged[i]) > gpuPreference(merged[j])
+	})
+	return merged
 }

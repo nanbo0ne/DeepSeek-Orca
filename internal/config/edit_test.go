@@ -402,7 +402,7 @@ func TestResolveModelPreservesProviderEffort(t *testing.T) {
 		Kind:      "openai",
 		BaseURL:   "https://api.deepseek.com",
 		Model:     "deepseek-v4-flash",
-		Models:    []string{"deepseek-v4-flash", "deepseek-v4-pro"},
+		Models:    []string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"},
 		Default:   "deepseek-v4-flash",
 		APIKeyEnv: "DEEPSEEK_API_KEY",
 		Effort:    "max",
@@ -423,7 +423,7 @@ func TestResolveOfficialDeepSeekModelPricing(t *testing.T) {
 		Kind:      "openai",
 		BaseURL:   "https://api.deepseek.com",
 		Model:     "deepseek-v4-flash",
-		Models:    []string{"deepseek-v4-flash", "deepseek-v4-pro"},
+		Models:    []string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"},
 		Default:   "deepseek-v4-flash",
 		APIKeyEnv: "DEEPSEEK_API_KEY",
 	}}
@@ -432,25 +432,33 @@ func TestResolveOfficialDeepSeekModelPricing(t *testing.T) {
 	if !ok || flash.Price == nil {
 		t.Fatalf("ResolveModel flash pricing = %+v, %v", flash, ok)
 	}
-	if flash.Price.CacheHit != 0.05 || flash.Price.Input != 1.5 || flash.Price.Output != 4.5 || flash.Price.Currency != "¥" {
-		t.Fatalf("flash off-peak pricing = %+v, want cache_hit 0.05 input 1.5 output 4.5 ¥", flash.Price)
+	if flash.Price.CacheHit != 0.007 || flash.Price.Input != 0.22 || flash.Price.Output != 0.66 || flash.Price.Currency != "$" {
+		t.Fatalf("flash off-peak pricing = %+v, want cache_hit 0.007 input 0.22 output 0.66 USD", flash.Price)
 	}
 
 	pro, ok := c.ResolveModel("deepseek/deepseek-v4-pro")
 	if !ok || pro.Price == nil {
 		t.Fatalf("ResolveModel pro pricing = %+v, %v", pro, ok)
 	}
-	if pro.Price.CacheHit != 0.15 || pro.Price.Input != 4.5 || pro.Price.Output != 13.5 || pro.Price.Currency != "¥" {
-		t.Fatalf("pro off-peak pricing = %+v, want cache_hit 0.15 input 4.5 output 13.5 ¥", pro.Price)
+	if pro.Price.CacheHit != 0.022 || pro.Price.Input != 0.66 || pro.Price.Output != 1.98 || pro.Price.Currency != "$" {
+		t.Fatalf("pro off-peak pricing = %+v, want cache_hit 0.022 input 0.66 output 1.98 USD", pro.Price)
+	}
+	vision, ok := c.ResolveModel("deepseek/deepseek-v4-flash-vision-exp")
+	if !ok || vision.Price == nil || vision.Price.CacheHit != flash.Price.CacheHit || vision.Price.Input != flash.Price.Input || vision.Price.Output != flash.Price.Output {
+		t.Fatalf("vision pricing = %+v, %v; want Flash prices", vision, ok)
 	}
 	beijing := time.FixedZone("test-beijing", 8*60*60)
-	flashPeak := flash.Price.SnapshotAt(time.Date(2026, time.August, 15, 10, 0, 0, 0, beijing))
-	if flashPeak.CacheHit != 0.10 || flashPeak.Input != 3 || flashPeak.Output != 9 {
-		t.Fatalf("flash peak pricing = %+v, want cache_hit 0.10 input 3 output 9", flashPeak)
+	flashPeak := flash.Price.SnapshotAt(time.Date(2026, time.August, 17, 10, 0, 0, 0, beijing))
+	if flashPeak.CacheHit != 0.014 || flashPeak.Input != 0.44 || flashPeak.Output != 1.32 {
+		t.Fatalf("flash peak pricing = %+v, want cache_hit 0.014 input 0.44 output 1.32", flashPeak)
 	}
-	proPeak := pro.Price.SnapshotAt(time.Date(2026, time.August, 15, 15, 0, 0, 0, beijing))
-	if proPeak.CacheHit != 0.30 || proPeak.Input != 9 || proPeak.Output != 27 {
-		t.Fatalf("pro peak pricing = %+v, want cache_hit 0.30 input 9 output 27", proPeak)
+	proPeak := pro.Price.SnapshotAt(time.Date(2026, time.August, 17, 15, 0, 0, 0, beijing))
+	if proPeak.CacheHit != 0.044 || proPeak.Input != 1.32 || proPeak.Output != 3.96 {
+		t.Fatalf("pro peak pricing = %+v, want cache_hit 0.044 input 1.32 output 3.96", proPeak)
+	}
+	weekend := flash.Price.SnapshotAt(time.Date(2026, time.August, 22, 10, 0, 0, 0, beijing))
+	if weekend.CacheHit != 0.007 || weekend.Input != 0.22 || weekend.Output != 0.66 {
+		t.Fatalf("weekend pricing = %+v, want Flash off-peak prices", weekend)
 	}
 }
 
@@ -508,6 +516,18 @@ func TestPermissionMutators(t *testing.T) {
 	}
 	if err := c.SetPermissionMode("nonsense"); err == nil {
 		t.Error("expected error for bad mode")
+	}
+	if err := c.SetAutoReviewModel("deepseek-pro"); err != nil {
+		t.Fatalf("set auto review model: %v", err)
+	}
+	if c.Permissions.AutoReviewModel != "deepseek-pro/deepseek-v4-pro" {
+		t.Fatalf("auto review model = %q", c.Permissions.AutoReviewModel)
+	}
+	if err := c.SetAutoReviewModel("missing/model"); err == nil {
+		t.Error("expected error for unknown auto review model")
+	}
+	if err := c.SetAutoReviewModel(""); err != nil || c.Permissions.AutoReviewModel != "" {
+		t.Fatalf("clear auto review model: err=%v value=%q", err, c.Permissions.AutoReviewModel)
 	}
 
 	if err := c.AddPermissionRule("deny", "Bash(rm -rf*)"); err != nil {

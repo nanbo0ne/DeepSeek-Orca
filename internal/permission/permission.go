@@ -23,6 +23,16 @@ const (
 	Deny
 )
 
+type DecisionSource int
+
+const (
+	DecisionFallback DecisionSource = iota
+	DecisionDenyRule
+	DecisionAskRule
+	DecisionAllowRule
+	DecisionReadOnly
+)
+
 func (d Decision) String() string {
 	switch d {
 	case Allow:
@@ -130,23 +140,33 @@ func New(mode string, allow, ask, deny []string) Policy {
 // for glob matching. Precedence: deny > ask > allow > fallback (Allow for
 // readers, Mode for writers).
 func (p Policy) Decide(toolName string, readOnly bool, args json.RawMessage) Decision {
-	return p.DecideSubject(toolName, readOnly, Subject(args))
+	decision, _ := p.DecideDetailed(toolName, readOnly, args)
+	return decision
+}
+
+func (p Policy) DecideDetailed(toolName string, readOnly bool, args json.RawMessage) (Decision, DecisionSource) {
+	return p.DecideSubjectDetailed(toolName, readOnly, Subject(args))
 }
 
 // DecideSubject evaluates a tool call when the caller already extracted the
 // stable approval subject from args.
 func (p Policy) DecideSubject(toolName string, readOnly bool, subject string) Decision {
+	decision, _ := p.DecideSubjectDetailed(toolName, readOnly, subject)
+	return decision
+}
+
+func (p Policy) DecideSubjectDetailed(toolName string, readOnly bool, subject string) (Decision, DecisionSource) {
 	switch {
 	case matchAny(p.Deny, toolName, subject):
-		return Deny
+		return Deny, DecisionDenyRule
 	case matchAny(p.Ask, toolName, subject):
-		return Ask
+		return Ask, DecisionAskRule
 	case matchAny(p.Allow, toolName, subject):
-		return Allow
+		return Allow, DecisionAllowRule
 	case readOnly:
-		return Allow
+		return Allow, DecisionReadOnly
 	default:
-		return p.Mode
+		return p.Mode, DecisionFallback
 	}
 }
 
@@ -296,9 +316,10 @@ type Approver interface {
 // Gate is what the agent consults at execute time: a Policy plus an optional
 // Approver. It satisfies the agent's Gate interface structurally.
 type Gate struct {
-	Policy   Policy
-	Approver Approver
-	Bypass   bool
+	Policy       Policy
+	Approver     Approver
+	Bypass       bool
+	AutoReviewer AutoReviewer
 
 	// OnRemember, when set, is invoked with a new allow rule the user chose to
 	// remember (e.g. "Bash(go build)"), so the front-end can persist it.
@@ -312,16 +333,33 @@ func NewGate(p Policy, a Approver) *Gate { return &Gate{Policy: p, Approver: a} 
 // interface expects. A denied or refused call returns allow=false with a short
 // reason the agent feeds back to the model.
 func (g *Gate) Check(ctx context.Context, toolName string, args json.RawMessage, readOnly bool) (bool, string, error) {
-	if g.Bypass {
-		return true, "", nil
-	}
 	if toolName == "bash" && !readOnly {
 		subject := Subject(args)
 		if isReadOnlyBashSubject(subject) {
 			readOnly = true
 		}
 	}
-	switch g.Policy.Decide(toolName, readOnly, args) {
+	decision, source := g.Policy.DecideDetailed(toolName, readOnly, args)
+	if decision == Deny && source == DecisionDenyRule {
+		return false, "被权限策略拒绝：此工具或命令位于 deny 列表中。不要重试；请选择其他方案，或停止并解释。", nil
+	}
+	if g.Bypass {
+		return true, "", nil
+	}
+	if decision == Allow && source == DecisionFallback && g.AutoReviewer != nil {
+		autoAllow, err := g.AutoReviewer.Review(ctx, toolName, Subject(args), args, readOnly)
+		if err != nil {
+			if ctx.Err() != nil {
+				return false, "approval aborted", ctx.Err()
+			}
+			return true, "", nil
+		}
+		if autoAllow {
+			return true, "", nil
+		}
+		decision = Ask
+	}
+	switch decision {
 	case Deny:
 		return false, "被权限策略拒绝：此工具或命令位于 deny 列表中。不要重试；请选择其他方案，或停止并解释。", nil
 	case Ask:

@@ -39,3 +39,11 @@ func (s *syncSink) RecordReadinessAudit(a evidence.ReadinessAudit) {
 		rs.RecordReadinessAudit(a)
 	}
 }
+
+func (s *syncSink) RecordRiskReviewAudit(a RiskReviewAudit) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rs, ok := s.inner.(RiskReviewAuditSink); ok {
+		rs.RecordRiskReviewAudit(a)
+	}
+}

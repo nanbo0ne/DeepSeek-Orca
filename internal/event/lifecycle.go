@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"sync"
+
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/evidence"
 )
 
 // Lifecycle annotates the legacy typed stream with stable turn/item/message
@@ -28,6 +30,22 @@ type lifecycleSink struct {
 	lastMessageID    string
 	answerCommitted  bool
 	tools            map[string]string
+}
+
+func (s *lifecycleSink) RecordReadinessAudit(a evidence.ReadinessAudit) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if recorder, ok := s.next.(ReadinessAuditSink); ok {
+		recorder.RecordReadinessAudit(a)
+	}
+}
+
+func (s *lifecycleSink) RecordRiskReviewAudit(a RiskReviewAudit) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if recorder, ok := s.next.(RiskReviewAuditSink); ok {
+		recorder.RecordRiskReviewAudit(a)
+	}
 }
 
 func lifecycleID(prefix string) string {

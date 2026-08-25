@@ -129,12 +129,34 @@ func (s *Store) Stored(e *config.ProviderEntry) Capability {
 	defer s.mu.Unlock()
 	if c, ok := s.Items[k]; ok {
 		c.ModelRef = ModelRef(e)
+		if status, known := officialModelStatus(e); known {
+			c.Status = status
+			c.Source = SourceMetadata
+			c.Reason = "DeepSeek official model capability"
+		}
 		if c.AutomaticStatus == "" {
 			c.AutomaticStatus = c.Status
 		}
 		return c
 	}
+	if status, known := officialModelStatus(e); known {
+		return Capability{ModelRef: ModelRef(e), Key: k, Status: status, AutomaticStatus: status, Source: SourceMetadata, Reason: "DeepSeek official model capability", Override: OverrideAuto}
+	}
 	return Capability{ModelRef: ModelRef(e), Key: k, Status: Unknown, Override: OverrideAuto}
+}
+
+func officialModelStatus(e *config.ProviderEntry) (string, bool) {
+	if !config.IsOfficialDeepSeekEntry(e) {
+		return "", false
+	}
+	switch strings.ToLower(strings.TrimSpace(e.Model)) {
+	case "deepseek-v4-flash", "deepseek-v4-pro":
+		return Unsupported, true
+	case "deepseek-v4-flash-vision-exp":
+		return Supported, true
+	default:
+		return "", false
+	}
 }
 
 func (s *Store) Put(c Capability) error {

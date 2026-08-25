@@ -68,6 +68,7 @@ export interface WireUsage {
   sessionCacheHitTokens: number;
   sessionCacheMissTokens: number;
   cost?: number;
+  costAvailable?: boolean;
   currency?: string;
   // Deprecated compatibility alias. Prefer cost + currency.
   costUsd?: number;
@@ -130,6 +131,7 @@ export interface WireEvent {
   sessionHitTokens?: number;
   sessionMissTokens?: number;
   sessionCost?: number;
+  costAvailable?: boolean;
   sessionCurrency?: string;
   // Deprecated compatibility alias. Prefer sessionCost + sessionCurrency.
   sessionCostUsd?: number;
@@ -206,6 +208,9 @@ export interface ToolLibrarySettings {
 export interface ContextPanelInfo {
   usedTokens: number;
   windowTokens: number;
+  windowConfirmed?: boolean;
+  windowSource?: string;
+  modelRef?: string;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -220,6 +225,7 @@ export interface ContextPanelInfo {
   requestCount?: number;
   elapsedMs?: number;
   sessionCost?: number;
+  costAvailable?: boolean;
   sessionCurrency?: string;
   // Deprecated compatibility alias. Prefer sessionCost + sessionCurrency.
   sessionCostUsd?: number;
@@ -333,6 +339,9 @@ export interface WorkspaceView {
 export interface ContextInfo {
   used: number;
   window: number;
+  windowConfirmed?: boolean;
+  windowSource?: string;
+  modelRef?: string;
   sessionTokens: number;
   compactRatio?: number;
   promptTokens?: number;
@@ -349,6 +358,7 @@ export interface ContextInfo {
   requestCount?: number;
   elapsedMs?: number;
   sessionCost?: number;
+  costAvailable?: boolean;
   sessionCurrency?: string;
   // Deprecated compatibility alias. Prefer sessionCost + sessionCurrency.
   sessionCostUsd?: number;
@@ -633,6 +643,17 @@ export interface ModelInfo {
   provider: string;
   model: string;
   current: boolean;
+  // Optional at the frontend boundary so older desktop bridges and persisted
+  // mock fixtures remain readable during an in-place V2/V3 upgrade.
+  contextWindow?: number;
+  contextWindowConfirmed?: boolean;
+  contextSource?: string;
+  vision?: "supported" | "unsupported" | "unknown" | string;
+  toolUse?: "supported" | "unsupported" | "unknown" | string;
+  structuredOutput?: "supported" | "unsupported" | "unknown" | string;
+  pricingAvailable?: boolean;
+  currency?: string;
+  metadataSource?: string;
 }
 
 export interface EffortInfo {
@@ -713,6 +734,7 @@ export interface ProviderView {
   keySet: boolean; // the env var currently resolves to a value
   balanceUrl: string; // optional wallet-balance endpoint; "" disables the readout
   contextWindow: number;
+  modelContextWindows?: Record<string, number>;
   reasoningProtocol: string; // auto|deepseek|openai|none; empty = auto/model registry
   supportedEfforts: string[]; // custom /effort levels; empty = use built-in Kind/BaseURL default
   defaultEffort: string; // /effort level when user picks "auto" or unset; "" = supportedEfforts[0]
@@ -739,6 +761,7 @@ export interface JobView {
 
 export interface PermissionsView {
   mode: string; // "ask" | "allow" | "deny"
+  autoReviewModel: string;
   allow: string[];
   ask: string[];
   deny: string[];
@@ -911,6 +934,7 @@ export interface SettingsView {
   desktopLanguage: string; // "" | "en" | "zh"; empty = auto
   desktopTheme: string; // "auto" | "dark" | "light"
   desktopThemeStyle: string;
+  desktopUIStyle: "modern" | "classic";
   closeBehavior: string; // "background" | "quit"
   checkUpdates: boolean;
   expandThinking: boolean; // show reasoning text expanded by default
@@ -918,7 +942,7 @@ export interface SettingsView {
   activityIndicatorEnabled: boolean;
   visionEnabled: boolean;
   visionMode: VisionMode;
-  uiScale: number; // 0 = follow Windows DPI; otherwise 80..125
+  uiScale: number; // legacy bridge field; V3 always returns 0 and uses system DPI
   effectiveUIScale: number;
   automationFullAccessApproved: boolean;
   computerControlModel: string;

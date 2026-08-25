@@ -4,7 +4,7 @@ O.R.C.A CLI is the terminal entry point for **Open Reasoning & Computing Agent**
 
 The Windows desktop installer is the recommended package for most users:
 
-[O.R.C.A for Windows 3.0.0](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
+[O.R.C.A for Windows 3.0.1](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.1)
 
 ## Build From Source
 

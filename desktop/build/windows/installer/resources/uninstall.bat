@@ -18,6 +18,8 @@ set "CLEANER=%TEMP%\Orca-uninstall-%RANDOM%-%RANDOM%.cmd"
   echo del /f /q "%USERPROFILE%\Desktop\%APP_NAME%.lnk" ^>nul 2^>nul
   echo del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%.lnk" ^>nul 2^>nul
   echo del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Uninstall %APP_NAME%.lnk" ^>nul 2^>nul
+  echo del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\DeepSeek-Orca.lnk" ^>nul 2^>nul
+  echo del /f /q "%USERPROFILE%\Desktop\DeepSeek-Orca.lnk" ^>nul 2^>nul
   echo rmdir /s /q "%APPDATA%\%EXE_NAME%" ^>nul 2^>nul
   echo reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\%APP_NAME%" /f ^>nul 2^>nul
   echo reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\%EXE_NAME%" /f ^>nul 2^>nul

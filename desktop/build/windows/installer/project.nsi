@@ -30,6 +30,7 @@
 ## which only sets the "admin" default when REQUEST_EXECUTION_LEVEL is undefined.
 !define REQUEST_EXECUTION_LEVEL "user"
 !define UNINST_KEY_NAME "O.R.C.A for Windows"
+!define PRODUCT_EXECUTABLE "Orca.exe"
 !define LEGACY_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\DeepSeek-Orca"
 
 ####
@@ -246,6 +247,8 @@ Section "uninstall"
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
     Delete "$SMPROGRAMS\Uninstall ${INFO_PRODUCTNAME}.lnk"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
+    Delete "$SMPROGRAMS\DeepSeek-Orca.lnk"
+    Delete "$DESKTOP\DeepSeek-Orca.lnk"
 
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols

@@ -29,7 +29,7 @@ func (a *App) computerTools(tabID string) []tool.Tool {
 
 func (computerTaskTool) Name() string { return "computer_task" }
 func (computerTaskTool) Description() string {
-	return "Control Windows to complete a concrete desktop task. Provide the goal, an observable success condition, and any restrictions. O.R.C.A uses an isolated visual control agent and re-observes after every action."
+	return "Control Windows to complete a concrete desktop task. Provide the goal, an observable success condition, and any restrictions. O.R.C.A. uses an isolated visual control agent and re-observes after every action."
 }
 func (computerTaskTool) Schema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","required":["goal"],"properties":{"goal":{"type":"string"},"success_criteria":{"type":"string"},"restrictions":{"type":"string"}},"additionalProperties":false}`)

@@ -315,6 +315,20 @@ type ReadinessAuditSink interface {
 	RecordReadinessAudit(evidence.ReadinessAudit)
 }
 
+type RiskReviewAudit struct {
+	Turn       int    `json:"turn,omitempty"`
+	At         int64  `json:"at"`
+	Level      string `json:"level,omitempty"`
+	Model      string `json:"model,omitempty"`
+	DurationMs int64  `json:"durationMs"`
+	Result     string `json:"result"`
+	ErrorType  string `json:"errorType,omitempty"`
+}
+
+type RiskReviewAuditSink interface {
+	RecordRiskReviewAudit(RiskReviewAudit)
+}
+
 // RecordReadinessAudit forwards a readiness audit receipt to sinks that opt in.
 func RecordReadinessAudit(s Sink, a evidence.ReadinessAudit) {
 	if nilutil.IsNil(s) {
@@ -322,6 +336,15 @@ func RecordReadinessAudit(s Sink, a evidence.ReadinessAudit) {
 	}
 	if rs, ok := s.(ReadinessAuditSink); ok {
 		rs.RecordReadinessAudit(a)
+	}
+}
+
+func RecordRiskReviewAudit(s Sink, audit RiskReviewAudit) {
+	if nilutil.IsNil(s) {
+		return
+	}
+	if recorder, ok := s.(RiskReviewAuditSink); ok {
+		recorder.RecordRiskReviewAudit(audit)
 	}
 }
 

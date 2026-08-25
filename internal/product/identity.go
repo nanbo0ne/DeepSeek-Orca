@@ -2,8 +2,8 @@
 package product
 
 const (
-	Name              = "O.R.C.A"
-	WindowsName       = "O.R.C.A for Windows"
+	Name              = "O.R.C.A."
+	WindowsName       = "O.R.C.A. for Windows"
 	FullName          = "Open Reasoning & Computing Agent"
 	AssistantName     = "Orca"
 	Repository        = "https://github.com/nanbo0ne/O.R.C.A-for-Windows"

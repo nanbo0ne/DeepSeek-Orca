@@ -209,3 +209,19 @@ func TestOldProbeResultIsInvalidated(t *testing.T) {
 		t.Fatalf("legacy probe result = %+v, want fresh unknown", got)
 	}
 }
+
+func TestOfficialDeepSeekVisionFactsOverrideAutomaticProbe(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vision.json")
+	store := Load(path)
+	entry := &config.ProviderEntry{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-flash-vision-exp"}
+	if err := store.Put(Capability{Key: Key(entry), Status: Unsupported, Source: SourceProbe, ProbeVersion: CurrentProbeVersion}); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(path).Get(entry); got.Status != Supported || got.Source != SourceMetadata {
+		t.Fatalf("official vision model = %+v, want supported metadata", got)
+	}
+	entry.Model = "deepseek-v4-pro"
+	if got := Load(path).Get(entry); got.Status != Unsupported || got.Source != SourceMetadata {
+		t.Fatalf("official Pro model = %+v, want unsupported metadata", got)
+	}
+}

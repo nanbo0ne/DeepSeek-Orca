@@ -85,12 +85,15 @@ import { blobToBase64, renderSessionImageBlob, renderSessionPdfBlob } from "./li
 import {
   applyTheme,
   clearLegacyThemePreference,
+  normalizeThemePreference,
+  normalizeThemeStyleForTheme,
   readLegacyThemePreference,
 } from "./lib/theme";
 import { applyTextSize, DEFAULT_TEXT_SIZE, getTextSize, nextTextSize } from "./lib/textSize";
+import { applyUIStyle, getUIStyle, type UIStyle } from "./lib/uiStyle";
 import { useWindowStatePersistence } from "./lib/windowState";
 import { availableWorkspacePanelWidth, resolveWorkspacePanelWidth, workspacePanelAriaMinWidth } from "./lib/workspaceLayout";
-import logoWordmark from "./assets/logo-wordmark.png";
+import logoSymbol from "./assets/logo-symbol.png";
 
 const SIDEBAR_COLLAPSED_KEY = "orca.sidebar.collapsed";
 const SIDEBAR_DEFAULT_WIDTH = 264;
@@ -371,7 +374,7 @@ function fence(label: string, value: string): string {
 }
 
 function sessionItemsToMarkdown(title: string, items: Item[], live?: LiveStream): string {
-  const lines: string[] = [`# ${title.trim() || "O.R.C.A session"}`, ""];
+  const lines: string[] = [`# ${title.trim() || "O.R.C.A. session"}`, ""];
   for (const item of materializeLiveItems(items, live)) {
     switch (item.kind) {
       case "user":
@@ -517,6 +520,7 @@ export default function App() {
     openAutomationTab,
     syncActiveTab,
     ensureBlankTab,
+    closeTab,
   } = useController();
   const { locale, setPref: setLocalePref } = useI18n();
   const t = useT();
@@ -542,6 +546,9 @@ export default function App() {
   // clearing the key mid-session is the Settings panel's job, not the gate's.
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<SettingsTab | null>(null);
+	const [desktopUIStyle, setDesktopUIStyle] = useState<UIStyle>(getUIStyle);
+	const startupStyleSyncedRef = useRef(false);
+	const activeUIStyleRef = useRef<UIStyle>(getUIStyle());
   const [checkUpdatesEnabled, setCheckUpdatesEnabled] = useState<boolean | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [automationPanelOpen, setAutomationPanelOpen] = useState(false);
@@ -700,10 +707,29 @@ export default function App() {
   }, []);
 
   const applyDesktopPreferences = useCallback(
-    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking" | "activityIndicatorEnabled" | "checkUpdates">) => {
-      void settings.desktopTheme;
-      void settings.desktopThemeStyle;
-      applyTheme("light", "slate", { persist: false });
+    (settings: Pick<SettingsView, "desktopTheme" | "desktopThemeStyle" | "desktopUIStyle" | "desktopLanguage" | "processDisplayMode" | "expandThinking" | "activityIndicatorEnabled" | "checkUpdates">) => {
+	  const firstSync = !startupStyleSyncedRef.current;
+	  const runtimeStyle: UIStyle = firstSync
+		? settings.desktopUIStyle === "classic" ? "classic" : "modern"
+		: activeUIStyleRef.current;
+	  if (runtimeStyle === "classic") {
+		const theme = normalizeThemePreference(settings.desktopTheme);
+		applyTheme(theme, normalizeThemeStyleForTheme(settings.desktopThemeStyle, theme), { persist: false });
+	  } else {
+		applyTheme("light", "slate", { persist: false });
+	  }
+	  // Re-assert the active window branch after applyTheme. Classic removes
+	  // data-theme-style; Modern pins it to slate. A saved style change remains
+	  // pending until restart and cannot partially restyle the live window.
+	  applyUIStyle(runtimeStyle, { persist: false });
+	  // The persisted config is authoritative at startup. Later settings saves
+	  // intentionally do not switch the current DOM because the window frame is
+	  // fixed for the lifetime of this process.
+	  if (firstSync) {
+		startupStyleSyncedRef.current = true;
+		activeUIStyleRef.current = runtimeStyle;
+		setDesktopUIStyle(runtimeStyle);
+	  }
       setLocalePref(normalizeLangPref(settings.desktopLanguage));
       setProcessDisplayMode(settings.processDisplayMode === "compact" || settings.processDisplayMode === "detailed"
         ? settings.processDisplayMode
@@ -2516,6 +2542,7 @@ export default function App() {
         style={layoutStyle}
       >
         <AppChrome
+		  uiStyle={desktopUIStyle}
           platform={desktopPlatform}
           browserPreviewChrome={browserPreviewChrome}
           sidebarTogglePressed={sidebarTogglePressed}
@@ -2526,6 +2553,9 @@ export default function App() {
           workspacePanelRenderable={workspacePanelRenderable}
           workspaceTogglePressed={workspaceTogglePressed}
           workspacePanelLabel={workspacePanelRenderable ? t("rightDock.collapse") : t("rightDock.expand")}
+		  workspaceLabel={topicbarWorkspaceLabel || "O.R.C.A."}
+          sessionLabel={topicbarTitle}
+          modelLabel={displayedStatusModelLabel || t("status.connecting")}
           statusLights={[
             { key: "read", label: t("topbar.statusRead"), tone: "info", active: readingActive },
             { key: "write", label: t("topbar.statusWrite"), tone: "warn", active: writingActive },
@@ -2540,12 +2570,17 @@ export default function App() {
           onToggleSidebar={toggleSidebar}
           onToggleWorkspacePanel={toggleWorkspacePanel}
           onOpenPalette={() => void openPalette()}
+		  onNewSession={() => void handleNewTab()}
+		  onExportSession={() => void exportSession("markdown")}
+		  onCloseSession={() => { if (activeTabId) void closeTab(activeTabId); }}
+		  onOpenSettings={(tab) => setSettingsTarget(tab)}
+		  onViewChanges={() => openRightDockMode("changed")}
         />
 
         <aside className={`sidebar${responsiveSidebarCollapsed ? " sidebar--collapsed" : ""}`} aria-label={t("sidebar.navigation")}>
           <div className="sidebar__brand" aria-hidden={responsiveSidebarCollapsed}>
-            <img src={logoWordmark} alt="O.R.C.A" className="sidebar__brand-logo" draggable={false} />
-            <span className="sidebar__brand-text">O.R.C.A</span>
+			<img src={logoSymbol} alt="O.R.C.A." className="sidebar__brand-logo" draggable={false} />
+			<span className="sidebar__brand-text">O.R.C.A.</span>
           </div>
 
           <button
@@ -2634,6 +2669,7 @@ export default function App() {
 
         <section className="chat-pane">
           <>
+          {desktopUIStyle === "classic" && (
           <header className="topicbar">
             <div className="topicbar__identity">
               <div className="topicbar__title-row">
@@ -2773,6 +2809,7 @@ export default function App() {
               </Tooltip>
             </div>
           </header>
+          )}
 
           {state.meta?.startupErr && (
             <div className="banner banner--error">{t("topbar.startupError", { msg: state.meta.startupErr })}</div>
@@ -2882,6 +2919,7 @@ export default function App() {
               )}
             </div>
             <Composer
+			  uiStyle={desktopUIStyle}
               running={state.running}
               collaborationMode={collaborationMode}
               askWorkflowEnabled={askWorkflowEnabled}
@@ -3129,7 +3167,7 @@ export default function App() {
         <StartupSplash hold={startupSplashHold} onDone={() => setStartupSplashVisible(false)} />
       )}
 
-      {needsOnboarding && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
+      {needsOnboarding && !startupSplashVisible && <OnboardingOverlay onComplete={() => setNeedsOnboarding(false)} />}
       <ContextMenu
         open={Boolean(textEditMenuPoint)}
         point={textEditMenuPoint}

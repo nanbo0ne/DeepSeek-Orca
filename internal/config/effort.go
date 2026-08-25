@@ -29,9 +29,14 @@ type modelReasoningCapability struct {
 }
 
 var modelReasoningCapabilities = map[string]modelReasoningCapability{
-	"deepseek-v4-flash": {Protocol: ReasoningProtocolDeepSeek, Levels: []string{"high", "max"}, Default: "auto"},
-	"deepseek-v4-pro":   {Protocol: ReasoningProtocolDeepSeek, Levels: []string{"high", "max"}, Default: "auto"},
+	"deepseek-v4-flash":            {Protocol: ReasoningProtocolDeepSeek, Levels: []string{"high", "max"}, Default: "auto"},
+	"deepseek-v4-pro":              {Protocol: ReasoningProtocolDeepSeek, Levels: []string{"high", "max"}, Default: "auto"},
+	"deepseek-v4-flash-vision-exp": {Protocol: ReasoningProtocolDeepSeek, Levels: []string{"high", "max"}, Default: "auto"},
 }
+
+// IsOfficialDeepSeekEntry reports whether an entry uses DeepSeek's official API.
+// Model capability and billing facts must never leak to similarly named relay models.
+func IsOfficialDeepSeekEntry(e *ProviderEntry) bool { return isDeepSeekEntry(e) }
 
 // EffortCapabilityForEntry returns the user-facing /effort levels for a resolved
 // provider entry. Provider implementations still decide how a stored effort is

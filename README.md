@@ -2,118 +2,151 @@
 
 # O.R.C.A for Windows
 
-**O.R.C.A** 是 **Open Reasoning & Computing Agent** 的缩写：一个把推理、工程执行与日常工作的边界交给用户掌控的本地桌面 AI 工作区。它整合多 Provider 对话、项目会话、工具调用、计划、记忆、MCP、Skill、CodeGraph、办公产物和可回溯执行。普通会话提供 **编程模式** 与 **助手模式**；固定的 **Orca** 主对话负责桌面和手机管控。
+**O.R.C.A.**（**Open Reasoning & Computing Agent**）是一套面向真实工作的开源 AI Agent。它把多模型对话、代码工程、资料处理、桌面操作、本地模型、记忆与自动化放进同一个可检查、可暂停、可恢复的工作区。
+
+O.R.C.A. 不绑定单一模型，也不把所有任务塞进同一种对话：用户可以在普通会话中选择 **助手模式** 或 **编程模式**，并通过固定的 **Orca** 主对话处理跨会话、远程渠道和电脑控制任务。
 
 ## 下载
 
-- [Windows 安装包](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64-installer.exe)
-- [Windows 便携版](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64.zip)
-- [macOS 通用 DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-macos-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-linux-amd64.deb)
-- [全部发布文件](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
+| 平台 | 安装包 | 说明 |
+| --- | --- | --- |
+| Windows x64 | [安装器](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-for-Windows-windows-amd64-installer.exe) · [便携版](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-for-Windows-windows-amd64.zip) | 完整支持本地 AI 与 Computer Use |
+| macOS | [Universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-macos-universal.dmg) | 支持 Intel 与 Apple Silicon |
+| Linux x64 | [DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-linux-amd64.deb) | Debian / Ubuntu |
 
-应用不会未经确认自动下载或安装更新。发现稳定版后只在界面中提供低调的发布页入口。Windows 安装器支持选择是否创建桌面快捷方式，以及安装完成后是否立即运行软件。
+[查看 O.R.C.A. v3.0.1 的全部文件、校验信息和更新说明](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.1)
 
-## 核心能力
+Windows 安装器支持原位升级、开始菜单/桌面快捷方式和可选的安装后启动。卸载默认保留用户数据与本地模型。应用只提示可用更新，不会未经确认自动下载安装。
 
-### 编程模式与助手模式
+## 产品组成
 
-- **编程模式**：面向代码、仓库、终端、Git、测试、LSP、CodeGraph、代码审查和持续工程执行。旧普通与增强会话升级后都迁移到该模式；自定义指令会追加在稳定核心规则之后，写入后必须完成相关验证。
-- **助手模式**：面向日常问答、调研、资料整理、办公文件、自动化和本机工作。它使用独立 Work 指令与个人画像，不暴露 LSP、CodeGraph、代码审查、安全审查或 Orca 的跨会话派发工具。
+| 入口 | 适合的工作 | 主要能力 |
+| --- | --- | --- |
+| 助手模式 | 问答、调研、写作、资料整理、办公文件和日常任务 | 联网与本地工具、个人记忆、产物创建、计划与自动化 |
+| 编程模式 | 仓库开发、调试、重构、测试和代码审查 | Shell、Git、LSP、CodeGraph、检查点、回滚和工程验证 |
+| Orca | 跨会话协调、远程渠道、桌面任务和长期入口 | 会话派发、QQ/微信接入、Computer Use、共享自动化模型与个人画像 |
+| CLI | 终端交互、一次性任务和脚本化工作流 | 与桌面版共享 Provider、工具、MCP、Skill、记忆和会话核心 |
 
-模式按会话保存。空会话可直接切换；已有内容时会先提示 system prompt、工具和记忆 profile 变化及 Provider 前缀缓存失效。确认后保留全部可见历史并原子重建 Controller；运行中切换会在本回合结束后生效，构建失败则恢复原模式。升级后首次新建普通会话默认使用助手模式，之后继承最近选择。
+模式按会话保存。切换模式时，O.R.C.A. 会保留可见历史并重新建立对应的提示词、工具和记忆边界；正在执行的回合会先完成或停止，不会被静默替换。
 
-### 模型与 Provider
+## 功能全览
 
-首次启动不再依赖 DeepSeek Key。内置目录覆盖 OpenAI、Anthropic、OpenRouter、DeepSeek、阿里云百炼、智谱、Kimi、MiniMax、火山方舟、百度千帆、腾讯混元、StepFun、Xiaomi MiMo、SiliconFlow 和各自独立的套餐端点，也支持自定义 OpenAI/Anthropic 兼容服务。每个端点拥有独立 Provider ID、密钥槽和完整模型引用，同名模型不会跨来源回退。
+### 模型与供应商
 
-### 工作区与会话
+- 内置 OpenAI、Anthropic、OpenRouter、DeepSeek、阿里云百炼、智谱、Kimi、MiniMax、火山方舟、百度千帆、腾讯混元、StepFun、Xiaomi MiMo、SiliconFlow，以及独立套餐端点。
+- 支持自定义 OpenAI-compatible 与 Anthropic-compatible 服务。
+- Provider ID、Base URL、密钥槽和完整模型引用相互隔离；同名模型不会跨供应商串换。
+- 首次启动提供 DeepSeek Key 快速接入，也可选择其他供应商、本地模型或直接跳过。
+- 默认模型、自动化模型、Planner、Subagent 和 Computer Use 模型可分别指定。
+- 上下文容量按模型解析；价格或余额没有可靠数据时直接隐藏，不显示误导性的零值。
+- DeepSeek 官方模型按请求开始时的峰谷价格快照计费；历史费用不会因之后的价格变化被重算。
 
-- 项目工作区绑定真实仓库目录，适合持续开发。
-- 独立主题拥有隔离的工作目录和会话数据。
-- 支持多标签、固定、重命名、预览、恢复、分支、检查点、回滚、回收站和导出。
-- 长会话支持上下文压缩，并可按需检索较早的本地会话内容。
-- 主会话 JSONL 保持本地，不写入 Provider 密钥。
+### 项目、会话与上下文
 
-### 多模态识图
+- 项目工作区绑定真实目录，独立工作区用于不依赖仓库的任务。
+- 支持多标签、固定、重命名、分支、历史、回收站、导出和会话恢复。
+- 检查点可记录对话与工作区状态；回滚和 rewind 用于恢复上下文或相关文件变更。
+- 长会话支持自动压缩、较早内容检索和稳定的 Turn/Item 生命周期。
+- 图片、文件和工作区引用以附件形式进入当前回合，不把二进制内容写进聊天 JSONL。
+- 最终回答与执行过程分离；成功回合可折叠，失败、取消和中断保留完整诊断信息。
 
-“设置 > 模型”中的识图模式分为 **关闭 / 自动 / 开启**。新安装默认使用“自动”：每个新接入模型会收到一次不写入历史的独立探测，其中包含 Orca 图标和随机验证码；只有正确读出验证码才确认支持视觉。能力按 Provider 类型、接口地址和模型分别缓存，设置页会显示状态、检测时间、失败原因和“重新检测”入口。DeepSeek 被识别为不支持图片是正常结果，不影响其文本能力，也不属于版本验收失败。
+### 工具与工程执行
 
-输入框粘贴、拖入图片或工作区 `@` 引用支持 PNG、JPEG、WebP、GIF；每轮最多 8 张、总计不超过 20 MB，单张不超过 10 MB。Windows 版还提供可选 Computer Use：控制子代理在每个动作后重新观察屏幕，支持 UI Automation、受控鼠标键盘、窗口和滚轮操作；默认不落盘截图，`Esc` 可紧急停止。UAC 安全桌面、锁屏、密码、验证码、CAPTCHA 和高完整性进程始终拒绝。macOS/Linux 保留对话能力，但 V3 首版不提供本地推理和 Computer Use。
+- Shell、文件读写、搜索、Git、测试、构建、包管理和常用主机操作。
+- 编程模式可使用 LSP、CodeGraph、代码审查、安全检查和写入后的验证流程。
+- Plan、Todo 与 Goal 为长任务提供可见计划、进度和明确完成条件。
+- Subagent 可分担检索、分析、视觉和工程子任务，结果回到当前会话统一收口。
+- readiness 检查区分真正失败和建议性验证，成功任务不会因缺少重复检查而机械重试。
+- 后台任务、模型加载、下载、审批和 Computer Use 都有独立状态，不会混成“正在思考”。
 
-### 本地 AI 与模型库
+### MCP、Skill、机器人与自动化
 
-Windows 用户可以独立安装 O.R.C.A 管理的 `llama.cpp` 运行器和 Qwen GGUF 模型。16GB 级显存优先推荐 Qwen3.8-27B IQ3_XXS，启动时根据当前空闲显存自动降低上下文、batch 或 GPU 层数，并保留显存余量；模型下载支持国内镜像、断点续传、速度/剩余时间、SHA-256 校验和独立删除。运行器卸载不会删除模型，模型库也不会写入安装目录。
+- MCP 管理页显示 Server、授权、连接状态、失败原因、重试和暴露的工具。
+- Skill 可从内置、全局、项目或自定义目录发现，并通过命令或模型按需加载。
+- 斜杠菜单统一呈现内置命令、Skill 和 MCP Prompt。
+- Orca 可按需列出、读取、派发、等待或停止普通会话任务，并避免递归派发自身。
+- QQ 与微信渠道可以接入同一个 Orca 主对话，共享当前上下文段和串行任务队列。
+- 机器人、自动化和个人画像使用独立配置，不会偷偷创建普通侧栏会话。
 
-### 工具、权限与本地执行
+### 多模态与办公产物
 
-工具库可管理联网搜索、主机操作、Node/Python 运行时、文档检查、线程工具和会话检索等工具组。关闭工具组后，注册表和模型可见的工具路由都会同步移除对应能力。Shell 用于构建、测试、Git 和包管理。审批模式、沙箱、工作区写入范围和只读工具分别控制执行边界。
+- 支持粘贴、拖放或引用 PNG、JPEG、WebP、GIF 和常用文档。
+- 每个模型记录独立的视觉能力；自动模式优先使用已确认支持图片的当前模型或视觉 Subagent。
+- DeepSeek Vision Exp 可承担截图、OCR、图表和视觉 Agent 任务；纯文本模型不会被错误标记为可识图。
+- 内置产物工具可创建、编辑、预览和重新验证 DOCX、XLSX、PPTX 与 PDF。
+- 生成的产物带结构化 sidecar，便于后续可靠修改；无法保证保真度的第三方复杂文件会明确提示限制。
 
-### MCP、Skill 与 CodeGraph
+### Windows 本地 AI
 
-MCP 页面负责 Server、授权、连接状态、重试和工具暴露；Skill 按需加载专业工作流；CodeGraph 可通过配置的 MCP Server 提供符号和调用关系分析；斜杠菜单统一显示内置命令、Skill 和 MCP prompt。
+- 可选安装由 O.R.C.A. 管理的固定版本 `llama.cpp`，不接管 LM Studio。
+- 检测所有 GPU，而不是只读取 `GPU 0`；兼容 NVIDIA、AMD、Intel 核显/独显组合和 CPU 回退。
+- 根据专用显存预算、当前空闲显存、内存和磁盘选择 CUDA、Vulkan 或 CPU 运行包。
+- 模型库支持下载队列、暂停、恢复、断点续传、镜像切换、速度/剩余时间和 SHA-256 校验。
+- 16GB 级显存优先推荐 Qwen3.8-27B IQ3_XXS，并自动调整上下文、batch 与 GPU layers 以保留显存余量。
+- 本地模型可作为主模型、Subagent 或 Computer Use 模型；同一时间只保留一个常驻模型，空闲后可自动卸载。
+- 运行器仅监听 `127.0.0.1` 随机端口并使用临时授权令牌。卸载运行器不会删除模型文件。
 
-### 记忆
+### Windows Computer Use
 
-编程模式使用 `shared-agent` 工程记忆；助手模式、Orca、QQ 和微信共用 canonical 个人画像。旧助手记忆只导入一次且不删除源文件。主动画像任务只会在所有前台回复和派发任务空闲后运行。
+- 助手模式、编程模式和 Orca 都可以发起电脑操作；控制 Subagent 负责短循环，复杂歧义回到主模型判断。
+- 每轮观察可组合屏幕截图、UI Automation 元素和窗口信息；每个动作后重新观察并检查成功条件。
+- 支持点击、双击、右击、拖拽、滚动、组合键、Unicode 输入和窗口操作。
+- 一次性完全授权后，普通低/中风险动作可按策略继续；高风险、显式 Ask/Deny 和安全边界仍需要人工处理。
+- 全屏蓝色边缘、指针光晕和点击反馈提示控制状态；`Esc` 随时强制停止并释放按键。
+- 不跨越 UAC 安全桌面，不处理锁屏、密码字段或 CAPTCHA，也不对高完整性进程绕过权限。
+- 截图默认不落盘、不写入 Provider 历史；动作 telemetry 不记录图片或敏感文本。
 
-### 计划、Todo、目标与过程展示
+### 权限、风险与隐私
 
-计划模式先展示可审阅的完整计划；Todo 默认是紧凑的居中进度条，悬停或聚焦时在原位上方向上展开，也可以点击固定，不会推动对话或输入框。目标模式在收到内部完成或阻塞信号后停止。过程展示提供精简、详细两档并默认精简；精简过程条可反复展开和收拢。思考、工具、通知和 subagent 使用扁平的时间活动轨道，不再层层嵌套白色卡片。主题蓝动态运行标志默认开启，可在设置中关闭；模型输出时顺时针旋转，工具或后台工作时逆时针旋转，并在暂停或结束后消失。
+- 提供 Ask、自动审批和完全访问等权限策略，并保留宿主 deny 规则与工作区写入边界。
+- 自动审批可使用独立模型请求判断风险；分类请求不带历史、工具、图片和秘密字段。高风险进入人工审批，分类异常沿用既有自动审批回退并留下警告 telemetry。
+- API Key 使用本地凭据配置，每个供应商预设拥有独立密钥槽，不写入会话消息。
+- 消息和附件只会发送给当前明确选择的 Provider；使用自定义中转前应自行确认其隐私与计费规则。
+- 会话、配置、日志、缓存、本地模型和下载任务分别存放，便于备份和清理。
 
-编程与助手模式都使用明确的 Turn/Item 生命周期。工作期间，阶段文字、思考和工具活动按真实顺序逐段显示；只有通过就绪检查并提交了独立可见最终答复的回合才能成功。成功回合会原子化收起，只保留用户消息、`已处理 ...` 行和完整最终回答。点击耗时行会按原始顺序恢复全部中间过程，并在顶部显示 token；失败、取消、中断和仍在运行的回合保持展开，方便排查，旧会话无法确认最终身份时也不会隐藏任何 assistant 文本。
+### 界面与可访问性
 
-对话时间线保持正文、思考、工具、工具结果、通知、图片和压缩的真实发生顺序。切换长会话时优先显示历史，再在后台补齐上下文、任务、检查点和余额，并复用已计算的时间线。后台任务完成只更新状态，不会偷偷创建新的模型轮次。粘贴文本会直接进入输入框，输入框在十行内随内容自动增高，超过后再滚动。
+- **Modern** 是默认的轻量工作界面，提供紧凑菜单、单行 Composer、过程时间线和响应式布局。
+- **Classic** 恢复 V2.1.3 的蓝白布局、原生窗口和控件分布，同时继续使用 V3 后端能力。
+- 样式在设置中保存，重启后切换窗口壳；不会重建或丢失会话。
+- 应用内部固定 100% 缩放，并跟随 Windows Per-Monitor DPI；支持键盘焦点、减少动画和窄窗口布局。
 
-### Work 产物
+## 平台支持
 
-助手模式与 Orca 内置 `artifact_create / artifact_edit / artifact_preview / artifact_validate`，无需用户安装 Python、Office 或 LibreOffice即可创建、结构化修改、预览并重新解析验证 DOCX、XLSX、PPTX 和 PDF。Orca 创建的文件带轻量 sidecar，支持后续可靠编辑；复杂第三方 Office 文件没有 sidecar 时会明确说明无法安全修改，未知 OOXML 布局不会被冒充为全保真编辑。实现范围、字体策略和限制见 [Work 产物运行时说明](docs/ARTIFACT_RUNTIME.md)。
+| 能力 | Windows | macOS | Linux |
+| --- | :---: | :---: | :---: |
+| 云端模型、会话、工具、MCP、Skill、记忆 | ✓ | ✓ | ✓ |
+| 编程模式、助手模式与 Orca | ✓ | ✓ | ✓ |
+| 本地 `llama.cpp` 管理 | ✓ | 暂不可用 | 暂不可用 |
+| Computer Use | ✓ | 暂不可用 | 暂不可用 |
+| Modern / Classic 窗口壳 | ✓ | 使用平台原生窗口 | 使用平台原生窗口 |
 
-### Orca 与远程连接
+## 配置与迁移
 
-搜索框下方固定显示不可删除、重命名或重复创建的 **Orca** 主对话，不再展示“自动化工作区”文件夹，也不显示普通模式选择器。桌面、QQ 和微信都写入 Orca，并共享自动化专用模型和 canonical 个人画像。升级时，旧自动化 topic 会连同历史内容迁移到独立工作区。Orca 会先判断请求是否依赖已有对话；确有依赖时才按需列出、读取、派发、等待、查询或取消编程/助手会话中的任务，且不能递归派发 Orca。
+V3 使用 `orca.toml`、项目目录 `.orca/`、项目说明 `ORCA.md` 和 `ORCA_*` 环境变量。用户数据位于平台对应的 O.R.C.A. 数据目录；Windows 默认根目录为 `%LOCALAPPDATA%\O.R.C.A\`。
 
-闲置超过 30 分钟后，一次无工具、低 token 的判断只决定是否加载上一段上下文；无论续接还是新开始，内容都继续显示在同一个 Orca Transcript 中。`/new` 在 Orca 内开始新段，`/continue` 强制沿用上一段上下文，另保留 `/hi`、`/status`、`/stop`、`/approve`、`/deny` 和 `/answer` 兼容命令。所有渠道共用当前段和串行执行队列，不会在侧栏生成新的手机对话。
-
-Orca 的完全访问权限需要在桌面端确认一次，并可在设置中随时撤销。确认前仍可聊天，但受保护工具会被拒绝且不会发送逐项审批卡；确认后，权限策略允许的工具和计划确认自动继续，Ask 问题与显式 deny 规则仍然有效。首页四条建议由自动化模型每 24 小时根据有限的本地会话摘要和脱敏后的真实用户措辞后台整理，以用户平时会说的话生成可直接发送的问题；失败时保留上一版，不创建隐藏会话，也不写入助手记忆。
-
-## 隐私与安全
-
-软件本地运行，但消息会发送给用户选择的 Provider。使用敏感数据前请核对 Provider、地址、代理、识图、工具和审批设置。只有当前识图模式允许目标模型且本轮包含图片时，图片字节才会上传；能力探测本身也会向对应 Provider 发起一次很小的请求。API Key 通过环境变量或本地凭据流程读取，不会写入会话消息。
-
-工具调用会显示在时间线中。用户可以暂停、取消、回滚、使用检查点或从回收站恢复会话。长任务仍应通过审批、沙箱和工作区写入范围控制风险。
-
-## 安装后配置
-
-首次启动后打开“设置”，依次检查模型与 Provider、工作区和沙箱、工具库与 MCP、识图、过程展示、更新检查、外观和权限。界面缩放默认“跟随 Windows”，完全使用系统 PerMonitorV2 DPI 后的原生大小；手动 `80%–125%` 倍率则在该大小上相对调整。设置页会显示当前配置路径；项目级指令文件可放在工作区支持的位置。
-
-## 常见问题
-
-- **模型不可用**：检查 Provider 地址、模型名、Key 环境变量和代理。
-- **图片发送失败**：先查看设置中的模型视觉状态。自动模式下请选择已确认支持视觉的主模型或 subagent；DeepSeek 显示不支持是正常情况。“开启”只能强制尝试发送，不能让纯文本模型凭空获得识图能力。
-- **工具反复请求审批**：检查审批模式、沙箱和工具组，不要盲目重复执行。
-- **窗口过窄**：保持在软件支持的最小窗口宽度以上。输入框会逐步隐藏文字，但保留模型选择和核心操作。
-- **没有看到更新**：自动检查结果缓存 24 小时，且只查询官方稳定 GitHub Release；设置中可在自动检查开关旁手动检查。
+从 V2 升级时会读取旧配置、会话、附件、Provider、密钥、记忆、Skill、MCP、费用和 telemetry，并在原子迁移成功后只写新目录。旧目录保留为备份；项目中已由 Git 跟踪的旧说明文件不会被擅自改名。配置版本为 V11。
 
 ## 从源码构建
 
-需要 Go、Node.js/npm 和 Wails CLI v2。
+需要 Go、Node.js 22+、npm 和 Wails CLI v2。Windows 安装器还需要 NSIS。
 
 ```powershell
-cd desktop/frontend
+git clone https://github.com/nanbo0ne/O.R.C.A-for-Windows.git
+cd O.R.C.A-for-Windows\desktop\frontend
 npm install
 npm run test:all
 npm run build
 
-cd ../..
+cd ..\..
 go test ./...
-```
-
-修改导出的 Wails App 方法后，在 `desktop` 目录运行：
-
-```powershell
-wails generate module
+cd desktop
+go test .
 wails build
 ```
 
-更新记录不放在 README 中，统一维护于 [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md)。
+CLI 构建和命令说明见 [README.CLI.md](README.CLI.md)，桌面打包说明见 [README.DESKTOP.md](README.DESKTOP.md)，更新记录见 [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md)。办公产物边界见 [docs/ARTIFACT_RUNTIME.md](docs/ARTIFACT_RUNTIME.md)。
+
+## 许可
+
+O.R.C.A. 使用 [MIT License](LICENSE)。`llama.cpp`、Wails 及其他第三方组件保留各自许可证与声明。

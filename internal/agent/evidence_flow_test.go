@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -194,8 +195,8 @@ func TestFinalReadinessRequiresVerificationWithoutChecksOrTodos(t *testing.T) {
 	if err := a.Run(context.Background(), "simple edit"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if prov.call != 4 {
-		t.Fatalf("provider calls = %d, want 4", prov.call)
+	if prov.call != 2 {
+		t.Fatalf("provider calls = %d, want 2 without redundant verification retry", prov.call)
 	}
 }
 
@@ -404,14 +405,11 @@ func TestFinalReadinessStopsAfterRepeatedBlocks(t *testing.T) {
 	a := New(prov, reg, NewSession(""), Options{}, event.Discard)
 
 	err := a.Run(context.Background(), "edit with todo and never sign off")
-	if err == nil {
-		t.Fatal("expected repeated readiness blocks to stop the run")
+	if err != nil {
+		t.Fatalf("Run: %v; one targeted remediation should be enough", err)
 	}
-	if !strings.Contains(err.Error(), "final-answer readiness") {
-		t.Fatalf("error = %v, want final-answer readiness", err)
-	}
-	if prov.call != 4 {
-		t.Fatalf("provider calls = %d, want three blocked final answers after writer turn", prov.call)
+	if prov.call != 3 {
+		t.Fatalf("provider calls = %d, want one remediation then acceptance", prov.call)
 	}
 }
 
@@ -422,6 +420,7 @@ func TestFinalReadinessAuditRecordsTerminalError(t *testing.T) {
 	}
 	reg := tool.NewRegistry()
 	reg.Add(fakeTool{name: "write_file", readOnly: false})
+	reg.Add(fakeTool{name: "bash", readOnly: false, err: errors.New("verification failed")})
 	reg.Add(todoWrite)
 	prov := &scriptedProvider{name: "p", turns: [][]provider.Chunk{
 		{
@@ -430,20 +429,23 @@ func TestFinalReadinessAuditRecordsTerminalError(t *testing.T) {
 			{Type: provider.ChunkDone},
 		},
 		{{Type: provider.ChunkText, Text: "premature 1"}, {Type: provider.ChunkDone}},
+		{toolCallChunk("c3", "bash", `{"command":"go test ./..."}`), {Type: provider.ChunkDone}},
 		{{Type: provider.ChunkText, Text: "premature 2"}, {Type: provider.ChunkDone}},
-		{{Type: provider.ChunkText, Text: "premature 3"}, {Type: provider.ChunkDone}},
 	}}
 	sink := &readinessAuditSink{}
 	a := New(prov, reg, NewSession(""), Options{}, sink)
 
 	err := a.Run(context.Background(), "edit with todo and never sign off")
 	if err == nil {
-		t.Fatal("expected repeated readiness blocks to stop the run")
+		t.Fatal("expected a new failed verification action to stop the run")
 	}
-	if len(sink.events) != 3 {
-		t.Fatalf("readiness audit events = %d, want 3: %+v", len(sink.events), sink.events)
+	if len(sink.events) != 2 {
+		t.Fatalf("readiness audit events = %d, want block and terminal error: %+v", len(sink.events), sink.events)
 	}
-	last := sink.events[len(sink.events)-1]
+	if sink.events[0].Result != evidence.ReadinessBlocked || sink.events[0].IncompleteTodos == 0 {
+		t.Fatalf("first audit = %+v, want blocked with incomplete todos", sink.events[0])
+	}
+	last := sink.events[1]
 	if last.Result != evidence.ReadinessErrored || last.IncompleteTodos == 0 {
 		t.Fatalf("terminal audit = %+v, want errored with incomplete todos", last)
 	}

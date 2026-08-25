@@ -238,6 +238,7 @@ export interface AppBindings {
   SetProviderKey(apiKeyEnv: string, value: string): Promise<void>;
   ClearProviderKey(apiKeyEnv: string): Promise<void>;
   SetPermissionMode(mode: string): Promise<void>;
+  SetAutoReviewModel(ref: string): Promise<void>;
   AddPermissionRule(list: string, rule: string): Promise<void>;
   RemovePermissionRule(list: string, rule: string): Promise<void>;
   SetSandbox(bash: string, network: boolean, workspaceRoot: string, allowWrite: string[]): Promise<void>;
@@ -254,6 +255,8 @@ export interface AppBindings {
   SetCloseBehavior(mode: string): Promise<void>;
   SetDesktopLanguage(lang: string): Promise<void>;
   SetDesktopAppearance(theme: string, style: string): Promise<void>;
+  SetDesktopUIStyle(style: string): Promise<void>;
+  RestartApp(): Promise<void>;
   SetDesktopUIScale(scale: number): Promise<void>;
   SetDesktopCheckUpdates(enabled: boolean): Promise<void>;
   SetExpandThinking(on: boolean): Promise<void>;
@@ -376,6 +379,13 @@ function realApp(): AppBindings | undefined {
 }
 
 let mockSingleton: AppBindings | null = null;
+function browserMockUIStyle(): "modern" | "classic" {
+	try {
+		return localStorage.getItem("orca-ui-style") === "classic" ? "classic" : "modern";
+	} catch {
+		return "modern";
+	}
+}
 function getMock(): AppBindings {
   if (!mockSingleton) mockSingleton = makeMockApp();
   return mockSingleton;
@@ -740,15 +750,15 @@ function makeMockApp(): AppBindings {
     subagentEffort: "",
     autoPlan: "off",
     providers: [
-      { name: "deepseek", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: true, balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+      { name: "deepseek", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: true, balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
       { name: "mimo-token-plan", builtIn: true, added: false, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
     ],
     officialProviders: [
-      { name: "deepseek", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: true, balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+      { name: "deepseek", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: true, balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
       { name: "mimo-api", builtIn: true, added: false, kind: "openai", baseUrl: "https://api.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5", "mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
       { name: "mimo-token-plan", builtIn: true, added: false, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: false, balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
     ],
-    permissions: { mode: "ask", allow: ["ls", "read_file"], ask: [], deny: ["Bash(rm:*)"] },
+    permissions: { mode: "ask", autoReviewModel: "", allow: ["ls", "read_file"], ask: [], deny: ["Bash(rm:*)"] },
     sandbox: { bash: "enforce", network: true, workspaceRoot: "", allowWrite: [] },
     network: {
       proxyMode: "auto",
@@ -756,7 +766,7 @@ function makeMockApp(): AppBindings {
       noProxy: "",
       proxy: { type: "socks5", server: "127.0.0.1", port: 7890, username: "", password: "" },
     },
-    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, softCompactRatio: 0.5, compactRatio: 0.8, compactForceRatio: 0.9, systemPrompt: "你是 O.R.C.A，一个专注于代码任务的智能编程 Agent。" },
+    agent: { temperature: 0.2, maxSteps: 0, plannerMaxSteps: 12, softCompactRatio: 0.5, compactRatio: 0.8, compactForceRatio: 0.9, systemPrompt: "你是 O.R.C.A.，一个专注于代码任务的智能编程 Agent。" },
     bot: {
       enabled: false,
       model: "",
@@ -798,6 +808,7 @@ function makeMockApp(): AppBindings {
     desktopLanguage: "",
     desktopTheme: "light",
     desktopThemeStyle: "slate",
+	desktopUIStyle: browserMockUIStyle(),
     closeBehavior: "background",
     checkUpdates: true,
     expandThinking: false,
@@ -1088,6 +1099,7 @@ function makeMockApp(): AppBindings {
   const mockModelCatalog = [
     { ref: "deepseek/deepseek-v4-flash", provider: "deepseek", model: "deepseek-v4-flash" },
     { ref: "deepseek/deepseek-v4-pro", provider: "deepseek", model: "deepseek-v4-pro" },
+    { ref: "deepseek/deepseek-v4-flash-vision-exp", provider: "deepseek", model: "deepseek-v4-flash-vision-exp" },
   ];
   const defaultMockModelRef = mockModelCatalog[0].ref;
   const mockModelRef = (name: string): string => {
@@ -1916,7 +1928,7 @@ function makeMockApp(): AppBindings {
     },
     async ReadFile(rel: string) {
       const samples: Record<string, string> = {
-        "README.md": "# O.R.C.A\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
+        "README.md": "# O.R.C.A.\n\nBrowser-dev workspace preview.\n\n- Chat in the center\n- Browse files on the right\n- Keep sessions on the left\n",
         "go.mod": "module orca-agent\n\ngo 1.23\n",
         "desktop/file.go": "package desktop\n\nfunc main() {\n\tprintln(\"workspace preview\")\n}\n",
         "internal/event.go": "package internal\n\n// mock file used by the browser dev seam\n",
@@ -2046,7 +2058,7 @@ function makeMockApp(): AppBindings {
           {
             path: "ORCA.md",
             scope: "project",
-            body: "# O.R.C.A project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
+            body: "# O.R.C.A. project memory\n\nMock doc shown in the browser dev seam.\n\n## Notes\n\n- prefers concise replies",
           },
           {
             path: "~/.config/orca/ORCA.md",
@@ -2135,7 +2147,7 @@ function makeMockApp(): AppBindings {
     },
     async AddOfficialProviderAccess(kind: string, key: string) {
       const templates: Record<string, ProviderView> = {
-        deepseek: { name: "deepseek", builtIn: true, added: true, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: !!key.trim(), balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
+        deepseek: { name: "deepseek", builtIn: true, added: true, kind: "openai", baseUrl: "https://api.deepseek.com", modelsUrl: "", models: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"], default: "deepseek-v4-flash", apiKeyEnv: "DEEPSEEK_API_KEY", keySet: !!key.trim(), balanceUrl: "https://api.deepseek.com/user/balance", contextWindow: 1_000_000, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
         "mimo-api": { name: "mimo-api", builtIn: true, added: true, kind: "openai", baseUrl: "https://api.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5", "mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: !!key.trim(), balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
         "mimo-token-plan": { name: "mimo-token-plan", builtIn: true, added: true, kind: "openai", baseUrl: "https://token-plan-cn.xiaomimimo.com/v1", modelsUrl: "", models: ["mimo-v2.5-pro"], default: "mimo-v2.5-pro", apiKeyEnv: "MIMO_API_KEY", keySet: !!key.trim(), balanceUrl: "", contextWindow: 1_048_576, reasoningProtocol: "", supportedEfforts: [], defaultEffort: "" },
       };
@@ -2148,7 +2160,7 @@ function makeMockApp(): AppBindings {
       if (!p.baseUrl.trim()) throw new Error(t("settings.fetchModelsMissingBaseUrl"));
       if (!p.apiKeyEnv.trim()) throw new Error(t("settings.fetchModelsMissingKeyEnv"));
       await delay(350);
-      if (p.baseUrl.includes("deepseek")) return ["deepseek-v4-flash", "deepseek-v4-pro"];
+      if (p.baseUrl.includes("deepseek")) return ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"];
       if (p.baseUrl.includes("mimo") || p.baseUrl.includes("xiaomimimo")) return ["mimo-v2.5", "mimo-v2.5-pro"];
       return ["gpt-5", "gpt-5-mini", "qwen3-coder"];
     },
@@ -2172,6 +2184,9 @@ function makeMockApp(): AppBindings {
     },
     async SetPermissionMode(mode: string) {
       settings.permissions.mode = mode;
+    },
+    async SetAutoReviewModel(ref: string) {
+      settings.permissions.autoReviewModel = ref;
     },
     async AddPermissionRule(list: string, rule: string) {
       const k = list as "allow" | "ask" | "deny";
@@ -2313,9 +2328,14 @@ function makeMockApp(): AppBindings {
           settings.desktopTheme = theme === "auto" || theme === "light" ? theme : "dark";
           settings.desktopThemeStyle = style;
         },
-        async SetDesktopUIScale(scale: number) {
-          settings.uiScale = scale === 0 || (scale >= 80 && scale <= 125 && scale % 5 === 0) ? scale : 0;
-          settings.effectiveUIScale = settings.uiScale || 100;
+        async SetDesktopUIStyle(style: string) {
+          settings.desktopUIStyle = style === "classic" ? "classic" : "modern";
+        },
+        async RestartApp() {},
+    async SetDesktopUIScale(scale: number) {
+          void scale;
+          settings.uiScale = 0;
+          settings.effectiveUIScale = 100;
         },
         async SetDesktopCheckUpdates(enabled: boolean) {
           settings.checkUpdates = enabled;
@@ -2349,7 +2369,8 @@ function makeMockApp(): AppBindings {
           return mockVisionCapabilities.map((item) => ({ ...item }));
         },
         async ProbeModelVision(modelRef: string) {
-          const next: VisionCapability = { modelRef, key: modelRef, status: modelRef.toLowerCase().includes("deepseek") ? "unsupported" : "supported", checkedAt: Date.now() };
+          const lower = modelRef.toLowerCase();
+          const next: VisionCapability = { modelRef, key: modelRef, status: lower.includes("deepseek-v4-flash-vision-exp") ? "supported" : lower.includes("deepseek") ? "unsupported" : "supported", checkedAt: Date.now() };
           mockVisionCapabilities = [...mockVisionCapabilities.filter((item) => item.modelRef !== modelRef), next];
           return next;
         },

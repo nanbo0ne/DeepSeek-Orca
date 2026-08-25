@@ -31,7 +31,7 @@ func TestConcurrentConfigWritesPreserveBothChanges(t *testing.T) {
 		errs <- app.applyConfigOnly(func(c *config.Config) error {
 			close(firstEntered)
 			<-releaseFirst
-			return c.SetDesktopUIScale(90)
+			return c.SetDesktopLanguage("en")
 		})
 	}()
 	<-firstEntered
@@ -55,8 +55,8 @@ func TestConcurrentConfigWritesPreserveBothChanges(t *testing.T) {
 	}
 
 	got := config.LoadForEdit(config.UserConfigPath())
-	if got.DesktopUIScale() != 90 || got.DesktopCheckUpdates() {
-		t.Fatalf("concurrent settings update lost a change: scale=%d checkUpdates=%v", got.DesktopUIScale(), got.DesktopCheckUpdates())
+	if got.DesktopLanguage() != "en" || got.DesktopCheckUpdates() {
+		t.Fatalf("concurrent settings update lost a change: language=%s checkUpdates=%v", got.DesktopLanguage(), got.DesktopCheckUpdates())
 	}
 }
 

@@ -28,7 +28,6 @@ import (
 // window before the next compaction runs.
 const maxToolOutputBytes = 32 * 1024
 
-const maxFinalReadinessBlocks = 3
 const maxEmptyFinalBlocks = 3
 const maxStreamRecoveries = 1
 const maxExecutorHandoffNudges = 1
@@ -349,6 +348,16 @@ func (a *Agent) SessionCache() (hit, miss int) {
 // means compaction is disabled for this agent.
 func (a *Agent) ContextWindow() int { return a.contextWindow }
 
+// PricingInfo reports whether this agent has a reliable configured price table.
+// It does not snapshot time-based rates; each request still freezes those in the
+// run loop immediately before the provider call.
+func (a *Agent) PricingInfo() (bool, string) {
+	if a == nil || a.pricing == nil {
+		return false, ""
+	}
+	return true, a.pricing.Symbol()
+}
+
 // mid-turn steer marker.
 const midTurnSteerPrefix = "[用户已排队一条中途引导。不要把它当作新任务；请在完成当前步骤后，仅将其作为当前任务的补充指导。]"
 
@@ -526,6 +535,7 @@ func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 	a.session.Add(provider.Message{Role: provider.RoleUser, Content: input.Text, Images: append([]provider.ImageContent(nil), input.Images...)})
 
 	finalReadinessBlocks := 0
+	readinessFailureCount := 0
 	emptyFinalBlocks := 0
 	handoffNudges := 0
 	usedAnyTool := false
@@ -603,18 +613,22 @@ func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 		if len(calls) == 0 {
 			readiness := a.finalReadinessCheck()
 			if readiness.reason != "" {
-				finalReadinessBlocks++
-				result := evidence.ReadinessBlocked
-				if finalReadinessBlocks >= maxFinalReadinessBlocks {
-					result = evidence.ReadinessErrored
-					event.RecordReadinessAudit(a.sink, readiness.audit(result, false))
-					return fmt.Errorf("final-answer readiness failed %d times: %s", finalReadinessBlocks, readiness.reason)
+				if finalReadinessBlocks == 0 {
+					finalReadinessBlocks = 1
+					readinessFailureCount = a.evidence.FailureCount()
+					event.RecordReadinessAudit(a.sink, readiness.audit(evidence.ReadinessBlocked, false))
+					a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "final-answer readiness blocked: " + readiness.reason})
+					a.session.Add(provider.Message{Role: provider.RoleUser, Content: finalReadinessRetryMessage(readiness.reason)})
+					a.maybeCompact(ctx, usage)
+					continue
 				}
-				event.RecordReadinessAudit(a.sink, readiness.audit(result, false))
-				a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "final-answer readiness blocked: " + readiness.reason})
-				a.session.Add(provider.Message{Role: provider.RoleUser, Content: finalReadinessRetryMessage(readiness.reason)})
-				a.maybeCompact(ctx, usage)
-				continue
+				if a.evidence.FailureCount() > readinessFailureCount {
+					event.RecordReadinessAudit(a.sink, readiness.audit(evidence.ReadinessErrored, false))
+					return fmt.Errorf("final-answer readiness found a new failed action after targeted verification: %s", readiness.reason)
+				}
+				event.RecordReadinessAudit(a.sink, readiness.audit(evidence.ReadinessAllowed, true))
+				a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: "final-answer readiness accepted after one targeted verification attempt: " + readiness.reason})
+				readiness.applies = false
 			}
 			if !hasVisibleFinalAnswer(text) {
 				emptyFinalBlocks++
@@ -632,6 +646,9 @@ func (a *Agent) RunRich(ctx context.Context, input RichInput) error {
 				a.session.Add(provider.Message{Role: provider.RoleUser, Content: executorHandoffRetryMessage()})
 				a.maybeCompact(ctx, usage)
 				continue
+			}
+			if readiness.advisory != "" {
+				a.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelInfo, Text: "verification suggestion: " + readiness.advisory})
 			}
 			if readiness.applies {
 				event.RecordReadinessAudit(a.sink, readiness.audit(evidence.ReadinessAllowed, finalReadinessBlocks > 0))
@@ -677,6 +694,7 @@ func (a *Agent) finalReadinessFailure() string {
 type finalReadinessCheck struct {
 	applies              bool
 	reason               string
+	advisory             string
 	missingProjectChecks int
 	incompleteTodos      int
 }
@@ -696,6 +714,7 @@ func (a *Agent) finalReadinessCheck() finalReadinessCheck {
 		return finalReadinessCheck{}
 	}
 	var missing []string
+	var advisory []string
 	out := finalReadinessCheck{}
 	if !a.planMode.Load() {
 		if incomplete, hasTodos := a.evidence.IncompleteLatestTodos(); hasTodos && len(incomplete) > 0 {
@@ -703,6 +722,14 @@ func (a *Agent) finalReadinessCheck() finalReadinessCheck {
 			out.incompleteTodos = len(incomplete)
 			missing = append(missing, finalReadinessIncompleteTodos(incomplete))
 		}
+	}
+	if failed, ok := a.evidence.LatestUnrecoveredFailure(); ok {
+		out.applies = true
+		toolName := strings.TrimSpace(failed.ToolName)
+		if toolName == "" {
+			toolName = "tool"
+		}
+		missing = append(missing, fmt.Sprintf("latest %s action failed", toolName))
 	}
 	writer, hasWriter := a.evidence.LatestSuccessfulWriterIndex()
 	if !hasWriter {
@@ -722,16 +749,17 @@ func (a *Agent) finalReadinessCheck() finalReadinessCheck {
 		if command == "" {
 			continue
 		}
-		if !a.evidence.HasSuccessfulCommandAfter(command, writer) {
+		if !a.evidence.HasSuccessfulCommandAfter(command, writer) && !a.evidence.HasSuccessfulVerificationAfter(writer) {
 			out.missingProjectChecks++
 			missing = append(missing, fmt.Sprintf("run %q from %s after the latest write", command, finalReadinessCheckSource(check)))
 		}
 	}
 	if a.requirePostWriteVerification && !hasProjectChecks && !a.evidence.HasSuccessfulVerificationAfter(writer) {
 		out.missingProjectChecks++
-		missing = append(missing, "run a relevant test, build, lint, typecheck, parser check, or git diff --check after the latest write")
+		advisory = append(advisory, "consider a relevant test, build, lint, typecheck, parser check, read-back, or git diff --check after the latest write")
 	}
 
+	out.advisory = strings.Join(advisory, "; ")
 	if len(missing) == 0 {
 		return out
 	}

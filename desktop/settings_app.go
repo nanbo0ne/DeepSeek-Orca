@@ -15,6 +15,7 @@ import (
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/control"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/memory"
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/modelmeta"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/tool"
@@ -31,33 +32,35 @@ import (
 // --- read ---
 
 type ProviderView struct {
-	Name              string   `json:"name"`
-	PresetID          string   `json:"presetId,omitempty"`
-	Label             string   `json:"label,omitempty"`
-	Description       string   `json:"description,omitempty"`
-	Category          string   `json:"category,omitempty"`
-	AccountURL        string   `json:"accountUrl,omitempty"`
-	BuiltIn           bool     `json:"builtIn"`
-	Added             bool     `json:"added"`
-	Kind              string   `json:"kind"`
-	BaseURL           string   `json:"baseUrl"`
-	Models            []string `json:"models"`
-	ModelsURL         string   `json:"modelsUrl"`
-	Default           string   `json:"default"`
-	APIKeyEnv         string   `json:"apiKeyEnv"`
-	KeySet            bool     `json:"keySet"` // the env var currently resolves to a non-empty value
-	BalanceURL        string   `json:"balanceUrl"`
-	ContextWindow     int      `json:"contextWindow"`
-	ReasoningProtocol string   `json:"reasoningProtocol"`
-	SupportedEfforts  []string `json:"supportedEfforts"`
-	DefaultEffort     string   `json:"defaultEffort"`
+	Name                string         `json:"name"`
+	PresetID            string         `json:"presetId,omitempty"`
+	Label               string         `json:"label,omitempty"`
+	Description         string         `json:"description,omitempty"`
+	Category            string         `json:"category,omitempty"`
+	AccountURL          string         `json:"accountUrl,omitempty"`
+	BuiltIn             bool           `json:"builtIn"`
+	Added               bool           `json:"added"`
+	Kind                string         `json:"kind"`
+	BaseURL             string         `json:"baseUrl"`
+	Models              []string       `json:"models"`
+	ModelsURL           string         `json:"modelsUrl"`
+	Default             string         `json:"default"`
+	APIKeyEnv           string         `json:"apiKeyEnv"`
+	KeySet              bool           `json:"keySet"` // the env var currently resolves to a non-empty value
+	BalanceURL          string         `json:"balanceUrl"`
+	ContextWindow       int            `json:"contextWindow"`
+	ModelContextWindows map[string]int `json:"modelContextWindows,omitempty"`
+	ReasoningProtocol   string         `json:"reasoningProtocol"`
+	SupportedEfforts    []string       `json:"supportedEfforts"`
+	DefaultEffort       string         `json:"defaultEffort"`
 }
 
 type PermissionsView struct {
-	Mode  string   `json:"mode"`
-	Allow []string `json:"allow"`
-	Ask   []string `json:"ask"`
-	Deny  []string `json:"deny"`
+	Mode            string   `json:"mode"`
+	AutoReviewModel string   `json:"autoReviewModel"`
+	Allow           []string `json:"allow"`
+	Ask             []string `json:"ask"`
+	Deny            []string `json:"deny"`
 }
 
 type SandboxView struct {
@@ -163,6 +166,7 @@ type SettingsView struct {
 	DesktopLanguage      string          `json:"desktopLanguage"`
 	DesktopTheme         string          `json:"desktopTheme"`
 	DesktopThemeStyle    string          `json:"desktopThemeStyle"`
+	DesktopUIStyle       string          `json:"desktopUIStyle"`
 	CloseBehavior        string          `json:"closeBehavior"`
 	CheckUpdates         bool            `json:"checkUpdates"`
 	ExpandThinking       bool            `json:"expandThinking"`
@@ -193,6 +197,17 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+func cloneStringIntMap(in map[string]int) map[string]int {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]int, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func providerRemovalFallbackRef(c *config.Config, name string) string {
@@ -291,13 +306,14 @@ func providerViewFromEntry(p config.ProviderEntry, builtIn, added bool) Provider
 	v := ProviderView{
 		Name: p.Name, BuiltIn: builtIn, Added: added, Kind: p.Kind, BaseURL: p.BaseURL,
 		Models: nonNil(p.ChatModelList()), ModelsURL: p.ModelsURL, Default: p.DefaultModel(),
-		APIKeyEnv:         p.APIKeyEnv,
-		KeySet:            p.APIKeyEnv != "" && os.Getenv(p.APIKeyEnv) != "",
-		BalanceURL:        p.BalanceURL,
-		ContextWindow:     p.ContextWindow,
-		ReasoningProtocol: p.ReasoningProtocol,
-		SupportedEfforts:  nonNil(p.SupportedEfforts),
-		DefaultEffort:     p.DefaultEffort,
+		APIKeyEnv:           p.APIKeyEnv,
+		KeySet:              p.APIKeyEnv != "" && os.Getenv(p.APIKeyEnv) != "",
+		BalanceURL:          p.BalanceURL,
+		ContextWindow:       p.ContextWindow,
+		ModelContextWindows: cloneStringIntMap(p.ModelContextWindows),
+		ReasoningProtocol:   p.ReasoningProtocol,
+		SupportedEfforts:    nonNil(p.SupportedEfforts),
+		DefaultEffort:       p.DefaultEffort,
 	}
 	if preset, ok := config.ProviderPresetByID(officialProviderKindFromEntry(p)); ok {
 		v.PresetID = preset.ID
@@ -346,10 +362,11 @@ func (a *App) Settings() SettingsView {
 			OfficialProviders: officialProviderViews(map[string]bool{}),
 			ProviderKinds:     nonNil(provider.Kinds()),
 			Permissions: PermissionsView{
-				Mode:  "ask",
-				Allow: []string{},
-				Ask:   []string{},
-				Deny:  []string{},
+				Mode:            "ask",
+				AutoReviewModel: "",
+				Allow:           []string{},
+				Ask:             []string{},
+				Deny:            []string{},
 			},
 			Sandbox:              SandboxView{Bash: "enforce", AllowWrite: []string{}},
 			Agent:                AgentView{PlannerMaxSteps: 12, SoftCompactRatio: 0.5, CompactRatio: 0.8, CompactForceRatio: 0.9},
@@ -357,6 +374,7 @@ func (a *App) Settings() SettingsView {
 			AutoPlan:             "off",
 			DesktopTheme:         "light",
 			DesktopThemeStyle:    "slate",
+			DesktopUIStyle:       config.DesktopUIStyleModern,
 			CloseBehavior:        "background",
 			CheckUpdates:         true,
 			ExpandThinking:       false,
@@ -384,10 +402,11 @@ func (a *App) Settings() SettingsView {
 		Providers:         []ProviderView{},
 		OfficialProviders: []ProviderView{},
 		Permissions: PermissionsView{
-			Mode:  orDefault(cfg.Permissions.Mode, "ask"),
-			Allow: nonNil(cfg.Permissions.Allow),
-			Ask:   nonNil(cfg.Permissions.Ask),
-			Deny:  nonNil(cfg.Permissions.Deny),
+			Mode:            orDefault(cfg.Permissions.Mode, "ask"),
+			AutoReviewModel: cfg.Permissions.AutoReviewModel,
+			Allow:           nonNil(cfg.Permissions.Allow),
+			Ask:             nonNil(cfg.Permissions.Ask),
+			Deny:            nonNil(cfg.Permissions.Deny),
 		},
 		Sandbox: SandboxView{
 			Bash: bash, Network: cfg.Sandbox.Network,
@@ -405,25 +424,21 @@ func (a *App) Settings() SettingsView {
 				Password: cfg.Network.Proxy.Password,
 			},
 		},
-		Agent:              AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, SoftCompactRatio: compactRatioOrDefault(cfg.Agent.SoftCompactRatio, 0.5), CompactRatio: compactRatioOrDefault(cfg.Agent.CompactRatio, 0.8), CompactForceRatio: compactRatioOrDefault(cfg.Agent.CompactForceRatio, 0.9)},
-		Bot:                botSettingsView(cfg.Bot),
-		DesktopLanguage:    cfg.DesktopLanguage(),
-		DesktopTheme:       "light",
-		DesktopThemeStyle:  "slate",
-		CloseBehavior:      cfg.DesktopCloseBehavior(),
-		CheckUpdates:       cfg.DesktopCheckUpdates(),
-		ExpandThinking:     cfg.DesktopProcessDisplayMode() == config.ProcessDisplayDetailed,
-		ProcessDisplayMode: cfg.DesktopProcessDisplayMode(),
-		ActivityIndicator:  cfg.Desktop.ActivityIndicator,
-		VisionEnabled:      cfg.Desktop.VisionEnabled,
-		VisionMode:         cfg.DesktopVisionMode(),
-		UIScale:            cfg.DesktopUIScale(),
-		EffectiveUIScale: func() int {
-			if scale := cfg.DesktopUIScale(); scale != 0 {
-				return scale
-			}
-			return 100
-		}(),
+		Agent:                AgentView{Temperature: cfg.Agent.Temperature, MaxSteps: cfg.Agent.MaxSteps, PlannerMaxSteps: cfg.Agent.PlannerMaxSteps, SystemPrompt: cfg.Agent.SystemPrompt, SoftCompactRatio: compactRatioOrDefault(cfg.Agent.SoftCompactRatio, 0.5), CompactRatio: compactRatioOrDefault(cfg.Agent.CompactRatio, 0.8), CompactForceRatio: compactRatioOrDefault(cfg.Agent.CompactForceRatio, 0.9)},
+		Bot:                  botSettingsView(cfg.Bot),
+		DesktopLanguage:      cfg.DesktopLanguage(),
+		DesktopTheme:         "light",
+		DesktopThemeStyle:    "slate",
+		DesktopUIStyle:       cfg.DesktopUIStyle(),
+		CloseBehavior:        cfg.DesktopCloseBehavior(),
+		CheckUpdates:         cfg.DesktopCheckUpdates(),
+		ExpandThinking:       cfg.DesktopProcessDisplayMode() == config.ProcessDisplayDetailed,
+		ProcessDisplayMode:   cfg.DesktopProcessDisplayMode(),
+		ActivityIndicator:    cfg.Desktop.ActivityIndicator,
+		VisionEnabled:        cfg.Desktop.VisionEnabled,
+		VisionMode:           cfg.DesktopVisionMode(),
+		UIScale:              0,
+		EffectiveUIScale:     100,
 		AutomationFullAccess: cfg.Desktop.AutomationFullAccess,
 		ComputerControlModel: strings.TrimSpace(cfg.Desktop.ComputerControlModel),
 		ComputerUseApproved:  cfg.Desktop.ComputerUseFullAccess && cfg.Desktop.ComputerUseConsent == computerUseConsentVersion,
@@ -948,6 +963,9 @@ func (a *App) SaveProvider(p ProviderView) error {
 		e.APIKeyEnv = p.APIKeyEnv
 		e.BalanceURL = strings.TrimSpace(p.BalanceURL)
 		e.ContextWindow = p.ContextWindow
+		if p.ModelContextWindows != nil {
+			e.ModelContextWindows = cloneStringIntMap(p.ModelContextWindows)
+		}
 		e.ReasoningProtocol = p.ReasoningProtocol
 		e.SupportedEfforts = p.SupportedEfforts
 		e.DefaultEffort = p.DefaultEffort
@@ -1074,13 +1092,18 @@ func (a *App) FetchProviderModels(p ProviderView) ([]string, error) {
 	}
 	models := make([]string, 0, len(metadata))
 	store := visioncap.Load("")
+	metadataStore := modelmeta.Load("")
 	for _, item := range metadata {
 		models = append(models, item.ID)
+		entry := e
+		entry.Model = item.ID
+		_ = metadataStore.Put(modelmeta.MetadataFromDiscovery(
+			&entry, item.ContextWindow, item.ContextReason, modelmeta.Status(item.Vision),
+			modelmeta.Status(item.ToolUse), modelmeta.Status(item.StructuredOutput), item.Pricing,
+		))
 		if item.Vision == nil {
 			continue
 		}
-		entry := e
-		entry.Model = item.ID
 		current := store.Stored(&entry)
 		status := visioncap.Unsupported
 		if *item.Vision {
@@ -1347,6 +1370,20 @@ func (a *App) SetPermissionMode(mode string) error {
 	return a.applyConfigChange(func(c *config.Config) error { return c.SetPermissionMode(mode) })
 }
 
+func (a *App) SetAutoReviewModel(ref string) error {
+	return a.applyConfigChange(func(c *config.Config) error {
+		ref = strings.TrimSpace(ref)
+		if ref != "" {
+			resolved, err := selectableDesktopModelRef(c, ref)
+			if err != nil {
+				return err
+			}
+			ref = resolved
+		}
+		return c.SetAutoReviewModel(ref)
+	})
+}
+
 // AddPermissionRule appends a rule to the allow/ask/deny list.
 func (a *App) AddPermissionRule(list, rule string) error {
 	return a.applyConfigChange(func(c *config.Config) error { return c.AddPermissionRule(list, rule) })
@@ -1491,7 +1528,15 @@ func (a *App) SetDesktopAppearance(theme, style string) error {
 }
 
 func (a *App) SetDesktopUIScale(scale int) error {
-	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopUIScale(scale) })
+	// V3 uses the operating system's Per-Monitor DPI scale only. Keep this old
+	// bridge binding as a no-op for in-place upgrades with a cached frontend.
+	return nil
+}
+
+// SetDesktopUIStyle switches the presentation layer without rebuilding the
+// controller or interrupting an active turn.
+func (a *App) SetDesktopUIStyle(style string) error {
+	return a.applyConfigOnly(func(c *config.Config) error { return c.SetDesktopUIStyle(style) })
 }
 
 // SetDesktopCheckUpdates updates only the desktop startup update-check

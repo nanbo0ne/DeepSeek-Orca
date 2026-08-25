@@ -1,5 +1,17 @@
 # O.R.C.A Desktop Changelog
 
+## V3.0.1 - 2026-08-25
+
+- Rebuilt the Modern desktop layout around a compact four-menu shell, a responsive single-row Composer, stable send/stop geometry, right-aligned model and reasoning controls, full-width scrolling, and correctly centered empty-session content.
+- Restored Classic as an explicit V2.1.3 blue-and-white DOM and CSS branch with native Windows decoration and the original toolbar, sidebar, Composer, status, spacing, and button treatment while retaining all V3 services.
+- Added persistent Modern/Classic style selection with restart-safe window framing, removed the retired application-level zoom control, and kept Windows Per-Monitor DPI behavior at a native 100% application scale.
+- Hardened the Local AI bridge against `null` collections and failed refreshes, normalized onboarding and settings data, preserved the last valid catalog, and covered multi-adapter systems where the preferred discrete GPU is not `GPU 0`.
+- Rebuilt the transparent O.R.C.A. icon family for application, taskbar, tray, notification, shortcut, and installer use, including dedicated small-size ICO entries and retained wordmark artwork.
+- Added model-level context and capability metadata, hid unavailable cost and balance fields, isolated provider model refreshes, and updated official DeepSeek weekday peak/off-peak pricing plus Vision Exp routing.
+- Added independent model-based risk review for automatic approvals while preserving host deny/ask rules, secret redaction, strict structured output, and warning telemetry on the existing fallback path.
+- Refined final readiness so successful work stops on the verified round instead of repeating three times, while explicit tool failures, incomplete tasks, empty final answers, and security boundaries remain hard blockers.
+- Rewrote the Chinese, English, desktop, and CLI documentation as a balanced product overview covering conversations, providers, tools, projects, local AI, Computer Use, automation, privacy, migration, platforms, and source builds.
+
 ## V3.0.0 - 2026-08-17
 
 - Renamed the product to O.R.C.A for Windows, expanded as Open Reasoning & Computing Agent, with new application identity, repository links, executable/package names, icons, media route, configuration path, and migration-compatible legacy aliases.

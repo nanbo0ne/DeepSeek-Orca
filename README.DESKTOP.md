@@ -1,27 +1,36 @@
-# O.R.C.A Desktop Edition
+# O.R.C.A Desktop
 
-This desktop build exposes **Coding** and **Assistant** conversation modes plus one fixed internal **Orca** control conversation.
+O.R.C.A. Desktop is the graphical workspace for **Open Reasoning & Computing Agent**. It provides Assistant and Coding conversations, the fixed Orca control entry, multi-provider models, tools, files, projects, sessions, memory, MCP, Skills, artifacts, automation, and inspectable execution history.
 
-## Downloads
+The complete product overview, platform matrix, privacy model, migration notes, and source-build instructions are maintained in [README.md](README.md) and [README.en.md](README.en.md).
 
-- [Windows installer](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64-installer.exe)
-- [Windows portable](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-macos-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-linux-amd64.deb)
-- [Release page](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
+## O.R.C.A. v3.0.1
 
-## Scope
+- [Windows installer](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-for-Windows-windows-amd64-installer.exe)
+- [Windows portable ZIP](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-for-Windows-windows-amd64.zip)
+- [macOS universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-macos-universal.dmg)
+- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-linux-amd64.deb)
+- [Release page and checksums](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.1)
 
-O.R.C.A Desktop provides project and independent workspaces, a fixed Orca entry, persistent sessions, forks, checkpoints, rollback, multi-provider models, optional vision attachments, tool approval and sandbox controls, MCP, Skills, CodeGraph, memory, Plan/Todo/Goal workflows, Work artifacts, background jobs, bots, and chronological process display.
+Windows is the full-capability platform for V3, including the managed local `llama.cpp` runtime and Computer Use. macOS and Linux continue to provide cloud-model conversations and the shared agent workspace, while those two Windows-native capabilities are shown as unavailable.
 
-Coding mode handles repositories and engineering with shell, Git, LSP, CodeGraph, review, testing, and verification. Assistant mode handles research, writing, office artifacts, automations, and computer work with a personal memory profile. The top-level **Orca** entry is shared by desktop, QQ, and Weixin, adds selective conversation dispatch, and has no ordinary mode selector. Legacy automation topics migrate to ordinary independent workspaces.
+## Local Build
 
-The 30-minute continuity check, `/new`, and `/continue` create or select logical context segments inside Orca without creating sidebar conversations. Every channel shares one current segment and execution queue. Trusted automation access is confirmed once on desktop and can be revoked; unconfirmed sessions can chat without per-tool approval cards, while confirmed sessions automatically continue policy-allowed tools and plans. Four cached home suggestions are refreshed every 24 hours from limited summaries and sanitized examples of the user's own wording.
+```powershell
+cd desktop\frontend
+npm install
+npm run test:all
+npm run build
 
-Vision defaults to Auto. Each newly configured model is probed independently with a history-free Orca-icon verification image, images are sent only to confirmed visual models, and selected current-turn images can be routed from a text-only main model to a visual subagent. DeepSeek being detected as unsupported is expected. Session files keep references, not image base64. Interface scaling follows Windows DPI by default, with an optional relative 80%-125% override.
+cd ..
+go test .
+wails build
+```
 
-Process display can be Compact or Detailed and defaults to Compact. Compact process rows can be repeatedly expanded and collapsed, while the default-on theme-blue spinner rotates clockwise for model output and counterclockwise for tool activity. Explicit Turn/Item identities keep stage updates in the process timeline and the committed final answer outside it. Successful turns collapse only after readiness and final-answer commitment; failed, cancelled, interrupted, active, and uncertain legacy turns remain expanded. Conversation history paints before auxiliary status during switches, plain text pastes directly into the composer, and the elastic input grows and contracts automatically for up to ten lines. Coding mode always retains the complete built-in engineering prompt and requires relevant post-write verification.
+For a Windows NSIS package, install NSIS and run the repository packaging script from a Git Bash environment:
 
-Updates are notification-only: the app checks stable official releases, caches successful checks for 24 hours, and opens the release page in a browser after the user clicks the update entry. It does not auto-download, auto-install, or force upgrades.
+```bash
+scripts/desktop-build.sh windows/amd64 v3.0.1 stable
+```
 
-See [README.en.md](README.en.md) for the complete feature, safety, configuration, troubleshooting, and development documentation.
+Release packaging is defined by [`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml). A stable `desktop-v*` tag builds Windows, macOS, and Linux artifacts, verifies package integrity, publishes the GitHub Release, and updates the configured release mirror.

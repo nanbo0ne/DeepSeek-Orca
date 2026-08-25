@@ -140,11 +140,52 @@ func (l *Ledger) HasSuccessfulVerificationAfter(after int) bool {
 	defer l.mu.Unlock()
 	for i := start; i < len(l.receipts); i++ {
 		r := l.receipts[i]
+		if r.Success && r.Read {
+			return true
+		}
 		if r.Success && (r.ToolName == "bash" || r.ToolName == "host_command") && isVerificationCommand(r.Command) {
 			return true
 		}
 	}
 	return false
+}
+
+// FailureCount is a monotonic same-turn counter used by the final-answer gate
+// to distinguish a repeated stale warning from a genuinely new failed action.
+func (l *Ledger) FailureCount() int {
+	if l == nil {
+		return 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	count := 0
+	for _, r := range l.receipts {
+		if !r.Success {
+			count++
+		}
+	}
+	return count
+}
+
+// LatestUnrecoveredFailure returns the latest meaningful tool receipt only when
+// it failed. A later successful read/write/command is treated as recovery.
+func (l *Ledger) LatestUnrecoveredFailure() (Receipt, bool) {
+	if l == nil {
+		return Receipt{}, false
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for i := len(l.receipts) - 1; i >= 0; i-- {
+		r := l.receipts[i]
+		if r.ToolName == "todo_write" || r.ToolName == "complete_step" {
+			continue
+		}
+		if r.Success {
+			return Receipt{}, false
+		}
+		return r, true
+	}
+	return Receipt{}, false
 }
 
 func isVerificationCommand(command string) bool {

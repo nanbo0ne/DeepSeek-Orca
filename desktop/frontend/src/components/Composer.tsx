@@ -329,6 +329,7 @@ function RuntimeSwitchBar({ progress }: { progress?: RuntimeSwitchProgress }) {
 }
 
 export function Composer({
+	uiStyle = "modern",
   running,
   collaborationMode,
   toolApprovalMode,
@@ -373,6 +374,7 @@ export function Composer({
   retry,
   transientDismissSignal,
 }: {
+	uiStyle?: "modern" | "classic";
   running: boolean;
   collaborationMode: CollaborationMode;
   toolApprovalMode: ToolApprovalMode;
@@ -407,7 +409,7 @@ export function Composer({
   onToggleYoloApprovalMode: () => void;
   onSetGoal: (goal: string) => void;
   onClearGoal: () => void;
-  onSwitchModel: (name: string) => void;
+  onSwitchModel: (name: string, displayLabel?: string) => void;
   onSetEffort: (level: string) => void;
   insertRequest?: ComposerInsertRequest | null;
   pasteRequest?: number;
@@ -1236,6 +1238,18 @@ export function Composer({
     if (typeof restored === "string") setTextCaretEnd(restored);
   };
 
+  useEffect(() => {
+    if (!running) return;
+    const stopOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.repeat) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handleCancel();
+    };
+    window.addEventListener("keydown", stopOnEscape, true);
+    return () => window.removeEventListener("keydown", stopOnEscape, true);
+  }, [running, onCancel]);
+
   const pickCommand = (c: CommandInfo) => setTextCaretEnd("/" + c.name + " ");
 
   const shellModeActive = text.trimStart().startsWith("!");
@@ -1280,7 +1294,7 @@ export function Composer({
     const mutationObserver = new MutationObserver(update);
     mutationObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-text-size", "data-ui-scale", "style"],
+      attributeFilter: ["data-text-size", "style"],
     });
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     if (taRef.current) resizeObserver?.observe(taRef.current);
@@ -1497,12 +1511,6 @@ export function Composer({
       e.preventDefault();
       void submit(Boolean(running && (e.ctrlKey || e.metaKey)));
     }
-    // Esc interrupts the in-flight turn (matches the Stop button's hint), and
-    // restores the text if the server hadn't replied yet.
-    if (e.key === "Escape" && running && !decisionPending) {
-      e.preventDefault();
-      handleCancel();
-    }
   };
 
   // Keydown handler for the past:chats search <input>. The search input is a
@@ -1639,7 +1647,7 @@ export function Composer({
 
   return (
     <div
-      className={`composer-wrap${decisionPending ? " composer-wrap--decision-pending" : ""}`}
+      className={`composer-wrap composer-wrap--${uiStyle}${decisionPending ? " composer-wrap--decision-pending" : ""}`}
       style={{ "--wails-drop-target": "drop" } as CSSProperties}
       onDropCapture={onFileDropCapture}
     >
@@ -1766,6 +1774,26 @@ export function Composer({
             </span>
           </button>
         </div>
+        {uiStyle === "modern" && promptModes.length > 0 && (
+          <div className="composer-access-menu__section">
+            <div className="composer-access-menu__label">{t("composer.promptMode.title")}</div>
+            {promptModes.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="option"
+                aria-selected={mode === promptMode}
+                className={`composer-access-menu__item${mode === promptMode ? " composer-access-menu__item--active" : ""}`}
+                onClick={() => { closeIntentMenu(); choosePromptMode(mode); }}
+                disabled={disabled || promptModeLocked}
+              >
+                <Sparkles size={16} />
+                <span className="composer-access-menu__copy"><span className="composer-access-menu__title">{t(promptModeLabelKey(mode))}</span></span>
+                {mode === promptMode && <Check size={13} />}
+              </button>
+            ))}
+          </div>
+        )}
       </AnchoredPopover>
       {showToolApprovalControls && (
         <AnchoredPopover
@@ -2157,7 +2185,7 @@ export function Composer({
             </span>
           )}
         </div>
-        <div className={composerMetaClass}>
+        <div className={`${composerMetaClass}${uiStyle === "modern" ? " composer-meta--modern" : " composer-meta--classic"}`}>
           <div className="composer-meta__params">
             <div className="composer-meta__control composer-meta__control--intent">
               <Tooltip label={t("composer.intentMenuTitle")} disabled={intentMenuOpen || intentMenuClosing}>
@@ -2176,7 +2204,24 @@ export function Composer({
                 </button>
               </Tooltip>
             </div>
-            {showToolApprovalControls && <div className="composer-meta__control composer-meta__control--approval">
+            {showToolApprovalControls && uiStyle === "modern" && <div className="composer-meta__control composer-meta__control--approval composer-meta__control--approval-modern">
+              <button
+                ref={approvalMenuAnchorRef}
+                type="button"
+                className={`composer-modern-access${approvalMenuOpen ? " composer-modern-access--open" : ""}`}
+                onClick={() => setApprovalMenuOpen((open) => !open)}
+                disabled={disabled}
+                aria-haspopup="menu"
+                aria-expanded={approvalMenuOpen}
+                aria-label={t("composer.accessMenuTitle")}
+                title={t("composer.accessMenuTitle")}
+              >
+                {toolApprovalMode === "ask" ? <Shield size={15} /> : toolApprovalMode === "auto" ? <ShieldCheck size={15} /> : <ShieldAlert size={15} />}
+                <span>{toolApprovalMode === "ask" ? t("composer.modeAsk") : toolApprovalMode === "auto" ? t("composer.modeNormal") : t("composer.modeYolo")}</span>
+                <ChevronDown size={12} />
+              </button>
+            </div>}
+            {showToolApprovalControls && uiStyle === "classic" && <div className="composer-meta__control composer-meta__control--approval">
               <div className="composer-modebar composer-modebar--approval composer-approval-full" data-mode={toolApprovalMode} title={t("composer.accessMenuTitle")}>
                 <span className="composer-modebar__thumb" aria-hidden="true" />
                 <button
@@ -2227,15 +2272,15 @@ export function Composer({
                 {toolApprovalMode === "ask" ? <Shield size={16} /> : toolApprovalMode === "auto" ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
               </button>
             </div>}
-            <div className="composer-meta__control composer-meta__control--model">
+            {uiStyle === "classic" && <div className="composer-meta__control composer-meta__control--model">
               <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
-            </div>
-            {hasEffort && (
+            </div>}
+            {uiStyle === "classic" && hasEffort && (
               <div className="composer-meta__control composer-meta__control--effort">
                 <EffortSwitcher effort={effort} disabled={Boolean(disabled)} onPick={onSetEffort} />
               </div>
             )}
-            {intentChips.length > 0 && (
+            {uiStyle === "classic" && intentChips.length > 0 && (
               <div className="composer-meta__control composer-meta__control--intent-chips">
                 {intentChips.map((chip) => (
                   <Tooltip key={chip.key} label={chip.title}>
@@ -2259,7 +2304,7 @@ export function Composer({
                 ))}
               </div>
             )}
-            {hasEffort && (
+            {uiStyle === "classic" && hasEffort && (
               <div className="composer-meta__control composer-meta__control--more">
                 <Tooltip label={t("composer.moreControls")} disabled={moreMenuOpen || moreMenuClosing}>
                   <button
@@ -2281,8 +2326,16 @@ export function Composer({
             )}
           </div>
         </div>
-        <div className="composer-card__actions">
-		  {promptModes.length > 0 && <div className="composer-enhanced">
+        <div className={`composer-card__actions${uiStyle === "modern" ? " composer-card__actions--modern" : " composer-card__actions--classic"}`}>
+          {uiStyle === "modern" && <div className="composer-modern-parameters">
+            <div className="composer-modern-parameter composer-modern-parameter--model">
+              <ModelSwitcher label={modelLabel} tabId={tabId} onPick={onSwitchModel} />
+            </div>
+            {hasEffort && <div className="composer-modern-parameter composer-modern-parameter--effort">
+              <EffortSwitcher effort={effort} disabled={Boolean(disabled)} onPick={onSetEffort} />
+            </div>}
+          </div>}
+		  {uiStyle === "classic" && promptModes.length > 0 && <div className="composer-enhanced">
             <Tooltip label={promptModeLabel}>
               <button
                 ref={promptModeMenuAnchorRef}

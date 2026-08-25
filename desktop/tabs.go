@@ -62,6 +62,7 @@ type WorkspaceTab struct {
 	usageTelemetryEvents []usageTelemetryEvent
 	turnTelemetry        []turnTelemetryRecord
 	runtimeSwitches      []RuntimeSwitchRecord
+	riskReviews          []event.RiskReviewAudit
 	currentTelemetryTurn int
 	telemMu              sync.Mutex
 
@@ -210,6 +211,7 @@ type sessionUsageStats struct {
 	RequestCount     int     `json:"requestCount"`
 	ElapsedMs        int64   `json:"elapsedMs"`
 	SessionCost      float64 `json:"sessionCost,omitempty"`
+	CostAvailable    bool    `json:"costAvailable"`
 	SessionCurrency  string  `json:"sessionCurrency,omitempty"`
 	SessionCostUsd   float64 `json:"sessionCostUsd,omitempty"`
 
@@ -225,6 +227,7 @@ type usageTelemetryEvent struct {
 	CacheHitTokens   int     `json:"cacheHitTokens"`
 	CacheMissTokens  int     `json:"cacheMissTokens"`
 	SessionCost      float64 `json:"sessionCost,omitempty"`
+	CostAvailable    bool    `json:"costAvailable"`
 	SessionCurrency  string  `json:"sessionCurrency,omitempty"`
 	SessionCostUsd   float64 `json:"sessionCostUsd,omitempty"`
 }
@@ -233,12 +236,13 @@ type turnTelemetryItem = event.TurnItem
 type turnTelemetryRecord = event.TurnRecord
 
 type tabTelemetrySnapshot struct {
-	Version         int                   `json:"version"`
-	ReadFiles       []readFileRecord      `json:"readFiles"`
-	Usage           sessionUsageStats     `json:"usage"`
-	UsageEvents     []usageTelemetryEvent `json:"usageEvents,omitempty"`
-	Turns           []turnTelemetryRecord `json:"turns,omitempty"`
-	RuntimeSwitches []RuntimeSwitchRecord `json:"runtimeSwitches,omitempty"`
+	Version         int                     `json:"version"`
+	ReadFiles       []readFileRecord        `json:"readFiles"`
+	Usage           sessionUsageStats       `json:"usage"`
+	UsageEvents     []usageTelemetryEvent   `json:"usageEvents,omitempty"`
+	Turns           []turnTelemetryRecord   `json:"turns,omitempty"`
+	RuntimeSwitches []RuntimeSwitchRecord   `json:"runtimeSwitches,omitempty"`
+	RiskReviews     []event.RiskReviewAudit `json:"riskReviews,omitempty"`
 }
 
 func lastUsageTelemetryEvent(events []usageTelemetryEvent) (usageTelemetryEvent, bool) {
@@ -308,6 +312,7 @@ func (t *WorkspaceTab) recordUsage(e event.Event) {
 	}
 	u := e.Usage
 	t.telemMu.Lock()
+	previousRequests := t.usageTelemetry.RequestCount
 	t.usageTelemetry.PromptTokens += u.PromptTokens
 	t.usageTelemetry.CompletionTokens += u.CompletionTokens
 	t.usageTelemetry.TotalTokens += u.TotalTokens
@@ -322,9 +327,17 @@ func (t *WorkspaceTab) recordUsage(e event.Event) {
 	t.usageTelemetry.RequestCount++
 	if e.Pricing != nil {
 		cost := e.Pricing.Cost(u)
+		currency := e.Pricing.Symbol()
 		t.usageTelemetry.SessionCost += cost
 		t.usageTelemetry.SessionCostUsd = t.usageTelemetry.SessionCost
-		t.usageTelemetry.SessionCurrency = e.Pricing.Symbol()
+		if previousRequests == 0 {
+			t.usageTelemetry.CostAvailable = true
+			t.usageTelemetry.SessionCurrency = currency
+		} else if t.usageTelemetry.SessionCurrency != currency {
+			t.usageTelemetry.CostAvailable = false
+		}
+	} else {
+		t.usageTelemetry.CostAvailable = false
 	}
 	cost := 0.0
 	currency := ""
@@ -341,6 +354,7 @@ func (t *WorkspaceTab) recordUsage(e event.Event) {
 		CacheHitTokens:   u.CacheHitTokens,
 		CacheMissTokens:  u.CacheMissTokens,
 		SessionCost:      cost,
+		CostAvailable:    e.Pricing != nil,
 		SessionCostUsd:   cost,
 		SessionCurrency:  currency,
 	})
@@ -454,6 +468,7 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 		turns[i].Items = append([]turnTelemetryItem(nil), t.turnTelemetry[i].Items...)
 	}
 	runtimeSwitches := append([]RuntimeSwitchRecord(nil), t.runtimeSwitches...)
+	riskReviews := append([]event.RiskReviewAudit(nil), t.riskReviews...)
 	if started := usage.activeTurnStartedAt; started > 0 {
 		now := time.Now().UnixMilli()
 		if now >= started {
@@ -461,7 +476,7 @@ func (t *WorkspaceTab) telemetrySnapshot() tabTelemetrySnapshot {
 		}
 	}
 	usage.activeTurnStartedAt = 0
-	return tabTelemetrySnapshot{Version: 5, ReadFiles: records, Usage: usage, UsageEvents: events, Turns: turns, RuntimeSwitches: runtimeSwitches}
+	return tabTelemetrySnapshot{Version: 6, ReadFiles: records, Usage: usage, UsageEvents: events, Turns: turns, RuntimeSwitches: runtimeSwitches, RiskReviews: riskReviews}
 }
 
 func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
@@ -495,13 +510,20 @@ func (t *WorkspaceTab) rewindTelemetryBefore(turn int) {
 		}
 	}
 	t.runtimeSwitches = filteredSwitches
+	filteredReviews := t.riskReviews[:0]
+	for _, rec := range t.riskReviews {
+		if rec.Turn < turn {
+			filteredReviews = append(filteredReviews, rec)
+		}
+	}
+	t.riskReviews = filteredReviews
 	t.usageTelemetry = usageStatsFromEvents(filteredEvents)
 	t.currentTelemetryTurn = turn
 }
 
 func usageStatsFromEvents(events []usageTelemetryEvent) sessionUsageStats {
 	var usage sessionUsageStats
-	for _, ev := range events {
+	for index, ev := range events {
 		usage.PromptTokens += ev.PromptTokens
 		usage.CompletionTokens += ev.CompletionTokens
 		usage.TotalTokens += ev.TotalTokens
@@ -511,8 +533,12 @@ func usageStatsFromEvents(events []usageTelemetryEvent) sessionUsageStats {
 		usage.RequestCount++
 		usage.SessionCost += ev.SessionCost
 		usage.SessionCostUsd += firstNonZeroFloat(ev.SessionCostUsd, ev.SessionCost)
-		if ev.SessionCurrency != "" {
+		priced := ev.CostAvailable || ev.SessionCurrency != ""
+		if index == 0 {
+			usage.CostAvailable = priced
 			usage.SessionCurrency = ev.SessionCurrency
+		} else if !priced || usage.SessionCurrency == "" || usage.SessionCurrency != ev.SessionCurrency {
+			usage.CostAvailable = false
 		}
 	}
 	return usage
@@ -533,6 +559,19 @@ type tabEventSink struct {
 	tabID string
 	app   *App
 	ctx   context.Context
+}
+
+func (s *tabEventSink) RecordRiskReviewAudit(audit event.RiskReviewAudit) {
+	tab, sp := s.telemetryTab()
+	if tab == nil {
+		return
+	}
+	tab.telemMu.Lock()
+	tab.riskReviews = append(tab.riskReviews, audit)
+	tab.telemMu.Unlock()
+	if sp != "" {
+		_ = saveTelemetry(sp+".telemetry.json", tab.telemetrySnapshot())
+	}
 }
 
 func (s *tabEventSink) Emit(e event.Event) {
@@ -764,6 +803,7 @@ type wireEventTab struct {
 	SessionMissTokens int `json:"sessionMissTokens,omitempty"`
 	// SessionCost is filled by the frontend's per-tab accumulator.
 	SessionCost     float64 `json:"sessionCost,omitempty"`
+	CostAvailable   bool    `json:"costAvailable"`
 	SessionCurrency string  `json:"sessionCurrency,omitempty"`
 	// SessionCostUsd is a deprecated compatibility alias. It mirrors
 	// SessionCost and does not imply USD.
@@ -1588,7 +1628,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 			}
 			// Restore existing telemetry if resuming a session.
 			telemetryPath := path + ".telemetry.json"
-			if snapshot := loadTelemetry(telemetryPath); len(snapshot.ReadFiles) > 0 || snapshot.Usage.RequestCount > 0 || len(snapshot.Turns) > 0 || len(snapshot.RuntimeSwitches) > 0 {
+			if snapshot := loadTelemetry(telemetryPath); len(snapshot.ReadFiles) > 0 || snapshot.Usage.RequestCount > 0 || len(snapshot.Turns) > 0 || len(snapshot.RuntimeSwitches) > 0 || len(snapshot.RiskReviews) > 0 {
 				runtimeSwitches, interrupted := interruptRuntimeSwitches(snapshot.RuntimeSwitches, time.Now().UnixMilli())
 				snapshot.RuntimeSwitches = runtimeSwitches
 				tab.telemMu.Lock()
@@ -1597,6 +1637,7 @@ func (a *App) buildTabController(tab *WorkspaceTab) {
 				tab.usageTelemetryEvents = snapshot.UsageEvents
 				tab.turnTelemetry = snapshot.Turns
 				tab.runtimeSwitches = snapshot.RuntimeSwitches
+				tab.riskReviews = snapshot.RiskReviews
 				tab.telemMu.Unlock()
 				if interrupted {
 					_ = saveTelemetry(telemetryPath, tab.telemetrySnapshot())
@@ -3069,7 +3110,7 @@ func (a *App) tabTelemetryPath(tabID string) string {
 
 func saveTelemetry(path string, snapshot tabTelemetrySnapshot) error {
 	if snapshot.Version == 0 {
-		snapshot.Version = 5
+		snapshot.Version = 6
 	}
 	if snapshot.ReadFiles == nil {
 		snapshot.ReadFiles = []readFileRecord{}
@@ -3097,6 +3138,14 @@ func loadTelemetry(path string) tabTelemetrySnapshot {
 		}
 		if snapshot.Usage.SessionCost == 0 && snapshot.Usage.SessionCostUsd > 0 {
 			snapshot.Usage.SessionCost = snapshot.Usage.SessionCostUsd
+		}
+		if !snapshot.Usage.CostAvailable && snapshot.Usage.SessionCurrency != "" {
+			snapshot.Usage.CostAvailable = true
+		}
+		for i := range snapshot.UsageEvents {
+			if !snapshot.UsageEvents[i].CostAvailable && snapshot.UsageEvents[i].SessionCurrency != "" {
+				snapshot.UsageEvents[i].CostAvailable = true
+			}
 		}
 		return snapshot
 	}
@@ -4199,6 +4248,9 @@ func topicSummaryKey(scope, workspaceRoot, topicID string) string {
 type ContextPanelInfo struct {
 	UsedTokens              int               `json:"usedTokens"`
 	WindowTokens            int               `json:"windowTokens"`
+	WindowConfirmed         bool              `json:"windowConfirmed"`
+	WindowSource            string            `json:"windowSource,omitempty"`
+	ModelRef                string            `json:"modelRef,omitempty"`
 	PromptTokens            int               `json:"promptTokens"`
 	CompletionTokens        int               `json:"completionTokens"`
 	TotalTokens             int               `json:"totalTokens"`
@@ -4213,6 +4265,7 @@ type ContextPanelInfo struct {
 	RequestCount            int               `json:"requestCount"`
 	ElapsedMs               int64             `json:"elapsedMs"`
 	SessionCost             float64           `json:"sessionCost"`
+	CostAvailable           bool              `json:"costAvailable"`
 	SessionCurrency         string            `json:"sessionCurrency,omitempty"`
 	SessionCostUsd          float64           `json:"sessionCostUsd,omitempty"`
 	Mock                    bool              `json:"mock,omitempty"`
@@ -4246,6 +4299,10 @@ func (a *App) ContextPanel(tabID string) ContextPanelInfo {
 
 	info := ContextPanelInfo{ReadFiles: []readFileRecord{}, ChangedFiles: []ChangedFileInfo{}}
 	if ctrl != nil {
+		metadata := ctrl.ContextMetadata()
+		info.WindowConfirmed = metadata.Confirmed
+		info.WindowSource = metadata.Source
+		info.ModelRef = metadata.ModelRef
 		if messagesHaveConversationContent(ctrl.History()) {
 			used, window := ctrl.ContextSnapshot()
 			info.UsedTokens = used
@@ -4281,8 +4338,13 @@ func (a *App) ContextPanel(tabID string) ContextPanelInfo {
 	info.RequestCount = usage.RequestCount
 	info.ElapsedMs = usage.ElapsedMs
 	info.SessionCost = usage.SessionCost
+	info.CostAvailable = usage.CostAvailable
 	info.SessionCurrency = usage.SessionCurrency
 	info.SessionCostUsd = usage.SessionCostUsd
+	if ctrl != nil {
+		pricingAvailable, _ := ctrl.PricingInfo()
+		info.CostAvailable = info.CostAvailable && pricingAvailable
+	}
 
 	// Gather workspace changes for this tab's root.
 	if ctrl != nil && tab.WorkspaceRoot != "" {

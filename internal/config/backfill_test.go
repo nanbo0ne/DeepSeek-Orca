@@ -38,7 +38,7 @@ func TestBackfillDeepSeekProRestoresPro(t *testing.T) {
 	pro := hasModel(c, "deepseek-v4-pro")
 	if pro == nil {
 		t.Fatal("deepseek-v4-pro not restored")
-	} else if pro.Price == nil || pro.Price.Output != 13.5 || pro.Price.Schedule == nil {
+	} else if pro.Price == nil || pro.Price.Output != 1.98 || pro.Price.Currency != "$" || pro.Price.Schedule == nil {
 		t.Errorf("pro price not the preset: %+v", pro.Price)
 	}
 }
@@ -167,5 +167,24 @@ func TestResolveModelBareNameHonorsMimoProviderAccess(t *testing.T) {
 	}
 	if migrated, ok := c.ResolveModel("mimo-pro/mimo-v2.5-pro"); !ok || migrated.Name != "mimo-api" {
 		t.Fatalf("legacy Mimo PRO alias resolved to %+v, want enabled Mimo API", migrated)
+	}
+}
+
+func TestResolveModelProviderAccessKeepsCustomProviderVisible(t *testing.T) {
+	c := &Config{
+		DefaultModel: "deepseek/deepseek-v4-flash",
+		Desktop:      DesktopConfig{ProviderAccess: []string{"deepseek"}},
+		Providers: []ProviderEntry{
+			{Name: "deepseek", Kind: "openai", BaseURL: "https://api.deepseek.com", Models: []string{"deepseek-v4-flash"}},
+			{Name: "private-relay", Kind: "openai", BaseURL: "https://relay.example.test/v1", Models: []string{"test-model"}},
+			{Name: "openai", Kind: "openai", BaseURL: "https://api.openai.com/v1", Models: []string{"gpt-test"}},
+		},
+	}
+
+	if got, ok := c.ResolveModel("private-relay/test-model"); !ok || got.Name != "private-relay" {
+		t.Fatalf("custom provider was hidden by provider_access: %+v, %v", got, ok)
+	}
+	if got, ok := c.ResolveModel("openai/gpt-test"); ok || got != nil {
+		t.Fatalf("curated provider not in provider_access resolved as %+v, %v", got, ok)
 	}
 }

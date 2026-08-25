@@ -39,6 +39,22 @@ func (a *App) setTestCtrl(ctrl *control.Controller, model string) {
 	tab.model = model
 }
 
+func TestModelProviderAccessAllowsCustomProviderButFiltersCurated(t *testing.T) {
+	access := map[string]bool{"deepseek": true}
+	if !modelProviderAccessAllowed(access, "private-relay") {
+		t.Fatal("custom provider should remain selectable when provider_access lists official providers")
+	}
+	if !modelProviderAccessAllowed(access, "deepseek") {
+		t.Fatal("official DeepSeek provider should be allowed by its canonical provider ID")
+	}
+	if modelProviderAccessAllowed(access, "deepseek-pro") {
+		t.Fatal("legacy official aliases should not reappear beside the canonical provider")
+	}
+	if modelProviderAccessAllowed(access, "openai") {
+		t.Fatal("curated provider absent from provider_access should remain hidden")
+	}
+}
+
 func isolateDesktopUserDirs(t *testing.T) string {
 	t.Helper()
 	home := robustTempDir(t)
@@ -378,7 +394,7 @@ api_key_env = "DEEPSEEK_API_KEY"
 		if !p.BuiltIn {
 			t.Fatalf("deepseek provider should be marked built-in for official endpoint: %+v", p)
 		}
-		if !p.Added || !p.KeySet || len(p.Models) != 2 || p.Models[0] != "deepseek-v4-flash" || p.Models[1] != "deepseek-v4-pro" || p.Default != "deepseek-v4-flash" {
+		if !p.Added || !p.KeySet || len(p.Models) != 3 || p.Models[0] != "deepseek-v4-flash" || p.Models[1] != "deepseek-v4-pro" || p.Models[2] != "deepseek-v4-flash-vision-exp" || p.Default != "deepseek-v4-flash" {
 			t.Fatalf("deepseek provider = %+v, want added repaired official model list", p)
 		}
 		if got.DefaultModel != "deepseek/deepseek-v4-flash" {
@@ -568,7 +584,7 @@ api_key_env = "DEEPSEEK_API_KEY"
 	if !ok {
 		t.Fatal("deepseek provider not saved")
 	}
-	if len(p.Models) != 2 || p.Models[0] != "deepseek-v4-flash" || p.Models[1] != "deepseek-v4-pro" || p.Default != "deepseek-v4-flash" {
+	if len(p.Models) != 3 || p.Models[0] != "deepseek-v4-flash" || p.Models[1] != "deepseek-v4-pro" || p.Models[2] != "deepseek-v4-flash-vision-exp" || p.Default != "deepseek-v4-flash" {
 		t.Fatalf("deepseek provider after add = %+v, want official model list", p)
 	}
 	if !providerAccessSet(cfg.Desktop.ProviderAccess)["deepseek"] {
@@ -631,7 +647,7 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 	cfg.Desktop.ProviderAccess = []string{"deepseek-flash", "mimo-pro"}
 	deepseek, _ := cfg.Provider("deepseek-flash")
 	deepseek.Model = ""
-	deepseek.Models = []string{"deepseek-v4-flash", "deepseek-v4-pro"}
+	deepseek.Models = []string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"}
 	deepseek.Default = "deepseek-v4-flash"
 	if err := cfg.SaveTo(config.UserConfigPath()); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -642,6 +658,7 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 	for _, want := range []string{
 		"deepseek/deepseek-v4-flash",
 		"deepseek/deepseek-v4-pro",
+		"deepseek/deepseek-v4-flash-vision-exp",
 		"mimo-token-plan/mimo-v2.5-pro",
 	} {
 		if !refs[want] {
@@ -656,8 +673,8 @@ func TestModelsForTabOnlyListsProviderAccessWhenConfigured(t *testing.T) {
 			t.Fatalf("Models() refs = %+v, should not include hidden provider %s", models, hidden)
 		}
 	}
-	if len(models) != 3 {
-		t.Fatalf("Models() len = %d, want 3: %+v", len(models), models)
+	if len(models) != 4 {
+		t.Fatalf("Models() len = %d, want 4: %+v", len(models), models)
 	}
 }
 

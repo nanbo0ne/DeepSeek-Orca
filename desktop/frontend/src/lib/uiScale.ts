@@ -1,42 +1,31 @@
 export const UI_SCALE_AUTO = 0;
-export const UI_SCALE_MIN = 80;
-export const UI_SCALE_MAX = 125;
-export const UI_SCALE_STEP = 5;
-
 const UI_SCALE_KEY = "orca-ui-scale";
 
 export function isUIScale(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && (value === UI_SCALE_AUTO || (value >= UI_SCALE_MIN && value <= UI_SCALE_MAX && value % UI_SCALE_STEP === 0));
+  return value === UI_SCALE_AUTO;
 }
 
-export function effectiveUIScale(preference: number): number {
-  // Wails is PerMonitorV2-aware, so Windows has already applied the current
-  // monitor's DPI. Automatic mode must not add a second resolution-based zoom.
-  return preference === UI_SCALE_AUTO ? 100 : isUIScale(preference) ? preference : 100;
+export function effectiveUIScale(_preference: number): number {
+  return 100;
 }
 
 export function getUIScale(): number {
-  if (typeof localStorage === "undefined") return UI_SCALE_AUTO;
-  const parsed = Number.parseInt(localStorage.getItem(UI_SCALE_KEY) ?? "", 10);
-  return isUIScale(parsed) ? parsed : UI_SCALE_AUTO;
+  return UI_SCALE_AUTO;
 }
 
-export function applyUIScale(preference: number): number {
-  const normalized = isUIScale(preference) ? preference : UI_SCALE_AUTO;
-  const effective = effectiveUIScale(normalized);
+export function applyUIScale(_preference: number): number {
   if (typeof document !== "undefined") {
     const root = document.documentElement;
-    root.style.zoom = String(effective / 100);
-    root.dataset.uiScale = normalized === UI_SCALE_AUTO ? "auto" : String(normalized);
-    root.dataset.uiScaleEffective = String(effective);
-    root.dispatchEvent(new CustomEvent("orca:ui-scale", { detail: { preference: normalized, effective } }));
+    root.style.removeProperty("zoom");
+    delete root.dataset.uiScale;
+    delete root.dataset.uiScaleEffective;
   }
   try {
-    localStorage.setItem(UI_SCALE_KEY, String(normalized));
+    localStorage.removeItem(UI_SCALE_KEY);
   } catch {
-    // The DOM value remains effective when persistent storage is unavailable.
+    // Storage may be unavailable in isolated webviews.
   }
-  return effective;
+  return 100;
 }
 
 export function initUIScale(): void {

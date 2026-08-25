@@ -10,7 +10,10 @@ import (
 	"embed"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -21,6 +24,7 @@ import (
 
 	// Blank imports wire compile-time built-ins into their registries, exactly as
 	// The CLI entry point does — boot.Build resolves providers/tools from these registries.
+	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/config"
 	"github.com/nanbo0ne/O.R.C.A-for-Windows/internal/product"
 	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/anthropic"
 	_ "github.com/nanbo0ne/O.R.C.A-for-Windows/internal/provider/openai"
@@ -46,6 +50,34 @@ var version = "dev"
 var channel = "stable"
 
 const disableWebview2GPUEnv = "ORCA_DESKTOP_DISABLE_WEBVIEW2_GPU"
+const restartWaitArgPrefix = "--orca-restart-wait-ms="
+
+func consumeRestartWaitArg(args []string) ([]string, time.Duration) {
+	clean := make([]string, 0, len(args))
+	var wait time.Duration
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, restartWaitArgPrefix) {
+			clean = append(clean, arg)
+			continue
+		}
+		milliseconds, err := strconv.Atoi(strings.TrimPrefix(arg, restartWaitArgPrefix))
+		if err == nil && milliseconds > 0 && milliseconds <= 10_000 {
+			wait = time.Duration(milliseconds) * time.Millisecond
+		}
+	}
+	return clean, wait
+}
+
+func desktopFrameless(goos, style string) bool {
+	return goos == "windows" && !strings.EqualFold(strings.TrimSpace(style), config.DesktopUIStyleClassic)
+}
+
+func desktopBackground(style string) *options.RGBA {
+	if strings.EqualFold(strings.TrimSpace(style), config.DesktopUIStyleClassic) {
+		return &options.RGBA{R: 251, G: 252, B: 255, A: 255}
+	}
+	return &options.RGBA{R: 255, G: 255, B: 255, A: 255}
+}
 
 func windowsWebview2GPUDisabled() bool {
 	if raw, ok := os.LookupEnv(disableWebview2GPUEnv); ok {
@@ -60,9 +92,15 @@ func windowsWebview2GPUDisabled() bool {
 }
 
 func main() {
+	var restartWait time.Duration
+	os.Args, restartWait = consumeRestartWaitArg(os.Args)
+	if restartWait > 0 {
+		time.Sleep(restartWait)
+	}
 	addExecutableDirToPATH()
 
 	app := NewApp()
+	desktopStyle := config.LoadForEdit(config.UserConfigPath()).DesktopUIStyle()
 
 	// Restore saved window size, or fall back to the default.
 	width, height := 1240, 720
@@ -81,9 +119,12 @@ func main() {
 		Height:    height,
 		MinWidth:  760,
 		MinHeight: 480,
-		// Match the dark UI shell so the initial webview background doesn't flash
-		// white before CSS loads — particularly visible on WebKitGTK.
-		BackgroundColour:   &options.RGBA{R: 26, G: 26, B: 46, A: 255},
+		// Modern owns its Windows title bar. Classic deliberately keeps the native
+		// V2.1.3 frame, so changing styles is applied on the next process start.
+		Frameless: desktopFrameless(runtime.GOOS, desktopStyle),
+		// Match the selected presentation so the initial webview background does not
+		// flash to a conflicting color before CSS loads.
+		BackgroundColour:   desktopBackground(desktopStyle),
 		AssetServer:        &assetserver.Options{Assets: assets, Middleware: app.workspaceMediaMiddleware()},
 		OnStartup:          app.startup,
 		OnDomReady:         app.domReady,

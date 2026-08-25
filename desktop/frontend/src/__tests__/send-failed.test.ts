@@ -78,6 +78,43 @@ eq(persistedTotals.context.used, 8000, "usage does not overwrite the backend con
 eq(persistedTotals.sessionTokens, 10000, "usage does not temporarily duplicate persisted session tokens");
 eq(persistedTotals.context.sessionTokens, 10000, "context session total stays on persisted telemetry");
 eq(persistedTotals.sessionCost, 0.02, "usage does not temporarily duplicate persisted session cost");
+eq(persistedTotals.costAvailable, true, "priced usage marks cost as reliable");
+
+const switchedToUnpriced = reducer(
+  {
+    ...persistedTotals,
+    usage: { ...persistedTotals.usage!, cost: 0.1, costAvailable: true, currency: "¥" },
+    sessionCost: 0.02,
+    sessionCurrency: "¥",
+    costAvailable: true,
+  },
+  {
+    type: "context",
+    context: { used: 4200, window: 0, windowConfirmed: false, sessionTokens: 10000, costAvailable: false },
+  },
+);
+eq(switchedToUnpriced.context.window, 0, "unknown model context remains unknown instead of becoming zero capacity");
+eq(switchedToUnpriced.sessionCost, 0, "unpriced model snapshot clears the previous model cost");
+eq(switchedToUnpriced.sessionCurrency, "", "unpriced model snapshot clears the previous model currency");
+eq(switchedToUnpriced.costAvailable, false, "unpriced model snapshot hides cost");
+eq(switchedToUnpriced.usage?.cost, undefined, "unpriced model snapshot removes stale request cost");
+eq(switchedToUnpriced.usage?.currency, undefined, "unpriced model snapshot removes stale request currency");
+
+const reliableFreeUsage = reducer(switchedToUnpriced, {
+  type: "context",
+  context: {
+    used: 0,
+    window: 128000,
+    windowConfirmed: true,
+    sessionTokens: 0,
+    sessionCost: 0,
+    sessionCurrency: "USD",
+    costAvailable: true,
+  },
+});
+eq(reliableFreeUsage.sessionCost, 0, "a reliable zero cost is retained as a real value");
+eq(reliableFreeUsage.sessionCurrency, "USD", "a reliable zero cost retains its currency");
+eq(reliableFreeUsage.costAvailable, true, "a reliable zero cost remains visible");
 
 eq(nextContextRefreshDelay(10_000, undefined), 0, "context refresh runs immediately when never refreshed");
 eq(nextContextRefreshDelay(10_000, 9_500), 3500, "context refresh throttles recent backend snapshots");

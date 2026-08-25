@@ -151,7 +151,7 @@ func signFiles(files []string) error {
 			return err
 		}
 		sig := minisign.SignWithComments(priv, data,
-			"file:"+filepath.Base(f), "O.R.C.A desktop release")
+			"file:"+filepath.Base(f), "O.R.C.A. desktop release")
 		out := f + ".minisig"
 		if err := os.WriteFile(out, sig, 0o644); err != nil {
 			return err

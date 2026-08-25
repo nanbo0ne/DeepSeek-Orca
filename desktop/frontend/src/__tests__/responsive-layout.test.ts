@@ -25,8 +25,22 @@ function check(value: boolean, label: string) {
 console.log("\nresponsive layout safeguards");
 check(!css.includes("padding: 5px 120px"), "composer has no fixed right-side reservation");
 check(!css.includes(".composer-card__actions {\n    right:"), "composer actions stay in grid flow");
-check(chrome.includes("app-chrome__action--core") && chrome.includes("app-chrome__action--tertiary"), "chrome actions define shrink priorities");
+check(chrome.includes("function ClassicAppChrome") && chrome.includes("function ModernAppChrome"), "chrome uses explicit presentation branches");
+check(
+  app.includes('{desktopUIStyle === "classic" && (\n          <header className="topicbar">'),
+  "modern chrome does not stack the legacy TopicBar as a third header row",
+);
 check(css.includes("@media (max-width: 1100px)") && css.includes("@media (max-width: 780px)"), "chrome priorities have narrow breakpoints");
+check(
+  ["modernMenu.file", "modernMenu.project", "modernMenu.tools", "modernMenu.settings"].every((key) => chrome.includes(`t("${key}")`)) &&
+    chrome.includes("onOpenSkills") && chrome.includes("onOpenBots") && chrome.includes("onOpenAutomations") && chrome.includes("onOpenToolLibrary"),
+  "modern text menus keep all secondary commands available",
+);
+check(
+  css.includes(':root[data-ui-style="modern"] .modern-chrome__workspace-actions') &&
+    css.includes(':root[data-ui-style="modern"] .modern-chrome__icon-button'),
+  "modern workspace actions keep stable icon slots",
+);
 check(app.includes("topicbar__overflow-menu") && css.includes(".topicbar__action--direct-utility"), "topic actions expose a narrow overflow menu");
 check(css.includes(".statusbar {\n    max-width: none;\n    gap: 6px;\n    overflow: hidden"), "narrow status bar cannot wrap or overflow");
 check(
@@ -74,7 +88,8 @@ check(
   app.includes("promptModes={automationConversation ? [] : productCapabilities.promptModes}") &&
     app.includes("promptModeLocked={false}") &&
     app.includes("showToolApprovalControls={!automationConversation}") &&
-    composer.includes("showToolApprovalControls && <div") &&
+    composer.includes("showToolApprovalControls && uiStyle === \"modern\"") &&
+    composer.includes("showToolApprovalControls && uiStyle === \"classic\"") &&
     composer.includes("disabled={disabled || promptModeLocked}"),
   "Orca hides both the ordinary mode selector and redundant approval selector",
 );
@@ -105,6 +120,24 @@ check(
   composerContract.includes(".composer-meta__control--model {\n    display: inline-flex;") &&
     composerContract.includes(".composer-enhanced__button svg:last-child {\n    display: none;"),
   "narrow Composer retains model access and collapses mode trigger to one icon",
+);
+check(
+  css.includes(':root[data-ui-style="modern"] .composer-card {\n  grid-template-columns: minmax(0, 1fr) max-content;') &&
+    css.includes("max-width: min(360px, 42cqw);") &&
+    css.includes("@container (max-width: 320px)") &&
+    css.includes(':root[data-ui-style="modern"] .composer-card__actions--modern {\n  display: flex;') &&
+    css.includes("width: max-content;\n  max-width: 100%;\n  min-width: 0;\n  justify-self: end;"),
+  "Modern footer uses a content-sized right-aligned action track",
+);
+check(
+  css.includes(':root[data-ui-style="modern"] .transcript {\n  width: 100%;\n  max-width: none;') &&
+    !css.includes(':root[data-ui-style="modern"] .main__scroll,\n:root[data-ui-style="modern"] .transcript,'),
+  "Modern transcript keeps a full-width scroll viewport around the reading column",
+);
+check(
+  css.includes("width: auto;\n  max-width: min(280px, 34cqw);") &&
+    css.includes("max-width: 148px;\n  flex: 0 1 auto;"),
+  "Modern run status uses intrinsic width so controls remain grouped at the right edge",
 );
 check(
     composer.includes('composer-runstatus__primary--${hasDraftContent ? "send" : "stop"}') &&

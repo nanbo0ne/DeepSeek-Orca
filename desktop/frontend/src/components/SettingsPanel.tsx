@@ -7,9 +7,10 @@ import { normalizeLangPref, useI18n, useT, type DictKey, type LangPref } from ".
 import { mergedFetchedProviderModels, providerDefaultModel, providerModelCandidates } from "../lib/providerModels";
 import { TEXT_SIZES, applyTextSize, getTextSize, type TextSize } from "../lib/textSize";
 import { FONT_FAMILIES, applyFontFamily, getFontFamily, type FontFamily } from "../lib/fontFamily";
-import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP, applyUIScale, effectiveUIScale, getUIScale } from "../lib/uiScale";
+import { persistUIStyle, UI_STYLES, type UIStyle } from "../lib/uiStyle";
 import { checkDesktopUpdate } from "../lib/updateCheck";
 import type { BotConnectionView, BotInstallStartResult, BotSettingsView, ComputerUseState, LocalAICatalogView, NetworkView, ProcessDisplayMode, ProductCapabilities, PromptMode, ProviderView, SettingsTab, SettingsView, VisionCapability } from "../lib/types";
+import { normalizeLocalAICatalog } from "../lib/localAI";
 import { InlineConfirmButton } from "./InlineConfirmButton";
 import { Tooltip } from "./Tooltip";
 import { AnchoredPopover } from "./AnchoredPopover";
@@ -44,7 +45,7 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
   const [err, setErr] = useState<string | null>(null);
   const [textSize, setTextSizeState] = useState<TextSize>(getTextSize());
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(getFontFamily());
-  const [uiScale, setUIScaleState] = useState(getUIScale());
+	const [restartStyle, setRestartStyle] = useState<UIStyle | null>(null);
   const [tab, setTab] = useState<SettingsTab>(normalizeInitialSettingsTab(initialTab));
   // Play the modal exit animation, then let the parent unmount us.
   const { status, requestClose } = useDeferredClose(onClose, 240);
@@ -52,10 +53,6 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
   const reload = async () => {
     const next = normalizeSettingsView(await app.Settings().catch(() => null));
     setS(next);
-    if (next) {
-      applyUIScale(next.uiScale);
-      setUIScaleState(next.uiScale);
-    }
   };
   useEffect(() => {
     void reload();
@@ -142,14 +139,9 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
                   <SettingsPageShell key={tab} s={s} tab={tab} busy={busy} apply={apply}>
                     <AppearanceSection
                       busy={busy}
-                      uiScale={uiScale}
+                      uiStyle={s.desktopUIStyle}
                       textSize={textSize}
                       fontFamily={fontFamily}
-                      onUIScale={(scale) => {
-                        applyUIScale(scale);
-                        setUIScaleState(scale);
-                        void apply(() => app.SetDesktopUIScale(scale));
-                      }}
                       onTextSize={(size) => {
                         applyTextSize(size);
                         setTextSizeState(size);
@@ -158,6 +150,16 @@ export function SettingsPanel({ onClose, onChanged, initialTab, productCapabilit
                         applyFontFamily(font);
                         setFontFamilyState(font);
                       }}
+                      onUIStyle={(style) => {
+                        void apply(async () => {
+							await app.SetDesktopUIStyle(style);
+							persistUIStyle(style);
+							setRestartStyle(style);
+                        });
+                      }}
+					  restartStyle={restartStyle}
+					  onRestartLater={() => setRestartStyle(null)}
+					  onRestartNow={() => void app.RestartApp().catch((error) => setErr(String((error as Error)?.message ?? error)))}
                     />
                   </SettingsPageShell>
                 )}
@@ -287,12 +289,22 @@ type ModelsSectionProps = SectionProps & {
 function LocalAISection() {
   const [catalog, setCatalog] = useState<LocalAICatalogView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const reload = () => { void app.GetLocalAICatalog().then(setCatalog).catch((e) => setError(String(e))); };
+  const reload = () => {
+    setError(null);
+    void app.GetLocalAICatalog()
+      .then((next) => setCatalog(normalizeLocalAICatalog(next)))
+      .catch((e) => setError(String(e)));
+  };
   useEffect(() => {
     reload();
     return onLocalAIChanged(reload);
   }, []);
-  if (!catalog) return <div className="empty">正在读取本地 AI 状态…</div>;
+  if (!catalog) return error ? (
+    <div className="banner banner--error" role="alert">
+      <span>读取本地 AI 状态失败：{error}</span>
+      <button type="button" className="btn btn--ghost" onClick={reload}>重试</button>
+    </div>
+  ) : <div className="empty">正在读取本地 AI 状态…</div>;
   const installed = new Set(catalog.installedModels.map((model) => model.id));
   return (
     <>
@@ -361,7 +373,7 @@ function ComputerUseSection({ s, busy, apply }: SectionProps) {
 function AboutSection() {
   const [version, setVersion] = useState("-");
   useEffect(() => { void app.Version().then(setVersion).catch(() => {}); }, []);
-  return <SettingsSection title="O.R.C.A for Windows" description="Open Reasoning & Computing Agent">
+  return <SettingsSection title="O.R.C.A. for Windows" description="Open Reasoning & Computing Agent">
     <div className="settings-about"><strong>当前版本：{version}</strong><span>编程模式、助手模式与固定 Orca 主对话。</span><button className="btn btn--ghost" onClick={() => openExternal("https://github.com/nanbo0ne/O.R.C.A-for-Windows")}>GitHub</button></div>
   </SettingsSection>;
 }
@@ -433,7 +445,7 @@ function settingsTabMeta(id: SettingsTab, s: SettingsView, t: ReturnType<typeof 
 		case "computer":
 			return s.computerUseFullAccessApproved ? "已授权" : "未授权";
 		case "about":
-			return "O.R.C.A";
+			return "O.R.C.A.";
   }
 }
 
@@ -615,7 +627,7 @@ function normalizeBotConnection(raw: any) {
 
 function normalizeSettingsView(view: SettingsView | null | undefined): SettingsView | null {
   if (!view) return null;
-  const permissions = view.permissions ?? { mode: "ask", allow: [], ask: [], deny: [] };
+  const permissions = view.permissions ?? { mode: "ask", autoReviewModel: "", allow: [], ask: [], deny: [] };
   const sandbox = view.sandbox ?? { bash: "enforce", network: false, workspaceRoot: "", allowWrite: [] };
   const network = view.network ?? {
     proxyMode: "auto",
@@ -628,8 +640,8 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
   agent.maxSteps = Number.isFinite(agent.maxSteps) ? Math.max(0, Math.trunc(agent.maxSteps)) : 0;
   return {
     ...view,
-    uiScale: view.uiScale === 0 || (view.uiScale >= UI_SCALE_MIN && view.uiScale <= UI_SCALE_MAX && view.uiScale % UI_SCALE_STEP === 0) ? view.uiScale : 0,
-    effectiveUIScale: effectiveUIScale(view.uiScale),
+    uiScale: 0,
+    effectiveUIScale: 100,
     providers: asArray(view.providers).map((p) => ({
       ...p,
       builtIn: Boolean(p.builtIn),
@@ -642,6 +654,7 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     providerKinds: asArray(view.providerKinds),
     permissions: {
       ...permissions,
+      autoReviewModel: String(permissions.autoReviewModel ?? "").trim(),
       allow: asArray(permissions.allow),
       ask: asArray(permissions.ask),
       deny: asArray(permissions.deny),
@@ -662,6 +675,7 @@ function normalizeSettingsView(view: SettingsView | null | undefined): SettingsV
     desktopLanguage: normalizeLangPref(view.desktopLanguage),
     desktopTheme: "light",
     desktopThemeStyle: "slate",
+    desktopUIStyle: view.desktopUIStyle === "classic" ? "classic" : "modern",
     closeBehavior: normalizeCloseBehavior(view.closeBehavior),
     checkUpdates: view.checkUpdates !== false,
     processDisplayMode: view.processDisplayMode === "compact" || view.processDisplayMode === "detailed"
@@ -3109,6 +3123,7 @@ function ProviderEditor({
         keySet: Boolean(keyDraft.trim()) || (initial?.keySet ?? false),
         balanceUrl: balanceUrl.trim(),
         contextWindow: Number(ctx) || 0,
+        modelContextWindows: initial?.modelContextWindows,
         reasoningProtocol,
         supportedEfforts,
         defaultEffort,
@@ -3145,6 +3160,7 @@ function ProviderEditor({
       keySet: Boolean(keyDraft.trim()) || (initial?.keySet ?? false),
       balanceUrl: balanceUrl.trim(),
       contextWindow: Number(ctx) || 0,
+      modelContextWindows: initial?.modelContextWindows,
       reasoningProtocol,
       supportedEfforts,
       // Clear the stored default if no levels are selected; the backend's
@@ -3423,6 +3439,7 @@ function KeyField({
 
 function PermissionsSection({ s, busy, apply }: SectionProps) {
   const t = useT();
+  const refs = allRefs(s);
   return (
     <>
     <SettingsSection title={t("settings.permissions")} description={t("settings.permissionsModeHint")}>
@@ -3444,6 +3461,17 @@ function PermissionsSection({ s, busy, apply }: SectionProps) {
           <option value="allow">{t("settings.modeAllow")}</option>
           <option value="deny">{t("settings.modeDeny")}</option>
         </select>
+      </SettingsField>
+      <SettingsField label={t("settings.autoReviewModel")} hint={t("settings.autoReviewModelHint")}>
+        <ModelPicker
+          s={s}
+          refs={refs}
+          value={toRef(s.permissions.autoReviewModel, s)}
+          disabled={busy}
+          emptyOptionLabel={t("settings.autoReviewModelCurrent")}
+          emptyOptionHint={t("settings.autoReviewModelCurrentHint")}
+          onPick={(ref) => void apply(() => app.SetAutoReviewModel(ref))}
+        />
       </SettingsField>
     </SettingsSection>
     <SettingsSection title={t("settings.permissionRules")} description={t("settings.ruleForm")}>
@@ -3595,53 +3623,57 @@ function SandboxSection({ s, busy, apply }: SectionProps) {
 
 function AppearanceSection({
   busy,
-  uiScale,
+  uiStyle,
   textSize,
   fontFamily,
-  onUIScale,
   onTextSize,
   onFontFamily,
+  onUIStyle,
+	restartStyle,
+	onRestartLater,
+	onRestartNow,
 }: {
   busy: boolean;
-  uiScale: number;
+  uiStyle: UIStyle;
   textSize: TextSize;
   fontFamily: FontFamily;
-  onUIScale: (scale: number) => void;
   onTextSize: (size: TextSize) => void;
   onFontFamily: (font: FontFamily) => void;
+  onUIStyle: (style: UIStyle) => void;
+	restartStyle: UIStyle | null;
+	onRestartLater: () => void;
+	onRestartNow: () => void;
 }) {
   const t = useT();
-  const effective = effectiveUIScale(uiScale);
   return (
     <SettingsSection title={t("settings.appearance")}>
-      <SettingsField label={t("settings.uiScale")}>
-        <div className="set-ui-scale">
-          <div className="set-ui-scale__head">
+      <SettingsField label={t("settings.uiStyle")} hint={t("settings.uiStyleHint")}>
+        <div className="set-seg">
+          {UI_STYLES.map((style) => (
             <button
+              key={style}
               type="button"
-              className={`set-ui-scale__auto${uiScale === 0 ? " set-ui-scale__auto--on" : ""}`}
               disabled={busy}
-              onClick={() => onUIScale(0)}
+              className={`set-seg__btn${uiStyle === style ? " set-seg__btn--on" : ""}`}
+              onClick={() => onUIStyle(style)}
             >
-              {t("settings.uiScaleAuto")}
+              {t(style === "modern" ? "settings.uiStyleModern" : "settings.uiStyleClassic")}
             </button>
-            <output className="set-ui-scale__value">{effective}%</output>
-          </div>
-          <input
-            className="set-ui-scale__range"
-            type="range"
-            min={UI_SCALE_MIN}
-            max={UI_SCALE_MAX}
-            step={UI_SCALE_STEP}
-            value={uiScale || effective}
-            disabled={busy}
-            aria-label={t("settings.uiScale")}
-            onChange={(event) => onUIScale(Number(event.target.value))}
-          />
-          <div className="set-ui-scale__marks" aria-hidden="true"><span>80%</span><span>100%</span><span>125%</span></div>
-          <p className="set-ui-scale__hint">{t("settings.uiScaleHint")}</p>
+          ))}
         </div>
       </SettingsField>
+	  {restartStyle && (
+		<div className="settings-restart-notice" role="status">
+		  <div>
+			<strong>{t("settings.uiStyleRestartTitle")}</strong>
+			<span>{t("settings.uiStyleRestartBody")}</span>
+		  </div>
+		  <div className="settings-restart-notice__actions">
+			<button type="button" className="btn btn--ghost" onClick={onRestartLater}>{t("settings.restartLater")}</button>
+			<button type="button" className="btn btn--primary" onClick={onRestartNow}>{t("settings.restartNow")}</button>
+		  </div>
+		</div>
+	  )}
       <SettingsField label={t("settings.textSize")}>
         <div className="set-seg">
           {TEXT_SIZES.map((size) => (

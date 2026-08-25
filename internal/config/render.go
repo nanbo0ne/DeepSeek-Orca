@@ -91,9 +91,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		} else {
 			b.WriteString("# theme_style = \"slate\"   # O.R.C.A native blue-white style\n")
 		}
+		fmt.Fprintf(&b, "ui_style = %q   # desktop presentation: modern|classic\n", c.DesktopUIStyle())
 		fmt.Fprintf(&b, "close_behavior = %q   # desktop: quit|background when the window close button is clicked\n", c.DesktopCloseBehavior())
 		fmt.Fprintf(&b, "check_updates = %v   # desktop: check for new versions on startup\n", c.DesktopCheckUpdates())
-		fmt.Fprintf(&b, "ui_scale = %d   # desktop: 0 = follow Windows DPI; otherwise 80..125 in five-percent increments\n", c.DesktopUIScale())
 		fmt.Fprintf(&b, "conversation_mode = %q   # desktop: coding|assistant for new ordinary conversations\n", c.Desktop.ConversationMode)
 		if len(c.Desktop.ProviderAccess) > 0 {
 			fmt.Fprintf(&b, "provider_access = %s   # desktop settings: providers shown on Settings > Model > Access\n", renderStringArray(c.Desktop.ProviderAccess))
@@ -264,6 +264,9 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 			if p.ContextWindow > 0 {
 				fmt.Fprintf(&b, "context_window = %d   # tokens; compaction triggers near this limit\n", p.ContextWindow)
 			}
+			if len(p.ModelContextWindows) > 0 {
+				fmt.Fprintf(&b, "model_context_windows = %s   # explicit per-model token limits\n", renderStringIntMap(p.ModelContextWindows))
+			}
 			if p.Price != nil {
 				fmt.Fprintf(&b, "price       = { cache_hit = %v, input = %v, output = %v, currency = %q }   # per 1M tokens\n",
 					p.Price.CacheHit, p.Price.Input, p.Price.Output, p.Price.Symbol())
@@ -357,6 +360,11 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 		mode = "ask"
 	}
 	fmt.Fprintf(&b, "mode  = %q\n", mode)
+	if model := strings.TrimSpace(c.Permissions.AutoReviewModel); model != "" {
+		fmt.Fprintf(&b, "auto_review_model = %q   # full provider/model ref; empty uses the active model\n", model)
+	} else {
+		b.WriteString("# auto_review_model = \"provider/model\"   # empty uses the active model\n")
+	}
 	b.WriteString(renderRuleList("deny", c.Permissions.Deny, `["Bash(rm -rf*)", "Bash(git push*)"]   # hard-blocked in every mode`))
 	b.WriteString(renderRuleList("allow", c.Permissions.Allow, `["Bash(go test:*)", "Bash(git status:*)"]   # never prompted`))
 	b.WriteString(renderRuleList("ask", c.Permissions.Ask, `["Edit(src/**)"]   # force a prompt even if otherwise allowed`))
@@ -643,6 +651,24 @@ func renderStringMap(m map[string]string) string {
 			b.WriteString(", ")
 		}
 		fmt.Fprintf(&b, "%s = %q", k, m[k])
+	}
+	b.WriteString(" }")
+	return b.String()
+}
+
+func renderStringIntMap(m map[string]int) string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString("{ ")
+	for i, key := range keys {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "%q = %d", key, m[key])
 	}
 	b.WriteString(" }")
 	return b.String()

@@ -83,15 +83,20 @@ type Controller struct {
 	cleanup        func()
 	autoPlan       string
 	classifier     autoPlanClassifier
+	riskClassifier permission.RiskClassifier
+	riskModel      string
 	startedOnce    bool                             // guards the one-shot SessionStart hook on first turn
 	onRemember     func(rule string) RememberResult // set via Options; invoked when user picks "always allow"
 
 	// balanceURL/balanceKey target the active provider's optional wallet-balance
 	// endpoint (empty when the provider declares none). Captured at build so a
 	// model/key switch — which rebuilds the controller — refreshes them.
-	balanceURL    string
-	balanceKey    string
-	balanceClient *http.Client
+	balanceURL             string
+	balanceKey             string
+	balanceClient          *http.Client
+	modelRef               string
+	contextWindowConfirmed bool
+	contextWindowSource    string
 
 	// jobs is the session-scoped background-job manager. The agent's background
 	// tools spawn into it; Compose drains its completion notes into the next turn;
@@ -326,9 +331,12 @@ type Options struct {
 	Cleanup       func()
 	// BalanceURL/BalanceKey wire the active provider's optional wallet-balance
 	// endpoint and bearer key; empty when the provider declares no balance_url.
-	BalanceURL    string
-	BalanceKey    string
-	BalanceClient *http.Client
+	BalanceURL             string
+	BalanceKey             string
+	BalanceClient          *http.Client
+	ModelRef               string
+	ContextWindowConfirmed bool
+	ContextWindowSource    string
 	// Jobs is the session-scoped background-job manager (nil disables background jobs).
 	Jobs *jobs.Manager
 	// Registry is the executor's live tool set, and PluginCtx the session-scoped
@@ -337,9 +345,11 @@ type Options struct {
 	PluginCtx context.Context
 	// WorkspaceRoot is the project root checkpoint restores are confined to ("" =
 	// no confinement). Frontends pass the cwd they launched the session in.
-	WorkspaceRoot string
-	AutoPlan      string
-	Classifier    autoPlanClassifier
+	WorkspaceRoot  string
+	AutoPlan       string
+	Classifier     autoPlanClassifier
+	RiskClassifier permission.RiskClassifier
+	RiskModel      string
 	// OnRemember, when set, is invoked with a new allow rule the user chose to
 	// persist to disk (e.g. "Bash(go test:*)"). The callback is wired into the
 	// permission Gate on EnableInteractiveApproval.
@@ -394,12 +404,17 @@ func New(opts Options) *Controller {
 		cleanup:                    opts.Cleanup,
 		autoPlan:                   normalizeAutoPlan(opts.AutoPlan),
 		classifier:                 classifier,
+		riskClassifier:             opts.RiskClassifier,
+		riskModel:                  strings.TrimSpace(opts.RiskModel),
 		onRemember:                 opts.OnRemember,
 		turnLease:                  opts.TurnLease,
 		refreshOnLease:             opts.RefreshOnLease,
 		balanceURL:                 opts.BalanceURL,
 		balanceKey:                 opts.BalanceKey,
 		balanceClient:              opts.BalanceClient,
+		modelRef:                   strings.TrimSpace(opts.ModelRef),
+		contextWindowConfirmed:     opts.ContextWindowConfirmed,
+		contextWindowSource:        strings.TrimSpace(opts.ContextWindowSource),
 		jobs:                       opts.Jobs,
 		reg:                        opts.Registry,
 		pluginCtx:                  pluginCtx,
@@ -1365,6 +1380,9 @@ func (c *Controller) newInteractiveGate() *permission.Gate {
 		policy.Mode = permission.Ask
 	}
 	gate := permission.NewGate(policy, gateApprover{c})
+	if mode == ToolApprovalAuto {
+		gate.AutoReviewer = c
+	}
 	if mode == ToolApprovalYolo {
 		gate.Bypass = true
 	}
@@ -2221,6 +2239,26 @@ func (c *Controller) ContextSnapshot() (int, int) {
 	return u.PromptTokens, window
 }
 
+type ContextMetadata struct {
+	ModelRef  string
+	Confirmed bool
+	Source    string
+}
+
+func (c *Controller) ContextMetadata() ContextMetadata {
+	if c == nil {
+		return ContextMetadata{}
+	}
+	return ContextMetadata{ModelRef: c.modelRef, Confirmed: c.contextWindowConfirmed, Source: c.contextWindowSource}
+}
+
+func (c *Controller) PricingInfo() (bool, string) {
+	if c == nil || c.executor == nil {
+		return false, ""
+	}
+	return c.executor.PricingInfo()
+}
+
 // CompactRatio returns the auto-compaction threshold as a fraction of the window
 // (0 when the executor is unset). The status line shows headroom against it.
 func (c *Controller) CompactRatio() float64 {
@@ -2867,6 +2905,72 @@ func (g gateApprover) Approve(ctx context.Context, tool, subject string, args js
 		return true, false, nil
 	}
 	return g.c.requestApproval(ctx, tool, subject)
+}
+
+const riskReviewTimeout = 3 * time.Second
+
+func (c *Controller) Review(ctx context.Context, tool, subject string, args json.RawMessage, readOnly bool) (bool, error) {
+	c.mu.Lock()
+	classifier := c.riskClassifier
+	model := c.riskModel
+	c.mu.Unlock()
+	started := time.Now()
+	if nilutil.IsNil(classifier) {
+		err := fmt.Errorf("risk classifier is not configured")
+		c.recordRiskReview(permission.RiskAssessment{}, model, started, "fallback_allow", err)
+		return false, err
+	}
+	reviewCtx, cancel := context.WithTimeout(ctx, riskReviewTimeout)
+	defer cancel()
+	assessment, err := classifier.Assess(reviewCtx, permission.RedactedRiskInput(tool, subject, args, readOnly))
+	if err != nil {
+		c.recordRiskReview(permission.RiskAssessment{}, model, started, "fallback_allow", err)
+		return false, err
+	}
+	result := "auto_allow"
+	autoAllow := assessment.Level == permission.RiskLow || assessment.Level == permission.RiskMedium
+	if !autoAllow {
+		result = "manual_review"
+	}
+	c.recordRiskReview(assessment, model, started, result, nil)
+	return autoAllow, nil
+}
+
+func (c *Controller) recordRiskReview(assessment permission.RiskAssessment, model string, started time.Time, result string, err error) {
+	errorType := riskReviewErrorType(err)
+	event.RecordRiskReviewAudit(c.sink, event.RiskReviewAudit{
+		Turn:       c.Turn(),
+		At:         time.Now().UnixMilli(),
+		Level:      string(assessment.Level),
+		Model:      strings.TrimSpace(model),
+		DurationMs: time.Since(started).Milliseconds(),
+		Result:     result,
+		ErrorType:  errorType,
+	})
+	if err != nil {
+		c.sink.Emit(event.Event{Kind: event.Notice, Level: event.LevelWarn, Text: fmt.Sprintf("Automatic risk review failed; preserving the existing auto-approval fallback (%s).", errorType)})
+	}
+}
+
+func riskReviewErrorType(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timeout"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "cancelled"
+	}
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "decode"), strings.Contains(message, "json"):
+		return "invalid_response"
+	case strings.Contains(message, "not configured"), strings.Contains(message, "not initialized"):
+		return "unavailable"
+	default:
+		return "provider_error"
+	}
 }
 
 type seedTodo struct {

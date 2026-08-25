@@ -2,128 +2,151 @@
 
 # O.R.C.A for Windows
 
-**O.R.C.A** means **Open Reasoning & Computing Agent**: a local desktop workspace that keeps reasoning, engineering execution, and everyday Work under the user's control. It combines multi-provider chat, project-scoped sessions, inspectable tools, planning, memory, MCP, skills, CodeGraph, artifacts, and reversible execution in one Windows, macOS, and Linux application.
+**O.R.C.A.** stands for **Open Reasoning & Computing Agent**. It is an open-source agent workspace for real work, bringing multi-model conversations, software engineering, research and documents, computer control, local models, memory, and automation into one inspectable, pausable, recoverable application.
 
-Ordinary conversations expose two profiles: **Coding** for repository work and **Assistant** for everyday Work tasks. A fixed, higher-priority **Orca** conversation coordinates desktop and phone automation.
+O.R.C.A. is not tied to one model or one conversation style. Ordinary sessions can use **Assistant mode** or **Coding mode**, while the fixed **Orca** conversation coordinates cross-session work, remote channels, and computer-control tasks.
 
-## Download
+## Downloads
 
-- [Windows installer](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64-installer.exe)
-- [Windows portable package](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-for-Windows-windows-amd64.zip)
-- [macOS universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-macos-universal.dmg)
-- [Linux amd64 DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.0/O.R.C.A-linux-amd64.deb)
-- [All release assets](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.0)
+| Platform | Package | Notes |
+| --- | --- | --- |
+| Windows x64 | [Installer](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-for-Windows-windows-amd64-installer.exe) · [Portable ZIP](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-for-Windows-windows-amd64.zip) | Full local-AI and Computer Use support |
+| macOS | [Universal DMG](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-macos-universal.dmg) | Intel and Apple Silicon |
+| Linux x64 | [DEB](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/download/desktop-v3.0.1/O.R.C.A-linux-amd64.deb) | Debian and Ubuntu |
 
-The application never downloads or installs an update without user action. Update detection only displays a small release-page entry when a stable `desktop-v*` release is available. The Windows installer can create a desktop shortcut and can optionally launch the application after installation.
+[View every O.R.C.A. v3.0.1 asset, checksum, and release note](https://github.com/nanbo0ne/O.R.C.A-for-Windows/releases/tag/desktop-v3.0.1)
 
-## What It Provides
+The Windows installer supports in-place upgrades, Start Menu and optional desktop shortcuts, and an optional post-install launch. Uninstalling keeps user data and local models by default. The app reports available updates but never downloads or installs one without user action.
 
-### Coding and Assistant modes
+## Product Surfaces
 
-- **Coding mode**: repositories, shell, Git, tests, LSP, CodeGraph, code review, and sustained engineering execution. Legacy Normal and Enhanced conversations migrate here.
-- **Assistant mode**: everyday questions, research, information organization, office documents, automations, and computer work. It has Work instructions and personal memory without coding-only intelligence or Orca dispatch tools.
+| Surface | Best for | Main capabilities |
+| --- | --- | --- |
+| Assistant mode | Questions, research, writing, information organization, office files, and everyday tasks | Web and local tools, personal memory, artifact creation, planning, and automation |
+| Coding mode | Repository development, debugging, refactoring, testing, and review | Shell, Git, LSP, CodeGraph, checkpoints, rollback, and engineering verification |
+| Orca | Cross-session coordination, remote channels, desktop tasks, and a persistent control entry | Session dispatch, QQ/Weixin bridges, Computer Use, shared automation model, and personal profile |
+| CLI | Terminal chat, one-shot tasks, and scripted workflows | The same provider, tool, MCP, skill, memory, and session core as the desktop app |
 
-The mode is stored per conversation. A conversation with history shows a cache-invalidation warning before its system prompt, tools, and memory profile change. Visible non-system history is preserved, running turns apply a confirmed switch afterward, and a failed rebuild keeps the original controller and mode. The first ordinary conversation after upgrade defaults to Assistant; later conversations inherit the latest choice.
+The selected mode is stored per session. Switching preserves visible history and rebuilds the prompt, tool, and memory boundary for the target profile. An active turn finishes or stops before the switch is applied.
 
-### Providers and models
+## Feature Map
 
-First launch no longer depends on a DeepSeek key. The built-in catalog covers OpenAI, Anthropic, OpenRouter, DeepSeek, DashScope, Zhipu, Kimi, MiniMax, Volcano Ark, Baidu Qianfan, Tencent Hunyuan, StepFun, Xiaomi MiMo, SiliconFlow, and isolated subscription-plan endpoints, plus custom OpenAI- and Anthropic-compatible services. Every endpoint has its own provider ID, credential slot, and fully qualified model references, so same-name models never cross provider boundaries.
+### Models and Providers
 
-### Workspaces and sessions
+- Built-in presets for OpenAI, Anthropic, OpenRouter, DeepSeek, DashScope, Zhipu, Kimi, MiniMax, Volcano Ark, Baidu Qianfan, Tencent Hunyuan, StepFun, Xiaomi MiMo, SiliconFlow, and isolated subscription-plan endpoints.
+- Custom OpenAI-compatible and Anthropic-compatible providers.
+- Separate provider IDs, base URLs, credential slots, and fully qualified model references prevent same-name models from crossing endpoints.
+- First launch offers a fast DeepSeek-key path, with alternatives for other providers, local AI, or skipping setup entirely.
+- Independent choices for the default, automation, planner, subagent, and Computer Use models.
+- Context capacity is resolved per model. Cost and balance disappear when reliable metadata is unavailable instead of showing misleading zero values.
+- Official DeepSeek requests freeze a peak/off-peak price snapshot when the request starts; persisted historical cost is never repriced later.
 
-- Project workspaces bind conversations to real repository directories.
-- Independent topics receive isolated working directories and session data.
-- Sessions support tabs, pinning, renaming, previews, restore, forks, checkpoints, rollback, trash, and export.
-- Long sessions can be compacted while preserving a durable summary and searchable local history.
-- Main transcript JSONL stays local and does not contain provider secrets.
+### Workspaces, Sessions, and Context
 
-### Vision attachments
+- Project workspaces bind to real directories; independent workspaces cover tasks that do not need a repository.
+- Multiple tabs, pinning, renaming, forks, history, recycle bin, export, and session resume.
+- Checkpoints record conversation and workspace state; rollback and rewind restore context or related file changes.
+- Long sessions support compaction, older-session retrieval, and stable Turn/Item identities.
+- Images, files, and workspace references are current-turn attachments; binary data is not embedded in the chat JSONL.
+- Final answers remain separate from execution details. Successful turns can fold, while failed, cancelled, and interrupted turns retain diagnostic context.
 
-Vision under Settings > Models offers **Off**, **Auto**, and **On**. New installations default to Auto: provider model metadata is used when available, otherwise each newly configured model is checked by a history-free request containing the Orca icon and a random verification code. Image bytes are sent only to models confirmed to support vision. Capability is tracked independently per provider type, endpoint, and model, with automatic, manually supported, and manually unsupported choices plus recheck controls in Settings. DeepSeek being marked unsupported is expected and does not affect text use.
+### Tools and Engineering Execution
 
-Pasted, dropped, or workspace-referenced PNG, JPEG, WebP, and GIF files remain limited to 8 images per turn, 20 MB total, and 10 MB per image. Windows also includes optional Computer Use: an isolated control subagent re-observes after every action and can use UI Automation, guarded mouse/keyboard input, windows, and scrolling. Screenshots stay in memory by default and `Esc` is an emergency stop. UAC secure desktop, lock screen, passwords, verification codes, CAPTCHAs, and higher-integrity processes are always blocked. The V3 macOS/Linux builds keep chat functionality but do not provide local inference or Computer Use.
+- Shell, file operations, search, Git, tests, builds, package managers, and common host actions.
+- Coding mode adds LSP, CodeGraph, code review, security checks, and post-write verification.
+- Plan, Todo, and Goal workflows make long-running work and completion conditions visible.
+- Subagents can take research, analysis, vision, and engineering subtasks, then return results to the current session.
+- Readiness checks distinguish real blockers from optional extra verification, avoiding mechanical retries after successful work.
+- Background work, model loading, downloads, approvals, and Computer Use have distinct states rather than pretending everything is model reasoning.
 
-### Local AI and model library
+### MCP, Skills, Bots, and Automation
 
-Windows users can install the O.R.C.A-managed `llama.cpp` sidecar and Qwen GGUF models independently. On 16GB-class GPUs the first recommendation is Qwen3.8-27B IQ3_XXS; startup fits context, batch size, and GPU layers to current free VRAM while preserving headroom. Downloads support verified domestic mirrors, resumable transfers, live speed/ETA, and SHA-256 verification. Uninstalling the runtime leaves model files intact, and models never live inside the application install directory.
-
-### Tools and local execution
-
-The Tool Library controls groups for web search, host operations, Node/Python runtimes, document inspection, thread utilities, and conversation search. A disabled group is removed from both the registry and the model-visible routing policy. The built-in shell remains available for builds, tests, Git, and package managers. Tool approval modes make permission boundaries visible before execution; sandbox and write-root settings further constrain local operations.
-
-### MCP, Skills, and CodeGraph
-
-- MCP settings manage servers, authorization, connection status, retries, and exposed tools.
-- Skills provide reusable workflows that load on demand.
-- CodeGraph exposes project symbol and call-relationship tools through the configured MCP server.
+- The MCP manager shows servers, authorization, connection state, errors, retries, and exposed tools.
+- Skills are discovered from built-in, global, project, or custom roots and loaded on demand by command or model.
 - The slash menu combines built-in commands, skills, and MCP prompts.
+- Orca can selectively list, read, dispatch, wait for, or stop ordinary session tasks without recursively dispatching itself.
+- QQ and Weixin can connect to the same Orca conversation, current context segment, and serialized task queue.
+- Bot, automation, and personal-profile data use explicit configuration and do not create hidden ordinary sessions.
 
-### Memory
+### Multimodal Input and Work Artifacts
 
-Coding uses the `shared-agent` engineering profile. Assistant, Orca, QQ, and Weixin share the canonical personal profile. Legacy Assistant stores are imported once without deleting their source files; proactive updates run only after foreground conversations and dispatched work are idle.
+- Paste, drop, or reference PNG, JPEG, WebP, GIF, and common document formats.
+- Vision capability is tracked per model. Auto mode prefers a confirmed vision-capable current model or vision subagent.
+- DeepSeek Vision Exp can handle screenshots, OCR, charts, and visual-agent tasks; text-only models are not mislabeled as image-capable.
+- Built-in artifact tools create, edit, preview, and parse-validate DOCX, XLSX, PPTX, and PDF files.
+- Generated artifacts carry a structured sidecar for reliable follow-up edits. The app states its limits when a complex third-party file cannot be preserved safely.
 
-### Planning and process visibility
+### Windows Local AI
 
-- Plan mode presents a reviewable plan before execution.
-- Todo uses a compact centered progress control that expands upward on hover or keyboard focus and can be pinned without pushing the composer.
-- Goal mode can continue a multi-step task and stops on its internal complete or blocked signal.
-- Process display offers Compact and Detailed levels, with Compact as the default. Reasoning, tools, notices, and subagents use a flat chronological activity rail instead of nested cards; compact rows can be repeatedly expanded and collapsed.
-- A theme-blue spinner is enabled by default and can be disabled in Settings. It rotates clockwise while the model is active and counterclockwise while tools are running, respects reduced-motion settings, and disappears when work pauses or ends.
-- Coding and Assistant share an explicit Turn/Item lifecycle. Stage updates, reasoning, and tools remain visible while work runs; only a readiness-checked, explicitly committed visible answer can complete a turn successfully. Successful turns collapse to their user message, elapsed-time row, and complete final answer. Expanding restores every intermediate event in order; failed, cancelled, interrupted, active, and uncertain legacy turns keep their text visible for diagnosis.
-- The transcript preserves the actual order of assistant text, reasoning, tool calls, tool results, notices, images, and compaction.
-- Conversation switches reuse cached transcript structure, paint history before auxiliary status, and skip replaying entrance animations for restored messages. Plain-text paste remains directly editable, right-click paste accepts images, multi-file paste/drop keeps the complete ordered batch, and the composer grows automatically for up to ten lines before scrolling.
+- Optionally install a pinned `llama.cpp` runtime managed by O.R.C.A.; LM Studio is not controlled or modified.
+- Detect every GPU rather than assuming `GPU 0`, including NVIDIA, AMD, Intel integrated/discrete combinations, and CPU fallback.
+- Select CUDA, Vulkan, or CPU packages from dedicated-memory budget, currently free VRAM, system memory, and disk capacity.
+- Model downloads support queues, pause/resume, HTTP range continuation, mirrors, speed/ETA, and SHA-256 verification.
+- Systems with about 16 GB of VRAM are offered Qwen3.8-27B IQ3_XXS first, with context, batch, and GPU layers adjusted to preserve headroom.
+- Local models can serve as the main, subagent, or Computer Use model. One model stays resident at a time and may unload after an idle timeout.
+- The runtime binds only to a random `127.0.0.1` port and uses an ephemeral authorization token. Removing the runtime does not delete model files.
 
-### Work artifacts
+### Windows Computer Use
 
-Assistant and Orca provide built-in `artifact_create`, `artifact_edit`, `artifact_preview`, and `artifact_validate` tools for DOCX, XLSX, PPTX, and PDF without requiring Python, Office, or LibreOffice. Orca-created files carry a structural sidecar for reliable later edits. Complex third-party Office files without that sidecar are rejected explicitly instead of being presented as lossless edits. See the [Work artifact runtime notes](docs/ARTIFACT_RUNTIME.md) for scope, font behavior, and limitations.
+- Assistant, Coding, and Orca can all initiate computer tasks. A control subagent handles short action loops; ambiguous work returns to the main model.
+- Observations can combine screenshots, UI Automation elements, and window state. Every action is followed by a fresh observation and success check.
+- Click, double-click, right-click, drag, scroll, key chords, Unicode input, and window operations are supported.
+- After one-time full-access consent, policy-approved low/medium-risk actions may continue. High risk, explicit Ask/Deny rules, and host boundaries still require intervention.
+- A full-screen blue edge, pointer halo, and click feedback indicate active control. `Esc` force-stops the session and releases held keys.
+- O.R.C.A. does not cross the UAC secure desktop, handle lock screens, fill password fields, solve CAPTCHAs, or bypass high-integrity boundaries.
+- Screenshots are memory-only by default and are excluded from provider history. Action telemetry excludes images and sensitive text.
 
-### Orca and remote connections
+### Permissions, Risk, and Privacy
 
-A fixed **Orca** entry appears directly below search, ahead of every project; there is no Automation Workspace folder or ordinary mode selector. Desktop, QQ, and Weixin all write to Orca and share its dedicated model and canonical memory. During upgrade, legacy automation topics move to ordinary independent workspaces. Orca answers directly unless a request genuinely depends on existing context, in which case it can selectively read or dispatch to Coding and Assistant conversations without recursively dispatching Orca.
+- Ask, automatic review, and full-access strategies coexist with host deny rules and workspace write boundaries.
+- Automatic review may use an independent model request for risk classification. It receives no history, tools, images, or secret fields. High-risk actions go to manual approval; classifier errors retain the existing automatic-approval fallback and emit warning telemetry.
+- API keys stay in local credential configuration. Every provider preset has its own key slot, and credentials are not written into chat messages.
+- Messages and attachments are sent only to the explicitly selected provider. Review the privacy and billing terms of any custom relay.
+- Sessions, configuration, logs, cache, local models, and download tasks use separate storage so they can be backed up or removed independently.
 
-After 30 minutes of inactivity, a small no-tool check decides only whether the next turn should load the previous segment's context. Related and unrelated turns remain visible in the same Orca transcript. `/new` starts a clean logical segment inside Orca and `/continue` forces previous-context continuation; `/hi`, `/status`, `/stop`, `/approve`, `/deny`, and `/answer` remain for compatibility. Every channel shares the current segment and one serial execution queue, so phone use never creates another sidebar conversation.
+### Interface and Accessibility
 
-Trusted automation access is confirmed once on desktop and can be revoked in Settings. Before confirmation Orca can still chat, but protected tools are declined without per-command approval cards. After confirmation, policy-allowed tools and plan execution proceed automatically; Ask questions and explicit deny rules still apply. The four home suggestions are refreshed every 24 hours from limited local summaries and sanitized samples of the user's own phrasing, producing questions in the user's voice with cached fallback and no hidden conversation or memory side effects.
+- **Modern** is the default focused workspace, with compact menus, a single-row composer, process timeline, and responsive layout.
+- **Classic** restores the V2.1.3 blue-and-white layout, native window, and control placement while retaining the V3 backend.
+- Style choice is persisted and changes the window shell after restart without rebuilding or losing sessions.
+- Internal scaling stays at 100% and follows Windows Per-Monitor DPI. Keyboard focus, reduced motion, and narrow layouts are supported.
 
-## Privacy and Safety
+## Platform Support
 
-O.R.C.A is a local desktop shell, but model requests are sent to the provider selected by the user. Read the active provider, endpoint, proxy, vision, tool, and approval settings before using sensitive data. Image bytes are transmitted only when the selected vision mode permits the target model and a turn includes the image. Vision probing itself makes one very small request to the configured provider. API keys are read from configured environment variables or the local credentials flow rather than written into conversation messages.
+| Capability | Windows | macOS | Linux |
+| --- | :---: | :---: | :---: |
+| Cloud models, sessions, tools, MCP, skills, memory | Yes | Yes | Yes |
+| Coding, Assistant, and Orca | Yes | Yes | Yes |
+| Managed local `llama.cpp` | Yes | Not yet | Not yet |
+| Computer Use | Yes | Not yet | Not yet |
+| Modern / Classic window shell | Yes | Native platform window | Native platform window |
 
-Tool execution is visible in the transcript. Approval, sandbox, workspace roots, read-only tools, and background-task status are separate controls. Cancel, pause, rollback, checkpoints, and session trash provide recovery paths for long tasks.
+## Configuration and Migration
 
-## Configuration
+V3 uses `orca.toml`, the `.orca/` project directory, `ORCA.md` project instructions, and `ORCA_*` environment variables. User data lives in the platform O.R.C.A. data location; the default Windows root is `%LOCALAPPDATA%\O.R.C.A\`.
 
-After first launch, open Settings and configure models and providers, workspace and sandbox behavior, Tool Library and MCP servers, vision, process display, update checks, language, appearance, permissions, and approval defaults. Interface scaling follows Windows and its PerMonitorV2 DPI handling by default; an optional 80%-125% manual scale is applied relative to that native size. The app exposes the active configuration path in Settings. Project-local instructions can be supplied through the supported instruction files in the workspace.
-
-## Troubleshooting
-
-- **The model is unavailable**: check the provider endpoint, selected model, API-key environment variable, and proxy settings.
-- **A conversation opens slowly**: balance lookup is independent; inspect provider/network status and local workspace size if history itself is slow.
-- **An image is rejected**: inspect the model's vision status in Settings. In Auto, choose a confirmed vision-capable model or subagent; DeepSeek being unsupported is normal. On forces an attempt but cannot add capability to a text-only model.
-- **A tool asks for approval repeatedly**: review the approval mode, sandbox, and tool-group settings rather than retrying blindly.
-- **A window is narrow**: keep the application above its supported minimum width. Composer controls progressively hide labels while keeping model selection and core actions accessible.
-- **An update is not shown**: automatic checks are cached for 24 hours and use official stable GitHub Releases. Manual checking is available next to the update toggle in Settings.
+When upgrading from V2, O.R.C.A. reads legacy configuration, sessions, attachments, providers, credentials, memory, skills, MCP, cost, and telemetry, then writes only to the new directory after an atomic migration. The old directory remains as a backup. Git-tracked legacy project instruction files are not renamed automatically. The current configuration schema is V11.
 
 ## Build From Source
 
-Requirements: a Go toolchain compatible with `go.mod`, Node.js/npm, and Wails CLI v2.
+You need Go, Node.js 22+, npm, and Wails CLI v2. Building the Windows installer also requires NSIS.
 
 ```powershell
-cd desktop/frontend
+git clone https://github.com/nanbo0ne/O.R.C.A-for-Windows.git
+cd O.R.C.A-for-Windows\desktop\frontend
 npm install
 npm run test:all
 npm run build
 
-cd ../..
+cd ..\..
 go test ./...
-```
-
-Generate Wails bindings after changing exported `desktop.App` methods:
-
-```powershell
 cd desktop
-wails generate module
+go test .
 wails build
 ```
 
-Release-specific procedures and signing configuration are intentionally kept outside this stable product overview.
+See [README.CLI.md](README.CLI.md) for CLI commands, [README.DESKTOP.md](README.DESKTOP.md) for desktop packaging, [DESKTOP_CHANGELOG.md](DESKTOP_CHANGELOG.md) for release history, and [docs/ARTIFACT_RUNTIME.md](docs/ARTIFACT_RUNTIME.md) for the artifact runtime's scope.
+
+## License
+
+O.R.C.A. is released under the [MIT License](LICENSE). `llama.cpp`, Wails, and other third-party components retain their respective notices and licenses.
